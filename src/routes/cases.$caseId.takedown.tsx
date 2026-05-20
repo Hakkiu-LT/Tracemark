@@ -1,14 +1,26 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Send, FileCheck2 } from "lucide-react";
+import {
+  ChevronRight,
+  ArrowLeft,
+  Download,
+  Send,
+  FileCheck2,
+  Trash,
+  Undo,
+  Redo,
+  Bold,
+  Italic,
+  Underline,
+  Plus,
+} from "lucide-react";
 import jsPDF from "jspdf";
 
 export const Route = createFileRoute("/cases/$caseId/takedown")({
@@ -101,6 +113,7 @@ function TakedownPage() {
     doc.save(`takedown-${i!.id}.pdf`);
     updateCaseStatus(i!.id, "takedown_sent");
     toast.success("PDF downloaded", { description: "Case status updated to 'Takedown sent'." });
+    navigate({ to: "/cases/$caseId", params: { caseId: i!.id } });
   }
 
   function sendWebhook() {
@@ -108,82 +121,244 @@ function TakedownPage() {
     setWebhookOpen(false);
     updateCaseStatus(i!.id, "takedown_sent");
     toast.success("Notice dispatched", { description: `Webhook posted to ${webhookUrl}` });
+    navigate({ to: "/cases/$caseId", params: { caseId: i!.id } });
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 pb-24">
+      {/* Page Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Button variant="ghost" size="sm" asChild className="-ml-2 mb-2">
-            <Link to="/cases/$caseId" params={{ caseId }}><ArrowLeft className="mr-1 h-4 w-4" /> Back to case</Link>
-          </Button>
-          <h1 className="text-2xl font-semibold tracking-tight">Takedown notice</h1>
-          <p className="text-sm text-muted-foreground">Review the auto-drafted notice and the evidence package, then dispatch.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setWebhookOpen(true)}><Send className="mr-1.5 h-4 w-4" /> Send via webhook</Button>
-          <Button onClick={downloadPdf}><Download className="mr-1.5 h-4 w-4" /> Download PDF</Button>
+          <div className="flex items-center gap-2 text-muted-foreground mb-2 text-sm">
+            <Link to="/cases" className="hover:text-accent transition-colors">
+              Cases
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <Link
+              to="/cases/$caseId"
+              params={{ caseId }}
+              className="hover:text-accent transition-colors"
+            >
+              Case #{caseId.toUpperCase()}
+            </Link>
+            <ChevronRight className="h-4 w-4" />
+            <span className="text-foreground">Generate Takedown</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Takedown notice</h1>
+          <p className="text-sm text-muted-foreground">
+            Review the auto-drafted notice and the evidence package, then dispatch.
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="flex flex-col">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Letter draft</CardTitle>
-            <Tabs value={template} onValueChange={changeTemplate}>
-              <TabsList className="h-8">
-                <TabsTrigger value="dmca" className="text-xs">DMCA</TabsTrigger>
-                <TabsTrigger value="cnd" className="text-xs">Cease & Desist</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </CardHeader>
-          <CardContent className="flex-1">
-            <Textarea value={text} onChange={(e) => setText(e.target.value)} className="h-[560px] resize-none font-mono text-xs leading-relaxed" />
-          </CardContent>
-        </Card>
+      {/* Editor & Sidebar layout */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Left Panel: Document Editor */}
+        <div className="col-span-12 xl:col-span-8 flex flex-col bg-card border rounded-lg overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-3 border-b bg-muted/20">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Undo className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Redo className="h-4 w-4" />
+              </Button>
+              <div className="w-px h-4 bg-border mx-2"></div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Underline className="h-4 w-4" />
+              </Button>
+            </div>
+            <div>
+              <Tabs value={template} onValueChange={changeTemplate}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="dmca" className="text-xs">
+                    DMCA
+                  </TabsTrigger>
+                  <TabsTrigger value="cnd" className="text-xs">
+                    Cease & Desist
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Evidence package</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative aspect-video overflow-hidden rounded-md border" style={{ background: `linear-gradient(135deg, ${i.thumbnail}, oklch(0.22 0.05 260))` }}>
-              <div className="absolute inset-0 flex items-center justify-center text-white">
-                <div className="text-center">
-                  <p className="text-sm font-semibold">{i.title}</p>
-                  <p className="text-xs opacity-80 font-mono">{i.evidence.url}</p>
+          {/* Editor Canvas */}
+          <div className="flex-1 overflow-y-auto p-8 lg:p-12 bg-muted/10 flex justify-center min-h-[500px]">
+            <div className="bg-card w-full p-10 shadow-sm border border-border min-h-[700px] flex flex-col">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="w-full flex-1 resize-none bg-transparent border-0 focus-visible:ring-0 focus:outline-none p-0 font-mono text-sm leading-relaxed text-foreground"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel: Evidence Package Sidebar */}
+        <div className="col-span-12 xl:col-span-4 flex flex-col gap-6">
+          <Card>
+            <div className="p-6 border-b">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                Evidence Package
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Included automatically in submission
+              </p>
+            </div>
+            <CardContent className="p-6 space-y-6">
+              {/* Listing Capture */}
+              <div className="bg-muted/10 rounded-lg border overflow-hidden">
+                <div className="bg-muted/20 px-3 py-2 border-b flex justify-between items-center">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">
+                    Listing Capture
+                  </span>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="aspect-video bg-muted border rounded overflow-hidden relative">
+                    <img
+                      alt="Product listing screenshot"
+                      className="w-full h-full object-cover"
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2t1y3SPwJlnUT7ZHIP8uATwVv9VAbSXEMTYrL8tneerq6yehx_VjjYjK-Vpbhkv-g012VWsr7QZPG11o6SzvRxaGMWfhME4wbKpWI6LF5i740dLinCZLMLHUt4epFnbDjAWI8kCZiJ7rhJpqzJFXv7zwMqjApsTdkxDiiIHlDD27vN4N0wy6B15j-z3nEVeK3_sulRb75Tp_ySL74lH17vFYXtw2688xRlt_OVu88l6xvM59JIlVPSrUHlQnRfxJsxmhdtGQ-uD8"
+                    />
+                    <div className="absolute inset-0 bg-primary/5 border-2 border-destructive/40 rounded pointer-events-none"></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="text-muted-foreground font-medium">Timestamp</div>
+                    <div className="font-mono text-right text-foreground">
+                      {new Date(i.evidence.timestamp)
+                        .toISOString()
+                        .replace("T", " ")
+                        .slice(0, 16)}
+                    </div>
+                    <div className="text-muted-foreground font-medium">IP Address</div>
+                    <div className="font-mono text-right text-foreground">
+                      {i.infringer.ip}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <ul className="space-y-2">
-              {[
-                { label: "Screenshot evidence", meta: `1 file · captured ${new Date(i.evidence.timestamp).toLocaleString()}` },
-                { label: "Trademark registration certificate", meta: `${i.brandName} · on file` },
-                { label: "AI infringement analysis", meta: `${i.analysis.confidence}% confidence · ${i.analysis.category}` },
-                { label: "Infringer profile", meta: `${i.infringer.seller} · ${i.infringer.country}` },
-                { label: "Network metadata", meta: `IP ${i.infringer.ip} · UA logged` },
-              ].map((row) => (
-                <li key={row.label} className="flex items-start gap-3 rounded-md border bg-muted/30 p-3 text-sm">
-                  <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                  <div className="flex-1">
-                    <p className="font-medium">{row.label}</p>
-                    <p className="text-xs text-muted-foreground">{row.meta}</p>
+              {/* Extracted Metadata */}
+              <div className="bg-muted/10 rounded-lg border overflow-hidden">
+                <div className="bg-muted/20 px-3 py-2 border-b">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase">
+                    Extracted Metadata
+                  </span>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex justify-between items-center border-b pb-2 text-xs">
+                    <span className="text-muted-foreground">Seller ID</span>
+                    <span className="font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">
+                      {i.infringer.seller}
+                    </span>
                   </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+                  <div className="flex justify-between items-center border-b pb-2 text-xs">
+                    <span className="text-muted-foreground">Price Listed</span>
+                    <span className="font-mono text-destructive font-semibold">
+                      {i.price || "$12.99"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Confidence Score</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="bg-destructive h-full"
+                          style={{ width: `${i.analysis.confidence}%` }}
+                        ></div>
+                      </div>
+                      <span className="font-mono font-semibold">
+                        {i.analysis.confidence}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Add Evidence Button */}
+              <Button
+                variant="outline"
+                className="w-full py-6 border-dashed text-muted-foreground hover:text-foreground flex items-center justify-center gap-2"
+              >
+                <Plus className="h-4 w-4" /> Attach additional files
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
+      {/* Floating Footer Actions */}
+      <div className="fixed bottom-0 left-0 md:left-[260px] right-0 p-4 bg-card border-t border-border shadow-[0_-4px_12px_rgba(15,23,42,0.05)] flex justify-between items-center z-20">
+        <Button
+          variant="ghost"
+          asChild
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Link to="/cases/$caseId" params={{ caseId }}>
+            <Trash className="mr-2 h-4 w-4" /> Discard Draft
+          </Link>
+        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={downloadPdf}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button onClick={() => setWebhookOpen(true)} className="flex items-center gap-2">
+            <Send className="h-4 w-4" /> Send via Webhook
+          </Button>
+        </div>
+      </div>
+
+      {/* Webhook Dispatch Dialog */}
       <Dialog open={webhookOpen} onOpenChange={setWebhookOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Send via webhook</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">Post the notice and evidence package as JSON to your handling endpoint (Zapier, n8n, internal ticketing).</p>
-          <Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.zapier.com/…" className="font-mono text-xs" />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setWebhookOpen(false)}>Cancel</Button>
+          <DialogHeader>
+            <DialogTitle>Send via webhook</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Post the notice and evidence package as JSON to your handling endpoint
+            (Zapier, n8n, internal ticketing).
+          </p>
+          <Input
+            value={webhookUrl}
+            onChange={(e) => setWebhookUrl(e.target.value)}
+            placeholder="https://hooks.zapier.com/…"
+            className="font-mono text-xs"
+          />
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setWebhookOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={sendWebhook}>Send</Button>
           </DialogFooter>
         </DialogContent>
