@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,8 +13,14 @@ export const Route = createFileRoute("/monitoring")({
       { name: "description", content: "Manage the trademarks and brand assets Tracemark scans across the web." },
     ],
   }),
-  component: MonitoringPage,
+  component: MonitoringLayout,
 });
+
+function MonitoringLayout() {
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  if (pathname !== "/monitoring") return <Outlet />;
+  return <MonitoringPage />;
+}
 
 function MonitoringPage() {
   const marks = useScopedMarks();
