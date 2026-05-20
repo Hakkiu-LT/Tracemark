@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useScopedInfringements } from "@/lib/store";
 import { RiskBadge, StatusBadge } from "@/components/risk-badge";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 export const Route = createFileRoute("/cases")({
@@ -62,6 +63,7 @@ function CasesList() {
                 <TableHead>Risk</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Confidence</TableHead>
+                <TableHead className="text-center">Case</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -81,10 +83,17 @@ function CasesList() {
                   <TableCell><RiskBadge risk={i.risk} /></TableCell>
                   <TableCell><StatusBadge status={i.status} /></TableCell>
                   <TableCell className="text-right font-mono text-sm">{i.analysis.confidence}%</TableCell>
+                  <TableCell className="text-center">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to="/cases/$caseId" params={{ caseId: i.id }}>
+                        See Case
+                      </Link>
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No cases in this view.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No cases in this view.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
