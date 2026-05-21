@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -138,14 +139,18 @@ const INFRINGEMENTS: Infringement[] = [
 ];
 
 interface State {
+  hydrated: boolean;
   persona: Persona;
   activeClientId: string | null;
   clients: Client[];
   marks: Mark[];
   infringements: Infringement[];
+  setHydrated: (hydrated: boolean) => void;
   setPersona: (p: Persona) => void;
   setActiveClient: (id: string | null) => void;
   addMark: (mark: Omit<Mark, "id" | "createdAt" | "lastScan">) => void;
+  removeMark: (id: string) => void;
+  restoreMark: (mark: Mark, infringements: Infringement[]) => void;
   addClient: (c: Omit<Client, "id">) => void;
   removeClient: (id: string) => void;
   updateCaseStatus: (id: string, status: CaseStatus) => void;
@@ -154,11 +159,13 @@ interface State {
 export const useStore = create<State>()(
   persist(
     (set) => ({
+      hydrated: false,
       persona: "brand_owner",
       activeClientId: null,
       clients: CLIENTS,
       marks: MARKS,
       infringements: INFRINGEMENTS,
+      setHydrated: (hydrated) => set({ hydrated }),
       setPersona: (persona) => set({ persona, activeClientId: persona === "brand_owner" ? null : "c1" }),
       setActiveClient: (activeClientId) => set({ activeClientId }),
       addMark: (m) =>
@@ -168,29 +175,59 @@ export const useStore = create<State>()(
             { ...m, id: `m${Date.now()}`, createdAt: new Date().toISOString().slice(0, 10), lastScan: "just now" },
           ],
         })),
+      removeMark: (id) =>
+        set((s) => ({
+          marks: s.marks.filter((m) => m.id !== id),
+          infringements: s.infringements.filter((i) => i.markId !== id),
+        })),
+      restoreMark: (mark, infringements) =>
+        set((s) => ({
+          marks: [...s.marks, mark],
+          infringements: [...s.infringements, ...infringements],
+        })),
       addClient: (c) => set((s) => ({ clients: [...s.clients, { ...c, id: `c${Date.now()}` }] })),
       removeClient: (id) => set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
       updateCaseStatus: (id, status) =>
         set((s) => ({ infringements: s.infringements.map((i) => (i.id === id ? { ...i, status } : i)) })),
     }),
-    { name: "tracemark-store" }
+    {
+      name: "tracemark-store",
+      partialize: (state) => ({
+        persona: state.persona,
+        activeClientId: state.activeClientId,
+        clients: state.clients,
+        marks: state.marks,
+        infringements: state.infringements,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated(true);
+      },
+    }
   )
 );
 
 export function useScopedInfringements() {
-  return useStore((s) => {
-    if (s.persona === "law_firm" && s.activeClientId) {
-      return s.infringements.filter((i) => i.clientId === s.activeClientId);
+  const infringements = useStore((s) => s.infringements);
+  const persona = useStore((s) => s.persona);
+  const activeClientId = useStore((s) => s.activeClientId);
+
+  return useMemo(() => {
+    if (persona === "law_firm" && activeClientId) {
+      return infringements.filter((i) => i.clientId === activeClientId);
     }
-    return s.infringements;
-  });
+    return infringements;
+  }, [infringements, persona, activeClientId]);
 }
 
 export function useScopedMarks() {
-  return useStore((s) => {
-    if (s.persona === "law_firm" && s.activeClientId) {
-      return s.marks.filter((m) => m.clientId === s.activeClientId);
+  const marks = useStore((s) => s.marks);
+  const persona = useStore((s) => s.persona);
+  const activeClientId = useStore((s) => s.activeClientId);
+
+  return useMemo(() => {
+    if (persona === "law_firm" && activeClientId) {
+      return marks.filter((m) => m.clientId === activeClientId);
     }
-    return s.marks;
-  });
+    return marks;
+  }, [marks, persona, activeClientId]);
 }
