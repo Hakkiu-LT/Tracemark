@@ -21,7 +21,7 @@ export function AppSidebar() {
   const persona = useStore((s) => s.persona);
 
   const items = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Monitoring", url: "/monitoring", icon: Radar },
     { title: "Cases", url: "/cases", icon: ShieldAlert },
     ...(persona === "law_firm" ? [{ title: "Clients", url: "/clients", icon: Briefcase }] : []),
@@ -29,7 +29,7 @@ export function AppSidebar() {
     { title: "Plans", url: "/plans", icon: CreditCard },
   ];
 
-  const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname.startsWith(url));
+  const isActive = (url: string) => pathname.startsWith(url);
 
   return (
     <Sidebar collapsible="icon">

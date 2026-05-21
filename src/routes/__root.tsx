@@ -24,7 +24,7 @@ function NotFoundComponent() {
         <p className="mt-2 text-sm text-muted-foreground">
           The page you're looking for doesn't exist.
         </p>
-        <Link to="/" className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+        <Link to="/dashboard" className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
           Back to dashboard
         </Link>
       </div>
@@ -94,7 +94,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const isPublic = pathname === "/landing" || pathname === "/login" || pathname === "/signup";
+  const isPublic = pathname === "/" || pathname === "/landing" || pathname === "/login" || pathname === "/signup";
 
   return (
     <QueryClientProvider client={queryClient}>
