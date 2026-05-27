@@ -85,7 +85,7 @@ const INFRINGEMENTS: Infringement[] = [
     infringer: { seller: "ShenzhenAudioMax", storeUrl: "aliexpress.com/store/4422991", country: "CN", contact: "audiomax@qq.com", ip: "118.24.55.201" },
     evidence: { url: "aliexpress.com/item/1005006622991.html", timestamp: ago(7), userAgent: "Mozilla/5.0 TracemarkBot/2.1", method: "Image Hash + OCR" },
     analysis: { confidence: 96, logoMatch: 94, nameMatch: 100, category: "Counterfeit Product", rationale: "Listing uses identical 'Helix Audio' wordmark, official product imagery has been re-uploaded with watermark removed, and the listed model number 'HX-Pulse' matches a registered product line. Price is 78% below MSRP — classic counterfeit signal." },
-    thumbnail: "oklch(0.58 0.22 27)", title: "Helix Audio Pulse Pro Wireless Earbuds", price: "$22.40",
+    thumbnail: "oklch(0.58 0.22 27)", title: "Helix Audio Pulse Pro Wireless Earbuds", price: "$4.86",
   },
   {
     id: "i2", markId: "m1", clientId: "c1", brandName: "Aurora Athletics",
