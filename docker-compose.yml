@@ -1,0 +1,28 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    image: tracemark-api
+    ports:
+      - "8000:8000"
+    networks:
+      - tracemark
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: src/Dockerfile
+    image: tracemark-frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+    networks:
+      - tracemark
+    restart: unless-stopped
+
+networks:
+  tracemark:
+    driver: bridge
