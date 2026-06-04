@@ -9,6 +9,9 @@ services:
     networks:
       - tracemark
     restart: unless-stopped
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
 
   frontend:
     build:
