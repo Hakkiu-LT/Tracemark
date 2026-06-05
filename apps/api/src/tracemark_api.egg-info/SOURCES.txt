@@ -14,5 +14,6 @@ src/tracemark_api/services/__init__.py
 src/tracemark_api/services/ai.py
 src/tracemark_api/services/database.py
 src/tracemark_api/services/decision.py
+src/tracemark_api/services/marketplace.py
 src/tracemark_api/services/scraper.py
 tests/test_decision_stub.py

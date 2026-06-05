@@ -36,3 +36,6 @@ dist-ssr
 .env.*
 !.env.example
 
+apps/api/.venv/
+**/__pycache__/
+*.pyc
