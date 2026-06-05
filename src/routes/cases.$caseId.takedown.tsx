@@ -20,6 +20,8 @@ import {
   Italic,
   Underline,
   Plus,
+  CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -95,6 +97,8 @@ function TakedownPage() {
   const [text, setText] = useState(initial);
   const [webhookOpen, setWebhookOpen] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [successRef, setSuccessRef] = useState("");
 
   // Re-sync when template changes
   function changeTemplate(v: string) {
@@ -120,8 +124,8 @@ function TakedownPage() {
     if (!webhookUrl) return toast.error("Enter a webhook URL");
     setWebhookOpen(false);
     updateCaseStatus(i!.id, "takedown_sent");
-    toast.success("Notice dispatched", { description: `Webhook posted to ${webhookUrl}` });
-    navigate({ to: "/cases/$caseId", params: { caseId: i!.id } });
+    setSuccessRef(`TM-${Date.now().toString(36).toUpperCase()}`);
+    setSuccessOpen(true);
   }
 
   return (
@@ -338,6 +342,76 @@ function TakedownPage() {
           </Button>
         </div>
       </div>
+
+      {/* Takedown Success Modal */}
+      <Dialog open={successOpen} onOpenChange={(open) => {
+        setSuccessOpen(open);
+        if (!open) navigate({ to: "/cases/$caseId", params: { caseId: i!.id } });
+      }}>
+        <DialogContent className="max-w-md">
+          <div className="flex flex-col items-center text-center pt-4 pb-2">
+            <div className="relative mb-5">
+              <div className="h-20 w-20 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+              </div>
+              <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+              </span>
+            </div>
+            <h2 className="text-xl font-bold tracking-tight mb-1">Takedown Sent</h2>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              Your notice has been submitted to the platform's enforcement team and is queued for review.
+            </p>
+          </div>
+
+          <div className="rounded-lg border bg-muted/30 divide-y divide-border text-sm my-2">
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-muted-foreground">Platform</span>
+              <div className="flex items-center gap-1.5 font-medium">
+                <span>{i.platform}</span>
+                <span className="text-xs text-muted-foreground font-normal">(Alibaba Group)</span>
+              </div>
+            </div>
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-muted-foreground">Case</span>
+              <span className="font-mono font-medium">#{i.id.toUpperCase()}</span>
+            </div>
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-muted-foreground">Brand</span>
+              <span className="font-medium">{i.brandName}</span>
+            </div>
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-muted-foreground">Seller</span>
+              <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{i.infringer.seller}</span>
+            </div>
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-muted-foreground">Reference</span>
+              <span className="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-semibold">{successRef}</span>
+            </div>
+            <div className="flex justify-between items-center px-4 py-2.5">
+              <span className="text-muted-foreground">Submitted</span>
+              <span className="font-mono text-xs">{new Date().toISOString().replace("T", " ").slice(0, 16)}Z</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground text-center pb-1">
+            Keep your reference number for follow-up. AliExpress typically responds within 3–5 business days.
+          </p>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              className="w-full"
+              onClick={() => {
+                setSuccessOpen(false);
+                navigate({ to: "/cases/$caseId", params: { caseId: i!.id } });
+              }}
+            >
+              Back to Case
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Webhook Dispatch Dialog */}
       <Dialog open={webhookOpen} onOpenChange={setWebhookOpen}>

@@ -51,7 +51,7 @@ function NewAssetPage() {
   const [jurisdiction, setJurisdiction] = useState("");
   const [website, setWebsite] = useState("");
   const [clientId, setClientId] = useState(activeClientId ?? clients[0]?.id ?? "c1");
-  const [selected, setSelected] = useState<Set<Platform>>(new Set(["Amazon", "Web Domain"]));
+  const [selected, setSelected] = useState<Set<Platform>>(new Set([]));
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   function toggle(p: Platform) {
@@ -158,7 +158,7 @@ function NewAssetPage() {
                   id="brandName"
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
-                  placeholder="e.g., Helix Audio Pulse"
+                  placeholder="e.g., Apple Air Pods"
                   className="w-full px-4 py-2.5 rounded-md border border-border focus:border-accent focus:ring-1 focus:ring-accent outline-none text-sm text-foreground bg-background transition-colors"
                   required
                 />
