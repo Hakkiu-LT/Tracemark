@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from tracemark_api.services.scraper import scrape_page
-from tracemark_api.services.ai import analyze_listing, Evidence, Decision
-from tracemark_api.services.decision import make_decision
+from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence
+from tracemark_api.services.database import create_case, save_evidence, save_decision, update_case_status
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -81,3 +81,23 @@ def gather_evidence_endpoint(payload: GatherEvidenceRequest) -> Evidence:
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+class CheckBrandRequest(BaseModel):
+    brand_name: str
+    platforms: list[str] = ["amazon", "google_ads", "domains"]
+
+
+@router.post("/check-brand")
+def check_brand(payload: CheckBrandRequest):
+    """Full pipeline: scrape evidence → AI decision → persist to Supabase."""
+    case_id = create_case(payload.brand_name)
+    try:
+        update_case_status(case_id, "analyzing")
+        evidence = scrape_evidence(payload.brand_name, payload.platforms)
+        save_evidence(case_id, evidence)
+        decision = make_decision(evidence)
+        save_decision(case_id, decision)
+        return {"case_id": case_id, "decision": decision.model_dump(), "evidence": evidence.model_dump()}
+    except Exception as e:
+        update_case_status(case_id, "error")
+        raise HTTPException(status_code=500, detail=str(e))

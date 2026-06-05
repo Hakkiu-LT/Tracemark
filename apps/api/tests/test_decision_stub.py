@@ -1,5 +1,4 @@
-from tracemark_api.services.ai import Evidence, MarketplaceEvidence
-from tracemark_api.services.decision import make_decision
+from tracemark_api.services.ai import Evidence, MarketplaceEvidence, make_decision
 from datetime import datetime
 
 
@@ -21,10 +20,11 @@ def test_make_decision_with_dummy_evidence():
 
     decision = make_decision(dummy_evidence)
 
-    assert decision.recommendation in ("YES", "NO")
-    assert 0 <= decision.confidence <= 100
-    assert decision.priority in ("HIGH", "MEDIUM", "LOW")
-    assert len(decision.reasoning) > 0
+    assert decision.risk_level in ("HIGH", "MEDIUM", "LOW")
+    assert decision.recommended_action in ("TAKEDOWN", "MONITOR", "DISMISS")
+    assert 0.0 <= decision.confidence_score <= 1.0
+    assert decision.evidence_quality in ("STRONG", "MODERATE", "WEAK")
+    assert len(decision.case_summary) > 0
     print(decision.model_dump_json(indent=2))
 
 

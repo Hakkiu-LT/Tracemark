@@ -3,13 +3,16 @@ from __future__ import annotations
 import os
 from datetime import datetime
 from typing import TypedDict, Literal
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pydantic import BaseModel, Field as PydanticField
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, START, END
 
 
-# 1. Pydantic Models for Structured Output
+# ---------------------------------------------------------------------------
+# Pydantic Models
+# ---------------------------------------------------------------------------
+
 class MarketplaceEvidence(BaseModel):
     platform: str = PydanticField(description="The marketplace name (e.g. Amazon, eBay, AliExpress).")
     seller_name: str = PydanticField(description="The name of the merchant/seller.")
@@ -40,19 +43,20 @@ class SocialEvidence(BaseModel):
 
 
 class Evidence(BaseModel):
-    marketplaces: list[MarketplaceEvidence] = PydanticField(default_factory=list, description="List of marketplaces where the brand is illegally or suspiciously sold.")
-    ads: list[AdEvidence] = PydanticField(default_factory=list, description="List of suspicious or unauthorized advertisements.")
-    domains: list[DomainEvidence] = PydanticField(default_factory=list, description="List of domain registrations/clones targeting the brand.")
-    social: list[SocialEvidence] = PydanticField(default_factory=list, description="List of social media posts/profiles violating the trademark.")
-    timestamp: datetime = PydanticField(default_factory=datetime.now, description="Timestamp when evidence was captured.")
+    marketplaces: list[MarketplaceEvidence] = PydanticField(default_factory=list)
+    ads: list[AdEvidence] = PydanticField(default_factory=list)
+    domains: list[DomainEvidence] = PydanticField(default_factory=list)
+    social: list[SocialEvidence] = PydanticField(default_factory=list)
+    timestamp: datetime = PydanticField(default_factory=datetime.now)
 
 
 class Decision(BaseModel):
-    recommendation: Literal["YES", "NO"] = PydanticField(description="YES/NO recommendation on whether to take legal/takedown action.")
-    confidence: int = PydanticField(ge=0, le=100, description="Confidence score from 0 to 100 on the recommendation decision.")
-    reasoning: str = PydanticField(description="Detailed legal/logical rationale for the recommendation.")
-    case_summary: str = PydanticField(description="A concise summary of the case and found evidence.")
-    priority: Literal["HIGH", "MEDIUM", "LOW"] = PydanticField(description="Urgency priority level for the takedown action.")
+    risk_level: Literal["HIGH", "MEDIUM", "LOW"] = PydanticField(description="Risk level of the infringement.")
+    recommended_action: Literal["TAKEDOWN", "MONITOR", "DISMISS"] = PydanticField(description="Recommended enforcement action.")
+    case_summary: str = PydanticField(description="2-3 sentence AI-generated summary of findings.")
+    confidence_score: float = PydanticField(ge=0.0, le=1.0, description="Agent confidence in this decision.")
+    evidence_quality: Literal["STRONG", "MODERATE", "WEAK"] = PydanticField(default="MODERATE")
+    key_findings: list[str] = PydanticField(default_factory=list, description="Bullet list of key evidence points.")
 
 
 @dataclass(slots=True)
@@ -61,22 +65,23 @@ class AnalysisResult:
     decision: Decision | None
 
 
-# 2. State Definition
-class AgentState(TypedDict):
+# ---------------------------------------------------------------------------
+# Graph 1: URL analysis (used by /analyze endpoint)
+# ---------------------------------------------------------------------------
+
+class AnalysisAgentState(TypedDict):
     url: str
     scraped_content: str
     evidence: Evidence | None
     decision: Decision | None
 
 
-# 3. Nodes and Graph construction
-def build_agent_graph() -> StateGraph:
+def build_agent_graph():
     api_key = os.environ.get("GEMINI_API_KEY")
-    workflow = StateGraph(AgentState)
+    workflow = StateGraph(AnalysisAgentState)
 
-    def gather_evidence(state: AgentState) -> dict:
+    def gather_evidence(state: AnalysisAgentState) -> dict:
         if not api_key:
-            # Fallback mock for testing
             is_mock_threat = "threat" in state["scraped_content"].lower() or "suspicious" in state["scraped_content"].lower()
             mock_evidence = Evidence(
                 marketplaces=[
@@ -85,93 +90,196 @@ def build_agent_graph() -> StateGraph:
                         seller_name="ShenzhenAudioMax",
                         listing_url=state["url"],
                         price="$22.40",
-                        screenshot_url=None
                     )
                 ] if is_mock_threat else [],
                 ads=[],
                 domains=[],
                 social=[],
-                timestamp=datetime.now()
             )
             return {"evidence": mock_evidence}
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             temperature=0.0,
-            google_api_key=api_key
+            google_api_key=api_key,
         ).with_structured_output(Evidence)
 
         prompt = (
-            "You are a brand protection risk assessor (Engineer A). Analyze the scraped page content below and extract "
-            "all evidence of trademark infringement, counterfeit sales, or brand abuse. Specifically, look for and group "
-            "any referenced marketplaces (where the product is being sold), ads, domains, or social media accounts associated "
-            "with this brand/infringement.\n\n"
+            "You are a brand protection risk assessor. Analyze the scraped page content below and extract "
+            "all evidence of trademark infringement, counterfeit sales, or brand abuse.\n\n"
             f"URL: {state['url']}\n"
             f"Content:\n{state['scraped_content']}\n\n"
             "Extract the evidence and output the structured result."
         )
+        return {"evidence": model.invoke(prompt)}
 
-        result = model.invoke(prompt)
-        return {"evidence": result}
-
-    def make_decision(state: AgentState) -> dict:
+    def make_decision_node(state: AnalysisAgentState) -> dict:
         if not api_key:
-            # Fallback mock for testing
-            has_evidence = len(state["evidence"].marketplaces) > 0 if state["evidence"] else False
-            mock_decision = Decision(
-                recommendation="YES" if has_evidence else "NO",
-                confidence=90 if has_evidence else 10,
-                reasoning=f"Mock decision: Found marketplaces in evidence. Bypassing RLS or check.",
-                case_summary=f"Cloned listing found on AliExpress for the URL: {state['url']}",
-                priority="HIGH" if has_evidence else "LOW"
-            )
-            return {"decision": mock_decision}
+            has_evidence = bool(state["evidence"] and state["evidence"].marketplaces)
+            return {"decision": Decision(
+                risk_level="HIGH" if has_evidence else "LOW",
+                recommended_action="TAKEDOWN" if has_evidence else "DISMISS",
+                case_summary=f"Cloned listing found for URL: {state['url']}" if has_evidence else "No threats found.",
+                confidence_score=0.9 if has_evidence else 0.1,
+                evidence_quality="STRONG" if has_evidence else "WEAK",
+                key_findings=[f"Found listing at {state['url']}"] if has_evidence else [],
+            )}
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-1.5-pro",
+            model="gemini-2.5-pro",
             temperature=0.0,
-            google_api_key=api_key
+            google_api_key=api_key,
         ).with_structured_output(Decision)
 
         prompt = (
-            "You are a senior brand safety lawyer (Engineer B). You will review the scraped content and the gathered "
-            "evidence package to make a final decision on whether this constitutes a genuine brand threat.\n\n"
+            "You are a senior brand safety lawyer. Review the evidence to make a final enforcement decision.\n\n"
             f"URL: {state['url']}\n"
-            f"Gathered Evidence: {state['evidence']}\n"
-            f"Scraped Content:\n{state['scraped_content']}\n\n"
-            "Determine the final recommendation, confidence score, reasoning, case summary, and priority."
+            f"Evidence: {state['evidence']}\n"
+            f"Content:\n{state['scraped_content']}\n\n"
+            "Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings."
         )
-
-        result = model.invoke(prompt)
-        return {"decision": result}
+        return {"decision": model.invoke(prompt)}
 
     workflow.add_node("gather_evidence", gather_evidence)
-    workflow.add_node("make_decision", make_decision)
-
+    workflow.add_node("make_decision", make_decision_node)
     workflow.add_edge(START, "gather_evidence")
     workflow.add_edge("gather_evidence", "make_decision")
     workflow.add_edge("make_decision", END)
-
     return workflow.compile()
 
 
 def analyze_listing(payload: dict) -> AnalysisResult:
-    url = payload.get("url", "")
-    scraped_content = payload.get("markdown", "")
-
     graph = build_agent_graph()
-    initial_state = {
-        "url": url,
-        "scraped_content": scraped_content,
+    final_state = graph.invoke({
+        "url": payload.get("url", ""),
+        "scraped_content": payload.get("markdown", ""),
         "evidence": None,
-        "decision": None
-    }
-
-    final_state = graph.invoke(initial_state)
-
+        "decision": None,
+    })
     return AnalysisResult(
         evidence=final_state.get("evidence"),
-        decision=final_state.get("decision")
+        decision=final_state.get("decision"),
     )
 
 
+# ---------------------------------------------------------------------------
+# Graph 2: Standalone decision agent (used by /make-decision and /check-brand)
+# ---------------------------------------------------------------------------
+
+class DecisionAgentState(TypedDict):
+    evidence: Evidence
+    decision: Decision | None
+    error: str | None
+    analysis_summary: str
+
+
+def _analyze_evidence_node(state: DecisionAgentState) -> DecisionAgentState:
+    evidence = state["evidence"]
+    api_key = os.environ.get("GEMINI_API_KEY")
+
+    if not api_key:
+        state["analysis_summary"] = f"Mock analysis: {len(evidence.marketplaces)} marketplace listing(s) found."
+        return state
+
+    model = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0.0,
+        google_api_key=api_key,
+    )
+    prompt = f"""
+Analyze the following brand protection evidence and summarize the findings.
+Focus on: number of suspicious listings, type of ads detected, suspicious domains found.
+
+Evidence:
+- Marketplace listings: {len(evidence.marketplaces)} found
+- Listings detail: {[m.model_dump() for m in evidence.marketplaces[:5]]}
+- Ads detected: {[a.model_dump() for a in evidence.ads[:5]]}
+- Suspicious domains: {[d.model_dump() for d in evidence.domains[:10]]}
+
+Return a concise factual summary (3-5 sentences) of what was found.
+"""
+    response = model.invoke(prompt)
+    state["analysis_summary"] = response.content
+    return state
+
+
+def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
+    evidence = state["evidence"]
+    summary = state.get("analysis_summary", "")
+    api_key = os.environ.get("GEMINI_API_KEY")
+
+    if not api_key:
+        has_listings = len(evidence.marketplaces) > 0
+        state["decision"] = Decision(
+            risk_level="HIGH" if has_listings else "LOW",
+            recommended_action="TAKEDOWN" if has_listings else "DISMISS",
+            case_summary=(
+                f"Mock decision. Found {len(evidence.marketplaces)} marketplace listing(s). "
+                "Real Gemini analysis will run when GEMINI_API_KEY is set."
+            ),
+            confidence_score=0.85 if has_listings else 0.1,
+            evidence_quality="MODERATE" if has_listings else "WEAK",
+            key_findings=[
+                f"Found on: {', '.join(set(m.platform for m in evidence.marketplaces))}"
+            ] if has_listings else [],
+        )
+        return state
+
+    model = ChatGoogleGenerativeAI(
+        model="gemini-2.5-pro",
+        temperature=0.0,
+        google_api_key=api_key,
+    ).with_structured_output(Decision)
+
+    prompt = f"""
+You are a brand protection legal analyst. Based on the evidence summary below,
+make a structured enforcement decision.
+
+Evidence Summary: {summary}
+
+Raw counts:
+- Suspicious marketplace listings: {len(evidence.marketplaces)}
+- Suspicious ads: {len(evidence.ads)}
+- Suspicious domains: {len(evidence.domains)}
+
+Decision criteria:
+- HIGH + TAKEDOWN: 5+ suspicious listings OR counterfeit evidence found
+- MEDIUM + MONITOR: 1-4 suspicious listings OR suspicious ads/domains
+- LOW + DISMISS: No real evidence found
+
+Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings.
+"""
+    try:
+        state["decision"] = model.invoke(prompt)
+    except Exception as e:
+        state["error"] = str(e)
+        state["decision"] = Decision(
+            risk_level="LOW",
+            recommended_action="DISMISS",
+            case_summary="Agent error — could not complete analysis.",
+            confidence_score=0.0,
+            evidence_quality="WEAK",
+            key_findings=[],
+        )
+    return state
+
+
+def build_decision_graph():
+    graph = StateGraph(DecisionAgentState)
+    graph.add_node("analyze_evidence", _analyze_evidence_node)
+    graph.add_node("make_decision", _make_decision_node)
+    graph.set_entry_point("analyze_evidence")
+    graph.add_edge("analyze_evidence", "make_decision")
+    graph.add_edge("make_decision", END)
+    return graph.compile()
+
+
+def make_decision(evidence: Evidence) -> Decision:
+    graph = build_decision_graph()
+    final_state = graph.invoke({
+        "evidence": evidence,
+        "decision": None,
+        "error": None,
+        "analysis_summary": "",
+    })
+    return final_state["decision"]
