@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,15 @@ function CaseDetail() {
   const navigate = useNavigate();
   const i = useStore((s) => s.infringements.find((x) => x.id === caseId));
   const updateCaseStatus = useStore((s) => s.updateCaseStatus);
+  const [visibleCards, setVisibleCards] = useState<number[]>([]);
+
+  useEffect(() => {
+    const delays = [120, 280, 440];
+    const timers = delays.map((delay, idx) =>
+      setTimeout(() => setVisibleCards((prev) => [...prev, idx]), delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [caseId]);
 
   if (!i) {
     return (
@@ -269,13 +279,11 @@ function CaseDetail() {
               <div className="w-full h-full rounded border border-border bg-card shadow-sm relative overflow-hidden group">
                 <img
                   alt="Evidence Screenshot"
-                  className="w-full h-full object-cover object-top opacity-90"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDylVvSfA7Dp7MoZ2Fr-6dd86oLk5KpPDqIxxIQY5Z2LQ-7gvVX76mMe84tRAznqKj-LiFjl3HXlOd-KJVhLA5u3CKaFGtkmXJ7pmoFt5hDcZzf64rJIeK4LQmq6VxqOToodngGC6-1HLavvEFUxm-I0TPDqFsHom8co8dyf9JoSKhJybD9Rh8xe5pUrMrvvRcfGKLRh1r5i-MZR4oa7lRsb4OJhXvz3uT6SLQNtvSwQUeYfkZNLuswKNIqMaiX3pj-qHvTrWIkN5s"
+                  className="w-full object-cover object-top opacity-90"
+                  src=".././src/images/evidence01.png"
                 />
                 {/* Bounding Box Overlay Simulation */}
-                <div className="absolute top-[20%] left-[10%] w-[40%] h-[30%] border-2 border-destructive bg-destructive/10 rounded pointer-events-none"></div>
-                <div className="absolute bottom-[20%] right-[15%] w-[25%] h-[15%] border-2 border-accent bg-accent/10 rounded pointer-events-none"></div>
-              </div>
+                </div>
               {/* Timestamp Overlay */}
               <div className="absolute bottom-6 right-6 bg-foreground text-background font-mono text-[11px] px-3 py-1.5 rounded opacity-90 shadow-lg border border-border/30 flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5" />
@@ -299,7 +307,7 @@ function CaseDetail() {
                 </div>
                 <div className="space-y-6">
                   {/* Violation 1 */}
-                  <div className="p-4 rounded border border-destructive/30 bg-destructive/5">
+                  <div className={`p-4 rounded border border-destructive/30 bg-destructive/5 transition-all duration-500 ${visibleCards.includes(0) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                     <div className="flex items-start gap-3">
                       <Tag className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                       <div>
@@ -318,7 +326,7 @@ function CaseDetail() {
                     </div>
                   </div>
                   {/* Violation 2 */}
-                  <div className="p-4 rounded border border-destructive/30 bg-destructive/5">
+                  <div className={`p-4 rounded border border-destructive/30 bg-destructive/5 transition-all duration-500 ${visibleCards.includes(1) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                     <div className="flex items-start gap-3">
                       <Layers className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                       <div>
@@ -333,7 +341,7 @@ function CaseDetail() {
                     </div>
                   </div>
                   {/* Violation 3 */}
-                  <div className="p-4 rounded border border-border bg-muted/40">
+                  <div className={`p-4 rounded border border-border bg-muted/40 transition-all duration-500 ${visibleCards.includes(2) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                     <div className="flex items-start gap-3">
                       <Image className="h-4 w-4 text-accent mt-0.5 shrink-0" />
                       <div>
