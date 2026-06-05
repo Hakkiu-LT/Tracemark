@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from tracemark_api.services.scraper import scrape_page
 from tracemark_api.services.ai import analyze_listing, Evidence, Decision
+from tracemark_api.services.decision import make_decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
@@ -60,6 +61,11 @@ def analyze_url(payload: MonitorRequest) -> MonitorResponse:
             decision=None,
             error_message=f"Analysis error: {str(e)}"
         )
+
+
+@router.post("/make-decision")
+def make_decision_endpoint(evidence: Evidence) -> Decision:
+    return make_decision(evidence)
 
 
 class GatherEvidenceRequest(BaseModel):
