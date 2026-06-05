@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from tracemark_api.services.scraper import scrape_page
 from tracemark_api.services.ai import analyze_listing, Evidence, Decision
+from tracemark_api.services.marketplace import gather_evidence as scrape_evidence
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -59,4 +60,18 @@ def analyze_url(payload: MonitorRequest) -> MonitorResponse:
             decision=None,
             error_message=f"Analysis error: {str(e)}"
         )
+
+
+class GatherEvidenceRequest(BaseModel):
+    brand_name: str
+    platforms: list[str] = ["amazon", "whois"]
+
+
+@router.post("/gather-evidence", response_model=Evidence)
+def gather_evidence_endpoint(payload: GatherEvidenceRequest) -> Evidence:
+    try:
+        evidence = scrape_evidence(payload.brand_name, payload.platforms)
+        return evidence
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
