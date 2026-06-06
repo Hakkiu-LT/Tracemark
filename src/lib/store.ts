@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { CheckBrandResponse } from "./api.types";
 
 export type Persona = "brand_owner" | "law_firm";
 export type RiskLevel = "high" | "medium" | "low";
-export type Platform = "Amazon" | "Shopify" | "eBay" | "AliExpress" | "Web Domain" | "Instagram" | "TikTok";
+export type Platform = "Amazon" | "Shopify" | "eBay" | "AliExpress" | "Web Domain" | "Instagram" | "TikTok" | "Google" | "Meta";
 export type CaseStatus = "active" | "takedown_sent" | "resolved" | "escalated" | "safe";
 
 export interface Client {
@@ -145,6 +146,7 @@ interface State {
   clients: Client[];
   marks: Mark[];
   infringements: Infringement[];
+  scanResults: Record<string, CheckBrandResponse>;
   setHydrated: (hydrated: boolean) => void;
   setPersona: (p: Persona) => void;
   setActiveClient: (id: string | null) => void;
@@ -154,6 +156,7 @@ interface State {
   addClient: (c: Omit<Client, "id">) => void;
   removeClient: (id: string) => void;
   updateCaseStatus: (id: string, status: CaseStatus) => void;
+  setScanResult: (caseId: string, result: CheckBrandResponse) => void;
 }
 
 export const useStore = create<State>()(
@@ -165,6 +168,7 @@ export const useStore = create<State>()(
       clients: CLIENTS,
       marks: MARKS,
       infringements: INFRINGEMENTS,
+      scanResults: {},
       setHydrated: (hydrated) => set({ hydrated }),
       setPersona: (persona) => set({ persona, activeClientId: persona === "brand_owner" ? null : "c1" }),
       setActiveClient: (activeClientId) => set({ activeClientId }),
@@ -189,6 +193,8 @@ export const useStore = create<State>()(
       removeClient: (id) => set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
       updateCaseStatus: (id, status) =>
         set((s) => ({ infringements: s.infringements.map((i) => (i.id === id ? { ...i, status } : i)) })),
+      setScanResult: (caseId, result) =>
+        set((s) => ({ scanResults: { ...s.scanResults, [caseId]: result } })),
     }),
     {
       name: "tracemark-store",
@@ -198,6 +204,7 @@ export const useStore = create<State>()(
         clients: state.clients,
         marks: state.marks,
         infringements: state.infringements,
+        scanResults: state.scanResults,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
