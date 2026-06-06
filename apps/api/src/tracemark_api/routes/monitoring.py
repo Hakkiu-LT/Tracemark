@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from tracemark_api.services.scraper import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
-from tracemark_api.services.marketplace import gather_evidence as scrape_evidence
+from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking
 from tracemark_api.services.database import create_case, save_evidence, save_decision, update_case_status
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
@@ -70,30 +70,63 @@ def make_decision_endpoint(evidence: Evidence) -> Decision:
 
 class GatherEvidenceRequest(BaseModel):
     brand_name: str
-    platforms: list[str] = ["amazon", "whois"]
+    platforms: list[str] = ["amazon", "google_ads", "meta_ads", "domains"]
+    official_advertisers: list[str] = []
+    # Supported: amazon, ebay, alibaba, aliexpress, google_ads, meta_ads, domains
 
 
 @router.post("/gather-evidence", response_model=Evidence)
 def gather_evidence_endpoint(payload: GatherEvidenceRequest) -> Evidence:
     try:
-        evidence = scrape_evidence(payload.brand_name, payload.platforms)
+        evidence = scrape_evidence(
+            payload.brand_name,
+            payload.platforms,
+            payload.official_advertisers or None,
+        )
         return evidence
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class CheckAdsRequest(BaseModel):
+    brand_name: str
+    platforms: list[str] = ["google_ads", "meta_ads"]
+    official_advertisers: list[str] = []
+
+
+@router.post("/check-ads")
+def check_ads_endpoint(payload: CheckAdsRequest):
+    """
+    Detect ad hijacking: unauthorized Google/Meta ads using a brand name to steal traffic.
+    Whitelist official page names via official_advertisers (e.g. ["Orbio World", "Orbio Official"]).
+    """
+    try:
+        return check_ads_hijacking(
+            payload.brand_name,
+            payload.platforms,
+            payload.official_advertisers or None,
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 class CheckBrandRequest(BaseModel):
     brand_name: str
-    platforms: list[str] = ["amazon", "google_ads", "domains"]
+    platforms: list[str] = ["amazon", "google_ads", "meta_ads", "domains"]
+    official_advertisers: list[str] = []
 
 
 @router.post("/check-brand")
 def check_brand(payload: CheckBrandRequest):
-    """Full pipeline: scrape evidence → AI decision → persist to Supabase."""
+    """Full pipeline: scrape evidence ΓåÆ AI decision ΓåÆ persist to Supabase."""
     case_id = create_case(payload.brand_name)
     try:
         update_case_status(case_id, "analyzing")
-        evidence = scrape_evidence(payload.brand_name, payload.platforms)
+        evidence = scrape_evidence(
+            payload.brand_name,
+            payload.platforms,
+            payload.official_advertisers or None,
+        )
         save_evidence(case_id, evidence)
         decision = make_decision(evidence)
         save_decision(case_id, decision)
