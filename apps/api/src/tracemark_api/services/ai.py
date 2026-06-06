@@ -188,7 +188,8 @@ def _analyze_evidence_node(state: DecisionAgentState) -> DecisionAgentState:
     )
     prompt = f"""
 Analyze the following brand protection evidence and summarize the findings.
-Focus on: number of suspicious listings, type of ads detected, suspicious domains found.
+Focus on: ad hijacking (unauthorized paid ads using the brand), suspicious marketplace listings,
+and typosquatting domains that steal traffic from established brands.
 
 Evidence:
 - Marketplace listings: {len(evidence.marketplaces)} found
@@ -243,8 +244,8 @@ Raw counts:
 - Suspicious domains: {len(evidence.domains)}
 
 Decision criteria:
-- HIGH + TAKEDOWN: 5+ suspicious listings OR counterfeit evidence found
-- MEDIUM + MONITOR: 1-4 suspicious listings OR suspicious ads/domains
+- HIGH + TAKEDOWN: ad hijacking detected OR 5+ suspicious listings OR counterfeit evidence
+- MEDIUM + MONITOR: 1-4 suspicious listings OR suspicious ads/domains without clear hijacking
 - LOW + DISMISS: No real evidence found
 
 Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings.
@@ -256,7 +257,7 @@ Return risk_level, recommended_action, case_summary, confidence_score, evidence_
         state["decision"] = Decision(
             risk_level="LOW",
             recommended_action="DISMISS",
-            case_summary="Agent error — could not complete analysis.",
+            case_summary="Agent error ΓÇö could not complete analysis.",
             confidence_score=0.0,
             evidence_quality="WEAK",
             key_findings=[],
