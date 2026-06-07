@@ -66,6 +66,105 @@ class CheckBrandResponse(BaseModel):
 
 
 MOCK_DB: dict[str, dict] = {
+    "derila": {
+        "case_id": "8ca24f64-5717-4562-b3fc-2c963f66afb7",
+        "decision": {
+            "risk_level": "HIGH",
+            "recommended_action": "TAKEDOWN",
+            "case_summary": (
+                "3 counterfeit Derila listings detected on Amazon and eBay, "
+                "selling unauthorized contoured memory foam pillows at 50% below authentic retail. "
+                "1 typosquatting domain impersonating the brand's visual identity. "
+                "Immediate takedown action recommended."
+            ),
+            "confidence_score": 0.92,
+            "evidence_quality": "STRONG",
+            "key_findings": [
+                "2 counterfeit listings found on Amazon from unauthorized seller 'FitGearDirect'",
+                "1 counterfeit listing found on eBay from seller 'sleepwell_outlet'",
+                "Prices at $18.99 vs. authentic MSRP of $39.99 — strong counterfeit signature",
+                "Domain 'buy-derila-pillow-cheap.store' mimics brand design and registered trademark",
+            ],
+        },
+        "evidence": {
+            "marketplaces": [
+                {
+                    "platform": "amazon",
+                    "seller_name": "FitGearDirect",
+                    "listing_url": "https://amazon.com/dp/B0CXY9921",
+                    "price": "$18.99",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "ebay",
+                    "seller_name": "sleepwell_outlet",
+                    "listing_url": "https://ebay.com/itm/2848822991",
+                    "price": "$14.99",
+                    "screenshot_url": None,
+                },
+            ],
+            "ads": [],
+            "domains": [
+                {
+                    "domain_name": "buy-derila-pillow-cheap.store",
+                    "registrar": "Namecheap Inc.",
+                    "is_clone": True,
+                    "similarity_score": 92,
+                },
+            ],
+            "social": [],
+        },
+    },
+
+    "matsato": {
+        "case_id": "9da35f64-5717-4562-b3fc-2c963f66afc8",
+        "decision": {
+            "risk_level": "HIGH",
+            "recommended_action": "TAKEDOWN",
+            "case_summary": (
+                "2 counterfeit Matsato listings detected on eBay and Amazon, "
+                "selling knock-off Japanese chef knives using the official trademark. "
+                "1 suspicious domain squatting on the trademark. "
+                "Immediate takedown action recommended."
+            ),
+            "confidence_score": 0.88,
+            "evidence_quality": "STRONG",
+            "key_findings": [
+                "1 counterfeit listing on eBay from seller 'sharp_knives_outlet' using the Matsato wordmark",
+                "1 listing on Amazon from seller 'KitchenProUS' displaying replica knives in product photos",
+                "Domain 'matsato-knives-deal.com' registered recently, potential phishing/scam risk",
+            ],
+        },
+        "evidence": {
+            "marketplaces": [
+                {
+                    "platform": "ebay",
+                    "seller_name": "sharp_knives_outlet",
+                    "listing_url": "https://ebay.com/itm/3348822992",
+                    "price": "$24.99",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "KitchenProUS",
+                    "listing_url": "https://amazon.com/dp/B0D123456",
+                    "price": "$29.99",
+                    "screenshot_url": None,
+                },
+            ],
+            "ads": [],
+            "domains": [
+                {
+                    "domain_name": "matsato-knives-deal.com",
+                    "registrar": "GoDaddy LLC",
+                    "is_clone": True,
+                    "similarity_score": 88,
+                },
+            ],
+            "social": [],
+        },
+    },
+
     "nike": {
         "case_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
         "decision": {
@@ -320,7 +419,7 @@ def check_brand_mock(payload: CheckBrandRequest) -> CheckBrandResponse:
     ad platforms for the given brand name. Returns aggregated evidence and
     an AI-generated enforcement decision.
 
-    **Mocked brands:** `nike`, `rolex`, `apple`. Any other name returns a LOW / DISMISS scenario.
+    **Mocked brands:** `nike`, `rolex`, `apple`, `derila`, `matsato`. Any other name returns a LOW / DISMISS scenario.
 
     ---
 

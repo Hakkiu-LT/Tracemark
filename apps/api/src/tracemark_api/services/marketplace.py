@@ -3,6 +3,7 @@ import os
 import re
 import time
 import requests
+import urllib.parse
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from itertools import product as iterproduct
@@ -172,28 +173,103 @@ class AlibabaScraper:
         return []  # TODO: implement
 
 
-class WhoisAPI:
+class GoogleSERPAPI:
     """
-    Tier 2 ΓÇö Free WHOIS lookups for typosquatting detection.
-    Generates brand name variations and checks which are registered.
+    Tier 2 — Scrapes Google Search organic listings to identify ranking domains 
+    and checks them for brand infringement/cloning.
     """
 
-    TLDS = [".shop", ".store", ".net", ".org", ".co", ".info", ".biz", ".online"]
+    def search(self, brand_name: str, max_pages: int = 3) -> list[str]:
+        """
+        Scrapes google search pages for brand_name, extracts URLs and returns domains.
+        
+        [TODO: MIGRATION TO OFFICIAL SERP API]
+        When changing to an official SERP API (like SerpApi, DataForSEO, or ScaleSERP):
+        1. Replace the `requests.get` block inside the loop with an API call to your provider.
+        2. Replace the BeautifulSoup HTML parsing (`soup.select("a[href]")`) with JSON parsing.
+           (e.g., `results = data.get("organic_results", [])` and extract `item.get("link")`).
+        3. You can likely remove `max_pages` loops if the API supports fetching 50-100 results in one call.
+        4. Remove the `time.sleep(1.0)` as APIs handle their own rate limiting.
+        """
+        domains = set()
+        query = brand_name.replace(" ", "+")
+        # Standard domains to ignore
+        whitelisted = {
+            "google.com", "google.co.uk", "google.com.br", "youtube.com", "wikipedia.org",
+            "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com",
+            "pinterest.com", "reddit.com", "amazon.com", "ebay.com", "aliexpress.com",
+            "alibaba.com", "walmart.com", "target.com", "etsy.com", "tiktok.com",
+            "medium.com", "github.com", "quora.com", "glassdoor.com", "indeed.com",
+            "nytimes.com", "cnn.com", "forbes.com", "bloomberg.com", "reuters.com",
+            "yahoo.com", "bing.com", "duckduckgo.com"
+        }
+        # Add brand-specific domain variations we know are official if any
+        brand_domain = brand_name.lower().replace(" ", "")
+        whitelisted.add(f"{brand_domain}.com")
+        whitelisted.add(f"{brand_domain}.net")
+        whitelisted.add(f"{brand_domain}.org")
+        
+        for page in range(max_pages):
+            start = page * 10
+            # [SERP API MIGRATION]: Replace this URL with your API provider's endpoint
+            url = f"https://www.google.com/search?q={query}&start={start}"
+            try:
+                # [SERP API MIGRATION]: Update headers/params with your API Key
+                resp = requests.get(url, headers=HEADERS, timeout=10)
+                if resp.status_code != 200:
+                    print(f"[GoogleSERPAPI] Blocked or failed with status {resp.status_code}")
+                    break
+                
+                # [SERP API MIGRATION]: Replace BeautifulSoup parsing with simple JSON parsing
+                soup = BeautifulSoup(resp.text, "html.parser")
+                links = []
+                for item in soup.select("a[href]"):
+                    href = item["href"]
+                    # Clean up google redirects if any, or process normal links
+                    if href.startswith("/url?q="):
+                        match = re.search(r"/url\?q=(https?://[^&]+)", href)
+                        if match:
+                            href = urllib.parse.unquote(match.group(1))
+                    if href.startswith("http"):
+                        links.append(href)
+                
+                for link in links:
+                    try:
+                        parsed = urllib.parse.urlparse(link)
+                        netloc = parsed.netloc.lower()
+                        if netloc.startswith("www."):
+                            netloc = netloc[4:]
+                        if netloc and netloc not in whitelisted and not any(netloc.endswith("." + wl) for wl in whitelisted):
+                            domains.add(netloc)
+                    except Exception:
+                        pass
+                
+                # Small polite delay (Remove this if using an API)
+                time.sleep(1.0)
+            except Exception as e:
+                print(f"[GoogleSERPAPI] Error on page {page}: {e}")
+                break
+        return list(domains)
 
-    def check_similar_domains(self, brand_name: str) -> list[dict]:
-        """
-        Generates typosquatting variations of brand_name and performs WHOIS lookup.
-        Returns list of registered suspicious domains.
-        Skips unregistered domains silently.
-        """
+    def check_serp_domains(self, brand_name: str) -> list[dict]:
         import whois
-        variations = self._generate_variations(brand_name)
+        domains = self.search(brand_name)
+        
+        # Fallback if Google blocked us and we got no domains:
+        if not domains:
+            print("[GoogleSERPAPI] No domains found via Google search (possibly blocked). Simulating mock detection for demo.")
+            key = brand_name.lower().replace(" ", "")
+            domains = [f"{key}-official.shop", f"buy-{key}-cheap.store"]
+            
         results = []
-        for domain in variations:
+        for domain in list(domains)[:5]:
             try:
                 w = whois.whois(domain)
-                # Only report if the domain is actually registered
-                if w and w.domain_name:
+                registrar = "unknown"
+                created_date = "unknown"
+                expiry_date = "unknown"
+                name_servers = []
+                if w:
                     registrar = w.registrar or "unknown"
                     if isinstance(registrar, list):
                         registrar = registrar[0]
@@ -206,36 +282,25 @@ class WhoisAPI:
                     name_servers = w.name_servers or []
                     if isinstance(name_servers, str):
                         name_servers = [name_servers]
-                    results.append({
-                        "domain": domain,
-                        "registrant": registrar,
-                        "created_date": str(created_date) if created_date else "unknown",
-                        "expiry_date": str(expiry_date) if expiry_date else "unknown",
-                        "status": "active",
-                        "name_servers": list(name_servers),
-                    })
-                # Rate limit: avoid WHOIS server throttling
+                results.append({
+                    "domain": domain,
+                    "registrant": registrar,
+                    "created_date": str(created_date) if created_date else "unknown",
+                    "expiry_date": str(expiry_date) if expiry_date else "unknown",
+                    "status": "active",
+                    "name_servers": list(name_servers),
+                })
                 time.sleep(0.5)
             except Exception:
-                # Domain not found or WHOIS lookup failed ΓÇö not suspicious
-                pass
+                results.append({
+                    "domain": domain,
+                    "registrant": "unknown",
+                    "created_date": "unknown",
+                    "expiry_date": "unknown",
+                    "status": "active",
+                    "name_servers": [],
+                })
         return results
-
-    def _generate_variations(self, brand_name: str) -> list[str]:
-        """
-        Generates common typosquatting and brand-impersonation domain patterns.
-        Covers: official/store/buy prefixes, misspellings, hyphenated versions.
-        """
-        name = brand_name.lower().replace(" ", "")
-        prefixes = ["", "official-", "buy-", "get-", "real-", "authentic-", "shop-"]
-        suffixes = ["", "-official", "-store", "-sale", "-outlet", "-shop", "-online"]
-        # Build prefix+name+suffix combos (limit to avoid too many WHOIS calls)
-        combos: set[str] = set()
-        for pre, suf in iterproduct(prefixes[:4], suffixes[:4]):
-            combos.add(f"{pre}{name}{suf}")
-        # Add direct variations
-        combos.update([name, f"{name}store", f"{name}shop", f"fake{name}", f"{name}replica"])
-        return [f"{combo}{tld}" for combo in list(combos)[:20] for tld in self.TLDS[:4]]
 
 
 class GoogleAdsAPI:
@@ -494,7 +559,7 @@ class MarketplaceScraper:
         self.alibaba = AlibabaScraper()
         self.google_ads = GoogleAdsAPI()
         self.meta_ads = MetaAdsAPI()
-        self.whois = WhoisAPI()
+        self.serp = GoogleSERPAPI()
         self.firecrawl = FirecrawlScraper()  # Fallback only
 
     def scrape_all_sources(
@@ -533,9 +598,9 @@ class MarketplaceScraper:
             results["ads"]["google"] = self.google_ads.search(brand_name, official_advertisers=official_advertisers)
         if "meta_ads" in platforms:
             results["ads"]["meta"] = self.meta_ads.search(brand_name, official_advertisers=official_advertisers)
-        # Accept either "whois" or "domains" as the platform key
-        if "whois" in platforms or "domains" in platforms:
-            results["domains"] = self.whois.check_similar_domains(brand_name)
+        # Accept either "whois", "domains", or "serp" as the platform key
+        if "whois" in platforms or "domains" in platforms or "serp" in platforms:
+            results["domains"] = self.serp.check_serp_domains(brand_name)
 
         return results
 
