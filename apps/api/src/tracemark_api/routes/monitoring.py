@@ -4,6 +4,7 @@ from tracemark_api.services.scraper import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
 from tracemark_api.services.database import create_case, save_evidence, save_decision, update_case_status
+from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -118,7 +119,7 @@ class CheckBrandRequest(BaseModel):
 
 @router.post("/check-brand")
 def check_brand(payload: CheckBrandRequest):
-    """Full pipeline: scrape evidence ΓåÆ AI decision ΓåÆ persist to Supabase."""
+    """Full pipeline: scrape evidence → AI decision → DMCA reports → persist to Supabase."""
     case_id = create_case(payload.brand_name)
     try:
         update_case_status(case_id, "analyzing")
@@ -130,7 +131,18 @@ def check_brand(payload: CheckBrandRequest):
         save_evidence(case_id, evidence)
         decision = make_decision(evidence)
         save_decision(case_id, decision)
-        return {"case_id": case_id, "decision": decision.model_dump(), "evidence": evidence.model_dump()}
+        reports = generate_takedown_reports(
+            case_id=case_id,
+            brand_name=payload.brand_name,
+            decision=decision,
+            evidence=evidence,
+        )
+        return {
+            "case_id": case_id,
+            "decision": decision.model_dump(),
+            "evidence": evidence.model_dump(),
+            "takedown_reports": [r.model_dump() for r in reports],
+        }
     except Exception as e:
         update_case_status(case_id, "error")
         raise HTTPException(status_code=500, detail=str(e))
