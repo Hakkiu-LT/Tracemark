@@ -20,6 +20,7 @@ import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CasesRouteImport } from './routes/cases'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MonitoringNewRouteImport } from './routes/monitoring.new'
+import { Route as MonitoringCaseIdRouteImport } from './routes/monitoring.$caseId'
 import { Route as CasesCaseIdRouteImport } from './routes/cases.$caseId'
 import { Route as CasesCaseIdTakedownRouteImport } from './routes/cases.$caseId.takedown'
 
@@ -78,6 +79,11 @@ const MonitoringNewRoute = MonitoringNewRouteImport.update({
   path: '/new',
   getParentRoute: () => MonitoringRoute,
 } as any)
+const MonitoringCaseIdRoute = MonitoringCaseIdRouteImport.update({
+  id: '/$caseId',
+  path: '/$caseId',
+  getParentRoute: () => MonitoringRoute,
+} as any)
 const CasesCaseIdRoute = CasesCaseIdRouteImport.update({
   id: '/$caseId',
   path: '/$caseId',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/monitoring/$caseId': typeof MonitoringCaseIdRoute
   '/monitoring/new': typeof MonitoringNewRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
 }
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/monitoring/$caseId': typeof MonitoringCaseIdRoute
   '/monitoring/new': typeof MonitoringNewRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
 }
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/monitoring/$caseId': typeof MonitoringCaseIdRoute
   '/monitoring/new': typeof MonitoringNewRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
 }
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/cases/$caseId'
+    | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/cases/$caseId/takedown'
   fileRoutesByTo: FileRoutesByTo
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/cases/$caseId'
+    | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/cases/$caseId/takedown'
   id:
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/signup'
     | '/cases/$caseId'
+    | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/cases/$caseId/takedown'
   fileRoutesById: FileRoutesById
@@ -275,6 +287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonitoringNewRouteImport
       parentRoute: typeof MonitoringRoute
     }
+    '/monitoring/$caseId': {
+      id: '/monitoring/$caseId'
+      path: '/$caseId'
+      fullPath: '/monitoring/$caseId'
+      preLoaderRoute: typeof MonitoringCaseIdRouteImport
+      parentRoute: typeof MonitoringRoute
+    }
     '/cases/$caseId': {
       id: '/cases/$caseId'
       path: '/$caseId'
@@ -315,10 +334,12 @@ const CasesRouteChildren: CasesRouteChildren = {
 const CasesRouteWithChildren = CasesRoute._addFileChildren(CasesRouteChildren)
 
 interface MonitoringRouteChildren {
+  MonitoringCaseIdRoute: typeof MonitoringCaseIdRoute
   MonitoringNewRoute: typeof MonitoringNewRoute
 }
 
 const MonitoringRouteChildren: MonitoringRouteChildren = {
+  MonitoringCaseIdRoute: MonitoringCaseIdRoute,
   MonitoringNewRoute: MonitoringNewRoute,
 }
 
