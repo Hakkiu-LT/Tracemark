@@ -48,10 +48,22 @@ export interface DecisionResponse {
   key_findings: string[];
 }
 
+export interface TakedownReport {
+  platform: string;
+  platform_category: "marketplace" | "social_media" | "search_engine" | "ad_platform" | "domain_registrar" | "app_store" | "other";
+  infringing_url: string;
+  submission_url: string | null;
+  submission_method: "web_form" | "email" | "api" | "udrp";
+  submission_email: string | null;
+  notice_text: string;
+  status: string;
+}
+
 export interface CheckBrandResponse {
   case_id: string;
   decision: DecisionResponse;
   evidence: EvidenceResponse;
+  takedown_reports: TakedownReport[];
 }
 
 export interface CheckBrandRequest {
