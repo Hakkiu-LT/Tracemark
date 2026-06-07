@@ -9,7 +9,9 @@ from itertools import product as iterproduct
 from pydantic import BaseModel, Field
 from langchain_google_genai import ChatGoogleGenerativeAI
 from tracemark_api.services.scraper import scrape_page, ScrapeResult
+from dotenv import find_dotenv
 from tracemark_api.services.ai import Evidence, MarketplaceEvidence, DomainEvidence, AdEvidence
+
 
 # Common phrases used in brand-impersonation / ad-hijacking creatives
 _HIJACKING_SIGNALS = (
@@ -773,3 +775,69 @@ def _mock_evidence(brand_name: str) -> Evidence:
         social=[],
         timestamp=datetime.now(),
     )
+
+
+def exchange_short_lived_meta_token(short_lived_token: str) -> dict:
+    """
+    Exchanges a short-lived user access token for a long-lived user access token.
+    Raises ValueError if META_APP_ID or META_APP_SECRET is not set, or if the API call fails.
+    """
+    app_id = os.environ.get("META_APP_ID")
+    app_secret = os.environ.get("META_APP_SECRET")
+    if not app_id or not app_secret:
+        raise ValueError(
+            "META_APP_ID and META_APP_SECRET must be configured in environment variables to exchange tokens."
+        )
+
+    url = "https://graph.facebook.com/v19.0/oauth/access_token"
+    params = {
+        "grant_type": "fb_exchange_token",
+        "client_id": app_id,
+        "client_secret": app_secret,
+        "fb_exchange_token": short_lived_token,
+    }
+
+    try:
+        resp = requests.get(url, params=params, timeout=15)
+        if resp.status_code != 200:
+            raise ValueError(f"Meta Graph API error (Status {resp.status_code}): {resp.text}")
+        return resp.json()
+    except Exception as e:
+        if not isinstance(e, ValueError):
+            raise ValueError(f"Failed to communicate with Meta Graph API: {e}") from e
+        raise
+
+
+def update_env_meta_token(new_token: str) -> None:
+    """
+    Helper function to write the updated META_ADS_ACCESS_TOKEN back to the local .env file.
+    Only works if the .env file is found.
+    """
+    env_file = find_dotenv()
+    if not env_file:
+        print("[MetaAuth] No .env file found to update.")
+        return
+
+    with open(env_file, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    updated = False
+    new_lines = []
+    for line in lines:
+        if line.strip().startswith("META_ADS_ACCESS_TOKEN="):
+            new_lines.append(f"META_ADS_ACCESS_TOKEN={new_token}\n")
+            updated = True
+        else:
+            new_lines.append(line)
+
+    if not updated:
+        # If it wasn't in the file, append it to the end
+        new_lines.append(f"\nMETA_ADS_ACCESS_TOKEN={new_token}\n")
+
+    with open(env_file, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+
+    # Also update the current runtime environment variable
+    os.environ["META_ADS_ACCESS_TOKEN"] = new_token
+    print(f"[MetaAuth] Successfully updated META_ADS_ACCESS_TOKEN in {env_file}")
+
