@@ -18,7 +18,7 @@ async function apiFetch<T>(path: string, init: RequestInit): Promise<T> {
 }
 
 export function checkBrand(payload: CheckBrandRequest): Promise<CheckBrandResponse> {
-  return apiFetch<CheckBrandResponse>("/check-brand", {
+  return apiFetch<CheckBrandResponse>("/monitoring/check-brand", {
     method: "POST",
     body: JSON.stringify(payload),
   });
