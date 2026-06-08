@@ -1,6 +1,7 @@
 from supabase import create_client, Client
 import os
 from tracemark_api.services.ai import Evidence, Decision
+from tracemark_api.services.evidence_scorer import EvidenceScore
 
 _client: Client | None = None
 
@@ -33,9 +34,9 @@ def save_evidence(case_id: str, evidence: Evidence) -> str:
     return result.data[0]["id"]
 
 
-def save_decision(case_id: str, decision: Decision) -> str:
+def save_decision(case_id: str, decision: Decision, score: EvidenceScore | None = None) -> str:
     sb = get_supabase()
-    result = sb.table("decisions").insert({
+    payload: dict = {
         "case_id": case_id,
         "risk_level": decision.risk_level,
         "recommended_action": decision.recommended_action,
@@ -43,7 +44,15 @@ def save_decision(case_id: str, decision: Decision) -> str:
         "confidence_score": decision.confidence_score,
         "evidence_quality": decision.evidence_quality,
         "key_findings": decision.key_findings,
-    }).execute()
+    }
+    if score is not None:
+        payload.update({
+            "evidence_score": score.total_score,
+            "marketplace_score": score.marketplace_score,
+            "ads_score": score.ads_score,
+            "domains_score": score.domains_score,
+        })
+    result = sb.table("decisions").insert(payload).execute()
     sb.table("cases").update({"status": "complete"}).eq("id", case_id).execute()
     return result.data[0]["id"]
 
