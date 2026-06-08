@@ -205,9 +205,27 @@ Return a concise factual summary (3-5 sentences) of what was found.
 
 
 def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
+    from tracemark_api.services.evidence_scorer import score_evidence
+
     evidence = state["evidence"]
     summary = state.get("analysis_summary", "")
     api_key = os.environ.get("GEMINI_API_KEY")
+    score = score_evidence(evidence)
+
+    # Short-circuit: if no evidence at all, dismiss without calling Gemini
+    if score.is_empty:
+        state["decision"] = Decision(
+            risk_level="LOW",
+            recommended_action="DISMISS",
+            case_summary=(
+                "No suspicious activity detected. No marketplace listings, "
+                "ads, domains, or social media profiles were found for this brand."
+            ),
+            confidence_score=0.95,
+            evidence_quality="WEAK",
+            key_findings=["Zero evidence items collected across all monitored sources"],
+        )
+        return state
 
     if not api_key:
         has_listings = len(evidence.marketplaces) > 0
@@ -219,10 +237,8 @@ def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
                 "Real Gemini analysis will run when GEMINI_API_KEY is set."
             ),
             confidence_score=0.85 if has_listings else 0.1,
-            evidence_quality="MODERATE" if has_listings else "WEAK",
-            key_findings=[
-                f"Found on: {', '.join(set(m.platform for m in evidence.marketplaces))}"
-            ] if has_listings else [],
+            evidence_quality=score.quality_label,
+            key_findings=score.top_findings,
         )
         return state
 
@@ -233,20 +249,33 @@ def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
     ).with_structured_output(Decision)
 
     prompt = f"""
-You are a brand protection legal analyst. Based on the evidence summary below,
-make a structured enforcement decision.
+You are a brand protection legal analyst. Based on the structured evidence below,
+make an enforcement decision.
 
-Evidence Summary: {summary}
+PRE-COMPUTED EVIDENCE QUALITY SCORE: {score.total_score:.2f}/1.0 ({score.quality_label})
+- Marketplace listings score: {score.marketplace_score:.2f}
+- Ads score: {score.ads_score:.2f}
+- Domain surveillance score: {score.domains_score:.2f}
+- Social media score: {score.social_score:.2f}
 
-Raw counts:
-- Suspicious marketplace listings: {len(evidence.marketplaces)}
+KEY FINDINGS (pre-extracted):
+{chr(10).join(f'• {f}' for f in score.top_findings)}
+
+RAW COUNTS:
+- Marketplace listings: {len(evidence.marketplaces)}
 - Suspicious ads: {len(evidence.ads)}
 - Suspicious domains: {len(evidence.domains)}
 
-Decision criteria:
-- HIGH + TAKEDOWN: ad hijacking detected OR 5+ suspicious listings OR counterfeit evidence
-- MEDIUM + MONITOR: 1-4 suspicious listings OR suspicious ads/domains without clear hijacking
-- LOW + DISMISS: No real evidence found
+EVIDENCE SUMMARY: {summary}
+
+SAMPLE LISTINGS (up to 5):
+{[m.model_dump() for m in evidence.marketplaces[:5]]}
+
+DECISION GUIDELINES:
+- Use the pre-computed evidence score to anchor your confidence_score (e.g. score 0.7 → confidence ~0.7-0.8)
+- HIGH + TAKEDOWN: evidence_score >= 0.65 OR ad hijacking detected OR 5+ marketplace listings
+- MEDIUM + MONITOR: evidence_score 0.30-0.64 OR 1-4 listings OR suspicious domains only
+- LOW + DISMISS: evidence_score < 0.30 AND no marketplace listings
 
 Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings.
 """
@@ -257,7 +286,7 @@ Return risk_level, recommended_action, case_summary, confidence_score, evidence_
         state["decision"] = Decision(
             risk_level="LOW",
             recommended_action="DISMISS",
-            case_summary="Agent error ΓÇö could not complete analysis.",
+            case_summary="Agent error — could not complete analysis.",
             confidence_score=0.0,
             evidence_quality="WEAK",
             key_findings=[],
