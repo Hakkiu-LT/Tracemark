@@ -142,9 +142,140 @@ bun test apps/api/src/tests/auth.test.ts
 
 ---
 
+## Gabriel (Backend & Infrastructure)
+
+**Focus:** Build a shared, persistent Gemini API usage tracker backed by Supabase so that all developers and all server instances share one quota counter — preventing any accidental charges on the free tier.
+
+---
+
+### 🔴 High Priority — Gemini Usage Tracker
+
+- [ ] **`gemini_usage` table migration** — run once in the Supabase SQL editor:
+  ```sql
+  CREATE TABLE gemini_usage (
+      id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      model          TEXT NOT NULL,
+      call_date      DATE NOT NULL DEFAULT CURRENT_DATE,
+      calls_count    INT  NOT NULL DEFAULT 0,
+      errors_count   INT  NOT NULL DEFAULT 0,
+      last_called_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE (model, call_date)   -- one row per model per day
+  );
+  ```
+
+- [ ] **`increment_gemini_usage` Postgres function** — atomic upsert so concurrent calls from multiple developers never double-count:
+  ```sql
+  CREATE OR REPLACE FUNCTION increment_gemini_usage(
+      p_model     TEXT,
+      p_call_date DATE,
+      p_is_error  BOOLEAN DEFAULT FALSE
+  )
+  RETURNS VOID AS $$
+  BEGIN
+      INSERT INTO gemini_usage (model, call_date, calls_count, errors_count, last_called_at)
+      VALUES (
+          p_model, p_call_date,
+          CASE WHEN NOT p_is_error THEN 1 ELSE 0 END,
+          CASE WHEN p_is_error     THEN 1 ELSE 0 END,
+          now()
+      )
+      ON CONFLICT (model, call_date) DO UPDATE SET
+          calls_count    = gemini_usage.calls_count    + CASE WHEN NOT p_is_error THEN 1 ELSE 0 END,
+          errors_count   = gemini_usage.errors_count   + CASE WHEN p_is_error     THEN 1 ELSE 0 END,
+          last_called_at = now();
+  END;
+  $$ LANGUAGE plpgsql;
+  ```
+  > The `ON CONFLICT ... DO UPDATE` pattern is atomic at the Postgres level — safe under concurrent load from multiple devs or server instances.
+
+- [ ] **`services/gemini_tracker.py`** — create this new service file. It must:
+  - Expose a `gemini_tracker` singleton (module-level instance).
+  - Implement a `call(model: str)` context manager that:
+    1. **Before** the call: reads `calls_count` for today from Supabase (shared across all processes).
+    2. Raises `GeminiDailyLimitExceeded` if `calls_count >= daily_limit` — hard stop, no call fires.
+    3. Checks an **in-memory RPM sliding window** (last 60s) — raises `GeminiRPMLimitExceeded` if at cap.
+    4. Logs a `WARNING` at 75% daily usage and a `CRITICAL` warning at 90%.
+    5. **After** the call: calls `increment_gemini_usage` via `supabase.rpc()` to persist the count.
+  - Limits (with safety buffer below real free-tier caps, overridable via env vars):
+    - Flash: `GEMINI_DAILY_LIMIT_FLASH=1400` (real cap: 1,500), `GEMINI_RPM_LIMIT_FLASH=14` (real cap: 15)
+    - Pro:   `GEMINI_DAILY_LIMIT_PRO=40`    (real cap: 50),    `GEMINI_RPM_LIMIT_PRO=4`    (real cap: 5)
+  - Implement `get_stats() -> dict` returning usage snapshot for all tracked models.
+
+- [ ] **Wrap all 4 Gemini call points in `services/ai.py`** with the tracker context manager:
+  ```python
+  # Add import at top of ai.py
+  from tracemark_api.services.gemini_tracker import (
+      gemini_tracker, GeminiDailyLimitExceeded, GeminiRPMLimitExceeded
+  )
+
+  # Wrap each model.invoke() — example:
+  with gemini_tracker.call("gemini-2.5-flash"):
+      return {"evidence": model.invoke(prompt)}
+  ```
+  The 4 call points to wrap are:
+  - `gather_evidence` node → `gemini-2.5-flash`
+  - `make_decision_node` → `gemini-2.5-pro`
+  - `_analyze_evidence_node` → `gemini-2.5-flash`
+  - `_make_decision_node` → `gemini-2.5-pro`
+
+- [ ] **Graceful fallback in `ai.py`**: catch `GeminiDailyLimitExceeded` and `GeminiRPMLimitExceeded` at each call site and return the existing mock response instead of crashing:
+  ```python
+  try:
+      with gemini_tracker.call("gemini-2.5-flash"):
+          return {"evidence": model.invoke(prompt)}
+  except (GeminiDailyLimitExceeded, GeminiRPMLimitExceeded) as e:
+      logger.warning("Gemini blocked, returning mock: %s", e)
+      return {"evidence": mock_evidence}   # existing mock already in the file
+  ```
+
+- [ ] **`routes/usage.py`** — new endpoint `GET /api/v1/usage`:
+  ```python
+  from fastapi import APIRouter
+  from tracemark_api.services.gemini_tracker import gemini_tracker
+
+  router = APIRouter()
+
+  @router.get("/usage")
+  def get_usage():
+      """Real-time Gemini quota snapshot — shared across all developers."""
+      return gemini_tracker.get_stats()
+  ```
+  Register this router in `main.py` alongside the existing routers.
+
+- [ ] **Add env vars** to `.env.example`:
+  ```
+  GEMINI_DAILY_LIMIT_FLASH=1400
+  GEMINI_DAILY_LIMIT_PRO=40
+  GEMINI_RPM_LIMIT_FLASH=14
+  GEMINI_RPM_LIMIT_PRO=4
+  ```
+
+- [ ] **Verify end-to-end**: call `GET /api/v1/usage` before and after triggering a `/check-brand` scan — confirm `calls_count` increments correctly in both the API response and directly in the Supabase `gemini_usage` table.
+
+### Test Command
+```bash
+# 1. Hit the usage endpoint before any calls
+curl http://localhost:8000/api/v1/usage
+
+# 2. Trigger a real Gemini call
+curl -X POST http://localhost:8000/api/v1/check-brand -d '{...}'
+
+# 3. Hit usage again — calls_count should be +1 (or +2 for Flash + Pro)
+curl http://localhost:8000/api/v1/usage
+
+# 4. Confirm the row exists in Supabase
+# Dashboard → Table Editor → gemini_usage
+```
+
+### Deliverable
+`supabase/migrations/YYYYMMDD_gemini_usage.sql` + `apps/api/src/tracemark_api/services/gemini_tracker.py` + `apps/api/src/tracemark_api/routes/usage.py` + updated `services/ai.py` with tracker wrapping all 4 call points.
+
+---
+
 ## Integration Point (End of Week 4)
 - A new user lands on `/` → clicks "Sign in with Google" → redirected to `/dashboard` with their Google avatar visible in the navbar.
 - All API calls from the frontend include the Supabase session token in the `Authorization` header — unauthenticated requests return 401.
+- `GET /api/v1/usage` returns a live shared counter visible to all developers — any dev can check how much Gemini quota the team has consumed today.
 - (Low priority) Clicking "Upgrade to Pro" redirects to Stripe Checkout in test mode → completing payment updates `profiles.plan` to `'pro'` via webhook.
 
 ---
@@ -158,6 +289,14 @@ bun test apps/api/src/tests/auth.test.ts
 - [ ] `profiles` table row auto-created on first sign-up via database trigger.
 - [ ] All existing API endpoints return 401 for requests without a valid session token.
 - [ ] RLS policies confirmed: user A cannot read user B's cases in Supabase.
+
+### 🔴 Gemini Tracker (Must be complete)
+- [ ] `gemini_usage` table exists in Supabase with `UNIQUE (model, call_date)` constraint.
+- [ ] `increment_gemini_usage` Postgres function deployed and callable via `supabase.rpc()`.
+- [ ] `GET /api/v1/usage` returns correct counts that increment on each Gemini call.
+- [ ] Calling `/check-brand` with a real API key updates the `gemini_usage` table row in Supabase.
+- [ ] When `calls_count >= daily_limit`, the next call returns a mock response instead of hitting Gemini.
+- [ ] Logs show `⚠️ WARNING` at 75% and `⚠️ CRITICAL` at 90% daily usage.
 
 ### 🟢 Stripe (Nice to have)
 - [ ] Checkout session created successfully and redirects to Stripe (test mode).
