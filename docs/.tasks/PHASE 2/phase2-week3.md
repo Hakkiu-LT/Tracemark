@@ -4,52 +4,51 @@
 
 ---
 
-## Engineer A — Scraper Robustness & Detection Accuracy
+## Engineer A — Scraper Robustness & OCR (Python Backend)
 
 **Focus:** Stress-test the detection engine with real brand data, fix edge cases, and improve matcher accuracy.
 
 ### Tasks
-- [ ] Run keyword + image matcher against 10 different brand names from Supabase (use real Orbio World brands if available, otherwise generate test fixtures).
+- [ ] Run keyword + image matcher against 10 different brand names from Supabase (use real brands or test fixtures).
 - [ ] Fix false-positive rate: tune Levenshtein threshold per platform (stricter for exact brand names, looser for descriptions).
-- [ ] Add support for **image OCR** on screenshot thumbnails — extract visible text from screenshots using `tesseract.js`, feed into keyword matcher for a second-pass check.
-- [ ] Implement `batchDetect(trademarks: Trademark[], listings: Listing[]): Promise<FlaggedListing[]>` — process all trademarks in parallel with `Promise.allSettled`, log failed items without crashing.
-- [ ] Add Playwright screenshot retry specifically for bot-blocked pages (rotate user-agent strings, add random delay 1–3s).
+- [ ] Add support for **image OCR** on screenshots — extract text from screenshot buffers using Python's `pytesseract` or feed the screenshot directly into a Gemini 2.5 Flash multimodal vision call to extract visible text.
+- [ ] Implement `batch_detect(trademarks: list[dict], listings: list[dict]) -> list[dict]` — process all trademarks concurrently in Python using `asyncio.gather`, logging failed items without crashing.
+- [ ] Add Playwright browser retry specifically for bot-blocked pages (rotate user-agents, add random delays 1–3s).
 - [ ] Write a load test: flag 50 listings across 5 brands, assert < 30s total runtime.
 
 ### Test Command
 ```bash
-bun test packages/detection/src/matchers.test.ts --coverage
-bun run packages/screenshot-service/src/load.test.ts
+pytest tests/test_matchers.py --cov=tracemark_api
 ```
 
 ### Deliverable
-Updated `matchers.ts` with OCR pass + `batchDetect` + load test results documented in `docs/phase2-detection-perf.md`.
+Updated `detection.py` with OCR vision pass + `batch_detect` + load test results documented in `docs/phase2-detection-perf.md`.
 
 ---
 
-## Engineer B — Confidence Scoring Refinement & Notification Webhooks
+## Engineer B — Risk Scoring & Notification Webhooks (Python Backend)
 
 **Focus:** Improve AI analysis quality, add webhook triggers for Slack/Zapier, and harden the persistence layer.
 
 ### Tasks
-- [ ] Refine `riskScorer`: weight `ai_analysis.confidence` into the final `risk_level` calculation (e.g. `HIGH` only if matcher score > 0.8 AND AI confidence > 0.75).
-- [ ] Handle empty evidence gracefully: if screenshot fails (e.g. 404, bot block), mark evidence as `capture_failed` and still persist the infringement with `risk_level` based solely on keyword match.
-- [ ] Build `sendWebhookNotification(infringement: Infringement): Promise<void>` — POST to configurable Slack webhook URL and Zapier webhook URL stored in env vars `SLACK_WEBHOOK_URL` / `ZAPIER_WEBHOOK_URL`.
+- [ ] Refine `risk_scorer`: weight `ai_analysis.confidence` into the final `risk_level` calculation (e.g. `HIGH` only if matcher score > 0.8 AND AI confidence > 0.75).
+- [ ] Handle empty evidence gracefully: if screenshot fails (e.g. 404, bot block), mark evidence status as `capture_failed` and still persist the infringement with a risk level based solely on keyword matches.
+- [ ] Build `send_slack_notification(infringement: dict) -> None` and `send_zapier_trigger(infringement: dict) -> None` in `tracemark_api/services/webhooks.py` using `requests` or `httpx` against webhook URLs configured in environment variables.
 - [ ] Slack payload format: brand name, risk level (with emoji 🔴🟡🟢), platform, infringing URL, link to Case Detail page.
-- [ ] Write integration test mocking webhook endpoints with `msw` (Mock Service Worker).
-- [ ] Add `webhook_sent_at` column to `infringements` table via migration.
+- [ ] Write integration tests using a Python mocking library (e.g. `responses` or `pytest-mock`) to intercept outbound HTTP calls.
+- [ ] Add `webhook_sent_at` column to `infringements` table via Supabase migration.
 
 ### Test Command
 ```bash
-bun test packages/detection/src/webhooks.test.ts
+pytest tests/test_webhooks.py
 ```
 
 ### Deliverable
-`packages/detection/src/webhooks.ts` + `supabase/migrations/YYYYMMDD_webhook_sent_at.sql` + Slack notification firing on new HIGH-risk infringement.
+`apps/api/src/tracemark_api/services/webhooks.py` + `supabase/migrations/YYYYMMDD_webhook_sent_at.sql` + Slack notifications firing on new HIGH-risk infringements.
 
 ---
 
-## Engineer C — UI Polish, Filters, Error States & End-to-End Demo
+## Engineer C — UI Polish, Filters, Error States & End-to-End Demo (React Frontend)
 
 **Focus:** Deliver a polished, demo-ready frontend for Phase 2 covering all new screens and edge case states.
 
@@ -57,32 +56,31 @@ bun test packages/detection/src/webhooks.test.ts
 - [ ] **Dashboard Alert Feed:**
   - Add filter bar: filter by Risk Level, Platform, Status, Date Range.
   - Add sorting: newest first / highest risk first.
-  - Render real data from `GET /api/infringements` (replace all mock fixtures).
+  - Render real data from `GET /api/v1/infringements` (replace all mock fixtures).
 - [ ] **Case Detail View:**
   - Show `capture_failed` state with a warning banner when screenshot is unavailable.
-  - Add "Retry Screenshot" button that calls `POST /api/evidence/retry/:infringement_id`.
+  - Add "Retry Screenshot" button that calls `POST /api/v1/evidence/retry/{infringement_id}`.
   - Add case timeline sidebar showing status history changes.
 - [ ] **Error & Loading States:**
   - Global error boundary with "Something went wrong — retry" UI.
   - Skeleton loaders on all data-fetching components.
-  - Toast notifications on action success/failure (Takedown generated, Escalated, Dismissed).
+  - Toast notifications on action success/failure (Takedown generated, Escalated, Safe).
 - [ ] **End-to-End Demo Script:**
-  - Document a clickable demo path in `docs/phase2-demo.md`: add brand → trigger mock scan → view flagged alert → open case → view screenshot + AI analysis → click "Generate Takedown Notice".
-- [ ] Visual QA: test on mobile viewport (375px), tablet (768px), desktop (1440px).
+  - Document a clickable demo path in `docs/phase2-demo.md`: add brand → trigger scan → view flagged alert → open case → view screenshot + AI analysis → click "Generate Takedown Notice".
 
 ### Test Command
 ```bash
-bun run dev  # walk through demo script
+npm run dev  # walk through demo script
 ```
 
 ### Deliverable
-All UI components updated with real data, error states, and filters. `docs/phase2-demo.md` completed.
+All React UI components updated with real data, error states, and filters. `docs/phase2-demo.md` completed.
 
 ---
 
 ## Integration Point (End of Week 3 — Phase 2 Complete)
-- Full pipeline live: scraper flags → matcher detects → Playwright captures evidence → Claude analyzes → Supabase persists → UI renders → Slack notified.
-- **Final integration test:** run `batchDetect` for 2 brands, confirm 2+ infringements appear in the Alert Feed with screenshots, AI analysis, and a Slack notification received.
+- Full pipeline live: scraper flags → matcher detects → Playwright captures evidence → Gemini analyzes → Supabase persists → UI renders → Slack/Zapier notified.
+- **Final integration test**: run `batch_detect` for 2 brands, confirm 2+ infringements appear in the Alert Feed with screenshots, AI analysis, and a Slack notification received.
 
 ---
 
@@ -94,4 +92,3 @@ All UI components updated with real data, error states, and filters. `docs/phase
 - [ ] Dashboard Alert Feed and Case Detail View display 100% real data.
 - [ ] All action buttons (Takedown, Escalate, Dismiss) update Supabase correctly.
 - [ ] Demo script in `docs/phase2-demo.md` works end-to-end without errors.
-- [ ] No TypeScript errors (`bun run typecheck` passes).
