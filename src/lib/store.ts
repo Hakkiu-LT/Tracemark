@@ -185,7 +185,14 @@ export const useStore = create<State>()(
         scanResults: state.scanResults,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHydrated(true);
+        if (state) {
+          state.marks = state.marks.map((m) =>
+            m.brandName.toLowerCase() === "derila" || m.brandName.toLowerCase() === "matsato"
+              ? { ...m, status: "on_hold" }
+              : m
+          );
+          state.setHydrated(true);
+        }
       },
     }
   )
