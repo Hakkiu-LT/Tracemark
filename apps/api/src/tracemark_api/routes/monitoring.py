@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from tracemark_api.services.scraper import scrape_page
+from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
 from tracemark_api.services.database import create_case, save_evidence, save_decision, update_case_status
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
+from tracemark_api.dependencies import get_current_user
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -77,12 +78,17 @@ class GatherEvidenceRequest(BaseModel):
 
 
 @router.post("/gather-evidence", response_model=Evidence)
-def gather_evidence_endpoint(payload: GatherEvidenceRequest) -> Evidence:
+def gather_evidence_endpoint(
+    payload: GatherEvidenceRequest,
+    current_user = Depends(get_current_user)
+) -> Evidence:
+    caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
     try:
         evidence = scrape_evidence(
             payload.brand_name,
             payload.platforms,
             payload.official_advertisers or None,
+            caller_id=caller_id,
         )
         return evidence
     except Exception as e:
@@ -96,16 +102,21 @@ class CheckAdsRequest(BaseModel):
 
 
 @router.post("/check-ads")
-def check_ads_endpoint(payload: CheckAdsRequest):
+def check_ads_endpoint(
+    payload: CheckAdsRequest,
+    current_user = Depends(get_current_user)
+):
     """
     Detect ad hijacking: unauthorized Google/Meta ads using a brand name to steal traffic.
     Whitelist official page names via official_advertisers (e.g. ["Orbio World", "Orbio Official"]).
     """
+    caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
     try:
         return check_ads_hijacking(
             payload.brand_name,
             payload.platforms,
             payload.official_advertisers or None,
+            caller_id=caller_id,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -118,8 +129,12 @@ class CheckBrandRequest(BaseModel):
 
 
 @router.post("/check-brand")
-def check_brand(payload: CheckBrandRequest):
+def check_brand(
+    payload: CheckBrandRequest,
+    current_user = Depends(get_current_user)
+):
     """Full pipeline: scrape evidence → AI decision → DMCA reports → persist to Supabase."""
+    caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
     case_id = create_case(payload.brand_name)
     try:
         update_case_status(case_id, "analyzing")
@@ -127,6 +142,7 @@ def check_brand(payload: CheckBrandRequest):
             payload.brand_name,
             payload.platforms,
             payload.official_advertisers or None,
+            caller_id=caller_id,
         )
         save_evidence(case_id, evidence)
         decision = make_decision(evidence)

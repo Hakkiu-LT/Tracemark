@@ -47,6 +47,7 @@ class Evidence(BaseModel):
     ads: list[AdEvidence] = PydanticField(default_factory=list)
     domains: list[DomainEvidence] = PydanticField(default_factory=list)
     social: list[SocialEvidence] = PydanticField(default_factory=list)
+    blocked_apis: list[str] = PydanticField(default_factory=list)
     timestamp: datetime = PydanticField(default_factory=datetime.now)
 
 
@@ -111,7 +112,8 @@ def build_agent_graph():
             f"Content:\n{state['scraped_content']}\n\n"
             "Extract the evidence and output the structured result."
         )
-        return {"evidence": model.invoke(prompt)}
+        from tracemark_api.services.api_usage_tracker import call_with_tracking
+        return {"evidence": call_with_tracking("gemini_flash", "system", "/analyze", lambda: model.invoke(prompt))}
 
     def make_decision_node(state: AnalysisAgentState) -> dict:
         if not api_key:
@@ -138,7 +140,8 @@ def build_agent_graph():
             f"Content:\n{state['scraped_content']}\n\n"
             "Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings."
         )
-        return {"decision": model.invoke(prompt)}
+        from tracemark_api.services.api_usage_tracker import call_with_tracking
+        return {"decision": call_with_tracking("gemini_pro", "system", "/analyze", lambda: model.invoke(prompt))}
 
     workflow.add_node("gather_evidence", gather_evidence)
     workflow.add_node("make_decision", make_decision_node)
@@ -199,7 +202,8 @@ Evidence:
 
 Return a concise factual summary (3-5 sentences) of what was found.
 """
-    response = model.invoke(prompt)
+    from tracemark_api.services.api_usage_tracker import call_with_tracking
+    response = call_with_tracking("gemini_flash", "system", "/check-brand", lambda: model.invoke(prompt))
     state["analysis_summary"] = response.content
     return state
 
@@ -279,8 +283,19 @@ DECISION GUIDELINES:
 
 Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings.
 """
+    from tracemark_api.services.api_usage_tracker import call_with_tracking, ApiLimitError
     try:
-        state["decision"] = model.invoke(prompt)
+        state["decision"] = call_with_tracking("gemini_pro", "system", "/check-brand", lambda: model.invoke(prompt))
+    except ApiLimitError as e:
+        state["error"] = str(e)
+        state["decision"] = Decision(
+            risk_level="LOW",
+            recommended_action="DISMISS",
+            case_summary=f"Gemini Pro limit reached: {e}",
+            confidence_score=0.0,
+            evidence_quality="WEAK",
+            key_findings=[],
+        )
     except Exception as e:
         state["error"] = str(e)
         state["decision"] = Decision(
