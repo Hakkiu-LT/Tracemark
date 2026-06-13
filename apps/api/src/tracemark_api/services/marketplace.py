@@ -9,10 +9,16 @@ from datetime import datetime, timedelta
 from itertools import product as iterproduct
 from pydantic import BaseModel, Field
 from langchain_google_genai import ChatGoogleGenerativeAI
-from tracemark_api.services.scraper import scrape_page, ScrapeResult
+from tracemark_api.services.firecrawl_client import scrape_page, ScrapeResult
+from tracemark_api.services.domain_whitelist import whitelist_service
 from dotenv import find_dotenv
 from tracemark_api.services.ai import Evidence, MarketplaceEvidence, DomainEvidence, AdEvidence
 
+# Import usage tracker components
+from tracemark_api.services.api_usage_tracker import tracker, call_with_tracking, ApiLimitError
+
+# Import unified scraper
+from tracemark_api.services.unified_scraper import UnifiedScraper, UnifiedScrapeResult, SCRAPE_STATIC, SCRAPE_JS
 
 # Common phrases used in brand-impersonation / ad-hijacking creatives
 _HIJACKING_SIGNALS = (
@@ -82,6 +88,7 @@ def filter_hijacking_ads(
     hijacks.sort(key=lambda a: a.get("hijacking_score", 0), reverse=True)
     return hijacks
 
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -93,28 +100,36 @@ HEADERS = {
 def build_search_urls(brand_name: str, platforms: list[str]) -> dict[str, str]:
     urls = {}
     encoded = brand_name.replace(" ", "+")
-    # Tier 1 ΓÇö custom scrapers
+    # Tier 1 — custom scrapers
     if "amazon" in platforms:
         urls["amazon"] = f"https://www.amazon.com/s?k={encoded}"
     if "ebay" in platforms:
         urls["ebay"] = f"https://www.ebay.com/sch/i.html?_nkw={encoded}"
     if "alibaba" in platforms:
         urls["alibaba"] = f"https://www.alibaba.com/trade/search?SearchText={encoded}"
-    # Tier 3 ΓÇö Firecrawl only
+    # Tier 3 — Firecrawl only
     if "aliexpress" in platforms:
         urls["aliexpress"] = f"https://www.aliexpress.com/wholesale?SearchText={encoded}"
     return urls
 
 
 class AmazonScraper:
-    """Tier 1 ΓÇö static HTML, no JS needed. Cost: $0."""
+    """
+    Amazon-specific scraper using the UnifiedScraper for HTTP requests.
+    Amazon serves full HTML without JS — routes to static tier automatically.
+    Cost: $0 (runs on local resources, tracked under 'html_scraper').
+    """
 
-    def search(self, keyword: str, max_pages: int = 3) -> list[dict]:
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, max_pages: int = 3, caller_id: str = "system") -> list[dict]:
         """
         Scrape Amazon search results pages.
         Args:
-            keyword: Brand name to search
+            keyword:   Brand name to search
             max_pages: Number of result pages to crawl
+            caller_id: Authenticated user email or id
         Returns:
             List of listing dicts: title, price, seller, url, rating, reviews, ship_from
         """
@@ -123,12 +138,17 @@ class AmazonScraper:
         for page in range(1, max_pages + 1):
             url = f"https://www.amazon.com/s?k={encoded}&page={page}"
             try:
-                resp = requests.get(url, headers=HEADERS, timeout=10)
-                soup = BeautifulSoup(resp.text, "html.parser")
+                result = self._scraper.scrape(url, caller_id=caller_id)
+                if not result.success or not result.html:
+                    print(f"[AmazonScraper] Page {page} returned no HTML content.")
+                    break
+                soup = BeautifulSoup(result.html, "html.parser")
                 for item in soup.select("[data-component-type='s-search-result']"):
                     listing = self.extract_listing_data(item)
                     if listing:
                         listings.append(listing)
+            except ApiLimitError:
+                raise
             except Exception as e:
                 print(f"[AmazonScraper] Page {page} failed: {e}")
                 break
@@ -160,17 +180,39 @@ class AmazonScraper:
 
 
 class EbayScraper:
-    """Tier 1 ΓÇö stub for Week 1. Implement in Week 2."""
+    """
+    eBay scraper using UnifiedScraper (static HTML, no JS required).
+    HTML parsing of product cards is a TODO — currently returns raw markdown.
+    Cost: $0 (local resources, tracked under 'html_scraper').
+    """
 
-    def search(self, keyword: str, max_pages: int = 3) -> list[dict]:
-        return []  # TODO: implement
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, max_pages: int = 3, caller_id: str = "system") -> list[dict]:
+        # TODO: implement eBay-specific HTML card parser
+        # The unified scraper will auto-detect eBay as a static domain and
+        # use a plain HTTP request. Extract result.html with BeautifulSoup
+        # using eBay's product card selectors (e.g. .s-item, .s-item__title).
+        return []
 
 
 class AlibabaScraper:
-    """Tier 1 ΓÇö stub for Week 1. Implement in Week 2."""
+    """
+    Alibaba scraper using UnifiedScraper (static HTML, no JS required).
+    HTML parsing of product cards is a TODO — currently returns raw markdown.
+    Cost: $0 (local resources, tracked under 'html_scraper').
+    """
 
-    def search(self, keyword: str, max_pages: int = 3) -> list[dict]:
-        return []  # TODO: implement
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, max_pages: int = 3, caller_id: str = "system") -> list[dict]:
+        # TODO: implement Alibaba-specific HTML card parser
+        # The unified scraper will auto-detect Alibaba as a static domain and
+        # use a plain HTTP request. Extract result.html with BeautifulSoup
+        # using Alibaba's product card selectors (e.g. .list-item, .product-info).
+        return []
 
 
 class GoogleSERPAPI:
@@ -179,48 +221,32 @@ class GoogleSERPAPI:
     and checks them for brand infringement/cloning.
     """
 
-    def search(self, brand_name: str, max_pages: int = 3) -> list[str]:
+    def search(self, brand_name: str, max_pages: int = 3, caller_id: str = "system") -> list[str]:
         """
         Scrapes google search pages for brand_name, extracts URLs and returns domains.
-        
-        [TODO: MIGRATION TO OFFICIAL SERP API]
-        When changing to an official SERP API (like SerpApi, DataForSEO, or ScaleSERP):
-        1. Replace the `requests.get` block inside the loop with an API call to your provider.
-        2. Replace the BeautifulSoup HTML parsing (`soup.select("a[href]")`) with JSON parsing.
-           (e.g., `results = data.get("organic_results", [])` and extract `item.get("link")`).
-        3. You can likely remove `max_pages` loops if the API supports fetching 50-100 results in one call.
-        4. Remove the `time.sleep(1.0)` as APIs handle their own rate limiting.
         """
         domains = set()
         query = brand_name.replace(" ", "+")
-        # Standard domains to ignore
-        whitelisted = {
-            "google.com", "google.co.uk", "google.com.br", "youtube.com", "wikipedia.org",
-            "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com",
-            "pinterest.com", "reddit.com", "amazon.com", "ebay.com", "aliexpress.com",
-            "alibaba.com", "walmart.com", "target.com", "etsy.com", "tiktok.com",
-            "medium.com", "github.com", "quora.com", "glassdoor.com", "indeed.com",
-            "nytimes.com", "cnn.com", "forbes.com", "bloomberg.com", "reuters.com",
-            "yahoo.com", "bing.com", "duckduckgo.com"
-        }
         # Add brand-specific domain variations we know are official if any
         brand_domain = brand_name.lower().replace(" ", "")
-        whitelisted.add(f"{brand_domain}.com")
-        whitelisted.add(f"{brand_domain}.net")
-        whitelisted.add(f"{brand_domain}.org")
+        official_domains = {
+            f"{brand_domain}.com",
+            f"{brand_domain}.net",
+            f"{brand_domain}.org",
+        }
         
         for page in range(max_pages):
             start = page * 10
-            # [SERP API MIGRATION]: Replace this URL with your API provider's endpoint
             url = f"https://www.google.com/search?q={query}&start={start}"
             try:
-                # [SERP API MIGRATION]: Update headers/params with your API Key
-                resp = requests.get(url, headers=HEADERS, timeout=10)
+                resp = call_with_tracking(
+                    "google_serp", caller_id, "/check-brand",
+                    lambda: requests.get(url, headers=HEADERS, timeout=10)
+                )
                 if resp.status_code != 200:
                     print(f"[GoogleSERPAPI] Blocked or failed with status {resp.status_code}")
                     break
                 
-                # [SERP API MIGRATION]: Replace BeautifulSoup parsing with simple JSON parsing
                 soup = BeautifulSoup(resp.text, "html.parser")
                 links = []
                 for item in soup.select("a[href]"):
@@ -239,21 +265,32 @@ class GoogleSERPAPI:
                         netloc = parsed.netloc.lower()
                         if netloc.startswith("www."):
                             netloc = netloc[4:]
-                        if netloc and netloc not in whitelisted and not any(netloc.endswith("." + wl) for wl in whitelisted):
+                        
+                        # Filter out:
+                        # 1. Invalid netlocs
+                        # 2. Official brand domains
+                        # 3. Globally whitelisted top traffic domains
+                        if netloc:
+                            if netloc in official_domains or any(netloc.endswith("." + od) for od in official_domains):
+                                continue
+                            if whitelist_service.is_whitelisted(netloc):
+                                continue
                             domains.add(netloc)
                     except Exception:
                         pass
                 
-                # Small polite delay (Remove this if using an API)
+                # Small polite delay
                 time.sleep(1.0)
+            except ApiLimitError:
+                raise
             except Exception as e:
                 print(f"[GoogleSERPAPI] Error on page {page}: {e}")
                 break
         return list(domains)
 
-    def check_serp_domains(self, brand_name: str) -> list[dict]:
+    def check_serp_domains(self, brand_name: str, caller_id: str = "system") -> list[dict]:
         import whois
-        domains = self.search(brand_name)
+        domains = self.search(brand_name, caller_id=caller_id)
         
         # Fallback if Google blocked us and we got no domains:
         if not domains:
@@ -264,7 +301,10 @@ class GoogleSERPAPI:
         results = []
         for domain in list(domains)[:5]:
             try:
-                w = whois.whois(domain)
+                w = call_with_tracking(
+                    "whois", caller_id, "/check-brand",
+                    lambda: whois.whois(domain)
+                )
                 registrar = "unknown"
                 created_date = "unknown"
                 expiry_date = "unknown"
@@ -291,6 +331,8 @@ class GoogleSERPAPI:
                     "name_servers": list(name_servers),
                 })
                 time.sleep(0.5)
+            except ApiLimitError:
+                raise
             except Exception:
                 results.append({
                     "domain": domain,
@@ -305,7 +347,7 @@ class GoogleSERPAPI:
 
 class GoogleAdsAPI:
     """
-    Tier 2 ΓÇö Google Ads Transparency Center API.
+    Tier 2 — Google Ads Transparency Center API.
     Finds ads running for a brand keyword across Google Search + Display.
     Cost: $0 (official API, no auth required for basic queries).
     Falls back to BeautifulSoup scraping if the JSON API is unavailable.
@@ -319,14 +361,10 @@ class GoogleAdsAPI:
         brand_keyword: str,
         region: str = "US",
         official_advertisers: list[str] | None = None,
+        caller_id: str = "system",
     ) -> list[dict]:
         """
         Searches the Google Ads Transparency database for ads mentioning brand_keyword.
-        Args:
-            brand_keyword: The brand name to monitor
-            region: ISO country code (default US)
-        Returns:
-            List of ad records: advertiser, ad_text, destination_url, impressions, detected_date
         """
         try:
             params = {
@@ -334,7 +372,10 @@ class GoogleAdsAPI:
                 "region": region,
                 "format": "json",
             }
-            resp = requests.get(self.BASE_URL, params=params, headers=HEADERS, timeout=10)
+            resp = call_with_tracking(
+                "google_ads", caller_id, "/check-ads",
+                lambda: requests.get(self.BASE_URL, params=params, headers=HEADERS, timeout=10)
+            )
             if resp.status_code == 200:
                 try:
                     data = resp.json()
@@ -345,7 +386,9 @@ class GoogleAdsAPI:
                     pass
             # Fallback: scrape the Transparency Center page with BeautifulSoup
             print(f"[GoogleAdsAPI] JSON API unavailable (status {resp.status_code}), falling back to HTML scrape.")
-            return self._scrape_fallback(brand_keyword, official_advertisers)
+            return self._scrape_fallback(brand_keyword, official_advertisers, caller_id=caller_id)
+        except ApiLimitError:
+            raise
         except Exception as e:
             print(f"[GoogleAdsAPI] Error: {e}")
             return []
@@ -373,25 +416,30 @@ class GoogleAdsAPI:
         self,
         brand_keyword: str,
         official_advertisers: list[str] | None = None,
+        caller_id: str = "system",
     ) -> list[dict]:
-        """Fallback when the JSON API is unavailable (Google has no public API)."""
-        ads = self._scrape_html(brand_keyword, official_advertisers)
+        """Fallback when the JSON API is unavailable."""
+        ads = self._scrape_html(brand_keyword, official_advertisers, caller_id=caller_id)
         if ads:
             return ads
         if os.environ.get("FIRECRAWL_API_KEY") and os.environ.get("GEMINI_API_KEY"):
-            print("[GoogleAdsAPI] HTML scrape empty ΓÇö trying Firecrawl + Gemini extraction.")
-            return self._firecrawl_extract(brand_keyword, official_advertisers)
+            print("[GoogleAdsAPI] HTML scrape empty — trying Firecrawl + Gemini extraction.")
+            return self._firecrawl_extract(brand_keyword, official_advertisers, caller_id=caller_id)
         return []
 
     def _scrape_html(
         self,
         brand_keyword: str,
         official_advertisers: list[str] | None = None,
+        caller_id: str = "system",
     ) -> list[dict]:
         """BS4 scrape of adstransparency.google.com search page."""
         try:
             url = f"{self.FALLBACK_URL}?query={brand_keyword.replace(' ', '+')}&region=US"
-            resp = requests.get(url, headers=HEADERS, timeout=15)
+            resp = call_with_tracking(
+                "google_ads", caller_id, "/check-ads",
+                lambda: requests.get(url, headers=HEADERS, timeout=15)
+            )
             soup = BeautifulSoup(resp.text, "html.parser")
             raw: list[dict] = []
             for card in soup.select("[data-advertiser-name]"):
@@ -407,6 +455,8 @@ class GoogleAdsAPI:
                     "detected_date": "",
                 })
             return filter_hijacking_ads(raw, brand_keyword, official_advertisers)
+        except ApiLimitError:
+            raise
         except Exception as e:
             print(f"[GoogleAdsAPI] HTML scrape failed: {e}")
             return []
@@ -415,17 +465,22 @@ class GoogleAdsAPI:
         self,
         brand_keyword: str,
         official_advertisers: list[str] | None = None,
+        caller_id: str = "system",
     ) -> list[dict]:
         url = f"{self.FALLBACK_URL}?query={brand_keyword.replace(' ', '+')}&region=US"
-        result = scrape_page(url)
-        if not result.success or not result.markdown:
+        result = call_with_tracking(
+            "firecrawl", caller_id, "/google-ads-extract",
+            lambda: scrape_page(url),
+            credits_used=10
+        )
+        if not result or not result.success or not result.markdown:
             return []
-        return extract_ads_from_content(brand_keyword, "google_ads", result.markdown, official_advertisers)
+        return extract_ads_from_content(brand_keyword, "google_ads", result.markdown, official_advertisers, caller_id=caller_id)
 
 
 class MetaAdsAPI:
     """
-    Tier 2 ΓÇö Meta Ad Library API (Facebook/Instagram).
+    Tier 2 — Meta Ad Library API (Facebook/Instagram).
     Finds ads running on Facebook and Instagram using brand keywords.
     Requires META_ADS_ACCESS_TOKEN env var (free Meta developer account).
     Cost: $0.
@@ -438,15 +493,14 @@ class MetaAdsAPI:
         brand_keyword: str,
         country: str = "US",
         official_advertisers: list[str] | None = None,
+        caller_id: str = "system",
     ) -> list[dict]:
         """
         Queries the Meta Ad Library for ads mentioning brand_keyword.
-        Returns ads from non-official advertisers (potential hijackers).
-        Skips gracefully when META_ADS_ACCESS_TOKEN is not set.
         """
         access_token = os.environ.get("META_ADS_ACCESS_TOKEN")
         if not access_token:
-            print("[MetaAdsAPI] META_ADS_ACCESS_TOKEN not set ΓÇö skipping")
+            print("[MetaAdsAPI] META_ADS_ACCESS_TOKEN not set — skipping")
             return []
         try:
             params = {
@@ -457,7 +511,10 @@ class MetaAdsAPI:
                 "fields": "id,ad_creative_body,page_name,ad_snapshot_url,impressions,spend",
                 "limit": 50,
             }
-            resp = requests.get(self.BASE_URL, params=params, timeout=15)
+            resp = call_with_tracking(
+                "meta_ads", caller_id, "/check-ads",
+                lambda: requests.get(self.BASE_URL, params=params, timeout=15)
+            )
             if resp.status_code != 200:
                 err = resp.text[:300]
                 print(f"[MetaAdsAPI] Error {resp.status_code}: {err}")
@@ -469,6 +526,8 @@ class MetaAdsAPI:
                 return []
             data = resp.json()
             return self._parse_ads(data.get("data", []), brand_keyword, official_advertisers)
+        except ApiLimitError:
+            raise
         except Exception as e:
             print(f"[MetaAdsAPI] Exception: {e}")
             return []
@@ -492,65 +551,20 @@ class MetaAdsAPI:
         return filter_hijacking_ads(raw, brand_keyword, official_advertisers)
 
 
-# In-memory cache to avoid re-scraping same URL within 24h
-_firecrawl_cache: dict[str, tuple[ScrapeResult | None, datetime]] = {}
-_credit_log: list[dict] = []
-
-class FirecrawlScraper:
-    """
-    Tier 3 ΓÇö fallback for JS-heavy sites (AliExpress, Facebook Marketplace, TikTok).
-    Budget: 200ΓÇô400 credits/month. Use sparingly.
-    """
-
-    MONTHLY_CREDIT_BUDGET = 400
-
-    def scrape_with_fallback(self, url: str) -> ScrapeResult | None:
-        """
-        Smart fallback logic:
-        1. Check 24h in-memory cache ΓÇö return cached result if fresh
-        2. Check remaining credit estimate ΓÇö warn if low
-        3. Only then call Firecrawl
-        4. Log credit usage per URL
-        Never retry a failed URL on the same calendar day.
-        """
-        # 1. Check cache
-        if url in _firecrawl_cache:
-            cached_result, cached_at = _firecrawl_cache[url]
-            if datetime.now() - cached_at < timedelta(hours=24):
-                return cached_result
-
-        # 2. Check credit budget
-        credits_used_this_month = sum(entry["credits"] for entry in _credit_log)
-        if credits_used_this_month >= self.MONTHLY_CREDIT_BUDGET:
-            print(f"[FirecrawlScraper] Monthly budget exhausted. Skipping {url}")
-            return None
-        if credits_used_this_month > self.MONTHLY_CREDIT_BUDGET * 0.8:
-            print(f"[FirecrawlScraper] WARNING: 80% of monthly budget used.")
-
-        # 3. Call Firecrawl
-        try:
-            result = scrape_page(url)
-            if result.success:
-                _firecrawl_cache[url] = (result, datetime.now())
-                _credit_log.append({
-                    "url": url,
-                    "timestamp": datetime.now().isoformat(),
-                    "credits": 10,  # Estimate; update when Firecrawl returns actual usage
-                })
-                return result
-            else:
-                _firecrawl_cache[url] = (None, datetime.now())
-                return None
-        except Exception as e:
-            print(f"[FirecrawlScraper] Failed for {url}: {e}")
-            _firecrawl_cache[url] = (None, datetime.now())
-            return None
+# Note: FirecrawlScraper has been replaced by UnifiedScraper.
+# JS-heavy sites (AliExpress, TikTok, etc.) are handled by
+# UnifiedScraper._scrape_js() which delegates to Firecrawl internally.
+# The 24-hour cache is also managed inside UnifiedScraper.
 
 
 class MarketplaceScraper:
     """
-    Main aggregator. Routes each platform to the correct scraping tier.
-    Tier 1 (custom) ΓåÆ Tier 2 (APIs) ΓåÆ Tier 3 (Firecrawl fallback).
+    Main aggregator. Routes each platform to the correct scraping tier via UnifiedScraper.
+
+    Routing:
+      - Amazon, eBay, Alibaba → UnifiedScraper detects as static HTML (local resources)
+      - AliExpress, TikTok, etc. → UnifiedScraper detects as JS-heavy (Firecrawl)
+      - Unknown domains → UnifiedScraper heuristic probe + static-first fallback
     """
 
     def __init__(self):
@@ -560,16 +574,17 @@ class MarketplaceScraper:
         self.google_ads = GoogleAdsAPI()
         self.meta_ads = MetaAdsAPI()
         self.serp = GoogleSERPAPI()
-        self.firecrawl = FirecrawlScraper()  # Fallback only
+        self.unified = UnifiedScraper()  # General-purpose scraper for all other URLs
 
     def scrape_all_sources(
         self,
         brand_name: str,
         platforms: list[str],
         official_advertisers: list[str] | None = None,
-    ) -> dict:
+        caller_id: str = "system",
+    ) -> tuple[dict, list[str]]:
         """
-        Coordinates all tiers and returns a raw results dict.
+        Coordinates all tiers and returns a raw results dict and a list of blocked API keys.
         Only queries platforms that are in the requested platforms list.
         """
         results = {
@@ -578,31 +593,68 @@ class MarketplaceScraper:
             "domains": [],
             "timestamp": datetime.now().isoformat(),
         }
+        blocked_apis = []
 
         # --- Tier 1: Custom scrapers ---
         if "amazon" in platforms:
-            results["marketplaces"]["amazon"] = self.amazon.search(brand_name)
+            try:
+                results["marketplaces"]["amazon"] = self.amazon.search(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Amazon rate limit reached: {e}")
+                blocked_apis.append("amazon_scraper")
+            except Exception as e:
+                print(f"[MarketplaceScraper] Amazon search failed: {e}")
         if "ebay" in platforms:
-            results["marketplaces"]["ebay"] = self.ebay.search(brand_name)
+            try:
+                results["marketplaces"]["ebay"] = self.ebay.search(brand_name, caller_id=caller_id)
+            except Exception as e:
+                print(f"[MarketplaceScraper] eBay search failed: {e}")
         if "alibaba" in platforms:
-            results["marketplaces"]["alibaba"] = self.alibaba.search(brand_name)
+            try:
+                results["marketplaces"]["alibaba"] = self.alibaba.search(brand_name, caller_id=caller_id)
+            except Exception as e:
+                print(f"[MarketplaceScraper] Alibaba search failed: {e}")
 
-        # --- Tier 1 ΓåÆ Tier 3 fallback for AliExpress ---
+        # --- AliExpress: JS-heavy, routed to Firecrawl via UnifiedScraper ---
         if "aliexpress" in platforms:
-            aliexpress_url = f"https://www.aliexpress.com/wholesale?SearchText={brand_name.replace(' ', '+')}"
-            aliexpress_result = self.firecrawl.scrape_with_fallback(aliexpress_url)
-            results["marketplaces"]["aliexpress"] = aliexpress_result.markdown if aliexpress_result else ""
+            try:
+                aliexpress_url = f"https://www.aliexpress.com/wholesale?SearchText={brand_name.replace(' ', '+')}"
+                # UnifiedScraper knows aliexpress.com is JS-heavy and will use Firecrawl directly
+                aliexpress_result = self.unified.scrape(aliexpress_url, caller_id=caller_id)
+                results["marketplaces"]["aliexpress"] = aliexpress_result.markdown if aliexpress_result else ""
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Scraper rate limit reached for AliExpress: {e}")
+                blocked_apis.append(e.api_key)
+            except Exception as e:
+                print(f"[MarketplaceScraper] AliExpress search failed: {e}")
 
         # --- Tier 2: Official APIs ---
         if "google_ads" in platforms:
-            results["ads"]["google"] = self.google_ads.search(brand_name, official_advertisers=official_advertisers)
+            try:
+                results["ads"]["google"] = self.google_ads.search(brand_name, official_advertisers=official_advertisers, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Google Ads rate limit reached: {e}")
+                blocked_apis.append("google_ads")
+            except Exception as e:
+                print(f"[MarketplaceScraper] Google Ads search failed: {e}")
         if "meta_ads" in platforms:
-            results["ads"]["meta"] = self.meta_ads.search(brand_name, official_advertisers=official_advertisers)
-        # Accept either "whois", "domains", or "serp" as the platform key
+            try:
+                results["ads"]["meta"] = self.meta_ads.search(brand_name, official_advertisers=official_advertisers, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Meta Ads rate limit reached: {e}")
+                blocked_apis.append("meta_ads")
+            except Exception as e:
+                print(f"[MarketplaceScraper] Meta Ads search failed: {e}")
         if "whois" in platforms or "domains" in platforms or "serp" in platforms:
-            results["domains"] = self.serp.check_serp_domains(brand_name)
+            try:
+                results["domains"] = self.serp.check_serp_domains(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Google SERP/WHOIS rate limit reached: {e}")
+                blocked_apis.append(e.api_key)
+            except Exception as e:
+                print(f"[MarketplaceScraper] Domain search failed: {e}")
 
-        return results
+        return results, blocked_apis
 
 
 class ListingList(BaseModel):
@@ -624,6 +676,7 @@ def extract_ads_from_content(
     source: str,
     raw_content: str,
     official_advertisers: list[str] | None = None,
+    caller_id: str = "system",
 ) -> list[dict]:
     """Use Gemini to extract ad records from scraped Google/Meta transparency pages."""
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -650,7 +703,10 @@ Content:
 Return a JSON array. If nothing suspicious, return [].
 """
     structured_model = model.with_structured_output(RawAdList)
-    result = structured_model.invoke(prompt)
+    result = call_with_tracking(
+        "gemini_flash", caller_id, "/extract-ads",
+        lambda: structured_model.invoke(prompt)
+    )
     raw = [
         {"source": source, "advertiser": a.advertiser, "ad_text": a.ad_text, "destination_url": a.destination_url}
         for a in result.items
@@ -678,6 +734,7 @@ def extract_marketplace_evidence(
     brand_name: str,
     platform: str,
     raw_content: str,  # Markdown (Tier 3) or pre-serialized listing JSON (Tier 1)
+    caller_id: str = "system",
 ) -> list[MarketplaceEvidence]:
     """
     Uses Gemini to analyze raw scraped content and extract suspicious listings.
@@ -706,7 +763,10 @@ Return a JSON array. Fields: platform, seller_name, listing_url, price.
 If nothing suspicious, return [].
 """
     structured_model = model.with_structured_output(ListingList)
-    result = structured_model.invoke(prompt)
+    result = call_with_tracking(
+        "gemini_flash", caller_id, "/extract-marketplace-evidence",
+        lambda: structured_model.invoke(prompt)
+    )
     return result.items
 
 
@@ -714,21 +774,18 @@ def gather_evidence(
     brand_name: str,
     platforms: list[str],
     official_advertisers: list[str] | None = None,
+    caller_id: str = "system",
 ) -> Evidence:
     """
     Main entrypoint. Runs the 3-tier scraping pipeline and returns
     a fully populated Evidence object.
-
-    Tier 1 (custom) handles Amazon/eBay/Alibaba at $0 cost.
-    Tier 2 (APIs) handles ads and domain monitoring at $0 cost.
-    Tier 3 (Firecrawl) handles JS-heavy sites only, within credit budget.
     """
     # --- Mock mode: no API keys set ---
     if not os.environ.get("FIRECRAWL_API_KEY") and not os.environ.get("GEMINI_API_KEY"):
         return _mock_evidence(brand_name)
 
     scraper = MarketplaceScraper()
-    raw = scraper.scrape_all_sources(brand_name, platforms, official_advertisers)
+    raw, blocked_apis = scraper.scrape_all_sources(brand_name, platforms, official_advertisers, caller_id)
 
     all_marketplace_evidence = []
 
@@ -738,8 +795,15 @@ def gather_evidence(
             content_str = str(content)  # Tier 1 returns list of dicts
         else:
             content_str = content or ""  # Tier 3 returns markdown string
-        listings = extract_marketplace_evidence(brand_name, platform, content_str)
-        all_marketplace_evidence.extend(listings)
+        try:
+            listings = extract_marketplace_evidence(brand_name, platform, content_str, caller_id)
+            all_marketplace_evidence.extend(listings)
+        except ApiLimitError as e:
+            print(f"[gather_evidence] Gemini rate limit reached: {e}")
+            if "gemini_flash" not in blocked_apis:
+                blocked_apis.append("gemini_flash")
+        except Exception as e:
+            print(f"[gather_evidence] Gemini extraction failed for {platform}: {e}")
 
     # Convert WHOIS dicts to Pydantic DomainEvidence models
     domain_evidences = []
@@ -753,7 +817,7 @@ def gather_evidence(
             )
         )
 
-    # Map raw ad dicts ΓåÆ AdEvidence Pydantic models
+    # Map raw ad dicts → AdEvidence Pydantic models
     ad_evidences: list[AdEvidence] = []
     for ad in (raw["ads"].get("google", []) + raw["ads"].get("meta", [])):
         if isinstance(ad, AdEvidence):
@@ -766,6 +830,7 @@ def gather_evidence(
         ads=ad_evidences,
         domains=domain_evidences,
         social=[],
+        blocked_apis=blocked_apis,
         timestamp=datetime.now(),
     )
 
@@ -774,6 +839,7 @@ def check_ads_hijacking(
     brand_name: str,
     platforms: list[str] | None = None,
     official_advertisers: list[str] | None = None,
+    caller_id: str = "system",
 ) -> dict:
     """
     Scan Google + Meta ad libraries for hijacking ads targeting brand_name.
@@ -781,7 +847,7 @@ def check_ads_hijacking(
     """
     platforms = platforms or ["google_ads", "meta_ads"]
     scraper = MarketplaceScraper()
-    raw = scraper.scrape_all_sources(brand_name, platforms, official_advertisers)
+    raw, blocked_apis = scraper.scrape_all_sources(brand_name, platforms, official_advertisers, caller_id)
     google_ads = raw["ads"].get("google", [])
     meta_ads = raw["ads"].get("meta", [])
     all_ads = google_ads + meta_ads
@@ -796,6 +862,7 @@ def check_ads_hijacking(
         },
         "hijacking_ads": [_ad_dict_to_evidence(ad).model_dump() for ad in all_ads],
         "raw_ads": all_ads,
+        "blocked_apis": blocked_apis,
         "timestamp": raw["timestamp"],
     }
 
@@ -814,12 +881,12 @@ def _mock_evidence(brand_name: str) -> Evidence:
         ads=[
             AdEvidence(
                 platform="Google Ads",
-                ad_copy=f"Buy {brand_name} products ΓÇö Official Store",
+                ad_copy=f"Buy {brand_name} products — Official Store",
                 destination_url=f"https://mock-googleads-{brand_name.lower()}.com",
             ),
             AdEvidence(
                 platform="Meta Ads",
-                ad_copy=f"{brand_name} Sale ΓÇö Up to 90% off!",
+                ad_copy=f"{brand_name} Sale — Up to 90% off!",
                 destination_url=f"https://mock-metaads-{brand_name.lower()}.net",
             ),
         ],
@@ -838,6 +905,7 @@ def _mock_evidence(brand_name: str) -> Evidence:
             ),
         ],
         social=[],
+        blocked_apis=[],
         timestamp=datetime.now(),
     )
 
@@ -845,7 +913,6 @@ def _mock_evidence(brand_name: str) -> Evidence:
 def exchange_short_lived_meta_token(short_lived_token: str) -> dict:
     """
     Exchanges a short-lived user access token for a long-lived user access token.
-    Raises ValueError if META_APP_ID or META_APP_SECRET is not set, or if the API call fails.
     """
     app_id = os.environ.get("META_APP_ID")
     app_secret = os.environ.get("META_APP_SECRET")
@@ -876,7 +943,6 @@ def exchange_short_lived_meta_token(short_lived_token: str) -> dict:
 def update_env_meta_token(new_token: str) -> None:
     """
     Helper function to write the updated META_ADS_ACCESS_TOKEN back to the local .env file.
-    Only works if the .env file is found.
     """
     env_file = find_dotenv()
     if not env_file:
@@ -896,13 +962,10 @@ def update_env_meta_token(new_token: str) -> None:
             new_lines.append(line)
 
     if not updated:
-        # If it wasn't in the file, append it to the end
         new_lines.append(f"\nMETA_ADS_ACCESS_TOKEN={new_token}\n")
 
     with open(env_file, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
 
-    # Also update the current runtime environment variable
     os.environ["META_ADS_ACCESS_TOKEN"] = new_token
     print(f"[MetaAuth] Successfully updated META_ADS_ACCESS_TOKEN in {env_file}")
-

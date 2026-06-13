@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard } from "lucide-react";
+import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard, Activity } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +27,7 @@ export function AppSidebar() {
     ...(persona === "law_firm" ? [{ title: "Clients", url: "/clients", icon: Briefcase }] : []),
     { title: "Settings", url: "/settings", icon: Settings },
     { title: "Plans", url: "/plans", icon: CreditCard },
+    { title: "API Usage", url: "/api-usage", icon: Activity },
   ];
 
   const isActive = (url: string) => pathname.startsWith(url);

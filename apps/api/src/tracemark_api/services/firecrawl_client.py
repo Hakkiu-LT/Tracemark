@@ -86,4 +86,3 @@ def scrape_page(url: str) -> ScrapeResult:
             success=False,
             error_message=str(e)
         )
-
