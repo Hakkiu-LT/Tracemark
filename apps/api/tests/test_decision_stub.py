@@ -2,7 +2,8 @@ from tracemark_api.services.ai import Evidence, MarketplaceEvidence, make_decisi
 from datetime import datetime
 
 
-def test_make_decision_with_dummy_evidence():
+def test_make_decision_with_dummy_evidence(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     dummy_evidence = Evidence(
         marketplaces=[
             MarketplaceEvidence(
