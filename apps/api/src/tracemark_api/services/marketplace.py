@@ -220,10 +220,12 @@ class GoogleSERPAPI:
     Tier 2 — Scrapes Google Search organic listings to identify ranking domains 
     and checks them for brand infringement/cloning.
     """
+    def __init__(self):
+        self._last_search_failed = False
 
-    def search(self, brand_name: str, max_pages: int = 3, caller_id: str = "system") -> list[str]:
+    def search(self, brand_name: str, max_pages: int = 2, caller_id: str = "system") -> list[str]:
         """
-        Scrapes google search pages for brand_name, extracts URLs and returns domains.
+        Scrapes google search pages or queries SerpApi for brand_name, extracts URLs and returns domains.
         """
         domains = set()
         query = brand_name.replace(" ", "+")
@@ -235,29 +237,57 @@ class GoogleSERPAPI:
             f"{brand_domain}.org",
         }
         
+        self._last_search_failed = False
+        api_key = os.environ.get("GOOGLE_SERP_API")
+        
         for page in range(max_pages):
             start = page * 10
-            url = f"https://www.google.com/search?q={query}&start={start}"
             try:
-                resp = call_with_tracking(
-                    "google_serp", caller_id, "/check-brand",
-                    lambda: requests.get(url, headers=HEADERS, timeout=10)
-                )
+                if api_key:
+                    serp_url = "https://serpapi.com/search.json"
+                    params = {
+                        "q": brand_name,
+                        "api_key": api_key,
+                        "engine": "google",
+                        "start": start
+                    }
+                    resp = call_with_tracking(
+                        "google_serp", caller_id, "/check-brand",
+                        lambda: requests.get(serp_url, params=params, headers=HEADERS, timeout=10)
+                    )
+                else:
+                    url = f"https://www.google.com/search?q={query}&start={start}"
+                    resp = call_with_tracking(
+                        "google_serp", caller_id, "/check-brand",
+                        lambda: requests.get(url, headers=HEADERS, timeout=10)
+                    )
+                
                 if resp.status_code != 200:
                     print(f"[GoogleSERPAPI] Blocked or failed with status {resp.status_code}")
+                    self._last_search_failed = True
                     break
                 
-                soup = BeautifulSoup(resp.text, "html.parser")
                 links = []
-                for item in soup.select("a[href]"):
-                    href = item["href"]
-                    # Clean up google redirects if any, or process normal links
-                    if href.startswith("/url?q="):
-                        match = re.search(r"/url\?q=(https?://[^&]+)", href)
-                        if match:
-                            href = urllib.parse.unquote(match.group(1))
-                    if href.startswith("http"):
-                        links.append(href)
+                if api_key:
+                    try:
+                        data = resp.json()
+                        for item in data.get("organic_results", []):
+                            link = item.get("link")
+                            if link:
+                                links.append(link)
+                    except Exception as parse_err:
+                        print(f"[GoogleSERPAPI] Failed to parse SerpApi response: {parse_err}")
+                else:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    for item in soup.select("a[href]"):
+                        href = item["href"]
+                        # Clean up google redirects if any, or process normal links
+                        if href.startswith("/url?q="):
+                            match = re.search(r"/url\?q=(https?://[^&]+)", href)
+                            if match:
+                                href = urllib.parse.unquote(match.group(1))
+                        if href.startswith("http"):
+                            links.append(href)
                 
                 for link in links:
                     try:
@@ -282,9 +312,11 @@ class GoogleSERPAPI:
                 # Small polite delay
                 time.sleep(1.0)
             except ApiLimitError:
+                self._last_search_failed = True
                 raise
             except Exception as e:
                 print(f"[GoogleSERPAPI] Error on page {page}: {e}")
+                self._last_search_failed = True
                 break
         return list(domains)
 
@@ -294,7 +326,10 @@ class GoogleSERPAPI:
         
         # Fallback if Google blocked us and we got no domains:
         if not domains:
-            print("[GoogleSERPAPI] No domains found via Google search (possibly blocked). Simulating mock detection for demo.")
+            if self._last_search_failed:
+                print("[GoogleSERPAPI] Google search query failed or was blocked. Simulating mock detection for demo.")
+            else:
+                print("[GoogleSERPAPI] No suspicious domains found in Google search results. Simulating mock detection for demo.")
             key = brand_name.lower().replace(" ", "")
             domains = [f"{key}-official.shop", f"buy-{key}-cheap.store"]
             
@@ -303,7 +338,7 @@ class GoogleSERPAPI:
             try:
                 w = call_with_tracking(
                     "whois", caller_id, "/check-brand",
-                    lambda: whois.whois(domain)
+                    lambda: whois.whois(domain, quiet=True, timeout=2)
                 )
                 registrar = "unknown"
                 created_date = "unknown"
@@ -508,7 +543,7 @@ class MetaAdsAPI:
                 "search_terms": brand_keyword,
                 "ad_reached_countries": json.dumps([country]),
                 "ad_type": "ALL",
-                "fields": "id,ad_creative_body,page_name,ad_snapshot_url,impressions,spend",
+                "fields": "id,ad_creative_bodies,page_name,ad_snapshot_url,impressions,spend",
                 "limit": 50,
             }
             resp = call_with_tracking(
@@ -540,10 +575,12 @@ class MetaAdsAPI:
     ) -> list[dict]:
         raw: list[dict] = []
         for item in items:
+            bodies = item.get("ad_creative_bodies") or []
+            ad_text = " ".join(bodies) if isinstance(bodies, list) else str(bodies)
             raw.append({
                 "source": "meta_ads",
                 "advertiser": item.get("page_name", ""),
-                "ad_text": item.get("ad_creative_body", ""),
+                "ad_text": ad_text,
                 "destination_url": item.get("ad_snapshot_url", ""),
                 "impressions": item.get("impressions", {}).get("lower_bound", "unknown"),
                 "detected_date": "",

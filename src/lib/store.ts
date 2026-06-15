@@ -122,6 +122,7 @@ interface State {
   removeClient: (id: string) => void;
   updateCaseStatus: (id: string, status: CaseStatus) => void;
   setScanResult: (caseId: string, result: CheckBrandResponse) => void;
+  addInfringement: (i: Omit<Infringement, "id" | "detectedAt">) => void;
 }
 
 export const useStore = create<State>()(
@@ -173,6 +174,17 @@ export const useStore = create<State>()(
         set((s) => ({ infringements: s.infringements.map((i) => (i.id === id ? { ...i, status } : i)) })),
       setScanResult: (caseId, result) =>
         set((s) => ({ scanResults: { ...s.scanResults, [caseId]: result } })),
+      addInfringement: (i) =>
+        set((s) => ({
+          infringements: [
+            {
+              ...i,
+              id: `i${Date.now()}`,
+              detectedAt: new Date().toISOString(),
+            },
+            ...s.infringements,
+          ],
+        })),
     }),
     {
       name: "tracemark-store-v7",

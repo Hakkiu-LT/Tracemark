@@ -14,9 +14,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useScopedMarks, useStore, type Mark, type Infringement, type Platform } from "@/lib/store";
+import { useScopedMarks, useStore, type Mark, type Infringement, type Platform, type RiskLevel } from "@/lib/store";
 import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { checkBrandFullPipeline } from "@/lib/api";
 
 export const Route = createFileRoute("/monitoring")({
   head: () => ({
@@ -56,6 +57,8 @@ function MonitoringPage() {
   const restoreMark = useStore((s) => s.restoreMark);
   const toggleMarkStatus = useStore((s) => s.toggleMarkStatus);
   const updateMark = useStore((s) => s.updateMark);
+  const addInfringement = useStore((s) => s.addInfringement);
+  const setScanResult = useStore((s) => s.setScanResult);
 
   // Edit states
   const [editingMark, setEditingMark] = useState<Mark | null>(null);
@@ -93,6 +96,88 @@ function MonitoringPage() {
       },
       duration: 5000,
     });
+  };
+
+  const handleToggleStatus = async (id: string) => {
+    const mark = scopedMarks.find((m) => m.id === id);
+    if (!mark) return;
+    
+    // Toggle first so UI reflects
+    toggleMarkStatus(id);
+    
+    // If it was on_hold, it is now active -> trigger scan
+    if (mark.status === "on_hold") {
+      const toastId = toast.loading(`Scanning the web for ${mark.brandName}...`);
+      try {
+        const result = await checkBrandFullPipeline({ brand_name: mark.brandName });
+        
+        const hasRisk = result.decision.risk_level === "HIGH" || result.decision.risk_level === "MEDIUM";
+        if (hasRisk && (result.evidence.marketplaces.length > 0 || result.evidence.domains.length > 0 || result.evidence.ads.length > 0)) {
+          let platform: Platform = "Web Domain";
+          let copycatUrl = "";
+          let copycatName = "";
+          let screenshot = undefined;
+          let price = "Unknown";
+          
+          if (result.evidence.marketplaces.length > 0) {
+            const ev = result.evidence.marketplaces[0];
+            platform = ev.platform.toLowerCase().includes("amazon") ? "Amazon" : ev.platform.toLowerCase().includes("ebay") ? "eBay" : "AliExpress";
+            copycatUrl = ev.listing_url;
+            copycatName = ev.seller_name;
+            screenshot = ev.screenshot_url;
+            if (ev.price) price = ev.price;
+          } else if (result.evidence.domains.length > 0) {
+            platform = "Web Domain";
+            copycatUrl = result.evidence.domains[0].domain_name;
+            copycatName = result.evidence.domains[0].registrar || "Unknown";
+          } else if (result.evidence.ads.length > 0) {
+            platform = "Google";
+            copycatUrl = result.evidence.ads[0].destination_url;
+            copycatName = "Unauthorized Ad";
+          }
+          
+          addInfringement({
+            markId: mark.id,
+            clientId: mark.clientId,
+            brandName: mark.brandName,
+            risk: result.decision.risk_level.toLowerCase() as RiskLevel,
+            platform,
+            status: "active",
+            infringer: {
+              seller: copycatName,
+              storeUrl: copycatUrl,
+              country: "Unknown",
+              contact: "Unknown",
+              ip: "—"
+            },
+            evidence: {
+              url: copycatUrl,
+              timestamp: new Date().toISOString(),
+              userAgent: "Tracemark Scanner",
+              method: "Automated Scraping"
+            },
+            analysis: {
+              confidence: Math.round(result.decision.confidence_score * 100),
+              logoMatch: 0,
+              nameMatch: 0,
+              category: "Trademark Infringement",
+              rationale: result.decision.case_summary,
+            },
+            thumbnail: screenshot || mark.logoColor,
+            title: `Suspicious ${mark.brandName} Listing`,
+            price,
+          });
+          
+          setScanResult(result.case_id, result);
+          toast.success(`Copycat found for ${mark.brandName}! New case created.`, { id: toastId, duration: 5000 });
+        } else {
+          toast.error("cat not found", { id: toastId, duration: 5000 });
+        }
+      } catch (e) {
+        console.error("Scan failed:", e);
+        toast.error(`Scan failed for ${mark.brandName}.`, { id: toastId, duration: 5000 });
+      }
+    }
   };
 
   const handleSave = () => {
@@ -144,7 +229,7 @@ function MonitoringPage() {
               <MarksTable
                 marks={activeMarks}
                 infringements={infringements}
-                onToggleStatus={toggleMarkStatus}
+                onToggleStatus={handleToggleStatus}
                 onEdit={setEditingMark}
                 onRemove={handleRemove}
                 isActiveSection={true}
@@ -164,7 +249,7 @@ function MonitoringPage() {
               <MarksTable
                 marks={onHoldMarks}
                 infringements={infringements}
-                onToggleStatus={toggleMarkStatus}
+                onToggleStatus={handleToggleStatus}
                 onEdit={setEditingMark}
                 onRemove={handleRemove}
                 isActiveSection={false}
