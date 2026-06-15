@@ -1,7 +1,67 @@
 import pytest
+from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone, timedelta
 from tracemark_api.services.api_usage_tracker import tracker, UsageRecord, ApiLimitError, call_with_tracking, API_REGISTRY
 from tracemark_api.routes.usage import get_usage_stats
+
+@pytest.fixture(autouse=True)
+def mock_supabase():
+    db_data = []
+
+    class MockTable:
+        def __init__(self, name):
+            self.name = name
+            self._limit = None
+
+        def insert(self, payload):
+            data = payload.copy()
+            if "id" not in data:
+                data["id"] = "mock-uuid"
+            db_data.append(data)
+            res = MagicMock()
+            res.data = [data]
+            return res
+
+        def select(self, fields):
+            return self
+
+        def gte(self, field, value):
+            return self
+
+        def eq(self, field, value):
+            return self
+
+        def order(self, field, desc=False):
+            return self
+
+        def limit(self, count):
+            self._limit = count
+            return self
+
+        def delete(self):
+            return self
+
+        def neq(self, field, value):
+            db_data.clear()
+            res = MagicMock()
+            res.data = []
+            return res
+
+        def execute(self):
+            res = MagicMock()
+            res.data = list(db_data)  # return a copy to prevent mutation issues
+            if self._limit is not None:
+                res.data = res.data[:self._limit]
+            return res
+
+    mock_client = MagicMock()
+    mock_client.table.side_effect = lambda name: MockTable(name)
+
+    with patch("tracemark_api.services.database.get_supabase", return_value=mock_client):
+        # Reset tracker cache for each test
+        tracker._cache_counts = {}
+        tracker._cache_initialized = False
+        yield
 
 def test_tracker_singleton_exists():
     assert tracker is not None

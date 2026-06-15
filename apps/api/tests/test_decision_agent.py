@@ -114,6 +114,10 @@ class TestEvidenceScorer:
 # ---------------------------------------------------------------------------
 
 class TestDecisionAgent:
+    @pytest.fixture(autouse=True)
+    def remove_gemini_key(self, monkeypatch):
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
     def test_empty_evidence_returns_dismiss(self):
         decision = make_decision(empty_evidence())
         assert decision.recommended_action == "DISMISS"

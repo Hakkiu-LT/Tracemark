@@ -23,3 +23,10 @@ export function checkBrand(payload: CheckBrandRequest): Promise<CheckBrandRespon
     body: JSON.stringify(payload),
   });
 }
+
+export function checkBrandFullPipeline(payload: CheckBrandRequest): Promise<CheckBrandResponse> {
+  return apiFetch<CheckBrandResponse>("/monitoring/check-brand", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

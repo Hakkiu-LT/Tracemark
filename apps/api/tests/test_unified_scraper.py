@@ -106,6 +106,14 @@ class TestDetectRequiresJavascript:
         mock_get.side_effect = ConnectionError("timeout")
         assert detect_requires_javascript("https://example.com") is True
 
+    @patch("tracemark_api.services.unified_scraper.requests.get")
+    def test_antibot_html_signatures_returns_true(self, mock_get):
+        """A page containing Cloudflare or challenge signatures should return True."""
+        mock_get.return_value = self._make_response(
+            "<html><head><title>Just a moment...</title></head><body>cf-challenge/ray id</body></html>"
+        )
+        assert detect_requires_javascript("https://example.com") is True
+
 
 # ---------------------------------------------------------------------------
 # UnifiedScraper routing tests (mocked internal methods)
@@ -203,3 +211,21 @@ class TestScrapeWithFallback:
             result = scraper.scrape_with_fallback("https://example.com")
             mock_js.assert_called_once()
             assert result.scraper_used == SCRAPE_JS
+
+
+# ---------------------------------------------------------------------------
+# Scrape Static Antibot tests
+# ---------------------------------------------------------------------------
+
+class TestScrapeStaticAntibot:
+    @patch("tracemark_api.services.unified_scraper.call_with_tracking")
+    def test_scrape_static_with_antibot_returns_failure(self, mock_call):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = "<html><body>Access Denied: Cloudflare ray id</body></html>"
+        mock_call.return_value = mock_resp
+
+        scraper = UnifiedScraper()
+        result = scraper._scrape_static("https://example.com")
+        assert result.success is False
+        assert "Antibot" in result.error_message
