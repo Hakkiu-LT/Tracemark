@@ -19,7 +19,7 @@ class ApiDefinition:
     requires_env_var: str | None = None  # env var that must be set to use this API
 
 API_REGISTRY: list[ApiDefinition] = [
-    ApiDefinition("google_serp",     "Google SERP Scraper",              100,  RESET_DAILY,   "search"),
+    ApiDefinition("google_serp",     "Google SERP Scraper",              10,   RESET_DAILY,   "search", "GOOGLE_SERP_API"),
     ApiDefinition("whois",           "WHOIS Lookup",                     500,  RESET_DAILY,   "whois"),
     ApiDefinition("google_ads",      "Google Ads Transparency",          100,  RESET_DAILY,   "ads"),
     ApiDefinition("meta_ads",        "Meta Ad Library API",              200,  RESET_DAILY,   "ads",     "META_ADS_ACCESS_TOKEN"),
@@ -78,47 +78,73 @@ def parse_iso(iso_str: str) -> datetime:
 
 class ApiUsageTracker:
     def __init__(self):
-        self._records: list[UsageRecord] = []
-        # TODO: replace with Redis/PostgreSQL for persistence in production.
-        # When doing so, replace _records with async DB queries in each method below.
+        self._cache_counts: dict[str, int] = {}
+        self._cache_initialized = False
+
+    def _ensure_cache(self) -> None:
+        if self._cache_initialized:
+            return
+
+        for defn in API_REGISTRY:
+            self._cache_counts[defn.key] = 0
+
+        from tracemark_api.services.database import get_supabase
+        try:
+            sb = get_supabase()
+            now_utc = datetime.now(timezone.utc)
+            daily_start = datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
+            monthly_start = datetime(now_utc.year, now_utc.month, 1, tzinfo=timezone.utc)
+
+            # Query records since the monthly start window (covers both daily and monthly ranges)
+            res = sb.table("api_usage_records")\
+                .select("api_key, called_at, credits_used")\
+                .gte("called_at", monthly_start.isoformat())\
+                .execute()
+
+            for r in res.data:
+                api_key = r["api_key"]
+                called_at_str = r["called_at"]
+                credits_used = r.get("credits_used", 1)
+
+                defn = next((d for d in API_REGISTRY if d.key == api_key), None)
+                if not defn:
+                    continue
+
+                if defn.reset_period == RESET_DAILY:
+                    r_dt = parse_iso(called_at_str)
+                    if r_dt >= daily_start:
+                        self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
+                else:
+                    self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
+
+            self._cache_initialized = True
+        except Exception as e:
+            print(f"[ApiUsageTracker] Failed to initialize count cache from Supabase: {e}")
 
     def record(self, entry: UsageRecord) -> None:
-        """Append a usage record."""
-        self._records.append(entry)
+        """Append a usage record to Supabase and update the local cache."""
+        self._ensure_cache()
+        self._cache_counts[entry.api_key] = self._cache_counts.get(entry.api_key, 0) + entry.credits_used
 
-    def _get_window_records(self, api_key: str) -> list[UsageRecord]:
-        """
-        Returns records in the current reset window for api_key.
-        For RESET_DAILY: records since UTC midnight today.
-        For RESET_MONTHLY: records since the 1st of the current UTC month.
-        """
-        defn = next((d for d in API_REGISTRY if d.key == api_key), None)
-        if not defn:
-            return []
-
-        now_utc = datetime.now(timezone.utc)
-        if defn.reset_period == RESET_DAILY:
-            window_start = datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
-        else:
-            window_start = datetime(now_utc.year, now_utc.month, 1, tzinfo=timezone.utc)
-
-        matching_records = []
-        for r in self._records:
-            if r.api_key != api_key:
-                continue
-            try:
-                r_dt = parse_iso(r.called_at)
-                if r_dt >= window_start:
-                    matching_records.append(r)
-            except Exception:
-                # Fallback if invalid timestamp
-                pass
-        return matching_records
+        from tracemark_api.services.database import get_supabase
+        try:
+            sb = get_supabase()
+            sb.table("api_usage_records").insert({
+                "api_key": entry.api_key,
+                "caller_id": entry.caller_id,
+                "called_at": entry.called_at,
+                "success": entry.success,
+                "latency_ms": entry.latency_ms,
+                "endpoint": entry.endpoint,
+                "credits_used": entry.credits_used,
+            }).execute()
+        except Exception as e:
+            print(f"[ApiUsageTracker] Failed to persist usage record to Supabase: {e}")
 
     def get_used_count(self, api_key: str) -> int:
-        """Total calls (or credits for firecrawl) in the current window."""
-        records = self._get_window_records(api_key)
-        return sum(r.credits_used for r in records)
+        """Total calls (or credits) in the current window from local cache."""
+        self._ensure_cache()
+        return self._cache_counts.get(api_key, 0)
 
     def is_blocked(self, api_key: str) -> bool:
         """True if used_count >= free_limit for this api_key."""
@@ -129,6 +155,25 @@ class ApiUsageTracker:
 
     def get_usage_summary(self) -> list[ApiUsageSummary]:
         """Returns one ApiUsageSummary per entry in API_REGISTRY."""
+        self._ensure_cache()
+        from tracemark_api.services.database import get_supabase
+        sb = get_supabase()
+
+        last_called_map = {}
+        try:
+            # Fetch latest 200 records to quickly map last called times
+            res = sb.table("api_usage_records")\
+                .select("api_key, called_at")\
+                .order("called_at", desc=True)\
+                .limit(200)\
+                .execute()
+            for r in res.data:
+                api_key = r["api_key"]
+                if api_key not in last_called_map:
+                    last_called_map[api_key] = r["called_at"]
+        except Exception as e:
+            print(f"[ApiUsageTracker] Failed to query latest api calls: {e}")
+
         summaries = []
         for defn in API_REGISTRY:
             used_today = self.get_used_count(defn.key)
@@ -136,13 +181,7 @@ class ApiUsageTracker:
             percent_used = min(100.0, (used_today / defn.free_limit) * 100.0) if defn.free_limit > 0 else 0.0
             is_blocked = used_today >= defn.free_limit
 
-            # find last called
-            last_record = None
-            for r in reversed(self._records):
-                if r.api_key == defn.key:
-                    last_record = r
-                    break
-            last_called_at = last_record.called_at if last_record else None
+            last_called_at = last_called_map.get(defn.key)
             env_var_present = True if defn.requires_env_var is None else bool(os.environ.get(defn.requires_env_var))
 
             summaries.append(ApiUsageSummary(
@@ -163,28 +202,37 @@ class ApiUsageTracker:
 
     def get_by_developer(self) -> list[DeveloperUsageSummary]:
         """Groups today's records by caller_id."""
+        from tracemark_api.services.database import get_supabase
+        sb = get_supabase()
+
         now_utc = datetime.now(timezone.utc)
         today_start = datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
 
-        by_caller: dict[str, list[UsageRecord]] = {}
-        for r in self._records:
-            try:
-                r_dt = parse_iso(r.called_at)
-                if r_dt >= today_start:
-                    by_caller.setdefault(r.caller_id, []).append(r)
-            except Exception:
-                pass
+        by_caller: dict[str, dict[str, int]] = {}
+        total_calls: dict[str, int] = {}
+
+        try:
+            res = sb.table("api_usage_records")\
+                .select("caller_id, api_key")\
+                .gte("called_at", today_start.isoformat())\
+                .execute()
+
+            for r in res.data:
+                caller_id = r["caller_id"]
+                api_key = r["api_key"]
+
+                total_calls[caller_id] = total_calls.get(caller_id, 0) + 1
+                api_counts = by_caller.setdefault(caller_id, {})
+                api_counts[api_key] = api_counts.get(api_key, 0) + 1
+        except Exception as e:
+            print(f"[ApiUsageTracker] Failed to retrieve developer usage: {e}")
 
         summaries = []
-        for caller_id, records in by_caller.items():
-            total_calls_today = len(records)
-            by_api: dict[str, int] = {}
-            for r in records:
-                by_api[r.api_key] = by_api.get(r.api_key, 0) + 1
+        for caller_id, api_counts in by_caller.items():
             summaries.append(DeveloperUsageSummary(
                 caller_id=caller_id,
-                total_calls_today=total_calls_today,
-                by_api=by_api
+                total_calls_today=total_calls.get(caller_id, 0),
+                by_api=api_counts
             ))
         return summaries
 
@@ -193,20 +241,38 @@ class ApiUsageTracker:
         Returns the last 24 hours broken into 1-hour UTC buckets.
         If api_key is None, aggregates all APIs.
         """
+        from tracemark_api.services.database import get_supabase
+        sb = get_supabase()
+
         now_utc = datetime.now(timezone.utc)
+        start_24h = now_utc - timedelta(hours=24)
+
+        records = []
+        try:
+            query = sb.table("api_usage_records")\
+                .select("api_key, called_at")\
+                .gte("called_at", start_24h.isoformat())
+
+            if api_key is not None:
+                query = query.eq("api_key", api_key)
+
+            res = query.execute()
+            records = res.data
+        except Exception as e:
+            print(f"[ApiUsageTracker] Failed to fetch hourly stats: {e}")
+
         current_hour = now_utc.replace(minute=0, second=0, microsecond=0)
-        
+
         buckets = []
         for i in range(24):
             h = current_hour - timedelta(hours=23 - i)
             hour_label = h.strftime("%H:00")
             count = 0
-            for r in self._records:
+            for r in records:
                 try:
-                    r_dt = parse_iso(r.called_at)
+                    r_dt = parse_iso(r["called_at"])
                     if h <= r_dt < h + timedelta(hours=1):
-                        if api_key is None or r.api_key == api_key:
-                            count += 1
+                        count += 1
                 except Exception:
                     pass
             buckets.append(HourlyBucket(hour=hour_label, count=count))
@@ -214,7 +280,15 @@ class ApiUsageTracker:
 
     def reset_all(self) -> None:
         """Clears all records. For testing/manual reset only."""
-        self._records.clear()
+        self._cache_counts = {defn.key: 0 for defn in API_REGISTRY}
+        self._cache_initialized = True
+
+        from tracemark_api.services.database import get_supabase
+        try:
+            sb = get_supabase()
+            sb.table("api_usage_records").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        except Exception as e:
+            print(f"[ApiUsageTracker] Failed to clear database table: {e}")
 
 
 # Singleton — import this from other modules

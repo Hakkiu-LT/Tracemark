@@ -154,28 +154,62 @@ _SPA_MOUNT_SELECTORS = "#root, #app, #__next, [data-reactroot], #__nuxt"
 #: Ratio of visible text to raw HTML below which we assume a JS shell
 _LOW_TEXT_RATIO_THRESHOLD = 0.10
 
+#: Common signatures indicating an antibot or challenge page (Cloudflare, CAPTCHA, etc.)
+_ANTIBOT_SIGNATURES = (
+    "cloudflare",
+    "cf-challenge",
+    "cf-browser-verification",
+    "ray id",
+    "ddos-guard",
+    "sucuri",
+    "imperva",
+    "incapsula",
+    "distil networks",
+    "distilnetworks",
+    "recaptcha",
+    "hcaptcha",
+    "captcha",
+    "pardon our interruption",
+    "block key",
+    "access denied",
+    "security check",
+    "just a moment...",
+)
+
+
+def contains_antibot(html: str) -> bool:
+    """Check if the HTML contains common antibot/challenge signatures."""
+    if not html:
+        return False
+    html_lower = html.lower()
+    return any(sig in html_lower for sig in _ANTIBOT_SIGNATURES)
+
 
 def detect_requires_javascript(url: str, timeout: float = 5.0) -> bool:
     """
     Probe ``url`` with a plain HTTP GET and examine the raw HTML for
-    signals that the page is a JS-rendered SPA.
+    signals that the page is a JS-rendered SPA or protected by antibot/CAPTCHA.
 
-    Returns ``True`` if JS rendering is likely required, ``False`` otherwise.
+    Returns ``True`` if JS rendering or JS challenge bypass is likely required, ``False`` otherwise.
     On any network error, returns ``True`` (safer to assume JS is needed).
 
     Checks performed:
-    1. Empty SPA mount-point divs (React, Vue, Next.js, Nuxt)
-    2. Multiple framework script bundles in ``<script src="...">`` tags
-    3. ``<noscript>`` tag containing a "please enable JavaScript" message
-    4. Low text-to-HTML ratio (< 10 %)
+    1. Status codes (403, 429, 503, etc.)
+    2. Common antibot/CAPTCHA signatures in the HTML response
+    3. Empty SPA mount-point divs (React, Vue, Next.js, Nuxt)
+    4. Multiple framework script bundles in ``<script src="...">`` tags
+    5. ``<noscript>`` tag containing a "please enable JavaScript" message
+    6. Low text-to-HTML ratio (< 10 %)
     """
     try:
         resp = requests.get(url, headers=_HEADERS, timeout=timeout, allow_redirects=True)
-        if resp.status_code != 200:
+        if resp.status_code in (403, 429, 503) or resp.status_code != 200:
             # Non-200 often means bot detection / JS challenge
             return True
 
         raw_html = resp.text
+        if contains_antibot(raw_html):
+            return True
         soup = BeautifulSoup(raw_html, "html.parser")
 
         # 1. Empty SPA mount points
@@ -385,13 +419,16 @@ class UnifiedScraper:
                 lambda: requests.get(url, headers=_HEADERS, timeout=10, allow_redirects=True),
             )
 
-            if resp.status_code != 200:
+            if resp.status_code != 200 or contains_antibot(resp.text):
+                err_msg = f"HTTP {resp.status_code}"
+                if contains_antibot(resp.text):
+                    err_msg = "Antibot / CAPTCHA challenge detected"
                 return UnifiedScrapeResult(
                     url=url,
                     title=None,
                     markdown="",
                     success=False,
-                    error_message=f"HTTP {resp.status_code}",
+                    error_message=err_msg,
                     scraper_used=SCRAPE_STATIC,
                 )
 

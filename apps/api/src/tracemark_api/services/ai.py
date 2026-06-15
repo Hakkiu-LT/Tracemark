@@ -127,12 +127,6 @@ def build_agent_graph():
                 key_findings=[f"Found listing at {state['url']}"] if has_evidence else [],
             )}
 
-        model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro",
-            temperature=0.0,
-            google_api_key=api_key,
-        ).with_structured_output(Decision)
-
         prompt = (
             "You are a senior brand safety lawyer. Review the evidence to make a final enforcement decision.\n\n"
             f"URL: {state['url']}\n"
@@ -141,7 +135,26 @@ def build_agent_graph():
             "Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings."
         )
         from tracemark_api.services.api_usage_tracker import call_with_tracking
-        return {"decision": call_with_tracking("gemini_pro", "system", "/analyze", lambda: model.invoke(prompt))}
+        try:
+            model = ChatGoogleGenerativeAI(
+                model="gemini-2.5-pro",
+                temperature=0.0,
+                google_api_key=api_key,
+            ).with_structured_output(Decision)
+            decision = call_with_tracking("gemini_pro", "system", "/analyze", lambda: model.invoke(prompt))
+        except Exception as e:
+            print(f"[AI Agent] gemini-2.5-pro decision failed or limit reached: {e}. Falling back to gemini-2.5-flash.")
+            try:
+                model_flash = ChatGoogleGenerativeAI(
+                    model="gemini-2.5-flash",
+                    temperature=0.0,
+                    google_api_key=api_key,
+                ).with_structured_output(Decision)
+                decision = call_with_tracking("gemini_flash", "system", "/analyze", lambda: model_flash.invoke(prompt))
+            except Exception as flash_e:
+                print(f"[AI Agent] Fallback to gemini-2.5-flash also failed: {flash_e}")
+                raise flash_e
+        return {"decision": decision}
 
     workflow.add_node("gather_evidence", gather_evidence)
     workflow.add_node("make_decision", make_decision_node)
@@ -177,7 +190,14 @@ class DecisionAgentState(TypedDict):
 
 
 def _analyze_evidence_node(state: DecisionAgentState) -> DecisionAgentState:
+    from tracemark_api.services.evidence_scorer import score_evidence
+
     evidence = state["evidence"]
+    score = score_evidence(evidence)
+    if score.is_empty:
+        state["analysis_summary"] = "No evidence collected."
+        return state
+
     api_key = os.environ.get("GEMINI_API_KEY")
 
     if not api_key:
@@ -246,12 +266,6 @@ def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
         )
         return state
 
-    model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-pro",
-        temperature=0.0,
-        google_api_key=api_key,
-    ).with_structured_output(Decision)
-
     prompt = f"""
 You are a brand protection legal analyst. Based on the structured evidence below,
 make an enforcement decision.
@@ -285,27 +299,43 @@ Return risk_level, recommended_action, case_summary, confidence_score, evidence_
 """
     from tracemark_api.services.api_usage_tracker import call_with_tracking, ApiLimitError
     try:
+        model = ChatGoogleGenerativeAI(
+            model="gemini-2.5-pro",
+            temperature=0.0,
+            google_api_key=api_key,
+        ).with_structured_output(Decision)
         state["decision"] = call_with_tracking("gemini_pro", "system", "/check-brand", lambda: model.invoke(prompt))
-    except ApiLimitError as e:
-        state["error"] = str(e)
-        state["decision"] = Decision(
-            risk_level="LOW",
-            recommended_action="DISMISS",
-            case_summary=f"Gemini Pro limit reached: {e}",
-            confidence_score=0.0,
-            evidence_quality="WEAK",
-            key_findings=[],
-        )
     except Exception as e:
-        state["error"] = str(e)
-        state["decision"] = Decision(
-            risk_level="LOW",
-            recommended_action="DISMISS",
-            case_summary="Agent error — could not complete analysis.",
-            confidence_score=0.0,
-            evidence_quality="WEAK",
-            key_findings=[],
-        )
+        print(f"[AI Decision Node] gemini-2.5-pro failed or limit reached: {e}. Falling back to gemini-2.5-flash.")
+        try:
+            model_flash = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash",
+                temperature=0.0,
+                google_api_key=api_key,
+            ).with_structured_output(Decision)
+            state["decision"] = call_with_tracking("gemini_flash", "system", "/check-brand", lambda: model_flash.invoke(prompt))
+        except ApiLimitError as e_limit:
+            state["error"] = str(e_limit)
+            state["decision"] = Decision(
+                risk_level="LOW",
+                recommended_action="DISMISS",
+                case_summary=f"Gemini Flash limit reached during fallback: {e_limit}",
+                confidence_score=0.0,
+                evidence_quality="WEAK",
+                key_findings=[],
+            )
+        except Exception as e_flash:
+            import traceback
+            traceback.print_exc()
+            state["error"] = str(e_flash)
+            state["decision"] = Decision(
+                risk_level="LOW",
+                recommended_action="DISMISS",
+                case_summary="Agent error — could not complete analysis with fallback model.",
+                confidence_score=0.0,
+                evidence_quality="WEAK",
+                key_findings=[],
+            )
     return state
 
 

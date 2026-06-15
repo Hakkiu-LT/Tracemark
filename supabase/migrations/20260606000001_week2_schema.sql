@@ -1,10 +1,5 @@
--- Week 2: Rebuild schema with updated column structure
+-- Baseline schema with updated column structure
 
--- Drop existing tables (CASCADE removes dependent triggers and policies)
-DROP TABLE IF EXISTS public.decisions CASCADE;
-DROP TABLE IF EXISTS public.evidence CASCADE;
-DROP TABLE IF EXISTS public.cases CASCADE;
-DROP FUNCTION IF EXISTS update_updated_at() CASCADE;
 
 -- Cases table
 CREATE TABLE public.cases (
