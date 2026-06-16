@@ -6,6 +6,7 @@
 
 @theme inline {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -126,4 +127,39 @@
   .font-mono {
     font-family: var(--font-mono);
   }
+}
+
+/* ── Auth screen (dark forensic) ───────────────────────────────────── */
+/* Scoped body face — distinct from the app-wide Inter. */
+.font-body-alt {
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Fine film-grain texture for surface depth. */
+.auth-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Slow drift for ambient atmosphere blooms. */
+@keyframes auth-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -16px, 0) scale(1.06); }
+}
+.auth-drift {
+  animation: auth-drift 14s ease-in-out infinite;
+}
+
+/* Pulse for the live-detection status indicator. */
+@keyframes auth-ping-soft {
+  0% { transform: scale(1); opacity: 0.6; }
+  75%, 100% { transform: scale(2.4); opacity: 0; }
+}
+.auth-ping-soft {
+  animation: auth-ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
