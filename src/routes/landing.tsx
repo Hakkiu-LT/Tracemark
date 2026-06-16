@@ -113,10 +113,10 @@ function LandingPage() {
           </nav>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground">
-              <Link to="/login">Sign in</Link>
+              <Link to="/auth/sign-in">Sign in</Link>
             </Button>
             <Button asChild size="sm" className="bg-white text-primary hover:bg-white/90">
-              <Link to="/signup">Sign up</Link>
+              <Link to="/auth/sign-up">Sign up</Link>
             </Button>
           </div>
         </div>

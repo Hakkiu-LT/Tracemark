@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { UserMenu } from "@/components/user-menu";
 
 export function AppHeader() {
   const persona = useStore((s) => s.persona);
@@ -48,6 +49,7 @@ export function AppHeader() {
           <span className="h-1.5 w-1.5 rounded-full bg-success" />
           Scanners online
         </Badge>
+        <UserMenu />
       </div>
     </header>
   );

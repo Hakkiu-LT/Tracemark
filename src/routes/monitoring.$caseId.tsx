@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
+import { fetchCaseFromSupabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { DecisionCard } from "@/components/cases/decision-card";
 import { KeyFindings } from "@/components/cases/key-findings";
 import { EvidenceSection } from "@/components/cases/evidence-section";
-import { ChevronRight, FileText, ArrowLeft } from "lucide-react";
+import { ChevronRight, FileText, ArrowLeft, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/monitoring/$caseId")({
   head: ({ params }) => ({
@@ -31,6 +32,42 @@ function MonitoringScanResultPage() {
   const { caseId } = Route.useParams();
   const navigate = useNavigate();
   const result = useStore((s) => s.scanResults[caseId]);
+  const setScanResult = useStore((s) => s.setScanResult);
+  // Only show a loading state when we don't already have the result locally and
+  // still need to try fetching it from Supabase.
+  const [loading, setLoading] = useState(!result);
+
+  // Fallback: if the case isn't in the local store (e.g. created elsewhere or a
+  // hard refresh after the persisted state was cleared), load it from Supabase
+  // and hydrate the store so the takedown sub-route works too.
+  useEffect(() => {
+    if (result) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetchCaseFromSupabase(caseId)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setScanResult(caseId, data);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [caseId, result, setScanResult]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <p className="text-muted-foreground text-sm">Loading case…</p>
+      </div>
+    );
+  }
 
   if (!result) {
     return (
