@@ -12,8 +12,19 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider, RequireAuth } from "@/lib/auth";
 
 import appCss from "../styles.css?url";
+
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/landing",
+  "/legacy/login",
+  "/legacy/signup",
+  "/auth/sign-in",
+  "/auth/sign-up",
+  "/auth/callback",
+]);
 
 function NotFoundComponent() {
   return (
@@ -70,7 +81,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" },
     ],
   }),
   shellComponent: RootShell,
@@ -94,29 +105,33 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
-  const isPublic = pathname === "/" || pathname === "/landing" || pathname === "/login" || pathname === "/signup";
+  const isPublic = PUBLIC_PATHS.has(pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {isPublic ? (
-        <>
-          <Outlet />
-          <Toaster />
-        </>
-      ) : (
-        <SidebarProvider>
-          <div className="flex min-h-screen w-full">
-            <AppSidebar />
-            <SidebarInset className="flex min-w-0 flex-1 flex-col">
-              <AppHeader />
-              <main className="flex-1 p-4 md:p-6">
-                <Outlet />
-              </main>
-            </SidebarInset>
-          </div>
-          <Toaster />
-        </SidebarProvider>
-      )}
+      <AuthProvider>
+        {isPublic ? (
+          <>
+            <Outlet />
+            <Toaster />
+          </>
+        ) : (
+          <RequireAuth>
+            <SidebarProvider>
+              <div className="flex min-h-screen w-full">
+                <AppSidebar />
+                <SidebarInset className="flex min-w-0 flex-1 flex-col">
+                  <AppHeader />
+                  <main className="flex-1 p-4 md:p-6">
+                    <Outlet />
+                  </main>
+                </SidebarInset>
+              </div>
+              <Toaster />
+            </SidebarProvider>
+          </RequireAuth>
+        )}
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

@@ -9,11 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as MonitoringRouteImport } from './routes/monitoring'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ClientsRouteImport } from './routes/clients'
@@ -22,15 +20,15 @@ import { Route as ApiUsageRouteImport } from './routes/api-usage'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MonitoringNewRouteImport } from './routes/monitoring.new'
 import { Route as MonitoringCaseIdRouteImport } from './routes/monitoring.$caseId'
+import { Route as LegacySignupRouteImport } from './routes/legacy/signup'
+import { Route as LegacyLoginRouteImport } from './routes/legacy/login'
 import { Route as CasesCaseIdRouteImport } from './routes/cases.$caseId'
+import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
+import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as MonitoringCaseIdTakedownRouteImport } from './routes/monitoring.$caseId.takedown'
 import { Route as CasesCaseIdTakedownRouteImport } from './routes/cases.$caseId.takedown'
 
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -44,11 +42,6 @@ const PlansRoute = PlansRouteImport.update({
 const MonitoringRoute = MonitoringRouteImport.update({
   id: '/monitoring',
   path: '/monitoring',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LandingRoute = LandingRouteImport.update({
@@ -91,10 +84,35 @@ const MonitoringCaseIdRoute = MonitoringCaseIdRouteImport.update({
   path: '/$caseId',
   getParentRoute: () => MonitoringRoute,
 } as any)
+const LegacySignupRoute = LegacySignupRouteImport.update({
+  id: '/legacy/signup',
+  path: '/legacy/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegacyLoginRoute = LegacyLoginRouteImport.update({
+  id: '/legacy/login',
+  path: '/legacy/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CasesCaseIdRoute = CasesCaseIdRouteImport.update({
   id: '/$caseId',
   path: '/$caseId',
   getParentRoute: () => CasesRoute,
+} as any)
+const AuthSignUpRoute = AuthSignUpRouteImport.update({
+  id: '/auth/sign-up',
+  path: '/auth/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSignInRoute = AuthSignInRouteImport.update({
+  id: '/auth/sign-in',
+  path: '/auth/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const MonitoringCaseIdTakedownRoute =
   MonitoringCaseIdTakedownRouteImport.update({
@@ -115,12 +133,15 @@ export interface FileRoutesByFullPath {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
-  '/login': typeof LoginRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRoute
-  '/signup': typeof SignupRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/sign-in': typeof AuthSignInRoute
+  '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/legacy/login': typeof LegacyLoginRoute
+  '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
@@ -133,12 +154,15 @@ export interface FileRoutesByTo {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
-  '/login': typeof LoginRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRoute
-  '/signup': typeof SignupRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/sign-in': typeof AuthSignInRoute
+  '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/legacy/login': typeof LegacyLoginRoute
+  '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
@@ -152,12 +176,15 @@ export interface FileRoutesById {
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
-  '/login': typeof LoginRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRoute
-  '/signup': typeof SignupRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/sign-in': typeof AuthSignInRoute
+  '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/legacy/login': typeof LegacyLoginRoute
+  '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
@@ -172,12 +199,15 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/landing'
-    | '/login'
     | '/monitoring'
     | '/plans'
     | '/settings'
-    | '/signup'
+    | '/auth/callback'
+    | '/auth/sign-in'
+    | '/auth/sign-up'
     | '/cases/$caseId'
+    | '/legacy/login'
+    | '/legacy/signup'
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/cases/$caseId/takedown'
@@ -190,12 +220,15 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/landing'
-    | '/login'
     | '/monitoring'
     | '/plans'
     | '/settings'
-    | '/signup'
+    | '/auth/callback'
+    | '/auth/sign-in'
+    | '/auth/sign-up'
     | '/cases/$caseId'
+    | '/legacy/login'
+    | '/legacy/signup'
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/cases/$caseId/takedown'
@@ -208,12 +241,15 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/landing'
-    | '/login'
     | '/monitoring'
     | '/plans'
     | '/settings'
-    | '/signup'
+    | '/auth/callback'
+    | '/auth/sign-in'
+    | '/auth/sign-up'
     | '/cases/$caseId'
+    | '/legacy/login'
+    | '/legacy/signup'
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/cases/$caseId/takedown'
@@ -227,22 +263,18 @@ export interface RootRouteChildren {
   ClientsRoute: typeof ClientsRoute
   DashboardRoute: typeof DashboardRoute
   LandingRoute: typeof LandingRoute
-  LoginRoute: typeof LoginRoute
   MonitoringRoute: typeof MonitoringRouteWithChildren
   PlansRoute: typeof PlansRoute
   SettingsRoute: typeof SettingsRoute
-  SignupRoute: typeof SignupRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthSignInRoute: typeof AuthSignInRoute
+  AuthSignUpRoute: typeof AuthSignUpRoute
+  LegacyLoginRoute: typeof LegacyLoginRoute
+  LegacySignupRoute: typeof LegacySignupRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -262,13 +294,6 @@ declare module '@tanstack/react-router' {
       path: '/monitoring'
       fullPath: '/monitoring'
       preLoaderRoute: typeof MonitoringRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/landing': {
@@ -327,12 +352,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonitoringCaseIdRouteImport
       parentRoute: typeof MonitoringRoute
     }
+    '/legacy/signup': {
+      id: '/legacy/signup'
+      path: '/legacy/signup'
+      fullPath: '/legacy/signup'
+      preLoaderRoute: typeof LegacySignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legacy/login': {
+      id: '/legacy/login'
+      path: '/legacy/login'
+      fullPath: '/legacy/login'
+      preLoaderRoute: typeof LegacyLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cases/$caseId': {
       id: '/cases/$caseId'
       path: '/$caseId'
       fullPath: '/cases/$caseId'
       preLoaderRoute: typeof CasesCaseIdRouteImport
       parentRoute: typeof CasesRoute
+    }
+    '/auth/sign-up': {
+      id: '/auth/sign-up'
+      path: '/auth/sign-up'
+      fullPath: '/auth/sign-up'
+      preLoaderRoute: typeof AuthSignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/sign-in': {
+      id: '/auth/sign-in'
+      path: '/auth/sign-in'
+      fullPath: '/auth/sign-in'
+      preLoaderRoute: typeof AuthSignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/monitoring/$caseId/takedown': {
       id: '/monitoring/$caseId/takedown'
@@ -405,11 +465,14 @@ const rootRouteChildren: RootRouteChildren = {
   ClientsRoute: ClientsRoute,
   DashboardRoute: DashboardRoute,
   LandingRoute: LandingRoute,
-  LoginRoute: LoginRoute,
   MonitoringRoute: MonitoringRouteWithChildren,
   PlansRoute: PlansRoute,
   SettingsRoute: SettingsRoute,
-  SignupRoute: SignupRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  AuthSignInRoute: AuthSignInRoute,
+  AuthSignUpRoute: AuthSignUpRoute,
+  LegacyLoginRoute: LegacyLoginRoute,
+  LegacySignupRoute: LegacySignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
