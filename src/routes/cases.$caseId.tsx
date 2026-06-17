@@ -3,10 +3,10 @@ import { createFileRoute, Link, useNavigate, Outlet, useRouterState } from "@tan
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
+import { BoundingBoxOverlay } from "@/components/BoundingBoxOverlay";
 import { toast } from "sonner";
 import {
   ChevronRight,
-  ArrowLeft,
   ShieldCheck,
   Gavel,
   FileText,
@@ -19,7 +19,15 @@ import {
   Tag,
   Layers,
   Image,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
+
+const DEMO_BOXES = [
+  { x: 5, y: 8, w: 42, h: 18, label: "Trademark use", color: "#ef4444" },
+  { x: 52, y: 35, w: 38, h: 22, label: "Logo match 94%", color: "#f97316" },
+  { x: 8, y: 62, w: 55, h: 12, label: "Stolen asset", color: "#a855f7" },
+];
 
 export const Route = createFileRoute("/cases/$caseId")({
   head: ({ params }) => ({
@@ -44,6 +52,10 @@ function CaseDetail() {
   const i = useStore((s) => s.infringements.find((x) => x.id === caseId));
   const updateCaseStatus = useStore((s) => s.updateCaseStatus);
   const [visibleCards, setVisibleCards] = useState<number[]>([]);
+  const [reviews, setReviews] = useState<Record<number, "accepted" | "disputed" | null>>({});
+
+  const setReview = (idx: number, val: "accepted" | "disputed") =>
+    setReviews((r) => ({ ...r, [idx]: r[idx] === val ? null : val }));
 
   useEffect(() => {
     const delays = [120, 280, 440];
@@ -277,12 +289,10 @@ function CaseDetail() {
             </div>
             <div className="relative flex-1 bg-muted/20 flex items-center justify-center p-4 min-h-[400px]">
               <div className="w-full h-full rounded border border-border bg-card shadow-sm relative overflow-hidden group">
-                <img
-                  alt="Evidence Screenshot"
-                  className="w-full object-cover object-top opacity-90"
+                <BoundingBoxOverlay
                   src=".././src/images/evidence01.png"
+                  boxes={DEMO_BOXES}
                 />
-                {/* Bounding Box Overlay Simulation */}
                 </div>
               {/* Timestamp Overlay */}
               <div className="absolute bottom-6 right-6 bg-foreground text-background font-mono text-[11px] px-3 py-1.5 rounded opacity-90 shadow-lg border border-border/30 flex items-center gap-2">
@@ -307,50 +317,62 @@ function CaseDetail() {
                 </div>
                 <div className="space-y-6">
                   {/* Violation 1 */}
-                  <div className={`p-4 rounded border border-destructive/30 bg-destructive/5 transition-all duration-500 ${visibleCards.includes(0) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                  <div className={`p-4 rounded border transition-all duration-500 ${reviews[0] === "accepted" ? "border-green-500/40 bg-green-500/5" : reviews[0] === "disputed" ? "border-muted bg-muted/20" : "border-destructive/30 bg-destructive/5"} ${visibleCards.includes(0) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                     <div className="flex items-start gap-3">
                       <Tag className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                      <div>
-                        <h4 className="text-xs font-semibold text-foreground">
-                          Direct Trademark Use
-                        </h4>
+                      <div className="flex-1">
+                        <h4 className="text-xs font-semibold text-foreground">Direct Trademark Use</h4>
                         <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                          The term{" "}
-                          <span className="font-semibold text-foreground">
-                            "{i.brandName}"
-                          </span>{" "}
-                          is used explicitly in the product title and
-                          description, directly violating registered mark.
+                          The term <span className="font-semibold text-foreground">"{i.brandName}"</span> is used explicitly in the product title and description, directly violating registered mark.
                         </p>
+                        <div className="flex gap-2 mt-3">
+                          <Button size="sm" variant={reviews[0] === "accepted" ? "default" : "outline"} className="h-6 text-xs px-2 gap-1" onClick={() => setReview(0, "accepted")}>
+                            <CheckCircle className="h-3 w-3" /> Accept
+                          </Button>
+                          <Button size="sm" variant={reviews[0] === "disputed" ? "destructive" : "outline"} className="h-6 text-xs px-2 gap-1" onClick={() => setReview(0, "disputed")}>
+                            <XCircle className="h-3 w-3" /> Dispute
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
                   {/* Violation 2 */}
-                  <div className={`p-4 rounded border border-destructive/30 bg-destructive/5 transition-all duration-500 ${visibleCards.includes(1) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                  <div className={`p-4 rounded border transition-all duration-500 ${reviews[1] === "accepted" ? "border-green-500/40 bg-green-500/5" : reviews[1] === "disputed" ? "border-muted bg-muted/20" : "border-destructive/30 bg-destructive/5"} ${visibleCards.includes(1) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                     <div className="flex items-start gap-3">
                       <Layers className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                      <div>
-                        <h4 className="text-xs font-semibold text-foreground">
-                          Design Patent Infringement
-                        </h4>
+                      <div className="flex-1">
+                        <h4 className="text-xs font-semibold text-foreground">Design Patent Infringement</h4>
                         <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                          Computer vision models detected a {i.analysis.logoMatch}%
-                          structural match to the patented product design geometry.
+                          Computer vision models detected a {i.analysis.logoMatch}% structural match to the patented product design geometry.
                         </p>
+                        <div className="flex gap-2 mt-3">
+                          <Button size="sm" variant={reviews[1] === "accepted" ? "default" : "outline"} className="h-6 text-xs px-2 gap-1" onClick={() => setReview(1, "accepted")}>
+                            <CheckCircle className="h-3 w-3" /> Accept
+                          </Button>
+                          <Button size="sm" variant={reviews[1] === "disputed" ? "destructive" : "outline"} className="h-6 text-xs px-2 gap-1" onClick={() => setReview(1, "disputed")}>
+                            <XCircle className="h-3 w-3" /> Dispute
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
                   {/* Violation 3 */}
-                  <div className={`p-4 rounded border border-border bg-muted/40 transition-all duration-500 ${visibleCards.includes(2) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                  <div className={`p-4 rounded border transition-all duration-500 ${reviews[2] === "accepted" ? "border-green-500/40 bg-green-500/5" : reviews[2] === "disputed" ? "border-muted bg-muted/20" : "border-border bg-muted/40"} ${visibleCards.includes(2) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                     <div className="flex items-start gap-3">
                       <Image className="h-4 w-4 text-accent mt-0.5 shrink-0" />
-                      <div>
-                        <h4 className="text-xs font-semibold text-foreground">
-                          Stolen Asset Detection
-                        </h4>
+                      <div className="flex-1">
+                        <h4 className="text-xs font-semibold text-foreground">Stolen Asset Detection</h4>
                         <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                          Product images in the listing carousel match official marketing materials with high confidence ({i.analysis.nameMatch}%), indicating asset theft.
+                          Product images match official marketing materials with high confidence ({i.analysis.nameMatch}%), indicating asset theft.
                         </p>
+                        <div className="flex gap-2 mt-3">
+                          <Button size="sm" variant={reviews[2] === "accepted" ? "default" : "outline"} className="h-6 text-xs px-2 gap-1" onClick={() => setReview(2, "accepted")}>
+                            <CheckCircle className="h-3 w-3" /> Accept
+                          </Button>
+                          <Button size="sm" variant={reviews[2] === "disputed" ? "destructive" : "outline"} className="h-6 text-xs px-2 gap-1" onClick={() => setReview(2, "disputed")}>
+                            <XCircle className="h-3 w-3" /> Dispute
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>

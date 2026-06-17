@@ -577,11 +577,17 @@ class MetaAdsAPI:
         for item in items:
             bodies = item.get("ad_creative_bodies") or []
             ad_text = " ".join(bodies) if isinstance(bodies, list) else str(bodies)
+            ad_id = item.get("id", "")
+            clean_url = (
+                f"https://www.facebook.com/ads/library/?id={ad_id}"
+                if ad_id
+                else item.get("ad_snapshot_url", "")
+            )
             raw.append({
                 "source": "meta_ads",
                 "advertiser": item.get("page_name", ""),
                 "ad_text": ad_text,
-                "destination_url": item.get("ad_snapshot_url", ""),
+                "destination_url": clean_url,
                 "impressions": item.get("impressions", {}).get("lower_bound", "unknown"),
                 "detected_date": "",
             })
