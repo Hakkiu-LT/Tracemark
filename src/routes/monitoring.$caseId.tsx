@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { fetchCaseFromSupabase } from "@/lib/supabase";
+import { markCasesViewForRestore } from "@/lib/cases-view";
 import { Button } from "@/components/ui/button";
 import { DecisionCard } from "@/components/cases/decision-card";
 import { KeyFindings } from "@/components/cases/key-findings";
@@ -73,9 +74,15 @@ function MonitoringScanResultPage() {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
         <p className="text-muted-foreground text-sm">Scan result not found.</p>
-        <Button variant="outline" onClick={() => navigate({ to: "/monitoring" })}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            markCasesViewForRestore();
+            navigate({ to: "/cases" });
+          }}
+        >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Monitoring
+          Back to cases
         </Button>
       </div>
     );
@@ -88,7 +95,13 @@ function MonitoringScanResultPage() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <div className={`flex items-center gap-2 text-sm text-muted-foreground ${ANIM}`} style={animStyle(0)}>
-        <Link to="/monitoring" className="hover:text-accent transition-colors">Monitoring</Link>
+        <Link
+          to="/cases"
+          onClick={() => markCasesViewForRestore()}
+          className="hover:text-accent transition-colors"
+        >
+          Cases
+        </Link>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="font-semibold text-foreground font-mono">
           Check Brand Case #{caseId.slice(0, 8).toUpperCase()}
@@ -106,13 +119,13 @@ function MonitoringScanResultPage() {
         </div>
         <div className="flex gap-3">
           <Button variant="outline" asChild>
-            <Link to="/monitoring">
+            <Link to="/cases" onClick={() => markCasesViewForRestore()}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Monitoring
+              Back to cases
             </Link>
           </Button>
-          <Button asChild={hasReports} disabled={!hasReports}>
-            {hasReports ? (
+          {hasReports && (
+            <Button asChild>
               <Link to="/monitoring/$caseId/takedown" params={{ caseId }}>
                 <FileText className="h-4 w-4 mr-2" />
                 Takedown notices
@@ -120,13 +133,8 @@ function MonitoringScanResultPage() {
                   {result.takedown_reports.length}
                 </span>
               </Link>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 mr-2" />
-                Takedown notices
-              </>
-            )}
-          </Button>
+            </Button>
+          )}
         </div>
       </div>
 
