@@ -1,0 +1,144 @@
+"""
+Persistence helpers for individual infringement records.
+
+After the AI decision agent scores a whole case, these functions break that
+case down into individual flagged items (one per ad, listing, domain, or
+social profile) and upsert them into the `infringements` table.
+"""
+from __future__ import annotations
+
+from typing import Literal
+
+from tracemark_api.services.ai import (
+    AdEvidence,
+    DomainEvidence,
+    Evidence,
+    MarketplaceEvidence,
+    SocialEvidence,
+)
+from tracemark_api.services.database import get_supabase
+
+RiskLevel = Literal["HIGH", "MEDIUM", "LOW"]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 2: risk_scorer
+# ──────────────────────────────────────────────────────────────────────────────
+
+def risk_scorer(
+    item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
+) -> tuple[RiskLevel, float]:
+    """
+    Score a single evidence item and return (risk_level, match_score 0‥1).
+
+    Rules per type:
+    - MarketplaceEvidence: always HIGH (direct counterfeit sale). Score = 1.0.
+    - AdEvidence: always HIGH (paid brand impersonation). Score = 0.9.
+    - DomainEvidence: based on similarity_score.
+        >= 80 → HIGH (1.0), >= 50 → MEDIUM (0.6), else LOW (0.3).
+    - SocialEvidence: based on follower_count.
+        > 10 000 → HIGH (0.85), > 1 000 → MEDIUM (0.55), else LOW (0.25).
+    """
+    if isinstance(item, MarketplaceEvidence):
+        return "HIGH", 1.0
+
+    if isinstance(item, AdEvidence):
+        return "HIGH", 0.9
+
+    if isinstance(item, DomainEvidence):
+        sim = item.similarity_score  # 0–100
+        if sim >= 80:
+            return "HIGH", round(sim / 100, 2)
+        if sim >= 50:
+            return "MEDIUM", round(sim / 100, 2)
+        return "LOW", round(sim / 100, 2)
+
+    if isinstance(item, SocialEvidence):
+        count = item.follower_count or 0
+        if count > 10_000:
+            return "HIGH", 0.85
+        if count > 1_000:
+            return "MEDIUM", 0.55
+        return "LOW", 0.25
+
+    raise TypeError(f"Unsupported evidence type: {type(item)}")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 3: persist_infringement
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _item_url(item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence) -> str:
+    if isinstance(item, MarketplaceEvidence):
+        return item.listing_url
+    if isinstance(item, AdEvidence):
+        return item.destination_url
+    if isinstance(item, DomainEvidence):
+        return f"https://{item.domain_name}"
+    if isinstance(item, SocialEvidence):
+        return item.post_url or f"https://{item.platform.lower()}.com/{item.handle}"
+    return ""
+
+
+def _item_platform(item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence) -> str:
+    if isinstance(item, DomainEvidence):
+        return "domain"
+    return item.platform
+
+
+def _match_type(item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence) -> str:
+    """Rough heuristic: domains & social are keyword-matched; ads/marketplaces use both."""
+    if isinstance(item, (DomainEvidence, SocialEvidence)):
+        return "keyword"
+    return "both"
+
+
+def persist_infringement(
+    case_id: str,
+    item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
+) -> str:
+    """
+    Upsert one infringement record into the `infringements` table.
+
+    Uses source_url + case_id as the natural duplicate key — if the same URL
+    has already been stored for this case, the row is updated instead of
+    inserted again (idempotent).
+
+    Returns the row id.
+    """
+    risk_level, match_score = risk_scorer(item)
+    source_url = _item_url(item)
+
+    sb = get_supabase()
+    result = (
+        sb.table("infringements")
+        .upsert(
+            {
+                "case_id": case_id,
+                "source_url": source_url,
+                "platform": _item_platform(item),
+                "risk_level": risk_level,
+                "match_score": match_score,
+                "match_type": _match_type(item),
+                "status": "flagged",
+            },
+            on_conflict="case_id,source_url",
+        )
+        .execute()
+    )
+    return result.data[0]["id"]
+
+
+def persist_all_infringements(case_id: str, evidence: Evidence) -> list[str]:
+    """
+    Convenience wrapper: persist every item from an Evidence object.
+    Returns a list of infringement ids (one per item).
+    """
+    ids: list[str] = []
+    for item in (
+        list(evidence.marketplaces)
+        + list(evidence.ads)
+        + list(evidence.domains)
+        + list(evidence.social)
+    ):
+        ids.append(persist_infringement(case_id, item))
+    return ids
