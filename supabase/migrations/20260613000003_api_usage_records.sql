@@ -18,5 +18,6 @@ CREATE INDEX IF NOT EXISTS idx_api_usage_called_at ON public.api_usage_records(c
 ALTER TABLE public.api_usage_records ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated users to perform all actions (needed for frontend/backend interactions)
+DROP POLICY IF EXISTS "allow_all_authenticated" ON public.api_usage_records;
 CREATE POLICY "allow_all_authenticated" ON public.api_usage_records
     FOR ALL USING (auth.role() = 'authenticated');
