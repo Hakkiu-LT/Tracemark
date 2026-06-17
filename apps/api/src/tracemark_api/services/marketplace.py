@@ -20,11 +20,101 @@ from tracemark_api.services.api_usage_tracker import tracker, call_with_tracking
 # Import unified scraper
 from tracemark_api.services.unified_scraper import UnifiedScraper, UnifiedScrapeResult, SCRAPE_STATIC, SCRAPE_JS
 
+# In-memory screenshot cache: url -> permanent_supabase_url
+# Prevents re-screenshotting the same URL within the same server process.
+_screenshot_cache: dict[str, str | None] = {}
+
 # Common phrases used in brand-impersonation / ad-hijacking creatives
 _HIJACKING_SIGNALS = (
     "official", "authentic", "sale", "discount", "free shipping",
     "limited time", "up to", "% off", "shop now", "buy now", "clearance",
 )
+
+
+def _strip_token(url: str | None) -> str | None:
+    """Remove access_token query param from Meta snapshot URLs before storing."""
+    if not url:
+        return None
+    parsed = urllib.parse.urlparse(url)
+    params = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    params.pop("access_token", None)
+    clean_query = urllib.parse.urlencode(params, doseq=True)
+    return urllib.parse.urlunparse(parsed._replace(query=clean_query))
+
+
+def _cached_screenshot(url: str, prefix: str) -> str | None:
+    """
+    Return a permanent screenshot URL for the given URL, using cache to avoid
+    re-screenshotting the same URL twice.
+
+    Order: in-memory cache → Supabase DB → Firecrawl (new screenshot).
+    """
+    if url in _screenshot_cache:
+        return _screenshot_cache[url]
+
+    # Check DB for an existing screenshot of this URL
+    try:
+        from tracemark_api.services.database import get_supabase
+        sb = get_supabase()
+        row = (
+            sb.table("infringements")
+            .select("screenshot_url")
+            .eq("source_url", url)
+            .not_.is_("screenshot_url", "null")
+            .limit(1)
+            .execute()
+        )
+        if row.data:
+            existing = row.data[0]["screenshot_url"]
+            _screenshot_cache[url] = existing
+            return existing
+    except Exception:
+        pass
+
+    # No cache hit — take a new screenshot
+    from tracemark_api.services.firecrawl_client import screenshot_page
+    from tracemark_api.services.storage import upload_screenshot
+    temp_url = screenshot_page(url)
+    permanent = upload_screenshot(temp_url, prefix=prefix) if temp_url else None
+    _screenshot_cache[url] = permanent
+    return permanent
+
+
+def _screenshot_listing(listing_url: str | None) -> str | None:
+    """
+    Screenshot a marketplace listing URL via Firecrawl and upload to Supabase Storage.
+    Returns a permanent public URL or None on failure (bot detection, timeout, etc.).
+    """
+    if not listing_url:
+        return None
+    return _cached_screenshot(listing_url, prefix="marketplace")
+
+
+def _meta_screenshot(snapshot_url: str | None) -> str | None:
+    """
+    Screenshot a Meta ad snapshot URL via Firecrawl, then upload to Supabase Storage.
+    The token-bearing URL is used transiently — only the permanent Supabase URL is stored.
+    Falls back to the token-stripped URL if Firecrawl or Storage is unavailable.
+    """
+    if not snapshot_url:
+        return None
+    # Use stripped URL as cache key so token rotation doesn't cause re-screenshots
+    cache_key = _strip_token(snapshot_url) or snapshot_url
+    if cache_key in _screenshot_cache:
+        return _screenshot_cache[cache_key]
+
+    from tracemark_api.services.firecrawl_client import screenshot_page
+    from tracemark_api.services.storage import upload_screenshot
+    temp_url = screenshot_page(snapshot_url)
+    if temp_url:
+        permanent_url = upload_screenshot(temp_url, prefix="meta")
+        if permanent_url:
+            _screenshot_cache[cache_key] = permanent_url
+            return permanent_url
+
+    fallback = _strip_token(snapshot_url)
+    _screenshot_cache[cache_key] = fallback
+    return fallback
 
 
 def _normalize_name(value: str) -> str:
@@ -588,6 +678,7 @@ class MetaAdsAPI:
                 "advertiser": item.get("page_name", ""),
                 "ad_text": ad_text,
                 "destination_url": clean_url,
+                "screenshot_url": _meta_screenshot(item.get("ad_snapshot_url")),
                 "impressions": item.get("impressions", {}).get("lower_bound", "unknown"),
                 "detected_date": "",
             })
@@ -770,6 +861,7 @@ def _ad_dict_to_evidence(ad: dict) -> AdEvidence:
         platform=platform_label,
         ad_copy=copy,
         destination_url=ad.get("destination_url", ""),
+        screenshot_url=ad.get("screenshot_url") or None,
     )
 
 
@@ -840,6 +932,9 @@ def gather_evidence(
             content_str = content or ""  # Tier 3 returns markdown string
         try:
             listings = extract_marketplace_evidence(brand_name, platform, content_str, caller_id)
+            for listing in listings:
+                if listing.listing_url and not listing.screenshot_url:
+                    listing.screenshot_url = _screenshot_listing(listing.listing_url)
             all_marketplace_evidence.extend(listings)
         except ApiLimitError as e:
             print(f"[gather_evidence] Gemini rate limit reached: {e}")

@@ -108,6 +108,8 @@ def persist_infringement(
     risk_level, match_score = risk_scorer(item)
     source_url = _item_url(item)
 
+    screenshot_url = getattr(item, "screenshot_url", None)
+
     sb = get_supabase()
     result = (
         sb.table("infringements")
@@ -120,6 +122,7 @@ def persist_infringement(
                 "match_score": match_score,
                 "match_type": _match_type(item),
                 "status": "flagged",
+                "screenshot_url": screenshot_url,
             },
             on_conflict="case_id,source_url",
         )
