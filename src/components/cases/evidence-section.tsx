@@ -10,6 +10,36 @@ const animStyle = (delay: number): React.CSSProperties => ({
   animationFillMode: "both",
 });
 
+const isLinkable = (url: string | null | undefined): url is string => {
+  if (!url) return false;
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
+/** Renders a URL as a hyperlink only when it's an https link; otherwise plain text. Hidden when N/A. */
+function EvidenceUrl({ url, className }: { url: string; className?: string }) {
+  if (!url || url === "N/A") return null;
+  if (!isLinkable(url)) {
+    return (
+      <span className={`text-xs text-muted-foreground break-all ${className ?? ""}`}>{url}</span>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`text-xs text-accent hover:underline flex items-center gap-1 ${className ?? ""}`}
+    >
+      {url}
+      <ExternalLink className="h-3 w-3 shrink-0" />
+    </a>
+  );
+}
+
 export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
   const hasMarketplaces = evidence.marketplaces.length > 0;
   const hasDomains = evidence.domains.length > 0;
@@ -26,7 +56,9 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
         />
       )}
 
-      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Evidence Collected</h3>
+      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+        Evidence Collected
+      </h3>
 
       {/* Marketplaces */}
       <div className={ANIM} style={animStyle(0)}>
@@ -39,7 +71,9 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
               </span>
             </div>
             {!hasMarketplaces ? (
-              <p className="px-5 py-4 text-sm text-muted-foreground">No suspicious listings found.</p>
+              <p className="px-5 py-4 text-sm text-muted-foreground">
+                No suspicious listings found.
+              </p>
             ) : (
               <div className="divide-y divide-border">
                 {evidence.marketplaces.map((m, i) => (
@@ -49,16 +83,16 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                     style={animStyle(i * 50)}
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{m.seller_name}</p>
-                      <a
-                        href={m.listing_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-accent hover:underline flex items-center gap-1 mt-0.5"
-                      >
-                        {m.listing_url}
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
+                      {m.seller_name === "N/A" ? (
+                        <p className="text-sm italic text-muted-foreground">
+                          Product name and description not available
+                        </p>
+                      ) : (
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {m.seller_name}
+                        </p>
+                      )}
+                      <EvidenceUrl url={m.listing_url} className="mt-0.5" />
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       {m.screenshot_url && (
@@ -96,7 +130,9 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
               </span>
             </div>
             {!hasDomains ? (
-              <p className="px-5 py-4 text-sm text-muted-foreground">No suspicious domains detected.</p>
+              <p className="px-5 py-4 text-sm text-muted-foreground">
+                No suspicious domains detected.
+              </p>
             ) : (
               <div className="divide-y divide-border">
                 {evidence.domains.map((d, i) => (
@@ -108,7 +144,9 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                     <div className="min-w-0">
                       <p className="text-sm font-mono text-foreground truncate">{d.domain_name}</p>
                       {d.registrar && (
-                        <p className="text-xs text-muted-foreground mt-0.5">Registered by: {d.registrar}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Registered by: {d.registrar}
+                        </p>
                       )}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
@@ -164,15 +202,7 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                           {a.platform}
                         </span>
                       </div>
-                      <a
-                        href={a.destination_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-accent hover:underline flex items-center gap-1"
-                      >
-                        {a.destination_url}
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
+                      <EvidenceUrl url={a.destination_url} />
                     </div>
                     <p className="text-sm text-foreground">{a.ad_copy}</p>
                   </div>
