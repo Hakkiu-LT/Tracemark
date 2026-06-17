@@ -417,11 +417,10 @@ class GoogleSERPAPI:
         # Fallback if Google blocked us and we got no domains:
         if not domains:
             if self._last_search_failed:
-                print("[GoogleSERPAPI] Google search query failed or was blocked. Simulating mock detection for demo.")
+                print("[GoogleSERPAPI] Google search query failed or was blocked.")
             else:
-                print("[GoogleSERPAPI] No suspicious domains found in Google search results. Simulating mock detection for demo.")
-            key = brand_name.lower().replace(" ", "")
-            domains = [f"{key}-official.shop", f"buy-{key}-cheap.store"]
+                print("[GoogleSERPAPI] No suspicious domains found in Google search results.")
+            domains = []
             
         results = []
         for domain in list(domains)[:5]:

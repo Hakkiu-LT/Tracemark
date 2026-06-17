@@ -278,7 +278,7 @@ function ApiUsagePage() {
 
                   const statusVariant = 
                     api.is_blocked ? "destructive" :
-                    api.percent_used > 80 ? "warning" :
+                    api.percent_used > 80 ? "outline" :
                     "secondary";
 
                   return (
@@ -366,7 +366,7 @@ function ApiUsagePage() {
                         </span>
                       </div>
                     </div>
-                    <Badge variant={api.is_blocked ? "destructive" : api.percent_used > 80 ? "warning" : "secondary"}>
+                    <Badge variant={api.is_blocked ? "destructive" : api.percent_used > 80 ? "outline" : "secondary"}>
                       {api.is_blocked ? "BLOCKED" : api.percent_used > 80 ? "Warning" : "Active"}
                     </Badge>
                   </div>
