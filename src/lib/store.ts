@@ -51,6 +51,7 @@ export interface Infringement {
     timestamp: string;
     userAgent: string;
     method: string;
+    screenshot_url?: string;
   };
   analysis: {
     confidence: number;

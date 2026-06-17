@@ -290,7 +290,7 @@ function CaseDetail() {
             <div className="relative flex-1 bg-muted/20 flex items-center justify-center p-4 min-h-[400px]">
               <div className="w-full h-full rounded border border-border bg-card shadow-sm relative overflow-hidden group">
                 <BoundingBoxOverlay
-                  src=".././src/images/evidence01.png"
+                  src={i.evidence.screenshot_url ?? ".././src/images/evidence01.png"}
                   boxes={DEMO_BOXES}
                 />
                 </div>

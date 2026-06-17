@@ -11,11 +11,37 @@ class ScrapeResult:
     title: str | None
     markdown: str
     html: str | None = None
+    screenshot_url: str | None = None
     success: bool = True
     error_message: str | None = None
 
 
-def scrape_page(url: str) -> ScrapeResult:
+def screenshot_page(url: str) -> str | None:
+    """
+    Take a screenshot of a URL using Firecrawl.
+    Returns the screenshot URL (Firecrawl CDN) or None on failure.
+    The URL passed here may contain sensitive tokens — they are never stored,
+    only used transiently for the screenshot request.
+    """
+    api_key = os.environ.get("FIRECRAWL_API_KEY")
+    if not api_key or api_key == "your_firecrawl_api_key_here":
+        return None
+    try:
+        response = httpx.post(
+            "https://api.firecrawl.dev/v1/scrape",
+            json={"url": url, "formats": ["screenshot"]},
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            timeout=30.0,
+        )
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        return data.get("data", {}).get("screenshot") or None
+    except Exception:
+        return None
+
+
+def scrape_page(url: str, with_screenshot: bool = False) -> ScrapeResult:
     api_key = os.environ.get("FIRECRAWL_API_KEY")
     if not api_key:
         if "example.com" in url or "test" in url:
@@ -33,9 +59,12 @@ def scrape_page(url: str) -> ScrapeResult:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
+        formats = ["markdown", "html"]
+        if with_screenshot:
+            formats.append("screenshot")
         payload = {
             "url": url,
-            "formats": ["markdown", "html"]
+            "formats": formats,
         }
         
         response = httpx.post(
@@ -69,12 +98,14 @@ def scrape_page(url: str) -> ScrapeResult:
         title = metadata.get("title")
         markdown = scrape_data.get("markdown", "")
         html = scrape_data.get("html", "")
-        
+        screenshot_url = scrape_data.get("screenshot") or None
+
         return ScrapeResult(
             url=url,
             title=title,
             markdown=markdown,
             html=html,
+            screenshot_url=screenshot_url,
             success=True
         )
         
