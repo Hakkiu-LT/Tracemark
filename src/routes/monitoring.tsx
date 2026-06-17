@@ -60,6 +60,9 @@ function MonitoringPage() {
   const addInfringement = useStore((s) => s.addInfringement);
   const setScanResult = useStore((s) => s.setScanResult);
 
+  // Track active AbortControllers and toast IDs by mark ID
+  const activeScansRef = React.useRef<Map<string, { controller: AbortController; toastId: string | number }>>(new Map());
+
   // Edit states
   const [editingMark, setEditingMark] = useState<Mark | null>(null);
   const [editBrandName, setEditBrandName] = useState("");
@@ -77,6 +80,17 @@ function MonitoringPage() {
       setEditPlatforms(new Set(editingMark.platforms));
     }
   }, [editingMark]);
+
+  useEffect(() => {
+    return () => {
+      // Abort all active scans on unmount to avoid memory leaks
+      activeScansRef.current.forEach((scan) => {
+        scan.controller.abort();
+        toast.dismiss(scan.toastId);
+      });
+      activeScansRef.current.clear();
+    };
+  }, []);
 
   const activeMarks = scopedMarks.filter((m) => m.status !== "on_hold");
   const onHoldMarks = scopedMarks.filter((m) => m.status === "on_hold");
@@ -107,9 +121,14 @@ function MonitoringPage() {
     
     // If it was on_hold, it is now active -> trigger scan
     if (mark.status === "on_hold") {
+      const controller = new AbortController();
       const toastId = toast.loading(`Scanning the web for ${mark.brandName}...`);
+      activeScansRef.current.set(id, { controller, toastId });
+      
       try {
-        const result = await checkBrandFullPipeline({ brand_name: mark.brandName });
+        const result = await checkBrandFullPipeline({ brand_name: mark.brandName }, controller.signal);
+        
+        activeScansRef.current.delete(id);
         
         const hasRisk = result.decision.risk_level === "HIGH" || result.decision.risk_level === "MEDIUM";
         if (hasRisk && (result.evidence.marketplaces.length > 0 || result.evidence.domains.length > 0 || result.evidence.ads.length > 0)) {
@@ -171,12 +190,34 @@ function MonitoringPage() {
           setScanResult(result.case_id, result);
           toast.success(`Copycat found for ${mark.brandName}! New case created.`, { id: toastId, duration: 5000 });
         } else {
-          toast.error("cat not found", { id: toastId, duration: 5000 });
+          toast.error("No cats found", {
+            id: toastId,
+            duration: 5000,
+            style: {
+              border: "2px solid #ef4444",
+              backgroundColor: "#fef2f2",
+              color: "#991b1b",
+            }
+          });
         }
-      } catch (e) {
+      } catch (e: any) {
+        activeScansRef.current.delete(id);
+        if (e.name === "AbortError" || e.message?.includes("aborted")) {
+          console.log(`Scan for ${mark.brandName} aborted.`);
+          return;
+        }
         console.error("Scan failed:", e);
         toast.error(`Scan failed for ${mark.brandName}.`, { id: toastId, duration: 5000 });
       }
+    } else {
+      // It was active, now it is paused (on_hold)
+      const activeScan = activeScansRef.current.get(id);
+      if (activeScan) {
+        activeScan.controller.abort();
+        toast.dismiss(activeScan.toastId);
+        activeScansRef.current.delete(id);
+      }
+      toast.success("Monitoring stopped", { duration: 5000 });
     }
   };
 
