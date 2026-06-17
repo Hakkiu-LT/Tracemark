@@ -24,9 +24,10 @@ export function checkBrand(payload: CheckBrandRequest): Promise<CheckBrandRespon
   });
 }
 
-export function checkBrandFullPipeline(payload: CheckBrandRequest): Promise<CheckBrandResponse> {
+export function checkBrandFullPipeline(payload: CheckBrandRequest, signal?: AbortSignal): Promise<CheckBrandResponse> {
   return apiFetch<CheckBrandResponse>("/monitoring/check-brand", {
     method: "POST",
     body: JSON.stringify(payload),
+    signal,
   });
 }
