@@ -173,7 +173,8 @@ function MonitoringPage() {
               url: copycatUrl,
               timestamp: new Date().toISOString(),
               userAgent: "Tracemark Scanner",
-              method: "Automated Scraping"
+              method: "Automated Scraping",
+              screenshot_url: screenshot,
             },
             analysis: {
               confidence: Math.round(result.decision.confidence_score * 100),

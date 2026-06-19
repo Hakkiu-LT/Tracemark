@@ -4,6 +4,7 @@ from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
 from tracemark_api.services.database import create_case, save_evidence, save_decision, update_case_status
+from tracemark_api.services.persistence import persist_all_infringements
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
 from tracemark_api.dependencies import get_current_user
 
@@ -145,6 +146,10 @@ def check_brand(
             caller_id=caller_id,
         )
         save_evidence(case_id, evidence)
+        try:
+            persist_all_infringements(case_id, evidence)
+        except Exception as persist_err:
+            print(f"[warn] persist_all_infringements failed for {case_id}: {persist_err}")
         decision = make_decision(evidence)
         save_decision(case_id, decision)
         reports = generate_takedown_reports(
