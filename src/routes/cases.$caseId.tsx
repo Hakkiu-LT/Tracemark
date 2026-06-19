@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { BoundingBoxOverlay } from "@/components/BoundingBoxOverlay";
 import { toast } from "sonner";
+import { ensureAbsoluteUrl } from "@/lib/utils";
 import {
   ChevronRight,
   ShieldCheck,
@@ -253,7 +254,7 @@ function CaseDetail() {
                   </span>
                   <a
                     className="font-mono text-xs text-accent hover:underline truncate block w-full"
-                    href={i.evidence.url}
+                    href={ensureAbsoluteUrl(i.evidence.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     title={i.evidence.url}
@@ -298,7 +299,7 @@ function CaseDetail() {
                 asChild
               >
                 <a
-                  href={i.evidence.url}
+                  href={ensureAbsoluteUrl(i.evidence.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

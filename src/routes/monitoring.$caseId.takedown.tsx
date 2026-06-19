@@ -4,6 +4,7 @@ import { useStore } from "@/lib/store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ensureAbsoluteUrl } from "@/lib/utils";
 import { EvidenceScreenshotSection } from "@/components/cases/evidence-screenshot-section";
 import type { TakedownReport } from "@/lib/api.types";
 import {
@@ -245,7 +246,7 @@ function TakedownNoticesPage() {
                       <MethodBadge method={selected.submission_method} />
                     </div>
                     <a
-                      href={selected.infringing_url}
+                      href={ensureAbsoluteUrl(selected.infringing_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-accent hover:underline flex items-center gap-1 font-mono"

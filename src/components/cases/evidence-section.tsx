@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EvidenceScreenshotDialog } from "@/components/cases/evidence-screenshot-dialog";
 import type { EvidenceResponse } from "@/lib/api.types";
 import { Globe, ShoppingCart, Megaphone, ExternalLink, Image } from "lucide-react";
+import { ensureAbsoluteUrl } from "@/lib/utils";
 
 const ANIM = "animate-in fade-in-0 slide-in-from-bottom-3 duration-500";
 const animStyle = (delay: number): React.CSSProperties => ({
@@ -13,7 +14,9 @@ const animStyle = (delay: number): React.CSSProperties => ({
 const isLinkable = (url: string | null | undefined): url is string => {
   if (!url) return false;
   try {
-    return new URL(url).protocol === "https:";
+    const formatted = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    new URL(formatted);
+    return true;
   } catch {
     return false;
   }
@@ -29,7 +32,7 @@ function EvidenceUrl({ url, className }: { url: string; className?: string }) {
   }
   return (
     <a
-      href={url}
+      href={ensureAbsoluteUrl(url)}
       target="_blank"
       rel="noopener noreferrer"
       className={`text-xs text-accent hover:underline flex items-center gap-1 ${className ?? ""}`}
@@ -142,7 +145,15 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                     style={animStyle(100 + i * 50)}
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-mono text-foreground truncate">{d.domain_name}</p>
+                      <a
+                        href={ensureAbsoluteUrl(d.domain_name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-mono text-accent hover:underline inline-flex items-center gap-1 max-w-full truncate"
+                      >
+                        <span className="truncate">{d.domain_name}</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
                       {d.registrar && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           Registered by: {d.registrar}
