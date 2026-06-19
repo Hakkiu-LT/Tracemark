@@ -58,7 +58,7 @@ pytest tests/test_document_persistence.py
 - [ ] Build `<DocumentGeneratorView />` component with a two-column layout:
   - **Left panel:** Editable `<textarea>` pre-filled with AI-generated letter text (fetched from `GET /api/v1/documents/preview?infringement_id=&type=dmca`). Includes a type selector toggle: `DMCA Notice` / `Cease & Desist`.
   - **Right panel:** Evidence package — screenshot thumbnail, metadata table (URL, IP, Timestamp), risk badge, and AI analysis summary.
-- [ ] Add `<DocumentActions />` bar at the bottom: **"Download PDF"** button (calls `POST /api/v1/documents/generate` with `format: pdf`), **"Download Docx"** button (`format: docx`), **"Send via Webhook"** button (stubbed for Week 2).
+- [ ] Add `<DocumentActions />` bar at the bottom: **"Download PDF"** button (calls `POST /api/v1/documents/generate` with `format: pdf`), **"Download Docx"** button (`format: docx`), **"Send via Email"** button (stubbed for Week 2).
 - [ ] Create `GET /api/v1/documents/preview` endpoint in FastAPI — builds document context, renders template as plain text string, returns JSON `{ "letter_text": str, "metadata": dict }`.
 - [ ] Wire `useDocumentGenerator` custom hook to manage type toggle state, edits to the letter text, and download calls.
 

@@ -1,45 +1,43 @@
-# Phase 3 — Week 2: Webhook Integrations & Notification Delivery
+# Phase 3 — Week 2: Email Notification Delivery
 
-> **Goal:** Wire outbound integrations — Slack notifications, Zapier triggers, and direct document delivery — so that every takedown action automatically notifies the right people and systems.
+> **Goal:** Wire outbound notifications — Email notifications and direct document delivery — so that every infringement found and takedown action automatically alerts the user via email.
 
 ---
 
-## Engineer A — Slack & Zapier Webhook Service (Python Backend)
+## Engineer A — Email Notification Service (Python Backend)
 
-**Focus:** Build the outbound webhook service that fires on key case events and delivers structured payloads to Slack and Zapier.
+**Focus:** Build the outbound email notification service that fires on key case events and sends structured emails to the user.
 
 ### Tasks
-- [ ] Create `tracemark_api/services/webhooks.py` — implement `send_slack_notification(event: dict) -> None` using `requests` or `httpx` against `SLACK_WEBHOOK_URL`.
-- [ ] Slack Block Kit payload structure for a `new_infringement` event:
-  - Header block: `🔴 New HIGH Risk Infringement — {brand_name}`
-  - Section: Platform, infringing URL, risk level badge emoji (🔴/🟡/🟢).
-  - Actions block: two buttons — "View Case" (deep-link to `/cases/{id}`) and "Generate Takedown" (deep-link to `/documents/generate?infringement_id={id}`).
-- [ ] Implement `send_zapier_trigger(event: dict) -> None` — POST structured JSON to `ZAPIER_WEBHOOK_URL`. Payload: `{ eventType, brandName, riskLevel, platform, infringingUrl, caseUrl, generatedDocumentUrl, triggeredAt }`.
-- [ ] Define helper functions for events: `new_infringement`, `takedown_generated`, `case_escalated`, `case_dismissed`.
-- [ ] Implement `dispatch_webhooks(event: dict) -> None` — fires Slack + Zapier concurrently, catching and logging failures without crashing.
-- [ ] Write integration tests in `apps/api/tests/test_webhooks.py` using `responses` to mock HTTP queries and assert payload shapes.
+- [ ] Create `tracemark_api/services/notifications.py` — implement `send_email_notification(event: dict, recipient_email: str) -> None` using an email dispatch mechanism (e.g., SMTP or a configured third-party mailer service).
+- [ ] Email template for a `new_infringement` event:
+  - Subject: `🔴 New HIGH Risk Infringement Found — {brand_name}`
+  - Body: Include platform, infringing URL, risk level, and a link to view the case at `{app_url}/cases/{id}`.
+- [ ] Define helper functions/templates for events: `new_infringement`, `takedown_generated`, `case_escalated`, `case_dismissed`.
+- [ ] Implement `dispatch_notifications(event: dict) -> None` — resolves user's email and sends the notification, catching and logging failures without crashing.
+- [ ] Write integration tests in `apps/api/tests/test_notifications.py` to assert correct email generation and delivery flows.
 
 ### Test Command
 ```bash
-pytest tests/test_webhooks.py
+pytest tests/test_notifications.py
 ```
 
 ### Deliverable
-`apps/api/src/tracemark_api/services/webhooks.py` + tests passing.
+`apps/api/src/tracemark_api/services/notifications.py` + tests passing.
 
 ---
 
-## Engineer B — Webhook Event Triggers & Delivery Log (Python Backend)
+## Engineer B — Email Event Triggers & Delivery Log (Python Backend)
 
-**Focus:** Hook `dispatch_webhooks` into the case lifecycle events and persist a delivery log to Supabase for auditability.
+**Focus:** Hook `dispatch_notifications` into the case lifecycle events and persist a delivery log to Supabase for auditability.
 
 ### Tasks
-- [ ] Run Supabase migration: `webhook_deliveries` table with fields `id`, `event_type`, `infringement_id (FK)`, `payload (jsonb)`, `slack_status` (`sent | failed | skipped`), `zapier_status` (`sent | failed | skipped`), `delivered_at`, `error_message`.
-- [ ] Trigger `dispatch_webhooks({ "type": "new_infringement", ... })` inside the existing infringement persistence function — fires automatically on every new HIGH-risk flag.
-- [ ] Trigger `dispatch_webhooks({ "type": "takedown_generated", ... })` inside document saving function — fires when a document is saved with `status: 'draft'`.
-- [ ] Trigger webhooks when corresponding action buttons are clicked via `POST /api/v1/cases/{id}/status`.
-- [ ] Implement `log_delivery(event: dict, slack_ok: bool, zapier_ok: bool, error: str = None) -> None` — insert a `webhook_deliveries` row after every webhook dispatch attempt.
-- [ ] Write integration test: create a mock infringement → assert a `webhook_deliveries` row is inserted with correct statuses.
+- [ ] Run Supabase migration: `notification_deliveries` table with fields `id`, `event_type`, `infringement_id (FK)`, `payload (jsonb)`, `status` (`sent | failed | skipped`), `delivered_at`, `error_message`.
+- [ ] Trigger `dispatch_notifications({ "type": "new_infringement", ... })` inside the existing infringement persistence function — fires automatically on every new HIGH-risk flag.
+- [ ] Trigger `dispatch_notifications({ "type": "takedown_generated", ... })` inside document saving function — fires when a document is saved with `status: 'draft'`.
+- [ ] Trigger notifications when corresponding action buttons are clicked via `POST /api/v1/cases/{id}/status`.
+- [ ] Implement `log_delivery(event: dict, ok: bool, error: str = None) -> None` — insert a `notification_deliveries` row after every notification dispatch attempt.
+- [ ] Write integration test: create a mock infringement → assert a `notification_deliveries` row is inserted with correct status.
 
 ### Test Command
 ```bash
@@ -47,24 +45,23 @@ pytest tests/test_delivery_log.py
 ```
 
 ### Deliverable
-`supabase/migrations/YYYYMMDD_webhook_deliveries.sql` + `apps/api/src/tracemark_api/services/delivery_log.py` + triggers wired into persistence layer.
+`supabase/migrations/YYYYMMDD_notification_deliveries.sql` + `apps/api/src/tracemark_api/services/delivery_log.py` + triggers wired into persistence layer.
 
 ---
 
-## Engineer C — Integrations Settings UI & Webhook Actions (React Frontend)
+## Engineer C — Notification Settings UI & Email Actions (React Frontend)
 
-**Focus:** Build the Integrations settings panel where users configure their Slack/Zapier URLs, and wire the "Send via Webhook" button in the Document Generator.
+**Focus:** Build the Notification settings panel where users configure their notification email, and wire the "Send via Email" button in the Document Generator.
 
 ### Tasks
-- [ ] Create `/settings/integrations` route in frontend TanStack Router — renders `<IntegrationsSettingsPanel />`.
-- [ ] Build `<IntegrationsSettingsPanel />` with two configuration cards:
-  - **Slack card:** text input for `SLACK_WEBHOOK_URL`, a "Test Connection" button that calls `POST /api/v1/integrations/test/slack` and shows a success/error toast.
-  - **Zapier card:** text input for `ZAPIER_WEBHOOK_URL`, same "Test Connection" flow for `POST /api/v1/integrations/test/zapier`.
-  - Both cards persist the URL to Supabase `org_settings` table (keyed by `organization_id`).
-- [ ] Wire **"Send via Webhook"** button in `<DocumentActions />`: calls `POST /api/v1/documents/{id}/send-webhook` → returns delivery outcomes → renders toast.
-- [ ] Create FastAPI endpoints `POST /api/v1/integrations/test/slack` and `POST /api/v1/integrations/test/zapier` — fire a test event payload and return delivery status.
-- [ ] Create `POST /api/v1/documents/{id}/send-webhook` endpoint in FastAPI — fetches the document, calls `dispatch_webhooks({ "type": "takedown_generated", ... })`, and returns delivery results.
-- [ ] Add `<WebhookDeliveryLog />` component at the bottom of the Integrations page — table showing last 20 `webhook_deliveries` rows with status badges.
+- [ ] Create `/settings/notifications` route in frontend TanStack Router — renders `<NotificationSettingsPanel />`.
+- [ ] Build `<NotificationSettingsPanel />` with a configuration card:
+  - **Email card:** text input for `NOTIFICATION_EMAIL`, a "Test Connection" button that calls `POST /api/v1/notifications/test/email` and shows a success/error toast.
+  - Persists the email to Supabase `org_settings` table (keyed by `organization_id`).
+- [ ] Wire **"Send via Email"** button in `<DocumentActions />`: calls `POST /api/v1/documents/{id}/send-email` → returns delivery outcomes → renders toast.
+- [ ] Create FastAPI endpoint `POST /api/v1/notifications/test/email` — fire a test email notification payload and return delivery status.
+- [ ] Create `POST /api/v1/documents/{id}/send-email` endpoint in FastAPI — fetches the document, calls `dispatch_notifications({ "type": "takedown_generated", ... })`, and returns delivery results.
+- [ ] Add `<NotificationDeliveryLog />` component at the bottom of the Notifications page — table showing last 20 `notification_deliveries` rows with status badges.
 
 ### Test Command
 ```bash
@@ -72,19 +69,18 @@ npm run dev  # navigate to settings, test inputs and buttons
 ```
 
 ### Deliverable
-`src/routes/settings.integrations.tsx` + `src/components/settings/IntegrationsSettingsPanel.tsx` + FastAPI endpoints.
+`src/routes/settings.notifications.tsx` + `src/components/settings/NotificationSettingsPanel.tsx` + FastAPI endpoints.
 
 ---
 
 ## Integration Point (End of Week 2)
-- Slack notification fires automatically when `persist_infringement` is called with a HIGH-risk match.
-- "Send via Webhook" button in the Document Generator UI completes the full circuit: generate document → click send → Slack message delivered → `webhook_deliveries` row logged.
+- Email notification fires automatically when `persist_infringement` is called with a HIGH-risk match.
+- "Send via Email" button in the Document Generator UI completes the full circuit: generate document → click send → Email delivered → `notification_deliveries` row logged.
 
 ---
 
 ## Definition of Done
-- [ ] Slack Block Kit message delivered to test channel for a new HIGH-risk infringement.
-- [ ] Zapier trigger fires with correct JSON payload.
-- [ ] `webhook_deliveries` rows inserted for every dispatched event.
-- [ ] Integrations settings page saves URLs and test connections work.
-- [ ] "Send via Webhook" button in Document Generator triggers delivery and shows toast.
+- [ ] Email notification delivered to user's configured email for a new HIGH-risk infringement.
+- [ ] `notification_deliveries` rows inserted for every dispatched event.
+- [ ] Notifications settings page saves email and test connections work.
+- [ ] "Send via Email" button in Document Generator triggers delivery and shows toast.

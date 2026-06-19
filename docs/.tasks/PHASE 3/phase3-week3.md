@@ -55,7 +55,7 @@ pytest tests/test_clients_rls.py
 - [ ] **Law Firm Clients Tab** (`/settings/clients`): build `<ClientManagementTable />` — data table with columns: Client Name, Brand, Contact, Cases This Month, Takedowns, Status (Active/Inactive). Include "Add Client" modal (form with Name, Brand, Contact Email, Trademark Numbers). Include "Remove Client" with confirmation dialog.
 - [ ] **Billing per Client** (`/settings/clients/:id/billing`): build `<ClientBillingCard />` — renders the 4 usage metrics from `GET /api/v1/clients/{id}/billing`. Add a "Export CSV" button that downloads the metrics as a `.csv` file.
 - [ ] **End-to-End QA pass** — walk through and verify the complete user journey for both personas:
-  - **Brand Owner flow:** Add brand → scan runs → infringement flagged → alert in feed → open case → view screenshot + AI analysis → generate DMCA PDF → send via Slack webhook → check delivery log.
+  - **Brand Owner flow:** Add brand → scan runs → infringement flagged → alert in feed → open case → view screenshot + AI analysis → generate DMCA PDF → send via Email → check notification delivery log.
   - **Law Firm flow**: Add client → same flow as above → billing card shows correct counts → remove client → confirm data is scoped correctly.
 - [ ] Write `docs/phase3-demo.md` — step-by-step demo script for both personas, usable in a client presentation.
 
@@ -71,7 +71,7 @@ npm run dev  # walk through full QA script for both personas
 
 ## Integration Point (End of Week 3 — Phase 3 & Full MVP Complete)
 - Law Firm persona: adding a client auto-scopes all new infringements and cases to that `client_id` — verified via RLS tests.
-- Full production pipeline live: Brand is added → scraper runs → matcher detects → Playwright captures evidence → Gemini analyzes → document generated → Slack notified → Law firm billing updated.
+- Full production pipeline live: Brand is added → scraper runs → matcher detects → Playwright captures evidence → Gemini analyzes → document generated → Email notification delivered → Law firm billing updated.
 
 ---
 
@@ -79,8 +79,8 @@ npm run dev  # walk through full QA script for both personas
 - [ ] DMCA and C&D templates generate valid PDF and Docx files with all metadata fields populated.
 - [ ] Evidence package PDF compiles (cover + screenshots + analysis) without errors.
 - [ ] Law Firm PDF branding injects firm name, logo, and bar number correctly.
-- [ ] Slack and Zapier webhooks fire on all four event types with correct payloads.
-- [ ] `webhook_deliveries` table has a row for every dispatched event.
+- [ ] Email notifications fire on all four event types with correct templates.
+- [ ] `notification_deliveries` table has a row for every dispatched event.
 - [ ] Client CRUD endpoints are RLS-scoped — cross-org data leakage test passes.
 - [ ] Billing card shows accurate aggregated counts per client.
 - [ ] Both persona demo flows complete without errors (`docs/phase3-demo.md` script).
