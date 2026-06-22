@@ -45,6 +45,10 @@ function MonitoringScanResultPage() {
     setUpdating(status);
     try {
       await updateCaseStatusBackend(caseId, status);
+      const updatedCase = await fetchCaseFromSupabase(caseId);
+      if (updatedCase) {
+        setScanResult(caseId, updatedCase);
+      }
       if (status === "safe") toast.success("Marked as safe");
       else if (status === "escalated") toast.success("Escalated to counsel");
       else toast.success("Status updated to analyzing");
@@ -178,12 +182,6 @@ function MonitoringScanResultPage() {
             )}
             Escalate to Counsel
           </Button>
-          <Button variant="outline" asChild>
-            <Link to="/cases" onClick={() => markCasesViewForRestore()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to cases
-            </Link>
-          </Button>
           <Button asChild>
             <Link to="/monitoring/$caseId/takedown" params={{ caseId }}>
               <FileText className="h-4 w-4 mr-2" />
@@ -193,6 +191,12 @@ function MonitoringScanResultPage() {
                   {result.takedown_reports.length}
                 </span>
               )}
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/cases" onClick={() => markCasesViewForRestore()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to cases
             </Link>
           </Button>
         </div>
