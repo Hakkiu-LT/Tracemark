@@ -33,6 +33,7 @@ class DomainEvidence(BaseModel):
     registrar: str | None = PydanticField(default=None, description="The registrar of the domain.")
     is_clone: bool = PydanticField(description="Whether the site appears to be a clone/impersonator of the brand.")
     similarity_score: int = PydanticField(description="Visual/content similarity percentage from 0 to 100.")
+    screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL of the clone domain.")
 
 
 class SocialEvidence(BaseModel):

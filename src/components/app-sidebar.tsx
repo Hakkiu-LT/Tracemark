@@ -30,7 +30,15 @@ export function AppSidebar() {
     { title: "API Usage", url: "/api-usage", icon: Activity },
   ];
 
-  const isActive = (url: string) => pathname.startsWith(url);
+  const isActive = (url: string) => {
+    if (url === "/cases") {
+      return pathname.startsWith("/cases") || (pathname.startsWith("/monitoring/") && !pathname.startsWith("/monitoring/new"));
+    }
+    if (url === "/monitoring") {
+      return pathname === "/monitoring" || pathname.startsWith("/monitoring/new");
+    }
+    return pathname.startsWith(url);
+  };
 
   return (
     <Sidebar collapsible="icon">

@@ -31,3 +31,11 @@ export function checkBrandFullPipeline(payload: CheckBrandRequest, signal?: Abor
     signal,
   });
 }
+
+export function updateCaseStatusBackend(caseId: string, status: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/monitoring/${caseId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+}
+

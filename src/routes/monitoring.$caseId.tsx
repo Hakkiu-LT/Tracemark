@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { DecisionCard } from "@/components/cases/decision-card";
 import { KeyFindings } from "@/components/cases/key-findings";
 import { EvidenceSection } from "@/components/cases/evidence-section";
-import { ChevronRight, FileText, ArrowLeft, Loader2 } from "lucide-react";
+import { ChevronRight, FileText, ArrowLeft, Loader2, ShieldCheck, RefreshCw, Gavel } from "lucide-react";
+import { toast } from "sonner";
+import { updateCaseStatusBackend } from "@/lib/api";
 
 export const Route = createFileRoute("/monitoring/$caseId")({
   head: ({ params }) => ({
@@ -37,6 +39,25 @@ function MonitoringScanResultPage() {
   // Only show a loading state when we don't already have the result locally and
   // still need to try fetching it from Supabase.
   const [loading, setLoading] = useState(!result);
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  const handleUpdateStatus = async (status: string) => {
+    setUpdating(status);
+    try {
+      await updateCaseStatusBackend(caseId, status);
+      if (status === "safe") toast.success("Marked as safe");
+      else if (status === "escalated") toast.success("Escalated to counsel");
+      else toast.success("Status updated to analyzing");
+      markCasesViewForRestore();
+      navigate({ to: "/cases" });
+    } catch (err) {
+      toast.error("Failed to update status", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
 
   // Fallback: if the case isn't in the local store (e.g. created elsewhere or a
   // hard refresh after the persisted state was cleared), load it from Supabase
@@ -89,7 +110,7 @@ function MonitoringScanResultPage() {
   }
 
   const scannedAt = new Date(result.evidence.timestamp).toLocaleString();
-  const hasReports = result.takedown_reports.length > 0;
+
 
   return (
     <div className="space-y-6">
@@ -118,23 +139,62 @@ function MonitoringScanResultPage() {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant="outline"
+            disabled={updating !== null}
+            onClick={() => handleUpdateStatus("safe")}
+            className="flex items-center gap-2"
+          >
+            {updating === "safe" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-success" />
+            ) : (
+              <ShieldCheck className="h-4 w-4 text-success" />
+            )}
+            Mark as Safe
+          </Button>
+          <Button
+            variant="outline"
+            disabled={updating !== null}
+            onClick={() => handleUpdateStatus("analyzing")}
+            className="flex items-center gap-2"
+          >
+            {updating === "analyzing" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+            ) : (
+              <RefreshCw className="h-4 w-4 text-amber-500" />
+            )}
+            Analyzing
+          </Button>
+          <Button
+            variant="outline"
+            disabled={updating !== null}
+            onClick={() => handleUpdateStatus("escalated")}
+            className="flex items-center gap-2"
+          >
+            {updating === "escalated" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-accent" />
+            ) : (
+              <Gavel className="h-4 w-4 text-accent" />
+            )}
+            Escalate to Counsel
+          </Button>
           <Button variant="outline" asChild>
             <Link to="/cases" onClick={() => markCasesViewForRestore()}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to cases
             </Link>
           </Button>
-          {hasReports && (
-            <Button asChild>
-              <Link to="/monitoring/$caseId/takedown" params={{ caseId }}>
-                <FileText className="h-4 w-4 mr-2" />
-                Takedown notices
+          <Button asChild>
+            <Link to="/monitoring/$caseId/takedown" params={{ caseId }}>
+              <FileText className="h-4 w-4 mr-2" />
+              Takedown notices
+              {result.takedown_reports.length > 0 && (
                 <span className="ml-2 rounded-full bg-primary text-primary-foreground text-xs px-2 py-0.5">
                   {result.takedown_reports.length}
                 </span>
-              </Link>
-            </Button>
-          )}
+              )}
+            </Link>
+          </Button>
         </div>
       </div>
 

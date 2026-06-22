@@ -199,3 +199,16 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+
+@router.post("/{case_id}/status")
+def update_status_endpoint(case_id: str, payload: UpdateStatusRequest):
+    try:
+        update_case_status(case_id, payload.status)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

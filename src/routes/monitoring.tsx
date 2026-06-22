@@ -2,7 +2,14 @@ import React, { useState, useEffect } from "react";
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,16 +21,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useScopedMarks, useStore, type Mark, type Infringement, type Platform, type RiskLevel } from "@/lib/store";
+import {
+  useScopedMarks,
+  useStore,
+  type Mark,
+  type Infringement,
+  type Platform,
+  type RiskLevel,
+} from "@/lib/store";
 import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { checkBrandFullPipeline } from "@/lib/api";
+import { PLATFORMS } from "@/lib/platforms";
 
 export const Route = createFileRoute("/monitoring")({
   head: () => ({
     meta: [
       { title: "Monitoring — Tracemark" },
-      { name: "description", content: "Manage the trademarks and brand assets Tracemark scans across the web." },
+      {
+        name: "description",
+        content: "Manage the trademarks and brand assets Tracemark scans across the web.",
+      },
     ],
   }),
   component: MonitoringLayout,
@@ -34,6 +52,10 @@ const ALL_PLATFORMS: { id: Platform; label: string }[] = [
   { id: "Shopify", label: "Shopify" },
   { id: "eBay", label: "eBay" },
   { id: "AliExpress", label: "AliExpress" },
+  { id: "Alibaba", label: "Alibaba" },
+  { id: "Etsy", label: "Etsy" },
+  { id: "Google Shopping", label: "Google Shopping" },
+  { id: "Facebook Marketplace", label: "FB Marketplace" },
   { id: "Web Domain", label: "Web Domain" },
   { id: "Instagram", label: "Instagram" },
   { id: "TikTok", label: "TikTok" },
@@ -61,7 +83,11 @@ function MonitoringPage() {
   const setScanResult = useStore((s) => s.setScanResult);
 
   // Track active AbortControllers and toast IDs by mark ID
-  const activeScansRef = React.useRef<Map<string, { controller: AbortController; toastId: string | number }>>(new Map());
+  const activeScansRef = React.useRef<
+    Map<string, { controller: AbortController; toastId: string | number }>
+  >(new Map());
+  // Track scheduled timeouts by mark ID
+  const timeoutsRef = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Edit states
   const [editingMark, setEditingMark] = useState<Mark | null>(null);
@@ -70,6 +96,9 @@ function MonitoringPage() {
   const [editWebsite, setEditWebsite] = useState("");
   const [editClientId, setEditClientId] = useState("");
   const [editPlatforms, setEditPlatforms] = useState<Set<Platform>>(new Set());
+  const [editRepeatCycle, setEditRepeatCycle] = useState("");
+
+  const isRepeatCycleInvalid = editRepeatCycle !== "" && !/^\d+$/.test(editRepeatCycle);
 
   useEffect(() => {
     if (editingMark) {
@@ -78,6 +107,11 @@ function MonitoringPage() {
       setEditWebsite(editingMark.website);
       setEditClientId(editingMark.clientId);
       setEditPlatforms(new Set(editingMark.platforms));
+      setEditRepeatCycle(
+        editingMark.repeatCycle !== undefined && editingMark.repeatCycle !== null
+          ? String(editingMark.repeatCycle)
+          : "",
+      );
     }
   }, [editingMark]);
 
@@ -89,6 +123,11 @@ function MonitoringPage() {
         toast.dismiss(scan.toastId);
       });
       activeScansRef.current.clear();
+
+      timeoutsRef.current.forEach((timer) => {
+        clearTimeout(timer);
+      });
+      timeoutsRef.current.clear();
     };
   }, []);
 
@@ -112,103 +151,160 @@ function MonitoringPage() {
     });
   };
 
+  const runScanCycle = async (id: string) => {
+    const mark = useStore.getState().marks.find((m) => m.id === id);
+    if (!mark || mark.status === "on_hold") return;
+
+    const controller = new AbortController();
+    const toastId = toast.loading(`Scanning the web for ${mark.brandName}...`);
+    activeScansRef.current.set(id, { controller, toastId });
+
+    const apiPlatforms = mark.platforms
+      .map((p) => PLATFORMS.find((pl) => pl.id === p)?.apiKey)
+      .filter((p): p is string => Boolean(p));
+
+    try {
+      const result = await checkBrandFullPipeline(
+        {
+          brand_name: mark.brandName,
+          platforms: apiPlatforms.length > 0 ? apiPlatforms : undefined,
+        },
+        controller.signal,
+      );
+
+      activeScansRef.current.delete(id);
+
+      const hasRisk =
+        result.decision.risk_level === "HIGH" || result.decision.risk_level === "MEDIUM";
+      if (
+        hasRisk &&
+        (result.evidence.marketplaces.length > 0 ||
+          result.evidence.domains.length > 0 ||
+          result.evidence.ads.length > 0)
+      ) {
+        let platform: Platform = "Web Domain";
+        let copycatUrl = "";
+        let copycatName = "";
+        let screenshot = undefined;
+        let price = "Unknown";
+
+        if (result.evidence.marketplaces.length > 0) {
+          const ev = result.evidence.marketplaces[0];
+          platform = ev.platform.toLowerCase().includes("amazon")
+            ? "Amazon"
+            : ev.platform.toLowerCase().includes("ebay")
+              ? "eBay"
+              : "AliExpress";
+          copycatUrl = ev.listing_url;
+          copycatName = ev.seller_name;
+          screenshot = ev.screenshot_url ?? undefined;
+          if (ev.price) price = ev.price;
+        } else if (result.evidence.domains.length > 0) {
+          platform = "Web Domain";
+          copycatUrl = result.evidence.domains[0].domain_name;
+          copycatName = result.evidence.domains[0].registrar || "Unknown";
+          screenshot = result.evidence.domains[0].screenshot_url ?? undefined;
+        } else if (result.evidence.ads.length > 0) {
+          platform = "Google";
+          copycatUrl = result.evidence.ads[0].destination_url;
+          copycatName = "Unauthorized Ad";
+          screenshot = result.evidence.ads[0].screenshot_url ?? undefined;
+        }
+
+        addInfringement({
+          markId: mark.id,
+          clientId: mark.clientId,
+          brandName: mark.brandName,
+          risk: result.decision.risk_level.toLowerCase() as RiskLevel,
+          platform,
+          status: "active",
+          infringer: {
+            seller: copycatName,
+            storeUrl: copycatUrl,
+            country: "Unknown",
+            contact: "Unknown",
+            ip: "—",
+          },
+          evidence: {
+            url: copycatUrl,
+            timestamp: new Date().toISOString(),
+            userAgent: "Tracemark Scanner",
+            method: "Automated Scraping",
+            screenshot_url: screenshot,
+          },
+          analysis: {
+            confidence: Math.round(result.decision.confidence_score * 100),
+            logoMatch: 0,
+            nameMatch: 0,
+            category: "Trademark Infringement",
+            rationale: result.decision.case_summary,
+          },
+          thumbnail: screenshot || mark.logoColor,
+          title: `Suspicious ${mark.brandName} Listing`,
+          price,
+        });
+
+        setScanResult(result.case_id, result);
+        toast.success(`Copycat found for ${mark.brandName}! New case created.`, {
+          id: toastId,
+          duration: 5000,
+        });
+      } else {
+        toast.error("No cats found", {
+          id: toastId,
+          duration: 5000,
+          style: {
+            border: "2px solid #ef4444",
+            backgroundColor: "#fef2f2",
+            color: "#991b1b",
+          },
+        });
+      }
+
+      scheduleRepeatIfConfigured(id);
+    } catch (e: any) {
+      activeScansRef.current.delete(id);
+      if (e.name === "AbortError" || e.message?.includes("aborted")) {
+        console.log(`Scan for ${mark.brandName} aborted.`);
+        return;
+      }
+      console.error("Scan failed:", e);
+      toast.error(`Scan failed for ${mark.brandName}.`, { id: toastId, duration: 5000 });
+
+      scheduleRepeatIfConfigured(id);
+    }
+  };
+
+  const scheduleRepeatIfConfigured = (id: string) => {
+    const mark = useStore.getState().marks.find((m) => m.id === id);
+    if (mark && mark.status !== "on_hold" && mark.repeatCycle) {
+      const minutes = mark.repeatCycle;
+      toast.info(
+        `Next scan for ${mark.brandName} scheduled in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+      );
+      const timer = setTimeout(() => {
+        timeoutsRef.current.delete(id);
+        runScanCycle(id);
+      }, minutes * 60_000);
+      timeoutsRef.current.set(id, timer);
+    }
+  };
+
   const handleToggleStatus = async (id: string) => {
     const mark = scopedMarks.find((m) => m.id === id);
     if (!mark) return;
-    
+
     // Toggle first so UI reflects
     toggleMarkStatus(id);
-    
+
     // If it was on_hold, it is now active -> trigger scan
     if (mark.status === "on_hold") {
-      const controller = new AbortController();
-      const toastId = toast.loading(`Scanning the web for ${mark.brandName}...`);
-      activeScansRef.current.set(id, { controller, toastId });
-      
-      try {
-        const result = await checkBrandFullPipeline({ brand_name: mark.brandName }, controller.signal);
-        
-        activeScansRef.current.delete(id);
-        
-        const hasRisk = result.decision.risk_level === "HIGH" || result.decision.risk_level === "MEDIUM";
-        if (hasRisk && (result.evidence.marketplaces.length > 0 || result.evidence.domains.length > 0 || result.evidence.ads.length > 0)) {
-          let platform: Platform = "Web Domain";
-          let copycatUrl = "";
-          let copycatName = "";
-          let screenshot = undefined;
-          let price = "Unknown";
-          
-          if (result.evidence.marketplaces.length > 0) {
-            const ev = result.evidence.marketplaces[0];
-            platform = ev.platform.toLowerCase().includes("amazon") ? "Amazon" : ev.platform.toLowerCase().includes("ebay") ? "eBay" : "AliExpress";
-            copycatUrl = ev.listing_url;
-            copycatName = ev.seller_name;
-            screenshot = ev.screenshot_url;
-            if (ev.price) price = ev.price;
-          } else if (result.evidence.domains.length > 0) {
-            platform = "Web Domain";
-            copycatUrl = result.evidence.domains[0].domain_name;
-            copycatName = result.evidence.domains[0].registrar || "Unknown";
-          } else if (result.evidence.ads.length > 0) {
-            platform = "Google";
-            copycatUrl = result.evidence.ads[0].destination_url;
-            copycatName = "Unauthorized Ad";
-          }
-          
-          addInfringement({
-            markId: mark.id,
-            clientId: mark.clientId,
-            brandName: mark.brandName,
-            risk: result.decision.risk_level.toLowerCase() as RiskLevel,
-            platform,
-            status: "active",
-            infringer: {
-              seller: copycatName,
-              storeUrl: copycatUrl,
-              country: "Unknown",
-              contact: "Unknown",
-              ip: "—"
-            },
-            evidence: {
-              url: copycatUrl,
-              timestamp: new Date().toISOString(),
-              userAgent: "Tracemark Scanner",
-              method: "Automated Scraping"
-            },
-            analysis: {
-              confidence: Math.round(result.decision.confidence_score * 100),
-              logoMatch: 0,
-              nameMatch: 0,
-              category: "Trademark Infringement",
-              rationale: result.decision.case_summary,
-            },
-            thumbnail: screenshot || mark.logoColor,
-            title: `Suspicious ${mark.brandName} Listing`,
-            price,
-          });
-          
-          setScanResult(result.case_id, result);
-          toast.success(`Copycat found for ${mark.brandName}! New case created.`, { id: toastId, duration: 5000 });
-        } else {
-          toast.error("No cats found", {
-            id: toastId,
-            duration: 5000,
-            style: {
-              border: "2px solid #ef4444",
-              backgroundColor: "#fef2f2",
-              color: "#991b1b",
-            }
-          });
-        }
-      } catch (e: any) {
-        activeScansRef.current.delete(id);
-        if (e.name === "AbortError" || e.message?.includes("aborted")) {
-          console.log(`Scan for ${mark.brandName} aborted.`);
-          return;
-        }
-        console.error("Scan failed:", e);
-        toast.error(`Scan failed for ${mark.brandName}.`, { id: toastId, duration: 5000 });
+      const existingTimeout = timeoutsRef.current.get(id);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        timeoutsRef.current.delete(id);
       }
+      runScanCycle(id);
     } else {
       // It was active, now it is paused (on_hold)
       const activeScan = activeScansRef.current.get(id);
@@ -216,6 +312,11 @@ function MonitoringPage() {
         activeScan.controller.abort();
         toast.dismiss(activeScan.toastId);
         activeScansRef.current.delete(id);
+      }
+      const existingTimeout = timeoutsRef.current.get(id);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        timeoutsRef.current.delete(id);
       }
       toast.success("Monitoring stopped", { duration: 5000 });
     }
@@ -227,15 +328,40 @@ function MonitoringPage() {
       toast.error("Brand name is required.");
       return;
     }
+    if (isRepeatCycleInvalid) {
+      toast.error("Invalid parameter");
+      return;
+    }
+    const repeatCycleNum = editRepeatCycle.trim()
+      ? parseInt(editRepeatCycle.trim(), 10)
+      : undefined;
+
     updateMark(editingMark.id, {
       brandName: editBrandName.trim(),
       registrationNumber: editRegNum.trim(),
       website: editWebsite.trim(),
       clientId: editClientId,
       platforms: Array.from(editPlatforms),
+      repeatCycle: repeatCycleNum,
     });
     setEditingMark(null);
     toast.success("Monitored asset updated successfully.");
+
+    if (editingMark.status !== "on_hold") {
+      const existingTimeout = timeoutsRef.current.get(editingMark.id);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        timeoutsRef.current.delete(editingMark.id);
+      }
+      if (repeatCycleNum) {
+        const ms = repeatCycleNum * 60 * 1000;
+        const timer = setTimeout(() => {
+          timeoutsRef.current.delete(editingMark.id);
+          runScanCycle(editingMark.id);
+        }, ms);
+        timeoutsRef.current.set(editingMark.id, timer);
+      }
+    }
   };
 
   return (
@@ -243,10 +369,14 @@ function MonitoringPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Monitored assets</h1>
-          <p className="text-sm text-muted-foreground">Brands, trademarks, and product lines under active surveillance.</p>
+          <p className="text-sm text-muted-foreground">
+            Brands, trademarks, and product lines under active surveillance.
+          </p>
         </div>
         <Button asChild>
-          <Link to="/monitoring/new"><Plus className="mr-1 h-4 w-4" /> Add asset</Link>
+          <Link to="/monitoring/new">
+            <Plus className="mr-1 h-4 w-4" /> Add asset
+          </Link>
         </Button>
       </div>
 
@@ -360,6 +490,30 @@ function MonitoringPage() {
             </div>
 
             <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-repeatCycle">Repeat Cycle</Label>
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  Entered value in minutes
+                </span>
+              </div>
+              <Input
+                id="edit-repeatCycle"
+                type="text"
+                value={editRepeatCycle}
+                onChange={(e) => setEditRepeatCycle(e.target.value)}
+                placeholder="e.g. 60 (minutes between scans)"
+                className={
+                  isRepeatCycleInvalid
+                    ? "border-red-500 focus-visible:ring-red-500 text-red-500"
+                    : ""
+                }
+              />
+              {isRepeatCycleInvalid && (
+                <p className="text-xs text-red-500 font-medium">Invalid parameter</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label>Target Platforms</Label>
               <div className="grid grid-cols-3 gap-2 pt-1">
                 {ALL_PLATFORMS.map(({ id, label }) => {
@@ -396,9 +550,7 @@ function MonitoringPage() {
             <Button variant="outline" onClick={() => setEditingMark(null)}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              Save changes
-            </Button>
+            <Button onClick={handleSave}>Save changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -462,7 +614,11 @@ function MarksTable({
                     }}
                   />
                   <div>
-                    <p className={`font-medium ${!isActiveSection ? "text-muted-foreground line-through decoration-muted-foreground/30" : ""}`}>{m.brandName}</p>
+                    <p
+                      className={`font-medium ${!isActiveSection ? "text-muted-foreground line-through decoration-muted-foreground/30" : ""}`}
+                    >
+                      {m.brandName}
+                    </p>
                     <p className="text-xs text-muted-foreground font-mono">{m.website}</p>
                   </div>
                 </div>
@@ -479,7 +635,11 @@ function MarksTable({
               </TableCell>
               <TableCell className="text-center">
                 {isActiveSection ? (
-                  <span className={alerts > 0 ? "font-semibold text-risk-high" : "text-muted-foreground"}>
+                  <span
+                    className={
+                      alerts > 0 ? "font-semibold text-risk-high" : "text-muted-foreground"
+                    }
+                  >
                     {alerts}
                   </span>
                 ) : (

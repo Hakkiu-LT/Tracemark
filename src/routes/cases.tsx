@@ -23,7 +23,7 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { fetchCaseHistory, type CaseSummary } from "@/lib/supabase";
-import { useScopedInfringements } from "@/lib/store";
+
 import { RiskBadge } from "@/components/risk-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -54,116 +54,21 @@ const STATUS_ORDER: Record<string, number> = { pending: 1, analyzing: 2, complet
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground border-border",
   analyzing: "bg-risk-med/10 text-risk-med border-risk-med/30",
-  complete: "bg-success/10 text-success border-success/30",
+  complete: "bg-muted text-muted-foreground border-border",
   error: "bg-risk-high/10 text-risk-high border-risk-high/30",
 };
 
 function CaseStatusBadge({ status }: { status: string }) {
+  const label = status === "complete" ? "pending" : status;
   return (
     <span
       className={cn(
         "inline-flex rounded-md border px-2 py-0.5 text-xs font-medium capitalize",
-        STATUS_STYLES[status] ?? "bg-muted text-muted-foreground border-border",
+        STATUS_STYLES[label] ?? "bg-muted text-muted-foreground border-border",
       )}
     >
-      {status}
+      {label}
     </span>
-  );
-}
-
-const INFRINGEMENT_STATUS_LABELS: Record<string, string> = {
-  active: "Awaiting Action",
-  takedown_sent: "Takedown Sent",
-  resolved: "Resolved",
-  escalated: "Escalated",
-  safe: "Marked Safe",
-};
-
-/**
- * Local store mock infringements (zustand). These power the `/cases/$caseId`
- * per-infringement detail page and are kept separate from the Supabase-backed
- * case list below.
- */
-function MockedInfringementsTable() {
-  const infringements = useScopedInfringements();
-
-  return (
-    <Card>
-      <CardContent className="p-0">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">Mocked infringements</h2>
-            <p className="text-xs text-muted-foreground">
-              Local store sample data · {infringements.length}{" "}
-              {infringements.length === 1 ? "item" : "items"}
-            </p>
-          </div>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead>Listing</TableHead>
-              <TableHead>Platform</TableHead>
-              <TableHead>Risk</TableHead>
-              <TableHead className="text-right">Confidence</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Detected</TableHead>
-              <TableHead className="text-center">Case</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {infringements.map((i) => (
-              <TableRow key={i.id} className="group cursor-pointer">
-                <TableCell>
-                  <Link
-                    to="/cases/$caseId"
-                    params={{ caseId: i.id }}
-                    className="flex flex-col min-w-0"
-                  >
-                    <span className="truncate text-sm font-medium">{i.title}</span>
-                    <span className="truncate text-xs text-muted-foreground">{i.brandName}</span>
-                  </Link>
-                </TableCell>
-                <TableCell className="text-sm">{i.platform}</TableCell>
-                <TableCell>
-                  <RiskBadge risk={i.risk} />
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm">
-                  {i.analysis.confidence}%
-                </TableCell>
-                <TableCell>
-                  <span className="inline-flex rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    {INFRINGEMENT_STATUS_LABELS[i.status] ?? i.status}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {new Date(i.detectedAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell className="text-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    asChild
-                    className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
-                  >
-                    <Link to="/cases/$caseId" params={{ caseId: i.id }}>
-                      See Case
-                    </Link>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {infringements.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
-                  No mocked infringements in store.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -373,8 +278,6 @@ function CasesList() {
         <h1 className="text-2xl font-semibold tracking-tight">Cases</h1>
         <p className="text-sm text-muted-foreground">Every brand check, organized by risk.</p>
       </div>
-
-      <MockedInfringementsTable />
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-64">
