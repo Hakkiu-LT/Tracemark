@@ -29,9 +29,9 @@ def screenshot_page(url: str) -> str | None:
     try:
         response = httpx.post(
             "https://api.firecrawl.dev/v1/scrape",
-            json={"url": url, "formats": ["screenshot"]},
+            json={"url": url, "formats": ["screenshot"], "waitFor": 3000},
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            timeout=30.0,
+            timeout=60.0,
         )
         if response.status_code != 200:
             return None

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, ExternalLink } from "lucide-react";
+import { Download, ExternalLink, Loader2 } from "lucide-react";
 
 interface EvidenceScreenshotDialogProps {
   open: boolean;
@@ -11,21 +11,31 @@ interface EvidenceScreenshotDialogProps {
 
 export function EvidenceScreenshotDialog({ open, onOpenChange, screenshotUrl }: EvidenceScreenshotDialogProps) {
   const [imgFailed, setImgFailed] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setImgLoaded(false); setImgFailed(false); } }}>
       <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Evidence screenshot</DialogTitle>
         </DialogHeader>
 
         {!imgFailed ? (
-          <img
-            src={screenshotUrl}
-            alt="Evidence screenshot"
-            className="w-full rounded-md object-contain max-h-[80vh]"
-            onError={() => setImgFailed(true)}
-          />
+          <div className="relative min-h-[200px] flex items-center justify-center">
+            {!imgLoaded && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="text-xs">Loading screenshot…</span>
+              </div>
+            )}
+            <img
+              src={screenshotUrl}
+              alt="Evidence screenshot"
+              className={`w-full rounded-md object-contain max-h-[80vh] transition-opacity duration-300 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgFailed(true)}
+            />
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-4 py-10 text-muted-foreground">
             <p className="text-sm text-center">
