@@ -18,6 +18,7 @@ export interface DomainEvidence {
   registrar: string | null;
   is_clone: boolean;
   similarity_score: number;
+  screenshot_url: string | null;
 }
 
 export interface SocialEvidence {

@@ -4,7 +4,7 @@ import { useStore, type Platform } from "@/lib/store";
 import { PLATFORMS, PLATFORM_GROUPS } from "@/lib/platforms";
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { checkBrand } from "@/lib/api";
+import { checkBrandFullPipeline } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Info,
@@ -133,7 +133,7 @@ function NewAssetPage() {
 
   const { mutate: runScan, isPending } = useMutation({
     mutationFn: () =>
-      checkBrand({
+      checkBrandFullPipeline({
         brand_name: brandName,
         platforms: apiPlatforms.length > 0 ? apiPlatforms : ["amazon", "google_ads", "domains"],
       }),

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
-from tracemark_api.services.database import create_case, save_evidence, save_decision, update_case_status
+from tracemark_api.services.database import create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
 from tracemark_api.services.persistence import persist_all_infringements
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
 from tracemark_api.dependencies import get_current_user
@@ -204,3 +204,52 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+
+@router.post("/{case_id}/status")
+def update_status_endpoint(case_id: str, payload: UpdateStatusRequest):
+    try:
+        update_case_status(case_id, payload.status)
+        
+        if payload.status == "escalated":
+            case_data = get_full_case(case_id)
+            reports = case_data.get("takedown_reports") or []
+            if not reports:
+                decisions = case_data.get("decisions") or []
+                if decisions:
+                    decision_row = decisions[0]
+                    decision = Decision(
+                        risk_level=decision_row["risk_level"],
+                        recommended_action=decision_row["recommended_action"],
+                        case_summary=decision_row["case_summary"],
+                        confidence_score=decision_row["confidence_score"],
+                        evidence_quality=decision_row.get("evidence_quality") or "MODERATE",
+                        key_findings=decision_row.get("key_findings") or [],
+                    )
+                    
+                    evidences = case_data.get("evidence") or []
+                    if evidences:
+                        evidence_row = evidences[0]
+                        evidence = Evidence(
+                            marketplaces=evidence_row.get("marketplaces") or [],
+                            ads=evidence_row.get("ads") or [],
+                            domains=evidence_row.get("domains") or [],
+                            social=evidence_row.get("social") or [],
+                        )
+                        
+                        generate_takedown_reports(
+                            case_id=case_id,
+                            brand_name=case_data["brand_name"],
+                            decision=decision,
+                            evidence=evidence,
+                            force=True
+                        )
+                        update_decision_action(case_id, "TAKEDOWN")
+                        
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -8,18 +8,20 @@ T = TypeVar("T")
 
 RESET_DAILY = "midnight_utc"
 RESET_MONTHLY = "monthly"
+RESET_6_MONTHS = "six_months"
 
 @dataclass
 class ApiDefinition:
     key: str
     label: str
     free_limit: int
-    reset_period: str           # "midnight_utc" or "monthly"
+    reset_period: str           # "midnight_utc", "monthly", "six_months"
     category: str               # "search" | "whois" | "ads" | "ai" | "scraper"
     requires_env_var: str | None = None  # env var that must be set to use this API
 
 API_REGISTRY: list[ApiDefinition] = [
     ApiDefinition("google_serp",     "Google SERP Scraper",              10,   RESET_DAILY,   "search", "GOOGLE_SERP_API"),
+    ApiDefinition("searchcans",      "SearchCans API",                   16,   RESET_MONTHLY, "search", "SEARCHCANS_API"),
     ApiDefinition("whois",           "WHOIS Lookup",                     500,  RESET_DAILY,   "whois"),
     ApiDefinition("google_ads",      "Google Ads Transparency",          100,  RESET_DAILY,   "ads"),
     ApiDefinition("meta_ads",        "Meta Ad Library API",              200,  RESET_DAILY,   "ads",     "META_ADS_ACCESS_TOKEN"),
@@ -94,11 +96,12 @@ class ApiUsageTracker:
             now_utc = datetime.now(timezone.utc)
             daily_start = datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
             monthly_start = datetime(now_utc.year, now_utc.month, 1, tzinfo=timezone.utc)
+            six_months_start = now_utc - timedelta(days=180)
 
-            # Query records since the monthly start window (covers both daily and monthly ranges)
+            # Query records since the oldest start window (six_months_start)
             res = sb.table("api_usage_records")\
                 .select("api_key, called_at, credits_used")\
-                .gte("called_at", monthly_start.isoformat())\
+                .gte("called_at", six_months_start.isoformat())\
                 .execute()
 
             for r in res.data:
@@ -110,12 +113,16 @@ class ApiUsageTracker:
                 if not defn:
                     continue
 
+                r_dt = parse_iso(called_at_str)
                 if defn.reset_period == RESET_DAILY:
-                    r_dt = parse_iso(called_at_str)
                     if r_dt >= daily_start:
                         self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
-                else:
-                    self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
+                elif defn.reset_period == RESET_MONTHLY:
+                    if r_dt >= monthly_start:
+                        self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
+                else: # six_months
+                    if r_dt >= six_months_start:
+                        self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
 
             self._cache_initialized = True
         except Exception as e:
