@@ -276,7 +276,7 @@ function LandingPage() {
             Wherever counterfeiters hide, we look.
           </h2>
           <div className="mt-10 flex flex-wrap gap-2">
-            {["Amazon", "Shopify", "eBay", "AliExpress", "Etsy", "Walmart", "Instagram", "TikTok", "Facebook Marketplace", "Web domains", "App stores", "Google Shopping"].map((p) => (
+            {["Amazon", "Shopify", "eBay", "AliExpress", "Etsy", "Instagram", "TikTok", "Facebook Marketplace", "Web domains", "Google Shopping"].map((p) => (
               <span
                 key={p}
                 className="rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium"

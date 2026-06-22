@@ -16,7 +16,10 @@ import {
   Camera,
   ExternalLink,
   Clock,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
+import { updateCaseStatusBackend } from "@/lib/api";
 
 export const Route = createFileRoute("/cases/$caseId")({
   head: ({ params }) => ({
@@ -57,6 +60,24 @@ function CaseDetail() {
       </div>
     );
   }
+
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  const handleUpdateStatus = async (status: "safe" | "analyzing" | "escalated") => {
+    setUpdating(status);
+    try {
+      updateCaseStatus(i.id, status);
+      await updateCaseStatusBackend(i.id, status);
+    } catch (err) {
+      console.error("Failed to update status in backend (expected if mock):", err);
+    } finally {
+      setUpdating(null);
+      if (status === "safe") toast.success("Marked as safe");
+      else if (status === "analyzing") toast.success("Status updated to analyzing");
+      else toast.success("Escalated to counsel");
+      navigate({ to: "/cases" });
+    }
+  };
 
   const getStatusText = (status: string) => {
     switch (status) {
@@ -130,24 +151,41 @@ function CaseDetail() {
         <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
-            onClick={() => {
-              updateCaseStatus(i.id, "safe");
-              toast.success("Marked as safe");
-            }}
+            disabled={updating !== null}
+            onClick={() => handleUpdateStatus("safe")}
             className="flex items-center gap-2"
           >
-            <ShieldCheck className="h-4 w-4 text-success" />
+            {updating === "safe" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-success" />
+            ) : (
+              <ShieldCheck className="h-4 w-4 text-success" />
+            )}
             Mark as Safe
           </Button>
           <Button
             variant="outline"
-            onClick={() => {
-              updateCaseStatus(i.id, "escalated");
-              toast.success("Escalated to counsel");
-            }}
+            disabled={updating !== null}
+            onClick={() => handleUpdateStatus("analyzing")}
             className="flex items-center gap-2"
           >
-            <Gavel className="h-4 w-4 text-accent" />
+            {updating === "analyzing" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+            ) : (
+              <RefreshCw className="h-4 w-4 text-amber-500" />
+            )}
+            Analyzing
+          </Button>
+          <Button
+            variant="outline"
+            disabled={updating !== null}
+            onClick={() => handleUpdateStatus("escalated")}
+            className="flex items-center gap-2"
+          >
+            {updating === "escalated" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-accent" />
+            ) : (
+              <Gavel className="h-4 w-4 text-accent" />
+            )}
             Escalate to Counsel
           </Button>
           <Button

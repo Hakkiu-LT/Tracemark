@@ -5,8 +5,8 @@ import type { CheckBrandResponse } from "./api.types";
 
 export type Persona = "brand_owner" | "law_firm";
 export type RiskLevel = "high" | "medium" | "low";
-export type Platform = "Amazon" | "Shopify" | "eBay" | "AliExpress" | "Web Domain" | "Instagram" | "TikTok" | "Google" | "Meta";
-export type CaseStatus = "active" | "takedown_sent" | "resolved" | "escalated" | "safe";
+export type Platform = "Amazon" | "Shopify" | "eBay" | "AliExpress" | "Alibaba" | "Etsy" | "Web Domain" | "Instagram" | "TikTok" | "Google" | "Meta" | "Facebook Marketplace" | "Google Shopping";
+export type CaseStatus = "active" | "takedown_sent" | "resolved" | "escalated" | "safe" | "analyzing";
 
 export interface Client {
   id: string;
@@ -28,6 +28,7 @@ export interface Mark {
   createdAt: string;
   lastScan: string;
   status?: "active" | "on_hold";
+  repeatCycle?: number;
 }
 
 export interface Infringement {
@@ -76,32 +77,7 @@ const MARKS: Mark[] = [
 
 const ago = (mins: number) => new Date(Date.now() - mins * 60_000).toISOString();
 
-const INFRINGEMENTS: Infringement[] = [
-  {
-    id: "i2", markId: "m1", clientId: "c1", brandName: "Derila",
-    risk: "high", platform: "Amazon", status: "active", detectedAt: ago(34),
-    infringer: { seller: "FitGearDirect", storeUrl: "amazon.com/sp?seller=A1FITGEAR", country: "US", contact: "support@fitgeardirect.com", ip: "54.231.18.44" },
-    evidence: { url: "amazon.com/dp/B0CXY9921", timestamp: ago(34), userAgent: "Mozilla/5.0 TracemarkBot/2.1", method: "Logo Similarity" },
-    analysis: { confidence: 92, logoMatch: 94, nameMatch: 90, category: "Trademark Infringement", rationale: "Listing sells contoured memory foam pillows under the brand name 'Derila' without authorization from Orbio. Product design and packaging are identical to the registered trademark." },
-    thumbnail: "oklch(0.58 0.18 255)", title: "Derila Contour Memory Foam Pillow", price: "$18.99",
-  },
-  {
-    id: "i6", markId: "m1", clientId: "c1", brandName: "Derila",
-    risk: "medium", platform: "eBay", status: "takedown_sent", detectedAt: ago(60 * 26),
-    infringer: { seller: "sleepwell_outlet", storeUrl: "ebay.com/usr/sleepwell_outlet", country: "US", contact: "via eBay", ip: "—" },
-    evidence: { url: "ebay.com/itm/2848822991", timestamp: ago(60 * 26), userAgent: "Mozilla/5.0 TracemarkBot/2.1", method: "Logo Similarity" },
-    analysis: { confidence: 82, logoMatch: 85, nameMatch: 92, category: "Trademark Infringement", rationale: "Listing uses the Derila brand name and product images to sell unauthorized pillow covers." },
-    thumbnail: "oklch(0.72 0.17 65)", title: "Derila Memory Foam Pillow Cover", price: "$14.99",
-  },
-  {
-    id: "i8", markId: "m6", clientId: "c1", brandName: "Matsato",
-    risk: "high", platform: "eBay", status: "active", detectedAt: ago(45),
-    infringer: { seller: "sharp_knives_outlet", storeUrl: "ebay.com/usr/sharp_knives_outlet", country: "US", contact: "via eBay", ip: "—" },
-    evidence: { url: "ebay.com/itm/3348822992", timestamp: ago(45), userAgent: "Mozilla/5.0 TracemarkBot/2.1", method: "Logo Similarity" },
-    analysis: { confidence: 88, logoMatch: 90, nameMatch: 96, category: "Trademark Infringement", rationale: "Listing uses the Matsato logo and brand name to sell counterfeit high-carbon chef knives." },
-    thumbnail: "oklch(0.72 0.17 65)", title: "Matsato Japanese Chef Knife - High Carbon Steel", price: "$24.99",
-  },
-];
+const INFRINGEMENTS: Infringement[] = [];
 
 interface State {
   hydrated: boolean;
@@ -124,6 +100,7 @@ interface State {
   updateCaseStatus: (id: string, status: CaseStatus) => void;
   setScanResult: (caseId: string, result: CheckBrandResponse) => void;
   addInfringement: (i: Omit<Infringement, "id" | "detectedAt">) => void;
+  removeInfringement: (id: string) => void;
 }
 
 export const useStore = create<State>()(
@@ -186,6 +163,10 @@ export const useStore = create<State>()(
             ...s.infringements,
           ],
         })),
+      removeInfringement: (id) =>
+        set((s) => ({
+          infringements: s.infringements.filter((i) => i.id !== id),
+        })),
     }),
     {
       name: "tracemark-store-v7",
@@ -203,6 +184,14 @@ export const useStore = create<State>()(
             m.brandName.toLowerCase() === "derila" || m.brandName.toLowerCase() === "matsato"
               ? { ...m, status: "on_hold" }
               : m
+          );
+          state.infringements = state.infringements.filter(
+            (i) =>
+              i.brandName.toLowerCase() !== "derila" &&
+              i.brandName.toLowerCase() !== "matsato" &&
+              i.id !== "i2" &&
+              i.id !== "i6" &&
+              i.id !== "i8"
           );
           state.setHydrated(true);
         }
