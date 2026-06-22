@@ -1804,6 +1804,7 @@ def _mock_evidence(brand_name: str) -> Evidence:
                 seller_name="MockSeller_XYZ",
                 listing_url="https://amazon.com/dp/MOCK123",
                 price="$19.99",
+                screenshot_url="https://placehold.co/1280x800/1a1a2e/ffffff?text=Mock+Evidence+Screenshot",
             )
         ],
         ads=[
@@ -1816,6 +1817,7 @@ def _mock_evidence(brand_name: str) -> Evidence:
                 platform="Meta Ads",
                 ad_copy=f"{brand_name} Sale — Up to 90% off!",
                 destination_url=f"https://mock-metaads-{brand_name.lower()}.net",
+                screenshot_url="https://placehold.co/1280x800/1a1a2e/ffffff?text=Mock+Meta+Ad+Screenshot",
             ),
         ],
         domains=[
