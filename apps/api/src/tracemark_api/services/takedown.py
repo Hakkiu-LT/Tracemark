@@ -403,14 +403,15 @@ def generate_takedown_reports(
     brand_name: str,
     decision: Decision,
     evidence: Evidence,
+    force: bool = False,
 ) -> list[TakedownReport]:
     """
     Generates a platform-specific DMCA notice for every infringing URL found
-    in evidence when the decision is TAKEDOWN.
+    in evidence when the decision is TAKEDOWN or force=True.
     Persists all reports to the `takedown_reports` Supabase table.
-    Returns the list of TakedownReport objects (empty list if action != TAKEDOWN).
+    Returns the list of TakedownReport objects.
     """
-    if decision.recommended_action != "TAKEDOWN":
+    if not force and decision.recommended_action != "TAKEDOWN":
         return []
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")

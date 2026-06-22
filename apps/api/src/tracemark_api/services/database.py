@@ -66,3 +66,15 @@ def get_case_with_decision(case_id: str) -> dict:
     sb = get_supabase()
     case = sb.table("cases").select("*, decisions(*)").eq("id", case_id).single().execute()
     return case.data
+
+
+def get_full_case(case_id: str) -> dict:
+    sb = get_supabase()
+    case = sb.table("cases").select("*, decisions(*), evidence(*), takedown_reports(*)").eq("id", case_id).single().execute()
+    return case.data
+
+
+def update_decision_action(case_id: str, action: str) -> None:
+    sb = get_supabase()
+    sb.table("decisions").update({"recommended_action": action}).eq("case_id", case_id).execute()
+
