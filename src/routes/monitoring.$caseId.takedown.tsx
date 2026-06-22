@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
+import { fetchCaseFromSupabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -10,6 +11,7 @@ import type { TakedownReport } from "@/lib/api.types";
 import {
   ArrowLeft,
   ChevronRight,
+  Loader2,
   Mail,
   Globe,
   Zap,
@@ -124,7 +126,40 @@ function TakedownNoticesPage() {
   const { caseId } = Route.useParams();
   const navigate = useNavigate();
   const result = useStore((s) => s.scanResults[caseId]);
+  const setScanResult = useStore((s) => s.setScanResult);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [loading, setLoading] = useState(!result);
+
+  // Fallback: load from Supabase when the store is empty (e.g. hard refresh or
+  // direct URL navigation bypassing the case detail page).
+  useEffect(() => {
+    if (result) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetchCaseFromSupabase(caseId)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setScanResult(caseId, data);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [caseId, result, setScanResult]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <p className="text-muted-foreground text-sm">Loading case…</p>
+      </div>
+    );
+  }
 
   if (!result) {
     return (

@@ -1,4 +1,4 @@
-import { Store, ShoppingCart, Globe, Tag, Megaphone, Video, Link as LinkIcon } from "lucide-react";
+import { Store, ShoppingCart, Globe, Tag, Megaphone, Video, Link as LinkIcon, Search } from "lucide-react";
 import type { Platform } from "./store";
 
 type PlatformCategory = typeof PLATFORM_GROUPS[number]["key"];
@@ -27,6 +27,62 @@ export const PLATFORMS: {
     apiKey: "amazon"     
   },
   { 
+    id: "eBay",       
+    label: "eBay",            
+    icon: Tag,          
+    category: "shops", 
+    stepLabel: "Scanning eBay listings",     
+    apiKey: "ebay"       
+  },
+  { 
+    id: "AliExpress", 
+    label: "AliExpress",      
+    icon: Globe,        
+    category: "shops", 
+    stepLabel: "Scanning AliExpress listings", 
+    apiKey: "aliexpress" 
+  },
+  { 
+    id: "Alibaba",       
+    label: "Alibaba",            
+    icon: Store,          
+    category: "shops", 
+    stepLabel: "Scanning Alibaba wholesale listings",     
+    apiKey: "alibaba"       
+  },
+  { 
+    id: "Shopify",    
+    label: "Shopify Network", 
+    icon: ShoppingCart, 
+    category: "shops", 
+    stepLabel: "Scanning Shopify network",   
+    apiKey: "shopify"    
+  },
+  { 
+    id: "Etsy",       
+    label: "Etsy",            
+    icon: Tag,          
+    category: "shops", 
+    stepLabel: "Scanning Etsy listings",     
+    apiKey: "etsy"       
+  },
+  { 
+    id: "Google Shopping",
+    label: "Google Shopping",
+    icon: Search,
+    category: "shops",
+    stepLabel: "Scanning Google Shopping",
+    apiKey: "google_shopping"
+  },
+  { 
+    id: "Facebook Marketplace",
+    label: "FB Marketplace",
+    icon: Store,
+    category: "shops",
+    stepLabel: "Scanning Facebook Marketplace",
+    apiKey: "facebook_marketplace"
+  },
+  { 
     id: "Google",     
     label: "Google",      
     icon: Megaphone, 
@@ -49,11 +105,22 @@ export const PLATFORMS: {
     stepLabel: "Running WHOIS domain lookup",   
     apiKey: "domains"    
   },
-/*{ id: "Shopify",    label: "Shopify Network", icon: ShoppingCart, category: "shops", stepLabel: "Scanning Shopify network",   apiKey: "shopify"    },
-  { id: "eBay",       label: "eBay",            icon: Tag,          category: "shops", stepLabel: "Scanning eBay listings",     apiKey: "ebay"       },
-  { id: "AliExpress", label: "AliExpress",      icon: Globe,        category: "shops", stepLabel: "Scanning AliExpress listings", apiKey: "aliexpress" },
-  { id: "Instagram",  label: "Instagram",       icon: Video,        category: "other", stepLabel: "Scanning Instagram",         apiKey: "instagram"  },
-  { id: "TikTok",     label: "TikTok",          icon: Video,        category: "other", stepLabel: "Scanning TikTok",            apiKey: "tiktok"     }, */
+  { 
+    id: "Instagram",  
+    label: "Instagram",       
+    icon: Video,        
+    category: "other", 
+    stepLabel: "Scanning Instagram",         
+    apiKey: "instagram"  
+  },
+  { 
+    id: "TikTok",     
+    label: "TikTok",          
+    icon: Video,        
+    category: "other", 
+    stepLabel: "Scanning TikTok",            
+    apiKey: "tiktok"     
+  },
 ];
 
 

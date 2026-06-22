@@ -48,3 +48,27 @@ def upload_screenshot(image_url: str, prefix: str = "meta") -> str | None:
     except Exception as e:
         print(f"[Storage] Failed to upload screenshot: {e}")
         return None
+
+
+def upload_screenshot_bytes(image_bytes: bytes, prefix: str = "meta") -> str | None:
+    """
+    Upload raw image bytes to Supabase Storage.
+    Returns a permanent public URL, or None if anything fails.
+    """
+    try:
+        import uuid
+        path = f"{prefix}/{uuid.uuid4()}.png"
+
+        _ensure_bucket()
+        sb = get_supabase()
+        sb.storage.from_(BUCKET).upload(
+            path,
+            image_bytes,
+            {"content-type": "image/png", "upsert": "true"},
+        )
+
+        public_url = sb.storage.from_(BUCKET).get_public_url(path)
+        return public_url
+    except Exception as e:
+        print(f"[Storage] Failed to upload screenshot bytes: {e}")
+        return None

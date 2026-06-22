@@ -161,6 +161,15 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                       )}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
+                      {d.screenshot_url && (
+                        <button
+                          onClick={() => setScreenshotUrl(d.screenshot_url)}
+                          className="flex items-center gap-1 text-xs text-accent border border-accent/30 bg-accent/5 hover:bg-accent/10 px-2 py-1 rounded transition-colors"
+                        >
+                          <Image className="h-3.5 w-3.5" />
+                          Screenshot available
+                        </button>
+                      )}
                       {d.is_clone && (
                         <span className="text-xs font-medium text-destructive bg-destructive/10 border border-destructive/20 px-2 py-1 rounded">
                           Clone

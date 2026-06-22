@@ -12,7 +12,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from tracemark_api.services.firecrawl_client import scrape_page, ScrapeResult
 from tracemark_api.services.domain_whitelist import whitelist_service
 from dotenv import find_dotenv
-from tracemark_api.services.ai import Evidence, MarketplaceEvidence, DomainEvidence, AdEvidence
+from tracemark_api.services.ai import Evidence, MarketplaceEvidence, DomainEvidence, AdEvidence, SocialEvidence
 
 # Import usage tracker components
 from tracemark_api.services.api_usage_tracker import tracker, call_with_tracking, ApiLimitError
@@ -72,12 +72,52 @@ def _cached_screenshot(url: str, prefix: str) -> str | None:
         pass
 
     # No cache hit — take a new screenshot
-    from tracemark_api.services.firecrawl_client import screenshot_page
-    from tracemark_api.services.storage import upload_screenshot
-    temp_url = screenshot_page(url)
-    permanent = upload_screenshot(temp_url, prefix=prefix) if temp_url else None
-    _screenshot_cache[url] = permanent
-    return permanent
+    from tracemark_api.services.unified_scraper import DomainRegistry, SCRAPE_JS
+    site_type = DomainRegistry.classify(url)
+
+    if site_type == SCRAPE_JS:
+        # Firecrawl is enough to use their normal screenshot for JS-heavy pages
+        try:
+            from tracemark_api.services.firecrawl_client import screenshot_page
+            from tracemark_api.services.storage import upload_screenshot
+            temp_url = screenshot_page(url)
+            if temp_url:
+                permanent = upload_screenshot(temp_url, prefix=prefix)
+                if permanent:
+                    _screenshot_cache[url] = permanent
+                    return permanent
+        except Exception as e:
+            print(f"[Screenshot] Firecrawl screenshot failed for JS-heavy {url}: {e}")
+    else:
+        # Use local Playwright for static/normal domains
+        try:
+            from tracemark_api.services.playwright_client import take_local_screenshot
+            from tracemark_api.services.storage import upload_screenshot_bytes
+            
+            screenshot_bytes = take_local_screenshot(url)
+            if screenshot_bytes:
+                permanent = upload_screenshot_bytes(screenshot_bytes, prefix=prefix)
+                if permanent:
+                    _screenshot_cache[url] = permanent
+                    return permanent
+        except Exception as e:
+            print(f"[Screenshot] Local Playwright screenshot failed: {e}")
+
+        # Fallback to Firecrawl
+        try:
+            from tracemark_api.services.firecrawl_client import screenshot_page
+            from tracemark_api.services.storage import upload_screenshot
+            temp_url = screenshot_page(url)
+            if temp_url:
+                permanent = upload_screenshot(temp_url, prefix=prefix)
+                if permanent:
+                    _screenshot_cache[url] = permanent
+                    return permanent
+        except Exception as e:
+            print(f"[Screenshot] Firecrawl fallback failed: {e}")
+
+    _screenshot_cache[url] = None
+    return None
 
 
 def _screenshot_listing(listing_url: str | None) -> str | None:
@@ -190,6 +230,7 @@ HEADERS = {
 def build_search_urls(brand_name: str, platforms: list[str]) -> dict[str, str]:
     urls = {}
     encoded = brand_name.replace(" ", "+")
+    encoded_url = urllib.parse.quote_plus(brand_name)
     # Tier 1 — custom scrapers
     if "amazon" in platforms:
         urls["amazon"] = f"https://www.amazon.com/s?k={encoded}"
@@ -200,6 +241,18 @@ def build_search_urls(brand_name: str, platforms: list[str]) -> dict[str, str]:
     # Tier 3 — Firecrawl only
     if "aliexpress" in platforms:
         urls["aliexpress"] = f"https://www.aliexpress.com/wholesale?SearchText={encoded}"
+    if "etsy" in platforms:
+        urls["etsy"] = f"https://www.etsy.com/search?q={encoded_url}"
+    if "shopify" in platforms:
+        urls["shopify"] = f"https://www.google.com/search?q=site:*.myshopify.com+{encoded}"
+    if "facebook_marketplace" in platforms:
+        urls["facebook_marketplace"] = f"https://www.facebook.com/marketplace/search/?query={encoded_url}"
+    if "tiktok" in platforms:
+        urls["tiktok"] = f"https://www.tiktok.com/search?q={encoded_url}"
+    if "instagram" in platforms:
+        urls["instagram"] = f"https://www.instagram.com/explore/tags/{brand_name.lower().replace(' ', '')}/"
+    if "google_shopping" in platforms:
+        urls["google_shopping"] = f"https://www.google.com/search?tbm=shop&q={encoded}"
     return urls
 
 
@@ -272,37 +325,592 @@ class AmazonScraper:
 class EbayScraper:
     """
     eBay scraper using UnifiedScraper (static HTML, no JS required).
-    HTML parsing of product cards is a TODO — currently returns raw markdown.
+    Parses eBay search result cards to extract listing data.
     Cost: $0 (local resources, tracked under 'html_scraper').
     """
 
     def __init__(self):
         self._scraper = UnifiedScraper()
 
-    def search(self, keyword: str, max_pages: int = 3, caller_id: str = "system") -> list[dict]:
-        # TODO: implement eBay-specific HTML card parser
-        # The unified scraper will auto-detect eBay as a static domain and
-        # use a plain HTTP request. Extract result.html with BeautifulSoup
-        # using eBay's product card selectors (e.g. .s-item, .s-item__title).
-        return []
+    def _search_via_api(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict] | None:
+        app_id = os.environ.get("EBAY_APP_ID")
+        if not app_id:
+            return None
+
+        listings = []
+        try:
+            for page in range(1, max_pages + 1):
+                url = "https://svcs.ebay.com/services/search/FindingService/v1"
+                params = {
+                    "OPERATION-NAME": "findItemsByKeywords",
+                    "SERVICE-VERSION": "1.0.0",
+                    "SECURITY-APPNAME": app_id,
+                    "RESPONSE-DATA-FORMAT": "JSON",
+                    "keywords": keyword,
+                    "paginationInput.entriesPerPage": 20,
+                    "paginationInput.pageNumber": page,
+                }
+                resp = call_with_tracking(
+                    "ebay_api", caller_id, "/findItems",
+                    lambda: requests.get(url, params=params, timeout=10)
+                )
+                if resp.status_code != 200:
+                    print(f"[EbayScraper] API status {resp.status_code}: {resp.text[:200]}")
+                    break
+                data = resp.json()
+                response_obj = data.get("findItemsByKeywordsResponse", [{}])[0]
+                if response_obj.get("ack", ["Failure"])[0] == "Success":
+                    search_result = response_obj.get("searchResult", [{}])[0]
+                    items = search_result.get("item", [])
+                    for item in items:
+                        title = item.get("title", [None])[0]
+                        listing_url = item.get("viewItemURL", [None])[0]
+                        price_container = item.get("sellingStatus", [{}])[0].get("currentPrice", [{}])[0]
+                        price_val = price_container.get("__value__", None)
+                        price = f"${price_val}" if price_val else None
+                        
+                        image = item.get("galleryURL", [None])[0]
+                        seller = item.get("sellerInfo", [{}])[0].get("sellerUserName", [None])[0]
+                        
+                        listings.append({
+                            "title": title,
+                            "price": price,
+                            "seller": seller,
+                            "url": listing_url,
+                            "image": image,
+                        })
+                else:
+                    break
+            return listings
+        except Exception as e:
+            print(f"[EbayScraper] API search failed: {e}")
+            return None
+
+    def search(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict]:
+        """
+        Scrape eBay search results pages and extract structured listing data.
+        """
+        api_results = self._search_via_api(keyword, max_pages, caller_id)
+        if api_results is not None:
+            return api_results
+
+        listings = []
+        encoded = keyword.replace(" ", "+")
+        for page in range(1, max_pages + 1):
+            url = f"https://www.ebay.com/sch/i.html?_nkw={encoded}&_pgn={page}"
+            try:
+                result = self._scraper.scrape(url, caller_id=caller_id)
+                if not result.success or not result.html:
+                    print(f"[EbayScraper] Page {page} returned no HTML content.")
+                    break
+                soup = BeautifulSoup(result.html, "html.parser")
+                for item in soup.select(".s-item"):
+                    listing = self._extract_listing(item)
+                    if listing:
+                        listings.append(listing)
+            except ApiLimitError:
+                raise
+            except Exception as e:
+                print(f"[EbayScraper] Page {page} failed: {e}")
+                break
+        return listings
+
+    def _extract_listing(self, element) -> dict | None:
+        """Parse a single eBay product card."""
+        try:
+            title_el = element.select_one(".s-item__title")
+            # Skip the "Shop on eBay" / "Results matching fewer words" cards
+            if not title_el:
+                return None
+            title = title_el.get_text(strip=True)
+            if title.lower() in ("shop on ebay", ""):
+                return None
+
+            price_el = element.select_one(".s-item__price")
+            link_el = element.select_one(".s-item__link")
+            image_el = element.select_one(".s-item__image-img")
+            seller_el = element.select_one(".s-item__seller-info-text")
+            subtitle_el = element.select_one(".s-item__subtitle")
+
+            url = link_el["href"] if link_el and "href" in link_el.attrs else None
+            # Strip eBay tracking parameters
+            if url and "?" in url:
+                url = url.split("?")[0]
+
+            return {
+                "title": title,
+                "price": price_el.get_text(strip=True) if price_el else None,
+                "seller": seller_el.get_text(strip=True) if seller_el else None,
+                "url": url,
+                "image": image_el.get("src") if image_el else None,
+                "subtitle": subtitle_el.get_text(strip=True) if subtitle_el else None,
+            }
+        except Exception:
+            return None
 
 
 class AlibabaScraper:
     """
     Alibaba scraper using UnifiedScraper (static HTML, no JS required).
-    HTML parsing of product cards is a TODO — currently returns raw markdown.
     Cost: $0 (local resources, tracked under 'html_scraper').
     """
 
     def __init__(self):
         self._scraper = UnifiedScraper()
 
-    def search(self, keyword: str, max_pages: int = 3, caller_id: str = "system") -> list[dict]:
-        # TODO: implement Alibaba-specific HTML card parser
-        # The unified scraper will auto-detect Alibaba as a static domain and
-        # use a plain HTTP request. Extract result.html with BeautifulSoup
-        # using Alibaba's product card selectors (e.g. .list-item, .product-info).
-        return []
+    def _search_via_api(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict] | None:
+        app_key = os.environ.get("ALIBABA_APP_KEY")
+        app_secret = os.environ.get("ALIBABA_APP_SECRET")
+        if not app_key or not app_secret:
+            return None
+
+        import hashlib
+        import time
+
+        listings = []
+        try:
+            for page in range(1, max_pages + 1):
+                params = {
+                    "method": "alibaba.icbu.product.search",
+                    "app_key": app_key,
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+                    "format": "json",
+                    "v": "2.0",
+                    "sign_method": "md5",
+                    "subject": keyword,
+                    "page_size": "20",
+                    "current_page": str(page),
+                }
+                # Sign parameters
+                sorted_keys = sorted(params.keys())
+                sign_str = app_secret
+                for k in sorted_keys:
+                    sign_str += f"{k}{params[k]}"
+                sign_str += app_secret
+                params["sign"] = hashlib.md5(sign_str.encode("utf-8")).hexdigest().upper()
+
+                url = "https://api.alibaba.com/router/rest"
+                resp = call_with_tracking(
+                    "alibaba_api", caller_id, "/search",
+                    lambda: requests.get(url, params=params, timeout=10)
+                )
+                if resp.status_code != 200:
+                    print(f"[AlibabaScraper] API status {resp.status_code}: {resp.text[:200]}")
+                    break
+                
+                data = resp.json()
+                if "error_response" in data:
+                    print(f"[AlibabaScraper] API Error: {data['error_response'].get('sub_msg')}")
+                    break
+
+                response_obj = data.get("alibaba_icbu_product_search_response", {})
+                results_container = response_obj.get("products", {})
+                products = results_container.get("product", [])
+                for p in products:
+                    title = p.get("subject")
+                    pid = p.get("product_id")
+                    price_val = p.get("price")
+                    url = f"https://www.alibaba.com/product-detail/{pid}.html" if pid else None
+                    listings.append({
+                        "title": title,
+                        "price": price_val,
+                        "url": url,
+                    })
+            return listings
+        except Exception as e:
+            print(f"[AlibabaScraper] API search failed: {e}")
+            return None
+
+    def search(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict]:
+        api_results = self._search_via_api(keyword, max_pages, caller_id)
+        if api_results is not None:
+            return api_results
+
+        listings = []
+        encoded = keyword.replace(" ", "+")
+        for page in range(1, max_pages + 1):
+            url = f"https://www.alibaba.com/trade/search?SearchText={encoded}&page={page}"
+            try:
+                result = self._scraper.scrape(url, caller_id=caller_id)
+                if not result.success or not result.html:
+                    break
+                soup = BeautifulSoup(result.html, "html.parser")
+                for item in soup.select(".organic-list-offer-outter, .J-offer-wrapper, [data-content='productItem']"):
+                    title_el = item.select_one(".elements-title-normal__content, h2 a")
+                    price_el = item.select_one(".elements-offer-price-normal__price")
+                    link_el = item.select_one("a[href]")
+                    if title_el:
+                        href = link_el["href"] if link_el and "href" in link_el.attrs else None
+                        if href and not href.startswith("http"):
+                            href = f"https:{href}" if href.startswith("//") else f"https://www.alibaba.com{href}"
+                        listings.append({
+                            "title": title_el.get_text(strip=True),
+                            "price": price_el.get_text(strip=True) if price_el else None,
+                            "url": href,
+                        })
+            except ApiLimitError:
+                raise
+            except Exception as e:
+                print(f"[AlibabaScraper] Page {page} failed: {e}")
+                break
+        return listings
+
+
+class EtsyScraper:
+    """
+    Etsy scraper using UnifiedScraper (static HTML, no JS required).
+    Parses search result listing cards.
+    Cost: $0 (local resources, tracked under 'html_scraper').
+    """
+
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict]:
+        listings = []
+        encoded = urllib.parse.quote_plus(keyword)
+        for page in range(1, max_pages + 1):
+            url = f"https://www.etsy.com/search?q={encoded}&page={page}"
+            try:
+                result = self._scraper.scrape(url, caller_id=caller_id)
+                if not result.success or not result.html:
+                    print(f"[EtsyScraper] Page {page} returned no HTML content.")
+                    break
+                soup = BeautifulSoup(result.html, "html.parser")
+                # Etsy listing cards
+                for item in soup.select(".v2-listing-card, [data-listing-id]"):
+                    listing = self._extract_listing(item)
+                    if listing:
+                        listings.append(listing)
+            except ApiLimitError:
+                raise
+            except Exception as e:
+                print(f"[EtsyScraper] Page {page} failed: {e}")
+                break
+        return listings
+
+    def _extract_listing(self, element) -> dict | None:
+        try:
+            title_el = element.select_one(".v2-listing-card__info h3, .v2-listing-card__title")
+            price_el = element.select_one(".currency-value, .lc-price span.currency-value")
+            link_el = element.select_one("a.listing-link, a[href*='/listing/']")
+            shop_el = element.select_one(".v2-listing-card__shop, .shop-name")
+            image_el = element.select_one("img")
+
+            title = title_el.get_text(strip=True) if title_el else None
+            if not title:
+                return None
+
+            href = link_el["href"] if link_el and "href" in link_el.attrs else None
+
+            return {
+                "title": title,
+                "price": price_el.get_text(strip=True) if price_el else None,
+                "seller": shop_el.get_text(strip=True) if shop_el else None,
+                "url": href,
+                "image": image_el.get("src") if image_el else None,
+            }
+        except Exception:
+            return None
+
+
+class AliExpressScraper:
+    """
+    AliExpress scraper using UnifiedScraper (JS-heavy, routed to Firecrawl).
+    Uses Gemini AI to extract structured listings from rendered markdown.
+    Cost: 10 Firecrawl credits per call.
+    """
+
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def _search_via_api(self, keyword: str, caller_id: str = "system") -> str | None:
+        app_key = os.environ.get("ALIEXPRESS_APP_KEY")
+        app_secret = os.environ.get("ALIEXPRESS_APP_SECRET")
+        if not app_key or not app_secret:
+            return None
+
+        import hashlib
+        import time
+
+        try:
+            params = {
+                "method": "aliexpress.affiliate.product.query",
+                "app_key": app_key,
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+                "format": "json",
+                "v": "2.0",
+                "sign_method": "md5",
+                "keywords": keyword,
+                "page_size": "20",
+            }
+            # Sign parameters
+            sorted_keys = sorted(params.keys())
+            sign_str = app_secret
+            for k in sorted_keys:
+                sign_str += f"{k}{params[k]}"
+            sign_str += app_secret
+            params["sign"] = hashlib.md5(sign_str.encode("utf-8")).hexdigest().upper()
+
+            url = "https://api.alibaba.com/router/rest"
+            resp = call_with_tracking(
+                "aliexpress_api", caller_id, "/query",
+                lambda: requests.get(url, params=params, timeout=10)
+            )
+            if resp.status_code != 200:
+                print(f"[AliExpressScraper] API status {resp.status_code}: {resp.text[:200]}")
+                return None
+            
+            data = resp.json()
+            if "error_response" in data:
+                print(f"[AliExpressScraper] API Error: {data['error_response'].get('sub_msg')}")
+                return None
+
+            response_obj = data.get("aliexpress_affiliate_product_query_response", {})
+            resp_result = response_obj.get("resp_result", {})
+            result_list = resp_result.get("result", {}).get("products", {}).get("product", [])
+            
+            formatted_listings = []
+            for p in result_list:
+                title = p.get("product_title")
+                url = p.get("product_detail_url")
+                price = p.get("target_original_price")
+                seller = p.get("shop_info", {}).get("shop_name", "Unknown")
+                formatted_listings.append({
+                    "title": title,
+                    "url": url,
+                    "price": price,
+                    "seller": seller
+                })
+            # Return serialized JSON string which the Gemini extractor can parse
+            return json.dumps(formatted_listings)
+        except Exception as e:
+            print(f"[AliExpressScraper] API search failed: {e}")
+            return None
+
+    def search(self, keyword: str, caller_id: str = "system") -> str:
+        """
+        Scrape AliExpress search results via Firecrawl and return raw markdown.
+        Structured extraction is handled downstream by Gemini in extract_marketplace_evidence().
+        """
+        api_result = self._search_via_api(keyword, caller_id)
+        if api_result is not None:
+            return api_result
+
+        encoded = keyword.replace(" ", "+")
+        url = f"https://www.aliexpress.com/wholesale?SearchText={encoded}"
+        try:
+            result = self._scraper.scrape(url, caller_id=caller_id)
+            return result.markdown if result and result.success else ""
+        except ApiLimitError:
+            raise
+        except Exception as e:
+            print(f"[AliExpressScraper] Search failed: {e}")
+            return ""
+
+
+class ShopifyScraper:
+    """
+    Shopify network scraper.
+    Strategy:
+      1. Google SERP to discover Shopify stores selling the brand
+      2. For each discovered store, attempt /products.json (Shopify public API)
+    Cost: $0 for HTML + /products.json; SERP uses existing Google SERP quota.
+    """
+
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, caller_id: str = "system") -> list[dict]:
+        listings = []
+        encoded = keyword.replace(" ", "+")
+        # Step 1: Discover Shopify stores via Google SERP
+        search_url = f"https://www.google.com/search?q=site:*.myshopify.com+{encoded}"
+        try:
+            result = self._scraper.scrape(search_url, caller_id=caller_id)
+            if not result.success or not result.html:
+                print("[ShopifyScraper] Google SERP returned no HTML.")
+                return []
+            soup = BeautifulSoup(result.html, "html.parser")
+            store_urls = set()
+            for link in soup.select("a[href]"):
+                href = link.get("href", "")
+                # Extract myshopify.com URLs from Google redirect links
+                if "myshopify.com" in href:
+                    match = re.search(r'(https?://[\w.-]+\.myshopify\.com)', href)
+                    if match:
+                        store_urls.add(match.group(1))
+            # Step 2: Probe each store's /products.json
+            for store_url in list(store_urls)[:5]:  # Cap at 5 stores
+                try:
+                    products_url = f"{store_url}/products.json?limit=20"
+                    resp = call_with_tracking(
+                        "html_scraper", caller_id, "/shopify-products",
+                        lambda: requests.get(products_url, headers=HEADERS, timeout=10, allow_redirects=True)
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        for p in data.get("products", []):
+                            price = None
+                            variants = p.get("variants", [])
+                            if variants:
+                                price = variants[0].get("price")
+                            images = p.get("images", [])
+                            image_url = images[0].get("src") if images else None
+                            listings.append({
+                                "title": p.get("title"),
+                                "price": f"${price}" if price else None,
+                                "seller": p.get("vendor") or store_url,
+                                "url": f"{store_url}/products/{p.get('handle')}",
+                                "image": image_url,
+                            })
+                except Exception as e:
+                    print(f"[ShopifyScraper] Failed to fetch {store_url}/products.json: {e}")
+        except ApiLimitError:
+            raise
+        except Exception as e:
+            print(f"[ShopifyScraper] SERP discovery failed: {e}")
+        return listings
+
+
+class FacebookMarketplaceScraper:
+    """
+    Facebook Marketplace scraper using Firecrawl JS rendering.
+    Facebook aggressively blocks scrapers, so this returns empty gracefully.
+    Cost: 10 Firecrawl credits per call.
+    """
+
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, caller_id: str = "system") -> str:
+        encoded = urllib.parse.quote_plus(keyword)
+        url = f"https://www.facebook.com/marketplace/search/?query={encoded}"
+        try:
+            result = self._scraper.scrape(url, caller_id=caller_id)
+            if result and result.success and len(result.markdown) > 100:
+                return result.markdown
+            print("[FacebookMarketplaceScraper] Scrape returned insufficient content (likely blocked).")
+            return ""
+        except ApiLimitError:
+            raise
+        except Exception as e:
+            print(f"[FacebookMarketplaceScraper] Search failed: {e}")
+            return ""
+
+
+class TikTokScraper:
+    """
+    TikTok scraper using Firecrawl JS rendering.
+    Extracts video metadata from TikTok search results.
+    Cost: 10 Firecrawl credits per call.
+    """
+
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, caller_id: str = "system") -> str:
+        encoded = urllib.parse.quote_plus(keyword)
+        url = f"https://www.tiktok.com/search?q={encoded}"
+        try:
+            result = self._scraper.scrape(url, caller_id=caller_id)
+            return result.markdown if result and result.success else ""
+        except ApiLimitError:
+            raise
+        except Exception as e:
+            print(f"[TikTokScraper] Search failed: {e}")
+            return ""
+
+
+class InstagramScraper:
+    """
+    Instagram scraper using Firecrawl JS rendering.
+    Scrapes hashtag explore pages for brand mentions.
+    Cost: 10 Firecrawl credits per call.
+    """
+
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, caller_id: str = "system") -> str:
+        tag = keyword.lower().replace(" ", "")
+        url = f"https://www.instagram.com/explore/tags/{tag}/"
+        try:
+            result = self._scraper.scrape(url, caller_id=caller_id)
+            return result.markdown if result and result.success else ""
+        except ApiLimitError:
+            raise
+        except Exception as e:
+            print(f"[InstagramScraper] Search failed: {e}")
+            return ""
+
+
+class GoogleShoppingScraper:
+    """
+    Google Shopping scraper using static HTML (Google serves server-rendered HTML).
+    Parses shopping result cards from Google's shopping tab.
+    Cost: $0 (local resources, tracked under 'html_scraper').
+    """
+
+    def __init__(self):
+        self._scraper = UnifiedScraper()
+
+    def search(self, keyword: str, caller_id: str = "system") -> list[dict]:
+        listings = []
+        encoded = keyword.replace(" ", "+")
+        url = f"https://www.google.com/search?tbm=shop&q={encoded}"
+        try:
+            result = self._scraper.scrape(url, caller_id=caller_id)
+            if not result.success or not result.html:
+                print("[GoogleShoppingScraper] No HTML content returned.")
+                return []
+            soup = BeautifulSoup(result.html, "html.parser")
+            # Google Shopping product cards
+            for item in soup.select(".sh-dgr__gr-auto, .sh-dlr__list-result, [data-docid]"):
+                listing = self._extract_listing(item)
+                if listing:
+                    listings.append(listing)
+            # Fallback: if no structured cards found, use link-based extraction
+            if not listings:
+                for link in soup.select("a[href]"):
+                    href = link.get("href", "")
+                    title_el = link.select_one("h3, h4, .tAxDx, .Xjkr3b")
+                    if title_el and "/shopping/product/" in href:
+                        listings.append({
+                            "title": title_el.get_text(strip=True),
+                            "url": f"https://www.google.com{href}" if href.startswith("/") else href,
+                            "price": None,
+                            "seller": None,
+                        })
+        except ApiLimitError:
+            raise
+        except Exception as e:
+            print(f"[GoogleShoppingScraper] Search failed: {e}")
+        return listings
+
+    def _extract_listing(self, element) -> dict | None:
+        try:
+            title_el = element.select_one("h3, h4, .tAxDx, .Xjkr3b")
+            price_el = element.select_one(".a8Pemb, .HRLxBb, .kHxwFf")
+            merchant_el = element.select_one(".aULzUe, .IuHnof, .E5ocAb")
+            link_el = element.select_one("a[href]")
+
+            title = title_el.get_text(strip=True) if title_el else None
+            if not title:
+                return None
+
+            href = link_el["href"] if link_el and "href" in link_el.attrs else None
+            if href and href.startswith("/"):
+                href = f"https://www.google.com{href}"
+
+            return {
+                "title": title,
+                "price": price_el.get_text(strip=True) if price_el else None,
+                "seller": merchant_el.get_text(strip=True) if merchant_el else None,
+                "url": href,
+            }
+        except Exception:
+            return None
 
 
 class GoogleSERPAPI:
@@ -315,11 +923,11 @@ class GoogleSERPAPI:
 
     def search(self, brand_name: str, max_pages: int = 2, caller_id: str = "system") -> list[str]:
         """
-        Scrapes google search pages or queries SerpApi for brand_name, extracts URLs and returns domains.
+        Scrapes google search pages, queries SerpApi, or queries SearchCans for brand_name,
+        extracts URLs and returns domains.
         """
         domains = set()
         query = brand_name.replace(" ", "+")
-        # Add brand-specific domain variations we know are official if any
         brand_domain = brand_name.lower().replace(" ", "")
         official_domains = {
             f"{brand_domain}.com",
@@ -328,16 +936,25 @@ class GoogleSERPAPI:
         }
         
         self._last_search_failed = False
-        api_key = os.environ.get("GOOGLE_SERP_API")
+        google_serp_api_key = os.environ.get("GOOGLE_SERP_API")
+        searchcans_api_key = os.environ.get("SEARCHCANS_API")
         
-        for page in range(max_pages):
-            start = page * 10
+        # 1. Attempt Google SERP API (SerpApi)
+        use_serp_api = bool(google_serp_api_key)
+        if use_serp_api:
+            from tracemark_api.services.api_usage_tracker import tracker
+            if tracker.is_blocked("google_serp"):
+                print("[GoogleSERPAPI] google_serp API limit reached. Checking fallback.")
+                use_serp_api = False
+
+        if use_serp_api:
             try:
-                if api_key:
+                for page in range(max_pages):
+                    start = page * 10
                     serp_url = "https://serpapi.com/search.json"
                     params = {
                         "q": brand_name,
-                        "api_key": api_key,
+                        "api_key": google_serp_api_key,
                         "engine": "google",
                         "start": start
                     }
@@ -345,70 +962,121 @@ class GoogleSERPAPI:
                         "google_serp", caller_id, "/check-brand",
                         lambda: requests.get(serp_url, params=params, headers=HEADERS, timeout=10)
                     )
-                else:
-                    url = f"https://www.google.com/search?q={query}&start={start}"
+                    if resp.status_code != 200:
+                        print(f"[GoogleSERPAPI] SerpApi failed with status {resp.status_code}")
+                        self._last_search_failed = True
+                        break
+                    
+                    data = resp.json()
+                    for item in data.get("organic_results", []):
+                        link = item.get("link")
+                        if link:
+                            self._add_link_to_domains(link, official_domains, domains)
+                    time.sleep(0.5)
+                return list(domains)
+            except ApiLimitError:
+                print("[GoogleSERPAPI] SerpApi hit rate limit during scan. Falling back.")
+                self._last_search_failed = True
+            except Exception as e:
+                print(f"[GoogleSERPAPI] SerpApi failed with exception: {e}. Falling back.")
+                self._last_search_failed = True
+
+        # 2. Attempt SearchCans API fallback
+        use_searchcans = bool(searchcans_api_key)
+        if use_searchcans:
+            from tracemark_api.services.api_usage_tracker import tracker
+            if tracker.is_blocked("searchcans"):
+                print("[GoogleSERPAPI] SearchCans API limit reached. Checking next fallback.")
+                use_searchcans = False
+
+        if use_searchcans:
+            try:
+                for page in range(max_pages):
+                    payload = {
+                        "t": "google",
+                        "s": brand_name,
+                        "p": page + 1
+                    }
+                    headers = {
+                        "Authorization": f"Bearer {searchcans_api_key}",
+                        "Content-Type": "application/json"
+                    }
                     resp = call_with_tracking(
-                        "google_serp", caller_id, "/check-brand",
-                        lambda: requests.get(url, headers=HEADERS, timeout=10)
+                        "searchcans", caller_id, "/check-brand",
+                        lambda: requests.post(
+                            "https://www.searchcans.com/api/v1/search",
+                            json=payload,
+                            headers=headers,
+                            timeout=15
+                        )
                     )
-                
+                    if resp.status_code != 200:
+                        print(f"[GoogleSERPAPI] SearchCans failed with status {resp.status_code}")
+                        self._last_search_failed = True
+                        break
+                    
+                    data = resp.json()
+                    organic = data.get("data", {}).get("organic", [])
+                    for item in organic:
+                        link = item.get("link")
+                        if link:
+                            self._add_link_to_domains(link, official_domains, domains)
+                    time.sleep(0.5)
+                return list(domains)
+            except ApiLimitError:
+                print("[GoogleSERPAPI] SearchCans hit rate limit during scan. Falling back.")
+                self._last_search_failed = True
+            except Exception as e:
+                print(f"[GoogleSERPAPI] SearchCans failed with exception: {e}. Falling back.")
+                self._last_search_failed = True
+
+        # 3. Fallback to HTML Google Scraper (local requests)
+        try:
+            for page in range(max_pages):
+                start = page * 10
+                url = f"https://www.google.com/search?q={query}&start={start}"
+                resp = call_with_tracking(
+                    "google_serp", caller_id, "/check-brand",
+                    lambda: requests.get(url, headers=HEADERS, timeout=10)
+                )
                 if resp.status_code != 200:
-                    print(f"[GoogleSERPAPI] Blocked or failed with status {resp.status_code}")
+                    print(f"[GoogleSERPAPI] Static HTML search failed with status {resp.status_code}")
                     self._last_search_failed = True
                     break
                 
-                links = []
-                if api_key:
-                    try:
-                        data = resp.json()
-                        for item in data.get("organic_results", []):
-                            link = item.get("link")
-                            if link:
-                                links.append(link)
-                    except Exception as parse_err:
-                        print(f"[GoogleSERPAPI] Failed to parse SerpApi response: {parse_err}")
-                else:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    for item in soup.select("a[href]"):
-                        href = item["href"]
-                        # Clean up google redirects if any, or process normal links
-                        if href.startswith("/url?q="):
-                            match = re.search(r"/url\?q=(https?://[^&]+)", href)
-                            if match:
-                                href = urllib.parse.unquote(match.group(1))
-                        if href.startswith("http"):
-                            links.append(href)
-                
-                for link in links:
-                    try:
-                        parsed = urllib.parse.urlparse(link)
-                        netloc = parsed.netloc.lower()
-                        if netloc.startswith("www."):
-                            netloc = netloc[4:]
-                        
-                        # Filter out:
-                        # 1. Invalid netlocs
-                        # 2. Official brand domains
-                        # 3. Globally whitelisted top traffic domains
-                        if netloc:
-                            if netloc in official_domains or any(netloc.endswith("." + od) for od in official_domains):
-                                continue
-                            if whitelist_service.is_whitelisted(netloc):
-                                continue
-                            domains.add(netloc)
-                    except Exception:
-                        pass
-                
-                # Small polite delay
+                soup = BeautifulSoup(resp.text, "html.parser")
+                for item in soup.select("a[href]"):
+                    href = item["href"]
+                    if href.startswith("/url?q="):
+                        match = re.search(r"/url\?q=(https?://[^&]+)", href)
+                        if match:
+                            href = urllib.parse.unquote(match.group(1))
+                    if href.startswith("http"):
+                        self._add_link_to_domains(href, official_domains, domains)
                 time.sleep(1.0)
-            except ApiLimitError:
-                self._last_search_failed = True
-                raise
-            except Exception as e:
-                print(f"[GoogleSERPAPI] Error on page {page}: {e}")
-                self._last_search_failed = True
-                break
+        except ApiLimitError as e:
+            self._last_search_failed = True
+            raise e
+        except Exception as e:
+            print(f"[GoogleSERPAPI] Static search failed: {e}")
+            self._last_search_failed = True
+            
         return list(domains)
+
+    def _add_link_to_domains(self, link: str, official_domains: set[str], domains: set[str]) -> None:
+        try:
+            parsed = urllib.parse.urlparse(link)
+            netloc = parsed.netloc.lower()
+            if netloc.startswith("www."):
+                netloc = netloc[4:]
+            if netloc:
+                if netloc in official_domains or any(netloc.endswith("." + od) for od in official_domains):
+                    return
+                if whitelist_service.is_whitelisted(netloc):
+                    return
+                domains.add(netloc)
+        except Exception:
+            pass
 
     def check_serp_domains(self, brand_name: str, caller_id: str = "system") -> list[dict]:
         import whois
@@ -695,8 +1363,8 @@ class MarketplaceScraper:
     Main aggregator. Routes each platform to the correct scraping tier via UnifiedScraper.
 
     Routing:
-      - Amazon, eBay, Alibaba → UnifiedScraper detects as static HTML (local resources)
-      - AliExpress, TikTok, etc. → UnifiedScraper detects as JS-heavy (Firecrawl)
+      - Amazon, eBay, Alibaba, Etsy, Google Shopping → static HTML (local resources)
+      - AliExpress, TikTok, Instagram, Facebook, Shopify → JS-heavy (Firecrawl)
       - Unknown domains → UnifiedScraper heuristic probe + static-first fallback
     """
 
@@ -704,6 +1372,13 @@ class MarketplaceScraper:
         self.amazon = AmazonScraper()
         self.ebay = EbayScraper()
         self.alibaba = AlibabaScraper()
+        self.etsy = EtsyScraper()
+        self.aliexpress = AliExpressScraper()
+        self.shopify = ShopifyScraper()
+        self.facebook_marketplace = FacebookMarketplaceScraper()
+        self.tiktok = TikTokScraper()
+        self.instagram = InstagramScraper()
+        self.google_shopping = GoogleShoppingScraper()
         self.google_ads = GoogleAdsAPI()
         self.meta_ads = MetaAdsAPI()
         self.serp = GoogleSERPAPI()
@@ -723,12 +1398,13 @@ class MarketplaceScraper:
         results = {
             "marketplaces": {},
             "ads": {},
+            "social": {},
             "domains": [],
             "timestamp": datetime.now().isoformat(),
         }
         blocked_apis = []
 
-        # --- Tier 1: Custom scrapers ---
+        # --- Tier 1: Static HTML scrapers (free, local resources) ---
         if "amazon" in platforms:
             try:
                 results["marketplaces"]["amazon"] = self.amazon.search(brand_name, caller_id=caller_id)
@@ -740,6 +1416,9 @@ class MarketplaceScraper:
         if "ebay" in platforms:
             try:
                 results["marketplaces"]["ebay"] = self.ebay.search(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] eBay rate limit reached: {e}")
+                blocked_apis.append("ebay_scraper")
             except Exception as e:
                 print(f"[MarketplaceScraper] eBay search failed: {e}")
         if "alibaba" in platforms:
@@ -747,21 +1426,68 @@ class MarketplaceScraper:
                 results["marketplaces"]["alibaba"] = self.alibaba.search(brand_name, caller_id=caller_id)
             except Exception as e:
                 print(f"[MarketplaceScraper] Alibaba search failed: {e}")
+        if "etsy" in platforms:
+            try:
+                results["marketplaces"]["etsy"] = self.etsy.search(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Etsy rate limit reached: {e}")
+                blocked_apis.append("etsy_scraper")
+            except Exception as e:
+                print(f"[MarketplaceScraper] Etsy search failed: {e}")
+        if "google_shopping" in platforms:
+            try:
+                results["marketplaces"]["google_shopping"] = self.google_shopping.search(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Google Shopping rate limit reached: {e}")
+                blocked_apis.append("google_shopping_scraper")
+            except Exception as e:
+                print(f"[MarketplaceScraper] Google Shopping search failed: {e}")
 
-        # --- AliExpress: JS-heavy, routed to Firecrawl via UnifiedScraper ---
+        # --- Tier 2: JS-heavy / Firecrawl scrapers ---
         if "aliexpress" in platforms:
             try:
-                aliexpress_url = f"https://www.aliexpress.com/wholesale?SearchText={brand_name.replace(' ', '+')}"
-                # UnifiedScraper knows aliexpress.com is JS-heavy and will use Firecrawl directly
-                aliexpress_result = self.unified.scrape(aliexpress_url, caller_id=caller_id)
-                results["marketplaces"]["aliexpress"] = aliexpress_result.markdown if aliexpress_result else ""
+                results["marketplaces"]["aliexpress"] = self.aliexpress.search(brand_name, caller_id=caller_id)
             except ApiLimitError as e:
-                print(f"[MarketplaceScraper] Scraper rate limit reached for AliExpress: {e}")
-                blocked_apis.append(e.api_key)
+                print(f"[MarketplaceScraper] AliExpress rate limit reached: {e}")
+                blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
             except Exception as e:
                 print(f"[MarketplaceScraper] AliExpress search failed: {e}")
+        if "shopify" in platforms:
+            try:
+                results["marketplaces"]["shopify"] = self.shopify.search(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Shopify rate limit reached: {e}")
+                blocked_apis.append("shopify_scraper")
+            except Exception as e:
+                print(f"[MarketplaceScraper] Shopify search failed: {e}")
+        if "facebook_marketplace" in platforms:
+            try:
+                results["marketplaces"]["facebook_marketplace"] = self.facebook_marketplace.search(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Facebook Marketplace rate limit reached: {e}")
+                blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+            except Exception as e:
+                print(f"[MarketplaceScraper] Facebook Marketplace search failed: {e}")
 
-        # --- Tier 2: Official APIs ---
+        # --- Social media scrapers (results go into 'social' key) ---
+        if "tiktok" in platforms:
+            try:
+                results["social"]["tiktok"] = self.tiktok.search(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] TikTok rate limit reached: {e}")
+                blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+            except Exception as e:
+                print(f"[MarketplaceScraper] TikTok search failed: {e}")
+        if "instagram" in platforms:
+            try:
+                results["social"]["instagram"] = self.instagram.search(brand_name, caller_id=caller_id)
+            except ApiLimitError as e:
+                print(f"[MarketplaceScraper] Instagram rate limit reached: {e}")
+                blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+            except Exception as e:
+                print(f"[MarketplaceScraper] Instagram search failed: {e}")
+
+        # --- Tier 3: Official APIs ---
         if "google_ads" in platforms:
             try:
                 results["ads"]["google"] = self.google_ads.search(brand_name, official_advertisers=official_advertisers, caller_id=caller_id)
@@ -904,6 +1630,55 @@ If nothing suspicious, return [].
     return result.items
 
 
+class SocialEvidenceList(BaseModel):
+    items: list[SocialEvidence] = Field(default_factory=list)
+
+
+def extract_social_evidence(
+    brand_name: str,
+    platform: str,
+    raw_content: str,
+    caller_id: str = "system",
+) -> list[SocialEvidence]:
+    """
+    Uses Gemini to analyze scraped social media content (TikTok, Instagram)
+    and extract suspicious accounts/posts that may be infringing on the brand.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key or not raw_content.strip():
+        return []
+
+    model = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0.0,
+        google_api_key=api_key,
+    )
+
+    prompt = f"""
+You are a brand protection analyst. Below is scraped content from {platform} for brand "{brand_name}".
+
+Identify social media accounts or posts that appear to be selling counterfeit products,
+impersonating the brand, or using the brand name without authorization.
+
+For each suspicious account/post, return:
+- platform: "{platform}"
+- handle: the account username/handle
+- post_url: direct URL to the post (if available, otherwise null)
+- follower_count: follower count (if visible, otherwise null)
+
+Content:
+{raw_content[:6000]}
+
+Return a JSON array. If nothing suspicious, return [].
+"""
+    structured_model = model.with_structured_output(SocialEvidenceList)
+    result = call_with_tracking(
+        "gemini_flash", caller_id, f"/extract-social-evidence-{platform}",
+        lambda: structured_model.invoke(prompt)
+    )
+    return result.items
+
+
 def gather_evidence(
     brand_name: str,
     platforms: list[str],
@@ -945,12 +1720,14 @@ def gather_evidence(
     # Convert WHOIS dicts to Pydantic DomainEvidence models
     domain_evidences = []
     for d in raw.get("domains", []):
+        domain_url = f"https://{d['domain']}"
         domain_evidences.append(
             DomainEvidence(
                 domain_name=d["domain"],
                 registrar=d.get("registrant") or "unknown",
                 is_clone=True,
                 similarity_score=90,
+                screenshot_url=_screenshot_listing(domain_url),
             )
         )
 
@@ -962,11 +1739,25 @@ def gather_evidence(
         elif isinstance(ad, dict):
             ad_evidences.append(_ad_dict_to_evidence(ad))
 
+    # Extract social media evidence from TikTok/Instagram raw content
+    social_evidences: list[SocialEvidence] = []
+    for platform, content in raw.get("social", {}).items():
+        if isinstance(content, str) and content.strip():
+            try:
+                social_items = extract_social_evidence(brand_name, platform, content, caller_id)
+                social_evidences.extend(social_items)
+            except ApiLimitError as e:
+                print(f"[gather_evidence] Gemini rate limit reached for {platform} social: {e}")
+                if "gemini_flash" not in blocked_apis:
+                    blocked_apis.append("gemini_flash")
+            except Exception as e:
+                print(f"[gather_evidence] Gemini social extraction failed for {platform}: {e}")
+
     return Evidence(
         marketplaces=all_marketplace_evidence,
         ads=ad_evidences,
         domains=domain_evidences,
-        social=[],
+        social=social_evidences,
         blocked_apis=blocked_apis,
         timestamp=datetime.now(),
     )
