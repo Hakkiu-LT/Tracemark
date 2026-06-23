@@ -74,6 +74,7 @@ This document contains all backend services, engines, databases, API endpoints, 
 | `profiles` table + trigger | ✅ Done | `20260616000001_profiles.sql` — exact spec match |
 | RLS policies on tables | ✅ Done | `20260617000001_profiles_rls.sql` + per-table policies |
 | `GET /api/v1/me` endpoint | ✅ Done | `routes/auth.py` — validates Supabase JWT, returns `UserProfile` from `profiles` table |
+| Restrict `/api/v1/usage-stats` endpoint to allowed admin emails | ❌ Missing | Validate user email matches allowed admin list before returning data |
 | `pytest tests/test_auth.py` | ❌ Missing | — |
 
 ### Stripe Billing

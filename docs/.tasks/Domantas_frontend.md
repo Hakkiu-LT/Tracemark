@@ -42,6 +42,7 @@ This document contains all frontend tasks, routes, components, and frontend-supp
 | Global error boundary | ✅ Done | `ErrorComponent` in `__root.tsx` |
 | Skeleton loaders on data-fetching components | ❌ Missing | Ensure visual consistency |
 | Toast notifications on actions | ⚠️ Partial | `sonner` Toaster is wired; action toasts are not fully connected |
+| Restrict API Usage tab/route visibility to allowed admin emails | ❌ Missing | Check user email against allowed admin list before rendering sidebar link or permitting route entry |
 | `docs/phase2-demo.md` | ❌ Missing | Demo instructions documentation |
 
 ---
