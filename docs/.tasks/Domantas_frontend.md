@@ -1,4 +1,4 @@
-# Phase 2 & Phase 3 — Frontend Tasks
+# Frontend Tasks
 
 This document contains all frontend tasks, routes, components, and frontend-supporting API endpoints for Phase 2 and Phase 3.
 
@@ -6,7 +6,7 @@ This document contains all frontend tasks, routes, components, and frontend-supp
 
 ---
 
-## Phase 2 — Week 1: Detection Engine Foundation
+## Detection Engine Foundation
 
 ### Alert Feed & API Support
 | Task | Status | Notes |
@@ -17,7 +17,7 @@ This document contains all frontend tasks, routes, components, and frontend-supp
 
 ---
 
-## Phase 2 — Week 2: Case Detail & Evidence View
+## Case Detail & Evidence View
 
 ### Case Detail View
 | Task | Status | Notes |
@@ -31,7 +31,7 @@ This document contains all frontend tasks, routes, components, and frontend-supp
 
 ---
 
-## Phase 2 — Week 3: Dashboard Filters, Error States & Polish
+## Dashboard Filters, Error States & Polish
 
 ### Dashboard & Polish
 | Task | Status | Notes |
@@ -46,7 +46,7 @@ This document contains all frontend tasks, routes, components, and frontend-supp
 
 ---
 
-## Phase 2 — Week 4: Authentication & Payments
+## Authentication & Payments
 
 ### Auth — Frontend
 | Task | Status | Notes |
@@ -65,19 +65,19 @@ This document contains all frontend tasks, routes, components, and frontend-supp
 
 ---
 
-## Phase 3 — Week 1: Document Generation UI
+## Takedown Editor & Inline Editing UI
 
-### Document Generator View
+### Inline Notice Editor & Actions
 | Task | Status | Notes |
 |---|---|---|
-| `/documents/generate` frontend route + `<DocumentGeneratorView />` | ❌ Missing | No such route; takedown is handled in `cases.$caseId.takedown.tsx` but needs full editor & preview layout |
-| `<DocumentActions />` bar (Download PDF, Download Docx, Send via Email) | ❌ Missing | Buttons need to be implemented and wired |
-| `GET /api/v1/documents/preview` API endpoint | ❌ Missing | Backend API supporting the live editable preview text |
-| `POST /api/v1/documents/generate` API endpoint | ❌ Missing | Backend API supporting document file compilation |
+| Make notice preview text editable inline on `/monitoring/$caseId/takedown` | ❌ Missing | Allow manual tweaks to notice text before copying/sending |
+| Notice status update buttons (e.g. mark as Sent, Acknowledged, or Dismissed) | ⚠️ Partial | "Send email" marks as sent; other statuses can be updated in DB |
+| Toast feedback and state syncing | ⚠️ Partial | Refresh notice list and badge indicators when statuses change |
+| `PUT /api/v1/monitoring/takedowns/{id}` integration | ❌ Missing | Save user edits to notice text to the DB |
 
 ---
 
-## Phase 3 — Week 2: Notification Settings UI & Logs
+## Notification Settings UI & Logs
 
 ### Notifications Frontend
 | Task | Status | Notes |
@@ -85,16 +85,17 @@ This document contains all frontend tasks, routes, components, and frontend-supp
 | `/settings/notifications` route + `<NotificationSettingsPanel />` | ❌ Missing | UI panel to configure notification emails |
 | `<NotificationDeliveryLog />` component | ❌ Missing | Table showing last 20 notification delivery events with status badges |
 | `POST /api/v1/notifications/test/email` API endpoint | ❌ Missing | Backend API supporting test connections |
-| `POST /api/v1/documents/{id}/send-email` API endpoint | ❌ Missing | Backend API supporting document delivery via email |
+| `POST /api/v1/monitoring/takedowns/{id}/send-email` integration | ❌ Missing | Frontend trigger to email the notice directly via backend SMTP |
 
 ---
 
-## Phase 3 — Week 3: Law Firm Mode & Final Polish
+## Law Firm Mode & Final Polish
 
 ### Law Firm Settings & E2E Validation
 | Task | Status | Notes |
 |---|---|---|
 | Persona toggle persisted to `org_settings` in Supabase | ❌ Missing | Persona toggle works but is stored in local Zustand store only |
 | `/settings/clients` route + `<ClientManagementTable />` | ⚠️ Partial | `src/routes/clients.tsx` exists but appears to be a standalone client-list page, not wired to the backend `clients` table |
+| Optimize case/takedown pages for browser print-to-PDF (`@media print` CSS) | ❌ Missing | Allows both Brand Owners and Law Firms to cleanly print or save PDF reports from the browser |
 | `<ClientBillingCard />` with CSV export | ❌ Missing | Dashboard component for client metrics export |
 | End-to-end QA + `docs/phase3-demo.md` | ❌ Missing | Complete verification and demo walkthrough documentation |
