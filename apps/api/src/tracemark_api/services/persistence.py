@@ -131,6 +131,38 @@ def persist_infringement(
     return result.data[0]["id"]
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Evidence persistence
+# ──────────────────────────────────────────────────────────────────────────────
+
+def persist_evidence(
+    infringement_id: str,
+    screenshot_url: str,
+    ai_analysis: dict | None = None,
+) -> str:
+    """
+    Insert one evidence snapshot for an infringement.
+
+    Each call creates a new row, so a single infringement can accumulate
+    multiple screenshots taken at different points in time.
+
+    Returns the new evidence row id.
+    """
+    sb = get_supabase()
+    result = (
+        sb.table("evidence")
+        .insert(
+            {
+                "infringement_id": infringement_id,
+                "screenshot_url": screenshot_url,
+                "ai_analysis": ai_analysis,
+            }
+        )
+        .execute()
+    )
+    return result.data[0]["id"]
+
+
 def persist_all_infringements(case_id: str, evidence: Evidence) -> list[str]:
     """
     Convenience wrapper: persist every item from an Evidence object.
