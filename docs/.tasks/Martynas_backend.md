@@ -1,4 +1,4 @@
-# Phase 2 & Phase 3 — Backend Tasks
+# Backend Tasks
 
 This document contains all backend services, engines, databases, API endpoints, and migrations for Phase 2 and Phase 3.
 
@@ -6,7 +6,7 @@ This document contains all backend services, engines, databases, API endpoints, 
 
 ---
 
-## Phase 2 — Week 1: Detection Engine Foundation
+## Detection Engine Foundation
 
 ### Keyword/Image Matcher
 | Task | Status | Notes |
@@ -27,7 +27,7 @@ This document contains all backend services, engines, databases, API endpoints, 
 
 ---
 
-## Phase 2 — Week 2: Headless Browser Evidence Capture
+## Headless Browser Evidence Capture
 
 ### Firecrawl Screenshot Service
 | Task | Status | Notes |
@@ -46,7 +46,7 @@ This document contains all backend services, engines, databases, API endpoints, 
 
 ---
 
-## Phase 2 — Week 3: Batch Detection, OCR & Email Notifications
+## Batch Detection, OCR & Email Notifications
 
 ### Batch Detection & OCR
 | Task | Status | Notes |
@@ -65,7 +65,7 @@ This document contains all backend services, engines, databases, API endpoints, 
 
 ---
 
-## Phase 2 — Week 4: Authentication & Payments
+## Authentication & Payments
 
 ### Auth & RLS
 | Task | Status | Notes |
@@ -85,21 +85,18 @@ This document contains all backend services, engines, databases, API endpoints, 
 
 ---
 
-## Phase 3 — Week 1: Document Generation Pipeline
+## Takedown Persistence & Editing API
 
-### Legal Document Generator
+### Takedown Enhancements
 | Task | Status | Notes |
 |---|---|---|
-| `document_generator.py` with `generate_docx()` + `generate_pdf()` | ❌ Missing | A `takedown.py` exists that generates Gemini-written takedown text, but no PDF/Docx export |
-| DMCA + C&D `.docx` templates | ❌ Missing | No `tracemark_api/templates/` directory |
-| `documents` Supabase migration | ❌ Missing | — |
-| Supabase Storage bucket `legal-documents` | ❌ Missing | — |
-| `persist_document()` / `get_documents_by_infringement()` | ❌ Missing | — |
-| Unit tests `test_document_generator.py` | ❌ Missing | — |
+| `PUT /api/v1/monitoring/takedowns/{id}` endpoint | ❌ Missing | Update notice text and status (`pending`, `sent`, `acknowledged`) in `takedown_reports` table |
+| Unit tests for `generate_takedown_reports` | ❌ Missing | Verify correct template rendering and registry mapping |
+| Integration tests for takedown report updates | ❌ Missing | Test editing and status transitions in DB |
 
 ---
 
-## Phase 3 — Week 2: Email Notification Delivery
+## Email Notification Delivery
 
 ### Notification Delivery Engine
 | Task | Status | Notes |
@@ -108,18 +105,17 @@ This document contains all backend services, engines, databases, API endpoints, 
 | `dispatch_notifications()` for email delivery | ❌ Missing | — |
 | `notification_deliveries` Supabase migration | ❌ Missing | — |
 | `log_delivery()` + event triggers (new_infringement, takedown_generated, etc.) | ❌ Missing | — |
+| `POST /api/v1/monitoring/takedowns/{id}/send-email` endpoint | ❌ Missing | Backend API supporting sending the notice text via email SMTP |
 | `test_notifications.py` + `test_delivery_log.py` | ❌ Missing | — |
 
 ---
 
-## Phase 3 — Week 3: Law Firm Mode
+## Law Firm Mode
 
-### Multi-client System & PDF Customization
+### Multi-client System & Organization Settings
 | Task | Status | Notes |
 |---|---|---|
-| Law Firm PDF branding (firm name, logo, bar number) | ❌ Missing | PDF generation doesn't exist yet |
-| `generate_evidence_package()` multi-page PDF | ❌ Missing | Merges case details, screenshot, and notice |
-| `expires_at` on `documents` table + signed URL regeneration | ❌ Missing | URL lifetime security management |
+| Law Firm custom email branding (firm name, logo) in notifications | ❌ Missing | Custom details attached to organization settings |
 | `clients` Supabase migration + `client_id` FK on cases/infringements | ❌ Missing | — |
 | Client CRUD endpoints (`routes/clients.py`) | ❌ Missing | — |
 | `GET /api/v1/clients/{id}/billing` endpoint | ❌ Missing | — |
