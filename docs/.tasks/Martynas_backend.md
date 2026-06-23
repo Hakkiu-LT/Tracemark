@@ -11,10 +11,10 @@ This document contains all backend services, engines, databases, API endpoints, 
 ### Keyword/Image Matcher
 | Task | Status | Notes |
 |---|---|---|
-| `keyword_matcher()` (Levenshtein fuzzy) | ❌ Missing | No `detection.py` file exists |
-| `hash_matcher()` (pHash via ImageHash) | ❌ Missing | No `detection.py` file exists |
+| `keyword_matcher()` (Levenshtein fuzzy) | ✅ Done | `services/detection.py` — uses rapidfuzz `partial_ratio`, threshold=0.80 |
+| `hash_matcher()` (pHash via ImageHash) | ❌ Missing | `detection.py` exists but no image hash matcher yet |
 | Unit tests `test_matchers.py` | ❌ Missing | Not in `apps/api/tests/` |
-| `MatchResult` Pydantic model | ❌ Missing | — |
+| `MatchResult` Pydantic model | ✅ Done | Defined in `services/detection.py` |
 
 ### Risk Scorer & Persistence
 | Task | Status | Notes |
@@ -23,7 +23,7 @@ This document contains all backend services, engines, databases, API endpoints, 
 | `risk_scorer()` | ✅ Done | Implemented in `services/persistence.py` |
 | `persist_infringement()` | ✅ Done | Implemented in `services/persistence.py` (upsert by `case_id+source_url`) |
 | Integration tests `test_persistence.py` | ✅ Done | File exists in `apps/api/tests/` |
-| `notification_sent_at` column (replaces `webhook_sent_at`) | ❌ Missing | Needs a migration script |
+| `notification_sent_at` column (replaces `webhook_sent_at`) | ✅ Done | `20260618000001_notification_sent_at.sql` — partial index on NULL rows included |
 
 ---
 
@@ -32,17 +32,17 @@ This document contains all backend services, engines, databases, API endpoints, 
 ### Firecrawl Screenshot Service
 | Task | Status | Notes |
 |---|---|---|
-| `screenshot.py` / `unified_scraper.py` evidence capture | ❌ Missing | Firecrawl integrated but evidence screenshot pipeline not fully active |
-| Playwright added to backend deps | ➖ Skipped | Skipped in favor of Firecrawl API |
-| Supabase Storage bucket `evidence-screenshots` | ❌ Unknown | No migration; may be configured manually |
-| `evidence` table migration | ❌ Missing | Only `infringements_screenshot` column added via `20260617000003_infringements_screenshot.sql` — no full `evidence` table |
-| `persist_evidence()` | ❌ Missing | — |
+| `screenshot.py` / `unified_scraper.py` evidence capture | ✅ Done | Firecrawl (`firecrawl_client.py`) + Playwright (`playwright_client.py`) both active. WebP compression added to `storage.py` (~76% smaller vs PNG) |
+| Playwright added to backend deps | ✅ Done | `playwright_client.py` implemented by Gabriel |
+| Supabase Storage bucket `evidence-screenshots` | ✅ Done | Auto-created by `_ensure_bucket()` in `storage.py` |
+| `evidence` table migration | ✅ Done | `20260618000002_evidence.sql` — `infringement_id`, `screenshot_url`, `ai_analysis (jsonb)`, RLS enabled |
+| `persist_evidence()` | ✅ Done | Implemented in `services/persistence.py` |
 
 ### Gemini AI Analysis
 | Task | Status | Notes |
 |---|---|---|
-| `generate_analysis()` in `ai.py` | ⚠️ Partial | `ai.py` exists and calls Gemini, but it operates on the full check-brand pipeline (not evidence-linked infringement analysis). No `AIAnalysis` schema returned per the spec. |
-| `ai_analysis (jsonb)` stored on evidence row | ❌ Missing | — |
+| `generate_analysis()` in `ai.py` | ⚠️ Partial | `ai.py` exists and calls Gemini, but operates on the full check-brand pipeline (not per-evidence row). No `AIAnalysis` schema returned per spec. |
+| `ai_analysis (jsonb)` stored on evidence row | ⚠️ Partial | Column exists in `evidence` table; `persist_evidence()` accepts it — but nothing populates it yet |
 
 ---
 
@@ -73,7 +73,7 @@ This document contains all backend services, engines, databases, API endpoints, 
 | Google OAuth configured in Supabase | ⚠️ Unknown | Config in Supabase dashboard — can't verify from repo |
 | `profiles` table + trigger | ✅ Done | `20260616000001_profiles.sql` — exact spec match |
 | RLS policies on tables | ✅ Done | `20260617000001_profiles_rls.sql` + per-table policies |
-| `GET /api/v1/me` endpoint | ❌ Missing | No `routes/auth.py` |
+| `GET /api/v1/me` endpoint | ✅ Done | `routes/auth.py` — validates Supabase JWT, returns `UserProfile` from `profiles` table |
 | `pytest tests/test_auth.py` | ❌ Missing | — |
 
 ### Stripe Billing
