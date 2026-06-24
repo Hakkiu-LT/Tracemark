@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -1515,6 +1516,189 @@ class MarketplaceScraper:
 
         return results, blocked_apis
 
+    async def batch_detect(
+        self,
+        brand_name: str,
+        platforms: list[str],
+        official_advertisers: list[str] | None = None,
+        caller_id: str = "system",
+    ) -> tuple[dict, list[str]]:
+        """
+        Runs scraping tasks concurrently using asyncio.gather and asyncio.to_thread.
+        """
+        results = {
+            "marketplaces": {},
+            "ads": {},
+            "social": {},
+            "domains": [],
+            "timestamp": datetime.now().isoformat(),
+        }
+        blocked_apis = []
+
+        tasks = []
+
+        # Tier 1: Static HTML scrapers (free, local resources)
+        if "amazon" in platforms:
+            async def wrap_amazon():
+                try:
+                    res = await asyncio.to_thread(self.amazon.search, brand_name, caller_id=caller_id)
+                    results["marketplaces"]["amazon"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Amazon rate limit reached: {e}")
+                    blocked_apis.append("amazon_scraper")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Amazon search failed: {e}")
+            tasks.append(wrap_amazon())
+
+        if "ebay" in platforms:
+            async def wrap_ebay():
+                try:
+                    res = await asyncio.to_thread(self.ebay.search, brand_name, caller_id=caller_id)
+                    results["marketplaces"]["ebay"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] eBay rate limit reached: {e}")
+                    blocked_apis.append("ebay_scraper")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] eBay search failed: {e}")
+            tasks.append(wrap_ebay())
+
+        if "alibaba" in platforms:
+            async def wrap_alibaba():
+                try:
+                    res = await asyncio.to_thread(self.alibaba.search, brand_name, caller_id=caller_id)
+                    results["marketplaces"]["alibaba"] = res
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Alibaba search failed: {e}")
+            tasks.append(wrap_alibaba())
+
+        if "etsy" in platforms:
+            async def wrap_etsy():
+                try:
+                    res = await asyncio.to_thread(self.etsy.search, brand_name, caller_id=caller_id)
+                    results["marketplaces"]["etsy"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Etsy rate limit reached: {e}")
+                    blocked_apis.append("etsy_scraper")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Etsy search failed: {e}")
+            tasks.append(wrap_etsy())
+
+        if "google_shopping" in platforms:
+            async def wrap_google_shopping():
+                try:
+                    res = await asyncio.to_thread(self.google_shopping.search, brand_name, caller_id=caller_id)
+                    results["marketplaces"]["google_shopping"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Google Shopping rate limit reached: {e}")
+                    blocked_apis.append("google_shopping_scraper")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Google Shopping search failed: {e}")
+            tasks.append(wrap_google_shopping())
+
+        # Tier 2: JS-heavy / Firecrawl scrapers
+        if "aliexpress" in platforms:
+            async def wrap_aliexpress():
+                try:
+                    res = await asyncio.to_thread(self.aliexpress.search, brand_name, caller_id=caller_id)
+                    results["marketplaces"]["aliexpress"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] AliExpress rate limit reached: {e}")
+                    blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] AliExpress search failed: {e}")
+            tasks.append(wrap_aliexpress())
+
+        if "shopify" in platforms:
+            async def wrap_shopify():
+                try:
+                    res = await asyncio.to_thread(self.shopify.search, brand_name, caller_id=caller_id)
+                    results["marketplaces"]["shopify"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Shopify rate limit reached: {e}")
+                    blocked_apis.append("shopify_scraper")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Shopify search failed: {e}")
+            tasks.append(wrap_shopify())
+
+        if "facebook_marketplace" in platforms:
+            async def wrap_facebook_marketplace():
+                try:
+                    res = await asyncio.to_thread(self.facebook_marketplace.search, brand_name, caller_id=caller_id)
+                    results["marketplaces"]["facebook_marketplace"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Facebook Marketplace rate limit reached: {e}")
+                    blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Facebook Marketplace search failed: {e}")
+            tasks.append(wrap_facebook_marketplace())
+
+        # Social media scrapers
+        if "tiktok" in platforms:
+            async def wrap_tiktok():
+                try:
+                    res = await asyncio.to_thread(self.tiktok.search, brand_name, caller_id=caller_id)
+                    results["social"]["tiktok"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] TikTok rate limit reached: {e}")
+                    blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] TikTok search failed: {e}")
+            tasks.append(wrap_tiktok())
+
+        if "instagram" in platforms:
+            async def wrap_instagram():
+                try:
+                    res = await asyncio.to_thread(self.instagram.search, brand_name, caller_id=caller_id)
+                    results["social"]["instagram"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Instagram rate limit reached: {e}")
+                    blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Instagram search failed: {e}")
+            tasks.append(wrap_instagram())
+
+        # Tier 3: Official APIs
+        if "google_ads" in platforms:
+            async def wrap_google_ads():
+                try:
+                    res = await asyncio.to_thread(self.google_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id)
+                    results["ads"]["google"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Google Ads rate limit reached: {e}")
+                    blocked_apis.append("google_ads")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Google Ads search failed: {e}")
+            tasks.append(wrap_google_ads())
+
+        if "meta_ads" in platforms:
+            async def wrap_meta_ads():
+                try:
+                    res = await asyncio.to_thread(self.meta_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id)
+                    results["ads"]["meta"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Meta Ads rate limit reached: {e}")
+                    blocked_apis.append("meta_ads")
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Meta Ads search failed: {e}")
+            tasks.append(wrap_meta_ads())
+
+        if "whois" in platforms or "domains" in platforms or "serp" in platforms:
+            async def wrap_domains():
+                try:
+                    res = await asyncio.to_thread(self.serp.check_serp_domains, brand_name, caller_id=caller_id)
+                    results["domains"] = res
+                except ApiLimitError as e:
+                    print(f"[MarketplaceScraper] Google SERP/WHOIS rate limit reached: {e}")
+                    blocked_apis.append(e.api_key)
+                except Exception as e:
+                    print(f"[MarketplaceScraper] Domain search failed: {e}")
+            tasks.append(wrap_domains())
+
+        if tasks:
+            await asyncio.gather(*tasks)
+
+        return results, blocked_apis
+
 
 class ListingList(BaseModel):
     items: list[MarketplaceEvidence]
@@ -1679,7 +1863,7 @@ Return a JSON array. If nothing suspicious, return [].
     return result.items
 
 
-def gather_evidence(
+async def gather_evidence(
     brand_name: str,
     platforms: list[str],
     official_advertisers: list[str] | None = None,
@@ -1694,7 +1878,7 @@ def gather_evidence(
         return _mock_evidence(brand_name)
 
     scraper = MarketplaceScraper()
-    raw, blocked_apis = scraper.scrape_all_sources(brand_name, platforms, official_advertisers, caller_id)
+    raw, blocked_apis = await scraper.batch_detect(brand_name, platforms, official_advertisers, caller_id)
 
     all_marketplace_evidence = []
 
@@ -1763,7 +1947,7 @@ def gather_evidence(
     )
 
 
-def check_ads_hijacking(
+async def check_ads_hijacking(
     brand_name: str,
     platforms: list[str] | None = None,
     official_advertisers: list[str] | None = None,
@@ -1775,7 +1959,7 @@ def check_ads_hijacking(
     """
     platforms = platforms or ["google_ads", "meta_ads"]
     scraper = MarketplaceScraper()
-    raw, blocked_apis = scraper.scrape_all_sources(brand_name, platforms, official_advertisers, caller_id)
+    raw, blocked_apis = await scraper.batch_detect(brand_name, platforms, official_advertisers, caller_id)
     google_ads = raw["ads"].get("google", [])
     meta_ads = raw["ads"].get("meta", [])
     all_ads = google_ads + meta_ads

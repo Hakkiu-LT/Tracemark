@@ -139,6 +139,7 @@ def persist_evidence(
     infringement_id: str,
     screenshot_url: str,
     ai_analysis: dict | None = None,
+    brand_name: str | None = None,
 ) -> str:
     """
     Insert one evidence snapshot for an infringement.
@@ -146,8 +147,20 @@ def persist_evidence(
     Each call creates a new row, so a single infringement can accumulate
     multiple screenshots taken at different points in time.
 
+    When ``brand_name`` is provided and ``ai_analysis`` is ``None``, the
+    function will automatically call ``generate_evidence_analysis()`` to
+    populate the ``ai_analysis`` jsonb column using Gemini Vision.
+
     Returns the new evidence row id.
     """
+    # Auto-populate ai_analysis via Gemini Vision when possible
+    if ai_analysis is None and brand_name and screenshot_url:
+        try:
+            from tracemark_api.services.ai import generate_evidence_analysis
+            ai_analysis = generate_evidence_analysis(screenshot_url, brand_name)
+        except Exception as e:
+            print(f"[Persistence] AI analysis generation failed: {e}")
+
     sb = get_supabase()
     result = (
         sb.table("evidence")

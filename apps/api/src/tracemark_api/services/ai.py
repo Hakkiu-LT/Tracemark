@@ -61,6 +61,34 @@ class Decision(BaseModel):
     key_findings: list[str] = PydanticField(default_factory=list, description="Bullet list of key evidence points.")
 
 
+class AIAnalysis(BaseModel):
+    """Structured AI analysis of a single evidence screenshot."""
+    brand_match_detected: bool = PydanticField(
+        description="Whether the brand name or logo was detected in the image."
+    )
+    brand_names_found: list[str] = PydanticField(
+        default_factory=list,
+        description="Brand names or trademarks visible in the image.",
+    )
+    counterfeit_indicators: list[str] = PydanticField(
+        default_factory=list,
+        description="Specific indicators of counterfeiting (e.g., price anomaly, poor packaging).",
+    )
+    visual_similarity_score: float = PydanticField(
+        ge=0.0, le=1.0,
+        default=0.0,
+        description="How visually similar the product looks to the authentic brand (0.0–1.0).",
+    )
+    text_content_summary: str = PydanticField(
+        default="",
+        description="Summary of all text visible in the screenshot.",
+    )
+    risk_assessment: str = PydanticField(
+        default="",
+        description="Brief risk assessment of the evidence (1–2 sentences).",
+    )
+
+
 @dataclass(slots=True)
 class AnalysisResult:
     evidence: Evidence | None
@@ -359,3 +387,87 @@ def make_decision(evidence: Evidence) -> Decision:
         "analysis_summary": "",
     })
     return final_state["decision"]
+
+
+# ---------------------------------------------------------------------------
+# Per-evidence AI analysis (populates evidence.ai_analysis jsonb)
+# ---------------------------------------------------------------------------
+
+def generate_evidence_analysis(
+    screenshot_url: str,
+    brand_name: str,
+) -> dict | None:
+    """
+    Analyse a single evidence screenshot with Gemini Vision and return
+    a structured ``AIAnalysis`` dict suitable for storing in the
+    ``evidence.ai_analysis`` jsonb column.
+
+    Returns ``None`` when no API key is configured or on failure.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        # Return a minimal mock so callers always get *something*
+        return AIAnalysis(
+            brand_match_detected=False,
+            brand_names_found=[],
+            counterfeit_indicators=[],
+            visual_similarity_score=0.0,
+            text_content_summary="Mock: no Gemini API key configured.",
+            risk_assessment="Unable to analyse — API key missing.",
+        ).model_dump()
+
+    try:
+        import base64
+        import httpx
+        from langchain_core.messages import HumanMessage
+
+        # Download the screenshot
+        resp = httpx.get(screenshot_url, timeout=20.0, follow_redirects=True)
+        if resp.status_code != 200:
+            print(f"[AI] Failed to download screenshot: HTTP {resp.status_code}")
+            return None
+
+        b64_image = base64.b64encode(resp.content).decode("utf-8")
+
+        # Determine MIME type from content-type header, default to png
+        content_type = resp.headers.get("content-type", "image/png").split(";")[0].strip()
+
+        message = HumanMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": (
+                        f"You are a brand protection analyst. Analyse this product screenshot "
+                        f"for potential infringement of the brand \"{brand_name}\".\n\n"
+                        f"Return a structured analysis with:\n"
+                        f"- brand_match_detected: true/false\n"
+                        f"- brand_names_found: list of brand names visible\n"
+                        f"- counterfeit_indicators: list of red flags\n"
+                        f"- visual_similarity_score: 0.0–1.0\n"
+                        f"- text_content_summary: all text in the image\n"
+                        f"- risk_assessment: 1–2 sentence risk summary"
+                    ),
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{content_type};base64,{b64_image}"},
+                },
+            ]
+        )
+
+        model = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0.0,
+            google_api_key=api_key,
+        ).with_structured_output(AIAnalysis)
+
+        from tracemark_api.services.api_usage_tracker import call_with_tracking
+        result: AIAnalysis = call_with_tracking(
+            "gemini_flash", "system", "/evidence-analysis",
+            lambda: model.invoke([message]),
+        )
+        return result.model_dump()
+
+    except Exception as e:
+        print(f"[AI] generate_evidence_analysis failed: {e}")
+        return None

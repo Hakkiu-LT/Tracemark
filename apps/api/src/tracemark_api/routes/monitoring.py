@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from typing import Literal
 from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
-from tracemark_api.services.database import create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
+from tracemark_api.services.database import get_supabase, create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
 from tracemark_api.services.persistence import persist_all_infringements
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
 from tracemark_api.dependencies import get_current_user
@@ -79,13 +80,13 @@ class GatherEvidenceRequest(BaseModel):
 
 
 @router.post("/gather-evidence", response_model=Evidence)
-def gather_evidence_endpoint(
+async def gather_evidence_endpoint(
     payload: GatherEvidenceRequest,
     current_user = Depends(get_current_user)
 ) -> Evidence:
     caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
     try:
-        evidence = scrape_evidence(
+        evidence = await scrape_evidence(
             payload.brand_name,
             payload.platforms,
             payload.official_advertisers or None,
@@ -103,7 +104,7 @@ class CheckAdsRequest(BaseModel):
 
 
 @router.post("/check-ads")
-def check_ads_endpoint(
+async def check_ads_endpoint(
     payload: CheckAdsRequest,
     current_user = Depends(get_current_user)
 ):
@@ -113,7 +114,7 @@ def check_ads_endpoint(
     """
     caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
     try:
-        return check_ads_hijacking(
+        return await check_ads_hijacking(
             payload.brand_name,
             payload.platforms,
             payload.official_advertisers or None,
@@ -130,7 +131,7 @@ class CheckBrandRequest(BaseModel):
 
 
 @router.post("/check-brand")
-def check_brand(
+async def check_brand(
     payload: CheckBrandRequest,
     current_user = Depends(get_current_user)
 ):
@@ -139,7 +140,7 @@ def check_brand(
     case_id = create_case(payload.brand_name)
     try:
         update_case_status(case_id, "analyzing")
-        evidence = scrape_evidence(
+        evidence = await scrape_evidence(
             payload.brand_name,
             payload.platforms,
             payload.official_advertisers or None,
@@ -252,4 +253,52 @@ def update_status_endpoint(case_id: str, payload: UpdateStatusRequest):
                         
         return {"success": True}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TakedownUpdateRequest(BaseModel):
+    notice_text: str | None = None
+    status: Literal["pending", "sent", "acknowledged"] | None = None
+
+
+@router.put("/takedowns/{id}")
+def update_takedown_report_endpoint(
+    id: str,
+    payload: TakedownUpdateRequest,
+    current_user = Depends(get_current_user)
+):
+    """
+    Update notice text and status of a takedown report in Supabase.
+    If status transitions to 'sent', automatically record submitted_at time.
+    """
+    sb = get_supabase()
+    
+    update_data = {}
+    if payload.notice_text is not None:
+        update_data["notice_text"] = payload.notice_text
+    if payload.status is not None:
+        update_data["status"] = payload.status
+        if payload.status == "sent":
+            from datetime import datetime, timezone
+            update_data["submitted_at"] = datetime.now(timezone.utc).isoformat()
+            
+    if not update_data:
+        try:
+            res = sb.table("takedown_reports").select("*").eq("id", id).execute()
+            if not res.data:
+                raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
+            return res.data[0]
+        except Exception as e:
+            if isinstance(e, HTTPException):
+                raise e
+            raise HTTPException(status_code=500, detail=str(e))
+            
+    try:
+        res = sb.table("takedown_reports").update(update_data).eq("id", id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
+        return res.data[0]
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=str(e))

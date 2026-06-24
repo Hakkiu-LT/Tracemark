@@ -14,6 +14,7 @@ from tracemark_api.services.database import get_supabase
 # ---------------------------------------------------------------------------
 
 class TakedownReport(BaseModel):
+    id: Optional[str] = None
     platform: str
     platform_category: Literal[
         "marketplace", "social_media", "search_engine",
@@ -531,4 +532,7 @@ def _persist_reports(case_id: str, reports: list[TakedownReport]) -> None:
         }
         for r in reports
     ]
-    sb.table("takedown_reports").insert(rows).execute()
+    result = sb.table("takedown_reports").insert(rows).execute()
+    if result.data:
+        for r, data_row in zip(reports, result.data):
+            r.id = data_row.get("id")
