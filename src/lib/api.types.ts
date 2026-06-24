@@ -50,6 +50,7 @@ export interface DecisionResponse {
 }
 
 export interface TakedownReport {
+  id?: string;
   platform: string;
   platform_category: "marketplace" | "social_media" | "search_engine" | "ad_platform" | "domain_registrar" | "app_store" | "other";
   infringing_url: string;

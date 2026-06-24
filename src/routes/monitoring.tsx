@@ -588,6 +588,7 @@ function MarksTable({
           <TableHead>Brand / Mark</TableHead>
           <TableHead>Registration #</TableHead>
           <TableHead>Platforms</TableHead>
+          <TableHead className="text-center">Repeat Cycle</TableHead>
           <TableHead className="text-center">Active alerts</TableHead>
           <TableHead className="text-right">Last scan</TableHead>
           {!isActiveSection && <TableHead className="text-center w-[60px]">Edit</TableHead>}
@@ -632,6 +633,9 @@ function MarksTable({
                     </Badge>
                   ))}
                 </div>
+              </TableCell>
+              <TableCell className="text-center text-xs text-muted-foreground">
+                {m.repeatCycle ? `${m.repeatCycle} min` : "Manual"}
               </TableCell>
               <TableCell className="text-center">
                 {isActiveSection ? (
