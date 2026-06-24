@@ -86,3 +86,17 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 | `<ClientBillingCard />` with CSV export | ❌ Missing | Dashboard component for client metrics export |
 | Optimize case/takedown pages for browser print-to-PDF (`@media print` CSS) | ❌ Missing | Clean CSS print styles for report generation |
 | End-to-end QA + `docs/phase2-demo.md` / `docs/phase3-demo.md` | ❌ Missing | Complete verification and demo walkthrough documentation |
+
+---
+
+## 7. Geo-Targeted Scans & Proxy Location Management
+*Interactive controls to set and monitor regional scans per brand.*
+
+| Task | Status | Notes |
+|---|---|---|
+| store.ts: add `targetRegions` to Mark state | ❌ Missing | Update client-side state model to persist selected scan locations |
+| Add/Edit Mark Modal: multi-select region dropdown | ❌ Missing | Add checkboxes or multi-select dropdown for target regions (e.g., US, Europe, Asia) |
+| UI Tooltips: explain geo-proxy scanning logic | ❌ Missing | Explain to users how selecting regions routes scans through local country proxies |
+| Monitored Assets table: display active target regions | ❌ Missing | Display country/region flags or badges for active locations on each brand row |
+| Infringement details: show detection location | ❌ Missing | Display which specific region/proxy location captured each piece of evidence |
+

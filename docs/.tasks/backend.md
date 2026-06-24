@@ -96,3 +96,19 @@ This document outlines the priority ordering for backend services, engines, data
 | `GET /api/v1/clients/{id}/billing` endpoint | ❌ Missing | Specific billing/usage metrics per client |
 | Per-client RLS policies | ❌ Missing | Database level isolation of client data |
 | Law Firm custom email branding (firm name, logo) | ❌ Missing | Customize notification styles based on active firm/organization settings |
+
+---
+
+## 7. Geo-Targeted Scans & Proxy Location Management
+*Allows routing scans through country-specific proxies to discover geo-fenced copycat ads and listings.*
+
+| Task | Status | Notes |
+|---|---|---|
+| Database: target locations on cases/brands | ❌ Missing | Introduce support for target country codes (e.g. `['US', 'DE', 'GB']`) in cases / brand entities |
+| Proxy Integration: multi-region proxy configuration | ❌ Missing | Build configuration module mapping country codes to residential/data-center proxies |
+| Scraper: Google Search & Ads geo-targeting | ❌ Missing | Pass regional params (e.g. `gl`, `lr`, `cr`) and route queries through local country proxies |
+| Scraper: Localized marketplace sessions (Amazon, eBay, AliExpress, Alibaba) | ❌ Missing | Configure region-specific delivery postcodes/cookies and run requests via corresponding target country proxies |
+| Scraper: Meta Ads Ad Library country routing | ❌ Missing | Map search regions to Meta's Ad Library country query filter parameter |
+| Scraper: Social media crawlers (Instagram, TikTok) | ❌ Missing | Route social crawls through regional proxies to simulate local feeds and bypass geo-blocks |
+| Unit tests for proxy routing & parameter mapping | ❌ Missing | Validate proxy selection logic based on requested brand monitoring regions |
+
