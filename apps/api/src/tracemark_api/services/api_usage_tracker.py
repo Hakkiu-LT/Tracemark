@@ -29,6 +29,7 @@ API_REGISTRY: list[ApiDefinition] = [
     ApiDefinition("gemini_flash",    "Gemini API 2.5 Flash (Parsing)",   1500, RESET_DAILY,   "ai",      "GEMINI_API_KEY"),
     ApiDefinition("gemini_pro",      "Gemini API 2.5 Pro (Decision)",    50,   RESET_DAILY,   "ai",      "GEMINI_API_KEY"),
     ApiDefinition("html_scraper",    "HTML Scraper (Local)",             999_999,  RESET_DAILY,   "scraper"),
+    ApiDefinition("image_hash",      "Perceptual Image Hash (Local)",    999_999,  RESET_DAILY,   "scraper"),
 ]
 
 @dataclass
