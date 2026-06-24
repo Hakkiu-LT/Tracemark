@@ -73,6 +73,7 @@ interface EvidenceRow {
 }
 
 interface TakedownRow {
+  id: string;
   platform: string;
   platform_category: TakedownReport["platform_category"];
   infringing_url: string;
@@ -116,6 +117,7 @@ function mapEvidence(row: EvidenceRow | undefined): EvidenceResponse {
 
 function mapTakedown(row: TakedownRow): TakedownReport {
   return {
+    id: row.id,
     platform: row.platform,
     platform_category: row.platform_category,
     infringing_url: row.infringing_url,
