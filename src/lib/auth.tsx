@@ -16,6 +16,7 @@ interface AuthState {
   /** True until the initial session lookup completes. */
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -65,9 +66,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }
 
+  async function refreshProfile() {
+    const userId = session?.user.id;
+    if (userId) {
+      const p = await fetchProfile(userId);
+      setProfile(p);
+    }
+  }
+
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, profile, loading, signOut }}
+      value={{ session, user: session?.user ?? null, profile, loading, signOut, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>

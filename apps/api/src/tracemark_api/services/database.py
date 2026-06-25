@@ -16,9 +16,12 @@ def get_supabase() -> Client:
     return _client
 
 
-def create_case(brand_name: str) -> str:
+def create_case(brand_name: str, organization_id: str | None = None) -> str:
     sb = get_supabase()
-    result = sb.table("cases").insert({"brand_name": brand_name, "status": "pending"}).execute()
+    payload = {"brand_name": brand_name, "status": "pending"}
+    if organization_id:
+        payload["organization_id"] = organization_id
+    result = sb.table("cases").insert(payload).execute()
     return result.data[0]["id"]
 
 
