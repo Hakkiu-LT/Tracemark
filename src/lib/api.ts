@@ -1,14 +1,22 @@
 import type { CheckBrandRequest, CheckBrandResponse } from "./api.types";
+import { supabase } from "./supabase";
 
 const BASE =
   typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
     ? import.meta.env.VITE_API_URL
     : "http://localhost:8000/api/v1";
 
-export async function apiFetch<T>(path: string, init: RequestInit): Promise<T> {
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const session = await supabase?.auth.getSession();
+  const token = session?.data?.session?.access_token;
+
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers,
+    },
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);

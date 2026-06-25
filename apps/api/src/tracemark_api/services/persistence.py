@@ -128,7 +128,42 @@ def persist_infringement(
         )
         .execute()
     )
-    return result.data[0]["id"]
+    infringement_id = result.data[0]["id"]
+
+    if risk_level == "HIGH":
+        _trigger_new_infringement_notification(infringement_id, case_id, source_url, _item_platform(item))
+
+    return infringement_id
+
+
+def _trigger_new_infringement_notification(
+    infringement_id: str,
+    case_id: str,
+    source_url: str,
+    platform: str,
+) -> None:
+    """Fire dispatch_notifications and log the delivery attempt."""
+    try:
+        from tracemark_api.services.notifications import dispatch_notifications
+        from tracemark_api.services.delivery_log import log_delivery
+
+        event = {
+            "type": "new_infringement",
+            "infringement_id": infringement_id,
+            "case_id": case_id,
+            "source_url": source_url,
+            "platform": platform,
+        }
+        dispatch_notifications(event)
+        log_delivery("new_infringement", ok=True, infringement_id=infringement_id, payload=event)
+    except ImportError:
+        pass
+    except Exception as e:
+        try:
+            from tracemark_api.services.delivery_log import log_delivery
+            log_delivery("new_infringement", ok=False, infringement_id=infringement_id, error=str(e))
+        except Exception:
+            print(f"[Persistence] Notification trigger failed: {e}")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

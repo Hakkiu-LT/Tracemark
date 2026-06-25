@@ -33,11 +33,11 @@ pytest tests/test_document_generator.py
 **Focus:** Design the `documents` table, persist every generated document to Supabase Storage, and wire the generation trigger from an infringement case.
 
 ### Tasks
-- [ ] Run Supabase migration: `documents` table with fields `id`, `infringement_id (FK → infringements)`, `document_type` (`dmca | cease-desist`), `file_url` (Supabase Storage), `file_format` (`pdf | docx`), `generated_at`, `sent_at`, `status` (`draft | sent | acknowledged`).
-- [ ] Create Supabase Storage bucket `legal-documents` (private, authenticated access only).
-- [ ] Implement `persist_document(infringement_id: str, buffer: bytes, type: str, format: str) -> dict` — upload file buffer to `legal-documents/{infringement_id}/{type}-{timestamp}.{ext}`, insert metadata row in `documents` table, and return the database record.
-- [ ] Implement `get_documents_by_infringement(infringement_id: str) -> list[dict]` — fetch all documents for a case, sorted newest-first.
-- [ ] Write integration tests in `apps/api/tests/test_document_persistence.py` against local Supabase.
+- [x] Run Supabase migration: `documents` table with fields `id`, `infringement_id (FK → infringements)`, `document_type` (`dmca | cease-desist`), `file_url` (Supabase Storage), `file_format` (`pdf | docx`), `generated_at`, `sent_at`, `status` (`draft | sent | acknowledged`).
+- [x] Create Supabase Storage bucket `legal-documents` (private, authenticated access only).
+- [x] Implement `persist_document(infringement_id: str, buffer: bytes, type: str, format: str) -> dict` — upload file buffer to `legal-documents/{infringement_id}/{type}-{timestamp}.{ext}`, insert metadata row in `documents` table, and return the database record.
+- [x] Implement `get_documents_by_infringement(infringement_id: str) -> list[dict]` — fetch all documents for a case, sorted newest-first.
+- [x] Write integration tests in `apps/api/tests/test_document_persistence.py` against local Supabase.
 
 ### Test Command
 ```bash
