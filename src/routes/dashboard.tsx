@@ -2,9 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, AlertTriangle, CheckCircle2, TrendingUp, ArrowUpRight } from "lucide-react";
-import { useScopedInfringements, useScopedMarks, useStore } from "@/lib/store";
+import { useScopedMarks, useStore } from "@/lib/store";
 import { InfringementAlertFeed } from "@/components/cases/InfringementAlertFeed";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell, Legend } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { getInfringements } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -22,17 +24,31 @@ const trend = Array.from({ length: 30 }, (_, i) => ({
 }));
 
 function Dashboard() {
-  const infringements = useScopedInfringements();
   const marks = useScopedMarks();
   const persona = useStore((s) => s.persona);
 
-  const active = infringements.filter((i) => i.status === "active").length;
-  const takedowns = infringements.filter((i) => i.status === "takedown_sent" || i.status === "resolved").length;
+  // Fetch actual live database infringements via FastAPI backend
+  const { data: dbInfringementsData } = useQuery({
+    queryKey: ["dashboard_infringements"],
+    queryFn: () => getInfringements({ limit: 100 }),
+  });
+  const infringements = dbInfringementsData?.items ?? [];
+
+  const active = infringements.filter((i) => i.status === "flagged" || i.status === "active").length;
+  const takedowns = infringements.filter((i) => i.status === "reviewed" || i.status === "takedown_sent" || i.status === "resolved").length;
   const total = infringements.length;
   const successRate = total > 0 ? Math.round((takedowns / total) * 100) : 0;
 
-  const platformData = ["Amazon", "Shopify", "AliExpress", "Web Domain", "Instagram", "eBay"]
-    .map((p) => ({ name: p, value: infringements.filter((i) => i.platform === p).length }))
+  // Group by platform dynamically using actual backend data names
+  const platformCounts: Record<string, number> = {};
+  for (const item of infringements) {
+    const rawName = item.platform || "unknown";
+    const name = rawName.charAt(0).toUpperCase() + rawName.slice(1).replace("_", " ");
+    platformCounts[name] = (platformCounts[name] || 0) + 1;
+  }
+  
+  const platformData = Object.entries(platformCounts)
+    .map(([name, value]) => ({ name, value }))
     .filter((d) => d.value > 0);
 
   const chartColors = ["oklch(0.58 0.18 255)", "oklch(0.62 0.15 155)", "oklch(0.72 0.17 65)", "oklch(0.58 0.22 27)", "oklch(0.45 0.12 280)", "oklch(0.5 0.1 200)"];

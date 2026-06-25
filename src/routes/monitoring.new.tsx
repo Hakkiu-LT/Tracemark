@@ -151,6 +151,7 @@ function NewAssetPage() {
         logoColor: "oklch(0.58 0.18 255)",
       });
       setScanResult(data.case_id, data);
+      toast.success("Scan completed successfully");
       navigate({ to: "/monitoring/$caseId", params: { caseId: data.case_id } });
     },
     onError: (err: Error) => {
