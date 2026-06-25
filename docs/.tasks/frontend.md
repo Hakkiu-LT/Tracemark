@@ -11,7 +11,7 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 
 | Task | Status | Notes |
 |---|---|---|
-| `GET /api/v1/infringements` API endpoint | ❌ Missing | No `routes/infringements.py` exists (Backend API supporting feed) |
+| `GET /api/v1/infringements` API endpoint | ✅ Done | `routes/infringements.py` — list + single + evidence, 6 tests passing |
 | `<InfringementAlertFeed />` React component | ❌ Missing | Core dashboard alert feed |
 | TanStack Query polling every 30s | ❌ Missing | Real-time polling setup on the feed component |
 | Filter bar (Risk Level, Platform, Status, Date Range) | ❌ Missing | Filters on the Alert Feed |
@@ -29,8 +29,8 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 | Task | Status | Notes |
 |---|---|---|
 | `/cases/$id` route | ✅ Done | `src/routes/cases.$caseId.tsx` exists |
-| `GET /api/v1/infringements/{id}` API endpoint | ❌ Missing | Backend API supporting case details |
-| `GET /api/v1/evidence/{infringement_id}` API endpoint | ❌ Missing | Backend API supporting evidence loading |
+| `GET /api/v1/infringements/{id}` API endpoint | ✅ Done | `routes/infringements.py` — 404 on missing |
+| `GET /api/v1/infringements/{id}/evidence` API endpoint | ✅ Done | `routes/infringements.py` — newest-first |
 | `<CaseDetailView />` integration | ⚠️ Partial | Connect to the new dedicated evidence/infringement records rather than check-brand AI output |
 | Loading skeletons | ❌ Missing | Visual loading skeletons for smooth state transitions |
 | "Generate Takedown Notice" / "Escalate" / "Dismiss" buttons | ⚠️ Partial | Escalate/dismiss status updates to Supabase are missing |
@@ -70,7 +70,7 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 |---|---|---|
 | `/settings/billing` page | ❌ Missing | No billing route exists |
 | `/billing/success` + `/billing/cancel` pages | ❌ Missing | Landing/callback pages for checkout completion |
-| Restrict API Usage tab/route visibility to allowed admin emails | ❌ Missing | Check user email against allowed admin list before rendering sidebar link or permitting route entry |
+| Restrict API Usage tab/route visibility to allowed admin emails | ✅ Done | `app-sidebar.tsx` — ADMIN_EMAILS sąrašas, API Usage rodomas tik adminams |
 | Global error boundary | ✅ Done | `ErrorComponent` in `__root.tsx` |
 | Toast notifications on actions | ⚠️ Partial | Fully connect action response statuses to `sonner` toasts |
 

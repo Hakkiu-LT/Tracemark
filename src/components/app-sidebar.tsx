@@ -13,12 +13,22 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+
+const ADMIN_EMAILS = [
+  "gabo.seqq@gmail.com",
+  "marcius.pask@gmail.com",
+  "domantasjanus@gmail.com",
+];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const persona = useStore((s) => s.persona);
+  const { user } = useAuth();
+
+  const isAdmin = ADMIN_EMAILS.includes((user?.email ?? "").toLowerCase());
 
   const items = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -27,7 +37,7 @@ export function AppSidebar() {
     ...(persona === "law_firm" ? [{ title: "Clients", url: "/clients", icon: Briefcase }] : []),
     { title: "Settings", url: "/settings", icon: Settings },
     { title: "Plans", url: "/plans", icon: CreditCard },
-    { title: "API Usage", url: "/api-usage", icon: Activity },
+    ...(isAdmin ? [{ title: "API Usage", url: "/api-usage", icon: Activity }] : []),
   ];
 
   const isActive = (url: string) => {
