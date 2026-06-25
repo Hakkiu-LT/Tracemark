@@ -1,14 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import type { UsageStatsResponse, ApiUsageSummary } from "@/lib/types/api-usage";
 import { useState } from "react";
+import { useAuth } from "@/lib/auth";
 
 // Lucide Icons
 import { Activity, AlertTriangle, AlertCircle, ShieldCheck, RefreshCw, HelpCircle, HardDrive, Terminal } from "lucide-react";
 
 // Shadcn/UI Components
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -66,15 +67,51 @@ function shouldHideLimit(api: ApiUsageSummary): boolean {
   return api.free_limit >= 999_999 || api.api_key === "whois";
 }
 
+const ADMIN_EMAILS = [
+  "gabo.seqq@gmail.com",
+  "marcius.pask@gmail.com",
+  "domantasjanus@gmail.com",
+];
+
 function ApiUsagePage() {
+  const { user } = useAuth();
   const [alertDismissed, setAlertDismissed] = useState(false);
+
+  const isAdmin = ADMIN_EMAILS.includes((user?.email ?? "").toLowerCase());
 
   const { data, isLoading, error, refetch } = useQuery<UsageStatsResponse, Error>({
     queryKey: ["api-usage-stats"],
     queryFn: () => apiFetch<UsageStatsResponse>("/usage-stats", { method: "GET" }),
     refetchInterval: 30_000,   // auto-refresh every 30 seconds
     staleTime: 20_000,
+    enabled: isAdmin,
   });
+
+  if (!isAdmin) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center p-4">
+        <Card className="w-full max-w-md border-destructive/20 bg-destructive/5 text-center">
+          <CardHeader>
+            <div className="flex justify-center mb-4">
+              <AlertTriangle className="h-10 w-10 text-destructive animate-pulse" />
+            </div>
+            <CardTitle className="text-lg font-bold text-destructive">Access Denied</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground mt-1">
+              You do not have permission to view the API Surveillance Monitor.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground leading-relaxed px-6 pb-6">
+            This endpoint contains secure system-level details of third-party upstream APIs and credit limits. Contact a system administrator to request access.
+          </CardContent>
+          <CardFooter className="flex justify-center pt-2 border-t border-border/20 p-6 bg-muted/10">
+            <Button asChild variant="outline" size="sm" className="cursor-pointer">
+              <Link to="/dashboard">Return to Dashboard</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

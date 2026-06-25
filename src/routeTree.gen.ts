@@ -15,14 +15,19 @@ import { Route as MonitoringRouteImport } from './routes/monitoring'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ClientsRouteImport } from './routes/clients'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CasesRouteImport } from './routes/cases'
 import { Route as ApiUsageRouteImport } from './routes/api-usage'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
+import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
 import { Route as MonitoringNewRouteImport } from './routes/monitoring.new'
 import { Route as MonitoringCaseIdRouteImport } from './routes/monitoring.$caseId'
 import { Route as LegacySignupRouteImport } from './routes/legacy/signup'
 import { Route as LegacyLoginRouteImport } from './routes/legacy/login'
 import { Route as CasesCaseIdRouteImport } from './routes/cases.$caseId'
+import { Route as BillingSuccessRouteImport } from './routes/billing.success'
+import { Route as BillingCancelRouteImport } from './routes/billing.cancel'
 import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
@@ -59,6 +64,11 @@ const ClientsRoute = ClientsRouteImport.update({
   path: '/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CasesRoute = CasesRouteImport.update({
   id: '/cases',
   path: '/cases',
@@ -73,6 +83,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBillingRoute = SettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => SettingsRoute,
 } as any)
 const MonitoringNewRoute = MonitoringNewRouteImport.update({
   id: '/new',
@@ -98,6 +118,16 @@ const CasesCaseIdRoute = CasesCaseIdRouteImport.update({
   id: '/$caseId',
   path: '/$caseId',
   getParentRoute: () => CasesRoute,
+} as any)
+const BillingSuccessRoute = BillingSuccessRouteImport.update({
+  id: '/billing/success',
+  path: '/billing/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingCancelRoute = BillingCancelRouteImport.update({
+  id: '/billing/cancel',
+  path: '/billing/cancel',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthSignUpRoute = AuthSignUpRouteImport.update({
   id: '/auth/sign-up',
@@ -130,20 +160,25 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api-usage': typeof ApiUsageRoute
   '/cases': typeof CasesRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/billing/cancel': typeof BillingCancelRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -151,20 +186,25 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api-usage': typeof ApiUsageRoute
   '/cases': typeof CasesRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/billing/cancel': typeof BillingCancelRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -173,20 +213,25 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api-usage': typeof ApiUsageRoute
   '/cases': typeof CasesRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
+  '/billing/cancel': typeof BillingCancelRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -196,6 +241,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api-usage'
     | '/cases'
+    | '/checkout'
     | '/clients'
     | '/dashboard'
     | '/landing'
@@ -205,11 +251,15 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/billing/cancel'
+    | '/billing/success'
     | '/cases/$caseId'
     | '/legacy/login'
     | '/legacy/signup'
     | '/monitoring/$caseId'
     | '/monitoring/new'
+    | '/settings/billing'
+    | '/settings/notifications'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   fileRoutesByTo: FileRoutesByTo
@@ -217,6 +267,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api-usage'
     | '/cases'
+    | '/checkout'
     | '/clients'
     | '/dashboard'
     | '/landing'
@@ -226,11 +277,15 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/billing/cancel'
+    | '/billing/success'
     | '/cases/$caseId'
     | '/legacy/login'
     | '/legacy/signup'
     | '/monitoring/$caseId'
     | '/monitoring/new'
+    | '/settings/billing'
+    | '/settings/notifications'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   id:
@@ -238,6 +293,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api-usage'
     | '/cases'
+    | '/checkout'
     | '/clients'
     | '/dashboard'
     | '/landing'
@@ -247,11 +303,15 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
+    | '/billing/cancel'
+    | '/billing/success'
     | '/cases/$caseId'
     | '/legacy/login'
     | '/legacy/signup'
     | '/monitoring/$caseId'
     | '/monitoring/new'
+    | '/settings/billing'
+    | '/settings/notifications'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   fileRoutesById: FileRoutesById
@@ -260,15 +320,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiUsageRoute: typeof ApiUsageRoute
   CasesRoute: typeof CasesRouteWithChildren
+  CheckoutRoute: typeof CheckoutRoute
   ClientsRoute: typeof ClientsRoute
   DashboardRoute: typeof DashboardRoute
   LandingRoute: typeof LandingRoute
   MonitoringRoute: typeof MonitoringRouteWithChildren
   PlansRoute: typeof PlansRoute
-  SettingsRoute: typeof SettingsRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
+  BillingCancelRoute: typeof BillingCancelRoute
+  BillingSuccessRoute: typeof BillingSuccessRoute
   LegacyLoginRoute: typeof LegacyLoginRoute
   LegacySignupRoute: typeof LegacySignupRoute
 }
@@ -317,6 +380,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cases': {
       id: '/cases'
       path: '/cases'
@@ -337,6 +407,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/billing': {
+      id: '/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof SettingsBillingRouteImport
+      parentRoute: typeof SettingsRoute
     }
     '/monitoring/new': {
       id: '/monitoring/new'
@@ -372,6 +456,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/cases/$caseId'
       preLoaderRoute: typeof CasesCaseIdRouteImport
       parentRoute: typeof CasesRoute
+    }
+    '/billing/success': {
+      id: '/billing/success'
+      path: '/billing/success'
+      fullPath: '/billing/success'
+      preLoaderRoute: typeof BillingSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/cancel': {
+      id: '/billing/cancel'
+      path: '/billing/cancel'
+      fullPath: '/billing/cancel'
+      preLoaderRoute: typeof BillingCancelRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/auth/sign-up': {
       id: '/auth/sign-up'
@@ -458,19 +556,36 @@ const MonitoringRouteWithChildren = MonitoringRoute._addFileChildren(
   MonitoringRouteChildren,
 )
 
+interface SettingsRouteChildren {
+  SettingsBillingRoute: typeof SettingsBillingRoute
+  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsBillingRoute: SettingsBillingRoute,
+  SettingsNotificationsRoute: SettingsNotificationsRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiUsageRoute: ApiUsageRoute,
   CasesRoute: CasesRouteWithChildren,
+  CheckoutRoute: CheckoutRoute,
   ClientsRoute: ClientsRoute,
   DashboardRoute: DashboardRoute,
   LandingRoute: LandingRoute,
   MonitoringRoute: MonitoringRouteWithChildren,
   PlansRoute: PlansRoute,
-  SettingsRoute: SettingsRoute,
+  SettingsRoute: SettingsRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
+  BillingCancelRoute: BillingCancelRoute,
+  BillingSuccessRoute: BillingSuccessRoute,
   LegacyLoginRoute: LegacyLoginRoute,
   LegacySignupRoute: LegacySignupRoute,
 }

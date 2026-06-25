@@ -32,7 +32,7 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   organization_id: string | null;
-  plan: "free" | "pro";
+  plan: "free" | "starter" | "pro" | "firm" | "enterprise";
 }
 
 /**

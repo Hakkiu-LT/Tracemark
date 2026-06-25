@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,7 @@ import { Check, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useStore, type Persona } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/plans")({
   head: () => ({ meta: [{ title: "Plans – Tracemark" }] }),
@@ -63,7 +64,9 @@ function PlansPage() {
 }
 
 function PlansContent({ persona }: { persona: Persona }) {
-  const currentPlanId = persona === "law_firm" ? "firm" : "pro";
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const currentPlanId = profile?.plan || "free";
   const recommended = persona === "law_firm" ? "firm" : "pro";
 
   return (
@@ -73,10 +76,12 @@ function PlansContent({ persona }: { persona: Persona }) {
           <div>
             <CardTitle className="text-base">Current plan</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              You're on <span className="font-medium text-foreground">{PLANS.find(p => p.id === currentPlanId)?.name}</span> — next invoice {new Date(Date.now() + 12 * 86400000).toLocaleDateString()}.
+              You're on <span className="font-medium text-foreground">{PLANS.find(p => p.id === currentPlanId)?.name || "Free"}</span>{currentPlanId !== "free" && ` — next invoice ${new Date(Date.now() + 12 * 86400000).toLocaleDateString()}.`}
             </p>
           </div>
-          <Button variant="outline" size="sm">Manage billing</Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/settings/billing">Manage billing</Link>
+          </Button>
         </CardHeader>
       </Card>
 
@@ -112,10 +117,16 @@ function PlansContent({ persona }: { persona: Persona }) {
                 ))}
               </ul>
               <Button
-                className="mt-5 w-full"
+                className="mt-5 w-full cursor-pointer"
                 variant={isCurrent ? "outline" : plan.highlight ? "default" : "outline"}
                 disabled={isCurrent}
-                onClick={() => toast.info(`${plan.name} checkout will be wired up once payments are connected.`)}
+                onClick={() => {
+                  if (plan.price === null) {
+                    toast.info(`Please contact sales at sales@tracemark.io to negotiate Enterprise terms.`);
+                  } else {
+                    navigate({ to: "/checkout", search: { plan: plan.id } });
+                  }
+                }}
               >
                 {isCurrent ? "Current plan" : plan.price === null ? "Contact sales" : `Upgrade to ${plan.name}`}
               </Button>

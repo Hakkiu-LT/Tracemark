@@ -83,3 +83,46 @@ export function getInfringements(params?: {
   return apiFetch<InfringementsResponse>(`/infringements${query ? `?${query}` : ""}`);
 }
 
+export function getInfringementById(id: string): Promise<InfringementFeedItem> {
+  return apiFetch<InfringementFeedItem>(`/infringements/${id}`);
+}
+
+export interface EvidenceItem {
+  id: string;
+  infringement_id: string;
+  screenshot_url: string | null;
+  ai_analysis: Record<string, any> | null;
+  captured_at: string;
+  created_at: string;
+}
+
+export function getInfringementEvidence(id: string): Promise<EvidenceItem[]> {
+  return apiFetch<EvidenceItem[]>(`/infringements/${id}/evidence`);
+}
+
+export function updateInfringementStatus(id: string, status: string): Promise<InfringementFeedItem> {
+  return apiFetch<InfringementFeedItem>(`/infringements/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export function updateTakedownReport(id: string, data: { notice_text?: string; status?: string }): Promise<any> {
+  return apiFetch<any>(`/monitoring/takedowns/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function sendTakedownEmail(id: string): Promise<{ success: boolean; message: string; submitted_at: string }> {
+  return apiFetch<{ success: boolean; message: string; submitted_at: string }>(`/monitoring/takedowns/${id}/send-email`, {
+    method: "POST",
+  });
+}
+
+export function testEmailNotification(email: string): Promise<{ success: boolean; message: string }> {
+  return apiFetch<{ success: boolean; message: string }>("/monitoring/notifications/test/email", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}

@@ -151,7 +151,8 @@ def test_usage_stats_endpoint():
         credits_used=1
     ))
 
-    response = get_usage_stats()
+    from tracemark_api.dependencies import AuthUser
+    response = get_usage_stats(current_user=AuthUser(id="user-123", email="avery@tracemark.io"))
     assert response.generated_at is not None
     assert len(response.summary) == len(API_REGISTRY)
     assert len(response.by_developer) == 1

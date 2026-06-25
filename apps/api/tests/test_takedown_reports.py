@@ -7,6 +7,14 @@ from tracemark_api.services.takedown import generate_takedown_reports, TakedownR
 
 client = TestClient(app)
 
+
+@pytest.fixture(autouse=True)
+def override_auth():
+    from tracemark_api.dependencies import get_current_user, AuthUser
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(id="fake-id", email="fake@tracemark.io")
+    yield
+    app.dependency_overrides.clear()
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Unit Tests for generate_takedown_reports
 # ──────────────────────────────────────────────────────────────────────────────
