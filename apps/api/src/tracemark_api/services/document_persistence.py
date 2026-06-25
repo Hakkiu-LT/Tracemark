@@ -69,7 +69,53 @@ def persist_document(
         "status": "draft",
     }).execute()
 
-    return result.data[0]
+    doc = result.data[0]
+
+    # Trigger takedown_generated email notification
+    try:
+        from tracemark_api.services.notifications import dispatch_notifications
+        from tracemark_api.services.delivery_log import log_delivery
+
+        # Resolve additional details for the email template context
+        platform = "Unknown Platform"
+        infringing_url = ""
+        case_id = None
+        try:
+            inf_res = (
+                sb.table("infringements")
+                .select("case_id, platform, source_url")
+                .eq("id", infringement_id)
+                .single()
+                .execute()
+            )
+            if inf_res.data:
+                case_id = inf_res.data.get("case_id")
+                platform = inf_res.data.get("platform", "Unknown Platform")
+                infringing_url = inf_res.data.get("source_url", "")
+        except Exception as inner_e:
+            print(f"[DocumentPersistence] Failed to fetch infringement details: {inner_e}")
+
+        event = {
+            "type": "takedown_generated",
+            "document_id": doc["id"],
+            "infringement_id": infringement_id,
+            "case_id": case_id,
+            "document_type": document_type,
+            "file_format": file_format,
+            "file_url": file_url,
+            "platform": platform,
+            "infringing_url": infringing_url,
+        }
+        dispatch_notifications(event)
+        log_delivery("takedown_generated", ok=True, infringement_id=infringement_id, payload=event)
+    except Exception as e:
+        try:
+            from tracemark_api.services.delivery_log import log_delivery
+            log_delivery("takedown_generated", ok=False, infringement_id=infringement_id, error=str(e))
+        except Exception:
+            pass
+
+    return doc
 
 
 def get_documents_by_infringement(infringement_id: str) -> list[dict]:

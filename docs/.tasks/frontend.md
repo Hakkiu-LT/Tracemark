@@ -12,9 +12,9 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 | Task | Status | Notes |
 |---|---|---|
 | `GET /api/v1/infringements` API endpoint | ✅ Done | `routes/infringements.py` — list + single + evidence, 6 tests passing |
-| `<InfringementAlertFeed />` React component | ❌ Missing | Core dashboard alert feed |
-| TanStack Query polling every 30s | ❌ Missing | Real-time polling setup on the feed component |
-| Filter bar (Risk Level, Platform, Status, Date Range) | ❌ Missing | Filters on the Alert Feed |
+| `<InfringementAlertFeed />` React component | ✅ Done | Live alert feed listing database-sourced violations |
+| TanStack Query polling every 30s | ✅ Done | Configured auto-polling hook in query |
+| Filter bar (Risk Level, Platform, Status, Date Range) | ✅ Done | Implemented search & filters for risk, platform, status, and date |
 | Protected route guard (`<RequireAuth />`) | ✅ Done | Implemented in `__root.tsx` via `RequireAuth` |
 | Sign-in page (`/auth/sign-in`) | ✅ Done | `auth.sign-in.tsx` |
 | Sign-up page (`/auth/sign-up`) | ✅ Done | `auth.sign-up.tsx` |

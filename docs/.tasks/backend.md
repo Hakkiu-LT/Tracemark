@@ -60,11 +60,11 @@ This document outlines the priority ordering for backend services, engines, data
 | Task | Status | Notes |
 |---|---|---|
 | `notification_deliveries` Supabase migration | ✅ Done | `20260625000002_notification_deliveries.sql` — RLS enabled |
-| `notifications.py` — `send_email_notification()` | ❌ Missing | Core SMTP email sending function (Gabrielius) |
-| `dispatch_notifications()` for email delivery | ❌ Missing | Main event dispatcher (Gabrielius) |
+| `notifications.py` — `send_email_notification()` | ✅ Done | SMTP dispatch with template support (new_infringement, takedown_generated, case_escalated, case_dismissed) |
+| `dispatch_notifications()` for email delivery | ✅ Done | Resolves recipient email (checks org settings, env fallbacks) |
 | `log_delivery()` + event triggers (new_infringement, etc.) | ✅ Done | `services/delivery_log.py` + trigger `persistence.py` HIGH risk |
-| `POST /api/v1/monitoring/takedowns/{id}/send-email` endpoint | ❌ Missing | Backend API supporting sending the notice text via email SMTP |
-| `test_notifications.py` + `test_delivery_log.py` | ⚠️ Partial | `test_delivery_log.py` ✅ (5 testai) — `test_notifications.py` laukia Gabrieliaus |
+| `POST /api/v1/monitoring/takedowns/{id}/send-email` endpoint | ✅ Done | Sends takedown notice text via SMTP, records log, updates status |
+| `test_notifications.py` + `test_delivery_log.py` | ✅ Done | All 11 tests passing (`test_notifications.py` + `test_delivery_log.py`) |
 
 ---
 
