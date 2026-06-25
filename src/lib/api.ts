@@ -47,3 +47,39 @@ export function updateCaseStatusBackend(caseId: string, status: string): Promise
   });
 }
 
+export interface InfringementFeedItem {
+  id: string;
+  case_id: string | null;
+  platform: string;
+  source_url: string;
+  risk_level: "HIGH" | "MEDIUM" | "LOW";
+  match_score: number;
+  match_type: string;
+  status: string;
+  screenshot_url: string | null;
+  flagged_at: string;
+  created_at: string;
+}
+
+export interface InfringementsResponse {
+  items: InfringementFeedItem[];
+  total: number;
+}
+
+export function getInfringements(params?: {
+  risk_level?: string;
+  status?: string;
+  platform?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<InfringementsResponse> {
+  const query = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params ?? {})
+        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return apiFetch<InfringementsResponse>(`/infringements${query ? `?${query}` : ""}`);
+}
+
