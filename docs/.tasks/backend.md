@@ -59,12 +59,12 @@ This document outlines the priority ordering for backend services, engines, data
 
 | Task | Status | Notes |
 |---|---|---|
-| `notification_deliveries` Supabase migration | ❌ Missing | Database schema for notification history and delivery statuses |
-| `notifications.py` — `send_email_notification()` | ❌ Missing | Core SMTP email sending function |
-| `dispatch_notifications()` for email delivery | ❌ Missing | Main event dispatcher for outbound notifications |
-| `log_delivery()` + event triggers (new_infringement, etc.) | ❌ Missing | Tracks email logs and maps them to triggers |
+| `notification_deliveries` Supabase migration | ✅ Done | `20260625000002_notification_deliveries.sql` — RLS enabled |
+| `notifications.py` — `send_email_notification()` | ❌ Missing | Core SMTP email sending function (Gabrielius) |
+| `dispatch_notifications()` for email delivery | ❌ Missing | Main event dispatcher (Gabrielius) |
+| `log_delivery()` + event triggers (new_infringement, etc.) | ✅ Done | `services/delivery_log.py` + trigger `persistence.py` HIGH risk |
 | `POST /api/v1/monitoring/takedowns/{id}/send-email` endpoint | ❌ Missing | Backend API supporting sending the notice text via email SMTP |
-| `test_notifications.py` + `test_delivery_log.py` | ❌ Missing | Integration testing for the notification module |
+| `test_notifications.py` + `test_delivery_log.py` | ⚠️ Partial | `test_delivery_log.py` ✅ (5 testai) — `test_notifications.py` laukia Gabrieliaus |
 
 ---
 
@@ -76,16 +76,29 @@ This document outlines the priority ordering for backend services, engines, data
 | `profiles` table + trigger | ✅ Done | `20260616000001_profiles.sql` — exact spec match |
 | RLS policies on tables | ✅ Done | `20260617000001_profiles_rls.sql` + per-table policies |
 | `GET /api/v1/me` endpoint | ✅ Done | `routes/auth.py` — validates Supabase JWT, returns `UserProfile` |
-| Google OAuth configured in Supabase | ⚠️ Unknown | Config in Supabase dashboard |
-| Restrict `/api/v1/usage-stats` to allowed admin emails | ❌ Missing | Validate user email matches allowed admin list |
-| `pytest tests/test_auth.py` | ❌ Missing | Auth integration tests |
+| Google OAuth configured in Supabase | ✅ Done | Įjungta Supabase dashboard, Client ID/Secret sudėti |
+| Restrict `/api/v1/usage-stats` to allowed admin emails | ✅ Done | `ADMIN_EMAILS` env var, 403 jei email ne sąraše — `routes/usage.py` |
+| `pytest tests/test_auth.py` | ✅ Done | 7 testai — /me JWT validacija, admin 403/200, no-token 401 |
 | `POST /api/v1/billing/create-checkout-session` | ❌ Missing | Stripe checkout session creation |
 | `POST /api/v1/billing/create-portal-session` | ❌ Missing | Stripe billing portal redirect session |
 | `POST /api/v1/billing/webhook` | ❌ Missing | Handle Stripe events and update organization subscription status |
 
 ---
 
-## 6. Phase 3: Advanced Features & Law Firm Mode
+## 6. Phase 3: Document Persistence (Week 1)
+*Stores generated legal documents to Supabase Storage and tracks metadata.*
+
+| Task | Status | Notes |
+|---|---|---|
+| `documents` Supabase migration | ✅ Done | `20260625000001_documents.sql` — FK to infringements, RLS enabled |
+| `legal-documents` Storage bucket | ✅ Done | Auto-created by `_ensure_bucket()` in `document_persistence.py` |
+| `persist_document()` | ✅ Done | `services/document_persistence.py` — uploads bytes, inserts row, returns record |
+| `get_documents_by_infringement()` | ✅ Done | `services/document_persistence.py` — newest-first query |
+| `test_document_persistence.py` | ✅ Done | 7 tests, all passing — mocked, no real Supabase needed |
+
+---
+
+## 7. Phase 3: Advanced Features & Law Firm Mode
 *Scaling the platform to multi-client usage and advanced vector similarity search.*
 
 | Task | Status | Notes |
