@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { fetchCaseFromSupabase } from "@/lib/supabase";
+import { updateTakedownReport, sendTakedownEmail } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,6 +21,7 @@ import {
   Send,
   FileText,
   CheckCircle2,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,9 +51,8 @@ function MethodBadge({ method }: { method: TakedownReport["submission_method"] }
   );
 }
 
-
-function NoticeActions({ report }: { report: TakedownReport }) {
-  const [sent, setSent] = useState(false);
+function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate: () => void }) {
+  const [sending, setSending] = useState(false);
 
   if (report.submission_method === "api") {
     return (
@@ -78,6 +79,19 @@ function NoticeActions({ report }: { report: TakedownReport }) {
   }
 
   if (report.submission_method === "web_form") {
+    const handleMarkSent = async () => {
+      setSending(true);
+      try {
+        await updateTakedownReport(report.id!, { status: "sent" });
+        toast.success("Marked as sent", { description: "Notice recorded in case history." });
+        onUpdate();
+      } catch (e) {
+        toast.error("Failed to update status");
+      } finally {
+        setSending(false);
+      }
+    };
+
     return (
       <div className="flex flex-col gap-3">
         <p className="text-xs text-muted-foreground">
@@ -89,17 +103,27 @@ function NoticeActions({ report }: { report: TakedownReport }) {
             Go to reporting page
           </a>
         </Button>
+        <Button onClick={handleMarkSent} disabled={sending || report.status === "sent"} className="w-full" variant="outline">
+          {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+          {report.status === "sent" ? "Marked as Sent" : "Mark as Sent"}
+        </Button>
       </div>
     );
   }
 
   // email
-  const mailtoUrl = `mailto:${report.submission_email ?? ""}?subject=${encodeURIComponent(`Trademark Infringement Notice — ${report.platform}`)}&body=${encodeURIComponent(report.notice_text)}`;
-
-  function handleSend() {
-    setSent(true);
-    toast.success("Email marked as sent", { description: "Notice recorded in case history." });
-  }
+  const handleSendEmail = async () => {
+    setSending(true);
+    try {
+      await sendTakedownEmail(report.id!);
+      toast.success("Email sent", { description: "Notice dispatched and recorded in history." });
+      onUpdate();
+    } catch (e: any) {
+      toast.error("Failed to send email", { description: e.message });
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -108,15 +132,15 @@ function NoticeActions({ report }: { report: TakedownReport }) {
           ? `Send to: ${report.submission_email}`
           : "No submission email on file."}
       </p>
-      <Button variant="outline" asChild className="w-full">
-        <a href={mailtoUrl}>
-          <Mail className="h-4 w-4 mr-2" />
-          Open draft in email app
-        </a>
-      </Button>
-      <Button onClick={handleSend} disabled={sent} className="w-full">
-        {sent ? <CheckCircle2 className="h-4 w-4 mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-        {sent ? "Sent" : "Send email"}
+      <Button onClick={handleSendEmail} disabled={sending || report.status === "sent"} className="w-full">
+        {sending ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : report.status === "sent" ? (
+          <CheckCircle2 className="h-4 w-4 mr-2" />
+        ) : (
+          <Send className="h-4 w-4 mr-2" />
+        )}
+        {report.status === "sent" ? "Sent" : "Send email directly"}
       </Button>
     </div>
   );
@@ -127,11 +151,21 @@ function TakedownNoticesPage() {
   const navigate = useNavigate();
   const result = useStore((s) => s.scanResults[caseId]);
   const setScanResult = useStore((s) => s.setScanResult);
+  
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(!result);
+  const [noticeText, setNoticeText] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // Fallback: load from Supabase when the store is empty (e.g. hard refresh or
-  // direct URL navigation bypassing the case detail page).
+  const loadCase = async () => {
+    try {
+      const data = await fetchCaseFromSupabase(caseId);
+      if (data) setScanResult(caseId, data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     if (result) {
       setLoading(false);
@@ -151,6 +185,30 @@ function TakedownNoticesPage() {
       cancelled = true;
     };
   }, [caseId, result, setScanResult]);
+
+  const reports = result?.takedown_reports ?? [];
+  const selected = reports[selectedIndex] ?? null;
+
+  // Sync noticeText when selection changes or data updates
+  useEffect(() => {
+    if (selected) {
+      setNoticeText(selected.notice_text);
+    }
+  }, [selected?.id, selected?.notice_text]);
+
+  const handleSaveText = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await updateTakedownReport(selected.id!, { notice_text: noticeText });
+      toast.success("Draft saved successfully");
+      await loadCase();
+    } catch (e) {
+      toast.error("Failed to save draft");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -173,9 +231,6 @@ function TakedownNoticesPage() {
     );
   }
 
-  const reports = result.takedown_reports;
-  const selected = reports[selectedIndex] ?? null;
-
   const screenshotUrl = selected
     ? (
         result.evidence.marketplaces.find(
@@ -187,6 +242,8 @@ function TakedownNoticesPage() {
         null
       )
     : null;
+
+  const isEdited = selected && noticeText !== selected.notice_text;
 
   const ANIM = "animate-in fade-in-0 slide-in-from-bottom-3 duration-500";
   const anim = (delay: number): React.CSSProperties => ({ animationDelay: `${delay}ms`, animationFillMode: "both" });
@@ -272,7 +329,7 @@ function TakedownNoticesPage() {
           {selected ? (
             <>
               {/* Col 2: Notice document */}
-              <div key={`doc-${selectedIndex}`} className={`col-span-12 xl:col-span-6 flex flex-col ${ANIM}`} style={anim(0)}>
+              <div key={`doc-${selected.id}`} className={`col-span-12 xl:col-span-6 flex flex-col ${ANIM}`} style={anim(0)}>
                 <Card className="overflow-hidden flex flex-col h-full">
                   <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 border-b bg-muted/20">
                     <div className="flex items-center gap-3">
@@ -280,28 +337,43 @@ function TakedownNoticesPage() {
                       <span className="text-sm font-semibold text-foreground capitalize">{selected.platform.replace(/_/g, " ")}</span>
                       <MethodBadge method={selected.submission_method} />
                     </div>
-                    <a
-                      href={ensureAbsoluteUrl(selected.infringing_url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-accent hover:underline flex items-center gap-1 font-mono"
-                    >
-                      {selected.infringing_url}
-                      <ExternalLink className="h-3 w-3 shrink-0" />
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={ensureAbsoluteUrl(selected.infringing_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-accent hover:underline flex items-center gap-1 font-mono"
+                      >
+                        {selected.infringing_url}
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                      <Button
+                        variant={isEdited ? "default" : "outline"}
+                        size="sm"
+                        disabled={!isEdited || saving || selected.status === "sent"}
+                        onClick={handleSaveText}
+                      >
+                        {saving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Save className="h-3 w-3 mr-2" />}
+                        Save Changes
+                      </Button>
+                    </div>
                   </div>
                   <div className="p-6 bg-muted/10 flex justify-center flex-1">
-                    <div className="bg-card w-full p-8 shadow-sm border border-border min-h-[420px]">
-                      <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground">
-                        {selected.notice_text}
-                      </pre>
+                    <div className="bg-card w-full p-8 shadow-sm border border-border min-h-[420px] flex flex-col">
+                      <textarea
+                        className="w-full flex-1 resize-none bg-transparent border-0 focus-visible:ring-0 focus:outline-none p-0 font-mono text-sm leading-relaxed text-foreground min-h-[400px]"
+                        value={noticeText}
+                        onChange={(e) => setNoticeText(e.target.value)}
+                        disabled={selected.status === "sent"}
+                        placeholder="Draft takedown notice..."
+                      />
                     </div>
                   </div>
                 </Card>
               </div>
 
               {/* Col 3: Actions */}
-              <div key={`actions-${selectedIndex}`} className={`col-span-12 xl:col-span-3 ${ANIM}`} style={anim(80)}>
+              <div key={`actions-${selected.id}`} className={`col-span-12 xl:col-span-3 ${ANIM}`} style={anim(80)}>
                 <Card className="@container">
                   <CardContent className="px-6 py-5">
                     <div className="grid grid-cols-1 @[600px]:grid-cols-2 gap-6">
@@ -309,7 +381,7 @@ function TakedownNoticesPage() {
                         <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                           Actions
                         </p>
-                        <NoticeActions report={selected} />
+                        <NoticeActions report={selected} onUpdate={loadCase} />
                       </div>
                       {screenshotUrl && (
                         <div className="@[600px]:border-l @[600px]:border-border @[600px]:pl-6">

@@ -107,3 +107,32 @@ def get_evidence(
         .execute()
     )
     return result.data or []
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+@router.patch("/{infringement_id}/status", response_model=InfringementItem)
+def update_infringement_status(
+    infringement_id: str,
+    payload: UpdateStatusRequest,
+    current_user=Depends(get_current_user),
+) -> InfringementItem:
+    """Update the status of an infringement."""
+    sb = get_supabase()
+    
+    # Verify it exists
+    existing = sb.table("infringements").select("id").eq("id", infringement_id).maybe_single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Infringement not found")
+        
+    result = (
+        sb.table("infringements")
+        .update({"status": payload.status})
+        .eq("id", infringement_id)
+        .execute()
+    )
+    
+    if not result.data:
+        raise HTTPException(status_code=500, detail="Failed to update status")
+        
+    return result.data[0]

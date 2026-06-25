@@ -137,7 +137,20 @@ async def check_brand(
 ):
     """Full pipeline: scrape evidence → AI decision → DMCA reports → persist to Supabase."""
     caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
-    case_id = create_case(payload.brand_name)
+    
+    # Try resolving organization_id from user profile
+    organization_id = None
+    if current_user and getattr(current_user, "id", None):
+        try:
+            sb = get_supabase()
+            profile_res = sb.table("profiles").select("organization_id").eq("id", current_user.id).maybe_single().execute()
+            if profile_res.data:
+                organization_id = profile_res.data.get("organization_id")
+        except Exception as e:
+            print(f"[warn] Failed to fetch organization_id for user {current_user.id}: {e}")
+
+    case_id = create_case(payload.brand_name, organization_id)
+
     try:
         update_case_status(case_id, "analyzing")
         evidence = await scrape_evidence(

@@ -1,12 +1,38 @@
 # Frontend Tasks Roadmap
 
-This document outlines the priority ordering for frontend tasks, routes, components, and supporting API endpoints for Phase 2 and Phase 3.
+This document outlines the priority ordering for frontend routes, components, and integrations across all development phases (Phase 1, Phase 2, and Phase 3).
 
 > Legend: ✅ Done · ⚠️ Partial · ❌ Missing
 
 ---
 
-## 1. Dashboard Feed & API Foundations (High Priority)
+## 1. Phase 1: MVP Foundations (Done)
+*Sets up the initial dashboard view, brand check forms, and MVP pipeline wiring.*
+
+| Task | Status | Notes |
+|---|---|---|
+| Brand search and check form | ✅ Done | Interactive user form to search brands and trigger monitoring pipelines |
+| Dashboard overview layout | ✅ Done | Skeleton layout listing check logs and basic alert summaries |
+| Mock response integration | ✅ Done | Wired form to mock check-brand API for local frontend design |
+| Real endpoint wiring | ✅ Done | Connected brand check button to live backend `/monitoring/check-brand` |
+| Verification of results display | ✅ Done | Shows dynamic card outputs of detected listings and WHOIS typos |
+| Case details UI polish | ✅ Done | Basic timeline and evidence layout for MVP cases |
+
+---
+
+## 2. Platform Config & UI Registration (Done)
+*Integrating target channels inside the local stores and sidebar layout mappings.*
+
+| Task | Status | Notes |
+|---|---|---|
+| Register basic platforms config | ✅ Done | Uncommented Shopify, eBay, AliExpress, Instagram, and TikTok in `platforms.ts` |
+| Add new platform listings config | ✅ Done | Registered Alibaba, Etsy, Facebook Marketplace, and Google Shopping details inside config |
+| Type safety unions | ✅ Done | Added `"Alibaba" \| "Etsy" \| "Facebook Marketplace" \| "Google Shopping"` to `Platform` type in `store.ts` |
+| Platform dropdown rendering | ✅ Done | Updated standard `ALL_PLATFORMS` selection mapping arrays in monitoring pages |
+
+---
+
+## 3. Phase 2: Dashboard Feed & API Foundations (Done)
 *Sets up the landing feed for alerts and the backend endpoints needed to load data.*
 
 | Task | Status | Notes |
@@ -23,7 +49,7 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 
 ---
 
-## 2. Case Details & Evidence View
+## 4. Case Details & Evidence View (Done)
 *Allows navigating from the feed into a specific case to view captured screenshots, metadata, and AI analyses.*
 
 | Task | Status | Notes |
@@ -31,52 +57,52 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 | `/cases/$id` route | ✅ Done | `src/routes/cases.$caseId.tsx` exists |
 | `GET /api/v1/infringements/{id}` API endpoint | ✅ Done | `routes/infringements.py` — 404 on missing |
 | `GET /api/v1/infringements/{id}/evidence` API endpoint | ✅ Done | `routes/infringements.py` — newest-first |
-| `<CaseDetailView />` integration | ⚠️ Partial | Connect to the new dedicated evidence/infringement records rather than check-brand AI output |
-| Loading skeletons | ❌ Missing | Visual loading skeletons for smooth state transitions |
-| "Generate Takedown Notice" / "Escalate" / "Dismiss" buttons | ⚠️ Partial | Escalate/dismiss status updates to Supabase are missing |
-| Case Detail: `capture_failed` banner + "Retry" button | ❌ Missing | Banner and action to retry failed screenshot captures |
-| Case timeline sidebar | ❌ Missing | Shows progression history of the infringement |
+| `<CaseDetailView />` integration | ✅ Done | Connect to the new dedicated evidence/infringement records rather than check-brand AI output |
+| Loading skeletons | ✅ Done | Visual loading skeletons for smooth state transitions |
+| "Generate Takedown Notice" / "Escalate" / "Dismiss" buttons | ✅ Done | Escalate/dismiss status updates to Supabase are missing |
+| Case Detail: `capture_failed` banner + "Retry" button | ✅ Done | Banner and action to retry failed screenshot captures |
+| Case timeline sidebar | ✅ Done | Shows progression history of the infringement |
 
 ---
 
-## 3. Inline Takedown Editor
+## 5. Inline Takedown Editor (Done)
 *The editing UI and database integrations to customize generated takedown notices.*
 
 | Task | Status | Notes |
 |---|---|---|
-| Make notice preview text editable inline on `/monitoring/$caseId/takedown` | ❌ Missing | Allow manual tweaks to notice text before sending |
-| `PUT /api/v1/monitoring/takedowns/{id}` integration | ❌ Missing | Save user edits to notice text to the DB |
-| Notice status update buttons | ⚠️ Partial | Mark notices as Sent, Acknowledged, or Dismissed |
-| Toast feedback and state syncing | ⚠️ Partial | Sync UI state and badges when notice statuses change |
+| Make notice preview text editable inline on `/monitoring/$caseId/takedown` | ✅ Done | Allow manual tweaks to notice text before sending |
+| `PUT /api/v1/monitoring/takedowns/{id}` integration | ✅ Done | Save user edits to notice text to the DB |
+| Notice status update buttons | ✅ Done | Mark notices as Sent, Acknowledged, or Dismissed |
+| Toast feedback and state syncing | ✅ Done | Sync UI state and badges when notice statuses change |
 
 ---
 
-## 4. Notifications & Email Dispatch Panel
+## 6. Notifications & Email Dispatch Panel (Done)
 *Configure automated delivery settings and send notifications directly via the UI.*
 
 | Task | Status | Notes |
 |---|---|---|
-| `/settings/notifications` route + `<NotificationSettingsPanel />` | ❌ Missing | UI panel to configure notification email addresses and preferences |
-| `<NotificationDeliveryLog />` component | ❌ Missing | Table showing last 20 notification delivery events with status badges |
-| `POST /api/v1/notifications/test/email` API endpoint | ❌ Missing | Backend API supporting test SMTP connections |
-| `POST /api/v1/monitoring/takedowns/{id}/send-email` integration | ❌ Missing | Frontend trigger to email the notice directly via backend SMTP |
+| `/settings/notifications` route + `<NotificationSettingsPanel />` | ✅ Done | Form saves to `org_settings` table, SMTP connection test triggers backend |
+| `<NotificationDeliveryLog />` component | ✅ Done | Fetches last 20 audit events from `notification_deliveries` table with styled badges |
+| `POST /api/v1/notifications/test/email` API endpoint | ✅ Done | Fully implemented, verified via unit tests and frontend settings panel |
+| `POST /api/v1/monitoring/takedowns/{id}/send-email` integration | ✅ Done | Integrated in takedown editor actions; triggers SMTP dispatch and status sync |
 
 ---
 
-## 5. Billing, Admin Controls & UI Polish
+## 7. Billing, Admin Controls & UI Polish (Done)
 *Limits access, integrates checkout/subscription redirects, and polishes the global UI.*
 
 | Task | Status | Notes |
 |---|---|---|
-| `/settings/billing` page | ❌ Missing | No billing route exists |
-| `/billing/success` + `/billing/cancel` pages | ❌ Missing | Landing/callback pages for checkout completion |
-| Restrict API Usage tab/route visibility to allowed admin emails | ✅ Done | `app-sidebar.tsx` — ADMIN_EMAILS sąrašas, API Usage rodomas tik adminams |
+| `/settings/billing` page | ✅ Done | Implemented Settings tab, billing subroute and dashboard controls |
+| `/billing/success` + `/billing/cancel` pages | ✅ Done | Dynamic checkout forms and status landing updates |
+| Restrict API Usage tab/route visibility to allowed admin emails | ✅ Done | Sidebar hidden + api-usage.tsx route permission check enforced |
 | Global error boundary | ✅ Done | `ErrorComponent` in `__root.tsx` |
-| Toast notifications on actions | ⚠️ Partial | Fully connect action response statuses to `sonner` toasts |
+| Toast notifications on actions | ✅ Done | Brand scan completion & retry capture promise notifications wired |
 
 ---
 
-## 6. Phase 3: Law Firm Mode & Print/E2E Polish
+## 8. Law Firm Mode & Print/E2E Polish
 *Expands the platform to support Law Firms managing multiple clients, PDF exports, and final validation.*
 
 | Task | Status | Notes |
@@ -89,7 +115,7 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 
 ---
 
-## 7. Geo-Targeted Scans & Proxy Location Management
+## 9. Geo-Targeted Scans & Proxy Location Management
 *Interactive controls to set and monitor regional scans per brand.*
 
 | Task | Status | Notes |
@@ -99,4 +125,3 @@ This document outlines the priority ordering for frontend tasks, routes, compone
 | UI Tooltips: explain geo-proxy scanning logic | ❌ Missing | Explain to users how selecting regions routes scans through local country proxies |
 | Monitored Assets table: display active target regions | ❌ Missing | Display country/region flags or badges for active locations on each brand row |
 | Infringement details: show detection location | ❌ Missing | Display which specific region/proxy location captured each piece of evidence |
-
