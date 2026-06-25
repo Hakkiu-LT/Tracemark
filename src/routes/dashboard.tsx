@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, AlertTriangle, CheckCircle2, TrendingUp, ArrowUpRight } from "lucide-react";
 import { useScopedInfringements, useScopedMarks, useStore } from "@/lib/store";
-import { RiskBadge } from "@/components/risk-badge";
+import { InfringementAlertFeed } from "@/components/cases/InfringementAlertFeed";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell, Legend } from "recharts";
 
 export const Route = createFileRoute("/dashboard")({
@@ -99,48 +99,7 @@ function Dashboard() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Live infringement alert feed</CardTitle>
-            <p className="text-xs text-muted-foreground">New detections from the last 24 hours</p>
-          </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/cases">View all cases <ArrowUpRight className="ml-1 h-3 w-3" /></Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y">
-            {infringements.slice(0, 6).map((i) => (
-              <Link
-                key={i.id}
-                to="/cases/$caseId"
-                params={{ caseId: i.id }}
-                className="flex items-center gap-4 p-4 transition-colors hover:bg-muted/50"
-              >
-                <div
-                  className="h-14 w-14 shrink-0 rounded-md border"
-                  style={{ background: `linear-gradient(135deg, ${i.thumbnail}, oklch(0.3 0.05 260))` }}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <RiskBadge risk={i.risk} />
-                    <span className="text-xs text-muted-foreground">{i.platform}</span>
-                    <span className="text-xs text-muted-foreground" suppressHydrationWarning>- {new Date(i.detectedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                  <p className="mt-1 truncate text-sm font-medium">{i.title}</p>
-                  <p className="truncate text-xs text-muted-foreground font-mono">{i.evidence.url}</p>
-                </div>
-                <div className="hidden text-right md:block">
-                  <p className="text-sm font-semibold">{i.brandName}</p>
-                  <p className="text-xs text-muted-foreground">{i.analysis.confidence}% confidence</p>
-                </div>
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <InfringementAlertFeed />
     </div>
   );
 }

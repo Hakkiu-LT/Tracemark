@@ -251,6 +251,24 @@ def update_status_endpoint(case_id: str, payload: UpdateStatusRequest):
                         )
                         update_decision_action(case_id, "TAKEDOWN")
                         
+        if payload.status in ("escalated", "dismissed"):
+            try:
+                from tracemark_api.services.notifications import dispatch_notifications
+                from tracemark_api.services.delivery_log import log_delivery
+                event_type = f"case_{payload.status}"  # case_escalated or case_dismissed
+                event = {
+                    "type": event_type,
+                    "case_id": case_id,
+                }
+                dispatch_notifications(event)
+                log_delivery(event_type, ok=True, payload=event)
+            except Exception as e:
+                try:
+                    from tracemark_api.services.delivery_log import log_delivery
+                    log_delivery(f"case_{payload.status}", ok=False, error=str(e))
+                except Exception:
+                    pass
+                        
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -302,3 +320,94 @@ def update_takedown_report_endpoint(
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class TestEmailRequest(BaseModel):
+    email: str
+
+
+@router.post("/notifications/test/email")
+def test_email_notification_endpoint(
+    payload: TestEmailRequest,
+    current_user=Depends(get_current_user),
+):
+    """
+    Fire a test email notification payload to check connectivity.
+    """
+    try:
+        from tracemark_api.services.notifications import send_email_notification
+        event = {
+            "type": "test",
+            "message": "This is a test notification from Tracemark to verify SMTP configuration.",
+            "brand_name": "Test Brand",
+        }
+        send_email_notification(event, payload.email)
+        return {"success": True, "message": f"Test email sent to {payload.email}"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to send test email: {str(e)}")
+
+
+@router.post("/takedowns/{id}/send-email")
+def send_takedown_email_endpoint(
+    id: str,
+    current_user=Depends(get_current_user),
+):
+    """
+    Send the notice text of the takedown report to its submission_email via SMTP,
+    update status to 'sent', and set submitted_at to now.
+    """
+    sb = get_supabase()
+    res = sb.table("takedown_reports").select("*").eq("id", id).maybe_single().execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Takedown report not found")
+
+    report = res.data
+    recipient = report.get("submission_email")
+    if not recipient:
+        raise HTTPException(status_code=400, detail="Submission email is not configured for this platform")
+
+    notice_text = report.get("notice_text", "")
+
+    try:
+        from tracemark_api.services.delivery_log import log_delivery
+        from tracemark_api.services.notifications import send_email_notification
+
+        event = {
+            "type": "test",  # Send raw notice text as a test event containing the notice text
+            "message": notice_text,
+            "brand_name": "Takedown Notice",
+        }
+        send_email_notification(event, recipient)
+
+        # Log delivery
+        log_delivery(
+            event_type="takedown_submitted",
+            ok=True,
+            payload={"takedown_report_id": id, "recipient": recipient},
+        )
+
+        # Update status and submitted_at
+        from datetime import datetime, timezone
+        submitted_at = datetime.now(timezone.utc).isoformat()
+        sb.table("takedown_reports").update({
+            "status": "sent",
+            "submitted_at": submitted_at,
+        }).eq("id", id).execute()
+
+        return {
+            "success": True,
+            "message": f"Takedown notice sent to {recipient}",
+            "submitted_at": submitted_at,
+        }
+    except Exception as e:
+        try:
+            from tracemark_api.services.delivery_log import log_delivery
+            log_delivery(
+                event_type="takedown_submitted",
+                ok=False,
+                error=str(e),
+                payload={"takedown_report_id": id, "recipient": recipient},
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to send takedown email: {str(e)}")
