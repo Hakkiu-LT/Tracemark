@@ -19,6 +19,12 @@ export interface DomainEvidence {
   is_clone: boolean;
   similarity_score: number;
   screenshot_url: string | null;
+  creation_date?: string | null;
+  expiry_date?: string | null;
+  name_servers?: string[] | null;
+  registrant_organization?: string | null;
+  registrant_country?: string | null;
+  registrant_email?: string | null;
 }
 
 export interface SocialEvidence {

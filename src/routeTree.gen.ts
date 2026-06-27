@@ -20,6 +20,7 @@ import { Route as CasesRouteImport } from './routes/cases'
 import { Route as ApiUsageRouteImport } from './routes/api-usage'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
+import { Route as SettingsClientsRouteImport } from './routes/settings.clients'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
 import { Route as MonitoringNewRouteImport } from './routes/monitoring.new'
 import { Route as MonitoringCaseIdRouteImport } from './routes/monitoring.$caseId'
@@ -87,6 +88,11 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsClientsRoute = SettingsClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsBillingRoute = SettingsBillingRouteImport.update({
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/settings/billing'
+    | '/settings/clients'
     | '/settings/notifications'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/settings/billing'
+    | '/settings/clients'
     | '/settings/notifications'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
@@ -311,6 +322,7 @@ export interface FileRouteTypes {
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/settings/billing'
+    | '/settings/clients'
     | '/settings/notifications'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
@@ -413,6 +425,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/clients': {
+      id: '/settings/clients'
+      path: '/clients'
+      fullPath: '/settings/clients'
+      preLoaderRoute: typeof SettingsClientsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/billing': {
@@ -558,11 +577,13 @@ const MonitoringRouteWithChildren = MonitoringRoute._addFileChildren(
 
 interface SettingsRouteChildren {
   SettingsBillingRoute: typeof SettingsBillingRoute
+  SettingsClientsRoute: typeof SettingsClientsRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBillingRoute: SettingsBillingRoute,
+  SettingsClientsRoute: SettingsClientsRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
 }
 

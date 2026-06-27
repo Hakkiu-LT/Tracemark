@@ -536,6 +536,11 @@ class TestGoogleSERPAPI:
         mock_w.creation_date = "2025-01-01"
         mock_w.expiration_date = "2027-01-01"
         mock_w.name_servers = ["ns1.godaddy.com", "ns2.godaddy.com"]
+        mock_w.get.side_effect = lambda key, default=None: {
+            "org": "Fake Corp LLC",
+            "country": "CN",
+            "emails": "abuse@godaddy.com",
+        }.get(key, default)
         mock_whois.return_value = mock_w
 
         # Mock domain whitelist behavior to not filter infringing-store-xyz.com
@@ -548,6 +553,9 @@ class TestGoogleSERPAPI:
         target = next(r for r in results if r["domain"] == "infringing-store-xyz.com")
         assert target["registrant"] == "GoDaddy.com, LLC"
         assert target["name_servers"] == ["ns1.godaddy.com", "ns2.godaddy.com"]
+        assert target["registrant_organization"] == "Fake Corp LLC"
+        assert target["registrant_country"] == "CN"
+        assert target["registrant_email"] == "abuse@godaddy.com"
 
     @patch("tracemark_api.services.marketplace.requests.post")
     @patch("tracemark_api.services.marketplace.requests.get")
@@ -783,3 +791,47 @@ class TestCachedScreenshotRouting:
             assert res == "https://supabase.co/fc_shot.png"
             mock_fc_screenshot.assert_called_once_with(url)
             mock_pw_screenshot.assert_not_called()
+
+
+class TestAIDomainEvaluation:
+    @patch("tracemark_api.services.marketplace.ChatGoogleGenerativeAI")
+    def test_extract_domain_evaluations_with_ai(self, mock_llm_class):
+        from tracemark_api.services.marketplace import extract_domain_evaluations_with_ai, DomainEvaluation, DomainEvaluationList
+        
+        mock_llm = MagicMock()
+        mock_llm_class.return_value = mock_llm
+        
+        mock_structured = MagicMock()
+        mock_llm.with_structured_output.return_value = mock_structured
+        
+        mock_structured.invoke.return_value = DomainEvaluationList(
+            items=[
+                DomainEvaluation(
+                    domain_name="njctl.org",
+                    is_clone=False,
+                    similarity_score=15,
+                    reasoning="Unrelated generic teaching organization."
+                ),
+                DomainEvaluation(
+                    domain_name="buyderila.com",
+                    is_clone=True,
+                    similarity_score=92,
+                    reasoning="Impersonating store using brand name."
+                )
+            ]
+        )
+        
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
+            results = extract_domain_evaluations_with_ai(
+                brand_name="derila",
+                domains_data=[{"domain": "njctl.org"}, {"domain": "buyderila.com"}],
+                caller_id="test"
+            )
+            
+        assert len(results) == 2
+        assert results[0].domain_name == "njctl.org"
+        assert results[0].is_clone is False
+        assert results[0].similarity_score == 15
+        assert results[1].domain_name == "buyderila.com"
+        assert results[1].is_clone is True
+        assert results[1].similarity_score == 92

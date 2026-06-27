@@ -34,6 +34,12 @@ class DomainEvidence(BaseModel):
     is_clone: bool = PydanticField(description="Whether the site appears to be a clone/impersonator of the brand.")
     similarity_score: int = PydanticField(description="Visual/content similarity percentage from 0 to 100.")
     screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL of the clone domain.")
+    creation_date: str | None = PydanticField(default=None, description="Domain registration creation date.")
+    expiry_date: str | None = PydanticField(default=None, description="Domain registration expiration date.")
+    name_servers: list[str] | None = PydanticField(default=None, description="Active name servers routing the domain.")
+    registrant_organization: str | None = PydanticField(default=None, description="Registrant organization name if available.")
+    registrant_country: str | None = PydanticField(default=None, description="Registrant organization or contact country.")
+    registrant_email: str | None = PydanticField(default=None, description="Registrant or registrar abuse email address.")
 
 
 class SocialEvidence(BaseModel):

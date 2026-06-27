@@ -163,3 +163,82 @@
 .auth-ping-soft {
   animation: auth-ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+
+/* ── Print Styles Override ─────────────────────────────────────────── */
+@media print {
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12pt !important;
+  }
+  
+  /* Hide navigation, sidebar, headers, and actions */
+  nav,
+  aside,
+  header,
+  footer,
+  .sidebar,
+  .no-print,
+  button,
+  .button,
+  [role="navigation"],
+  [class*="sidebar"],
+  [class*="header"],
+  [class*="action"],
+  .flex-wrap.gap-3,
+  .items-center.gap-2.text-muted-foreground.mb-2,
+  .flex.items-center.gap-1 {
+    display: none !important;
+  }
+
+  /* Reset layout grids/margins */
+  main,
+  .mx-auto,
+  .min-h-screen,
+  .flex-1 {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+
+  .grid {
+    display: block !important;
+  }
+
+  /* Columns display full width */
+  .col-span-12,
+  .col-span-8,
+  .col-span-6,
+  .col-span-4,
+  .col-span-3,
+  [class*="col-span-"] {
+    width: 100% !important;
+    float: none !important;
+    margin-bottom: 20px !important;
+  }
+
+  /* Avoid page breaks inside cards */
+  .card, 
+  .border,
+  Card,
+  tr,
+  blockquote {
+    page-break-inside: avoid !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* Optimize text for readability */
+  h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    page-break-after: avoid !important;
+  }
+
+  p, span, div, td, th {
+    color: #334155 !important;
+  }
+}
+
