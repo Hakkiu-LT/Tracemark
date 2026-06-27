@@ -156,8 +156,48 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                       </a>
                       {d.registrar && (
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Registered by: {d.registrar}
+                          Registered by: <span className="text-foreground font-medium">{d.registrar}</span>
                         </p>
+                      )}
+                      {(d.creation_date || d.expiry_date || d.registrant_organization || d.registrant_country || d.registrant_email || (d.name_servers && d.name_servers.length > 0)) && (
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 bg-muted/20 p-2 rounded border border-border/40 text-[11px] font-mono text-muted-foreground max-w-md">
+                          {d.creation_date && d.creation_date !== "unknown" && (
+                            <div>
+                              <span>Created: </span>
+                              <span className="text-foreground">{d.creation_date.slice(0, 10)}</span>
+                            </div>
+                          )}
+                          {d.expiry_date && d.expiry_date !== "unknown" && (
+                            <div>
+                              <span>Expires: </span>
+                              <span className="text-foreground">{d.expiry_date.slice(0, 10)}</span>
+                            </div>
+                          )}
+                          {d.registrant_organization && d.registrant_organization !== "unknown" && (
+                            <div className="sm:col-span-2">
+                              <span>Registrant Org: </span>
+                              <span className="text-foreground truncate block">{d.registrant_organization}</span>
+                            </div>
+                          )}
+                          {d.registrant_country && d.registrant_country !== "unknown" && (
+                            <div>
+                              <span>Country: </span>
+                              <span className="text-foreground">{d.registrant_country}</span>
+                            </div>
+                          )}
+                          {d.registrant_email && d.registrant_email !== "unknown" && (
+                            <div className="sm:col-span-2">
+                              <span>Abuse Email: </span>
+                              <span className="text-foreground break-all">{d.registrant_email}</span>
+                            </div>
+                          )}
+                          {d.name_servers && d.name_servers.length > 0 && (
+                            <div className="sm:col-span-2">
+                              <span>NS: </span>
+                              <span className="text-foreground break-all">{d.name_servers.join(", ")}</span>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">

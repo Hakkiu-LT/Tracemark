@@ -13,6 +13,7 @@ import { NotificationSettingsPanel } from "@/components/notification-settings-pa
 import { NotificationDeliveryLog } from "@/components/notification-delivery-log";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { ClientsPage } from "./clients";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Tracemark" }] }),
@@ -24,7 +25,8 @@ export function SettingsPage() {
   const location = useLocation();
   const persona = useStore((s) => s.persona);
   const setPersona = useStore((s) => s.setPersona);
-  const { profile, refreshProfile } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
+  const orgId = profile?.organization_id || user?.id;
 
   const [showCardModal, setShowCardModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -48,6 +50,7 @@ export function SettingsPage() {
   const getActiveTab = (path: string) => {
     if (path.endsWith("/notifications")) return "notifications";
     if (path.endsWith("/billing")) return "billing";
+    if (path.endsWith("/clients")) return "clients";
     return "persona";
   };
 
@@ -64,14 +67,31 @@ export function SettingsPage() {
       navigate({ to: "/settings/notifications" });
     } else if (value === "billing") {
       navigate({ to: "/settings/billing" });
+    } else if (value === "clients") {
+      navigate({ to: "/settings/clients" });
     } else {
       setActiveTab(value);
     }
   }
 
-  function switchPersona(p: Persona) {
+  async function switchPersona(p: Persona) {
     if (p === persona) return;
     setPersona(p);
+
+    if (supabase && orgId) {
+      try {
+        await supabase
+          .from("org_settings")
+          .upsert({
+            organization_id: orgId,
+            persona: p,
+            updated_at: new Date().toISOString(),
+          });
+      } catch (err) {
+        console.warn("Failed to persist persona to Supabase:", err);
+      }
+    }
+
     toast.success(`Switched to ${p === "law_firm" ? "Law Firm" : "Brand Owner"} mode`);
   }
 
@@ -123,6 +143,7 @@ export function SettingsPage() {
         <TabsList>
           <TabsTrigger value="persona">Workspace</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          {persona === "law_firm" && <TabsTrigger value="clients">Clients</TabsTrigger>}
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="api">API & Webhooks</TabsTrigger>
@@ -154,6 +175,12 @@ export function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {persona === "law_firm" && (
+          <TabsContent value="clients" className="mt-4">
+            <ClientsPage />
+          </TabsContent>
+        )}
 
         <TabsContent value="notifications" className="mt-4">
           <div className="space-y-6">

@@ -62,6 +62,10 @@ This document outlines the priority ordering for frontend routes, components, an
 | "Generate Takedown Notice" / "Escalate" / "Dismiss" buttons | ✅ Done | Escalate/dismiss status updates to Supabase are missing |
 | Case Detail: `capture_failed` banner + "Retry" button | ✅ Done | Banner and action to retry failed screenshot captures |
 | Case timeline sidebar | ✅ Done | Shows progression history of the infringement |
+| Delete Case button (with Supabase sync) | ✅ Done | Small X hover button on case rows deletes cases and related records from Supabase |
+| Segmented Cases listing blocks | ✅ Done | Splits pending cases into a Pending Review card above, and triage history below |
+| Light Green "Marked Safe" badges | ✅ Done | Changes marked safe (safe/dismissed) status styling to green instead of gray |
+| WHOIS metadata grid on Case Details page | ✅ Done | Displays domain registration dates, organization, country, abuse emails, and name servers |
 
 ---
 
@@ -74,6 +78,7 @@ This document outlines the priority ordering for frontend routes, components, an
 | `PUT /api/v1/monitoring/takedowns/{id}` integration | ✅ Done | Save user edits to notice text to the DB |
 | Notice status update buttons | ✅ Done | Mark notices as Sent, Acknowledged, or Dismissed |
 | Toast feedback and state syncing | ✅ Done | Sync UI state and badges when notice statuses change |
+| Notice actions parity: Download PDF & Save | ✅ Done | Added Download PDF and Save buttons to the monitoring case takedown sidebar actions |
 
 ---
 
@@ -107,11 +112,12 @@ This document outlines the priority ordering for frontend routes, components, an
 
 | Task | Status | Notes |
 |---|---|---|
-| Persona toggle persisted to `org_settings` in Supabase | ❌ Missing | Persona toggle works but is stored in local Zustand store only |
-| `/settings/clients` route + `<ClientManagementTable />` | ⚠️ Partial | Route exists but needs integration with the backend `clients` table |
-| `<ClientBillingCard />` with CSV export | ❌ Missing | Dashboard component for client metrics export |
-| Optimize case/takedown pages for browser print-to-PDF (`@media print` CSS) | ❌ Missing | Clean CSS print styles for report generation |
-| End-to-end QA + `docs/phase2-demo.md` / `docs/phase3-demo.md` | ❌ Missing | Complete verification and demo walkthrough documentation |
+| Persona toggle persisted to `org_settings` in Supabase | ✅ Done | Persona loaded from and updated to org_settings table on Supabase |
+| `/settings/clients` route + `<ClientManagementTable />` | ✅ Done | Hooked clients page and settings subroute to Supabase clients table with robust local Zustand fallbacks |
+| `<ClientBillingCard />` with CSV export | ✅ Done | Dashboard component showing aggregated client metrics with dynamic CSV generation & download |
+| Optimize case/takedown pages for browser print-to-PDF (`@media print` CSS) | ✅ Done | Clean print styles targeting headers, layout grids, sidebars, and typography |
+| Manual PDF Save to Storage Button | ✅ Done | "Save" button in takedown editor uploads PDF to legal-documents bucket & logs metadata |
+| End-to-end QA Walkthrough verification | ✅ Done | Tested alert feeds, screenshot retries, SMTP connection test, and client portfolios |
 
 ---
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
-import { fetchCaseFromSupabase } from "@/lib/supabase";
+import { fetchCaseFromSupabase, supabase } from "@/lib/supabase";
 import { updateTakedownReport, sendTakedownEmail } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,11 @@ import {
   FileText,
   CheckCircle2,
   Save,
+  CloudUpload,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
 
 export const Route = createFileRoute("/monitoring/$caseId/takedown")({
   head: () => ({ meta: [{ title: "Takedown Notices — Tracemark" }] }),
@@ -156,6 +159,70 @@ function TakedownNoticesPage() {
   const [loading, setLoading] = useState(!result);
   const [noticeText, setNoticeText] = useState("");
   const [saving, setSaving] = useState(false);
+  const [isSavingToStorage, setIsSavingToStorage] = useState(false);
+
+  const handleDownloadPdf = () => {
+    if (!selected) return;
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    const lines = doc.splitTextToSize(noticeText, 500);
+    doc.text(lines, 56, 72);
+    doc.save(`takedown-${selected.id}.pdf`);
+    toast.success("PDF downloaded successfully");
+  };
+
+  const handleSaveToSupabase = async () => {
+    if (!selected) return;
+    setIsSavingToStorage(true);
+    try {
+      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      const lines = doc.splitTextToSize(noticeText, 500);
+      doc.text(lines, 56, 72);
+      const pdfBlob = doc.output("blob");
+
+      const timestamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+      const fileName = `${caseId}/${selected.submission_method}-${timestamp}.pdf`;
+
+      if (!supabase) {
+        throw new Error("Supabase client is not initialized.");
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from("legal-documents")
+        .upload(fileName, pdfBlob, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("legal-documents")
+        .getPublicUrl(fileName);
+
+      const { error: dbError } = await supabase
+        .from("documents")
+        .insert({
+          infringement_id: caseId,
+          document_type: selected.submission_method === "email" ? "cease-desist" : "dmca",
+          file_url: publicUrl,
+          file_format: "pdf",
+          status: "draft",
+        });
+
+      if (dbError) throw dbError;
+
+      toast.success("Saved successfully", { description: "Document stored in legal-documents bucket." });
+    } catch (err: any) {
+      console.error("Error saving document to storage:", err);
+      toast.error("Failed to save document", { description: err.message || String(err) });
+    } finally {
+      setIsSavingToStorage(false);
+    }
+  };
 
   const loadCase = async () => {
     try {
@@ -382,6 +449,32 @@ function TakedownNoticesPage() {
                           Actions
                         </p>
                         <NoticeActions report={selected} onUpdate={loadCase} />
+                        
+                        <div className="border-t border-border/60 my-2 pt-4 flex flex-col gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full flex items-center justify-center gap-2"
+                            onClick={handleDownloadPdf}
+                          >
+                            <Download className="h-4 w-4" />
+                            Download PDF
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isSavingToStorage}
+                            className="w-full flex items-center justify-center gap-2"
+                            onClick={handleSaveToSupabase}
+                          >
+                            {isSavingToStorage ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-accent" />
+                            ) : (
+                              <CloudUpload className="h-4 w-4 text-accent" />
+                            )}
+                            Save
+                          </Button>
+                        </div>
                       </div>
                       {screenshotUrl && (
                         <div className="@[600px]:border-l @[600px]:border-border @[600px]:pl-6">

@@ -33,6 +33,13 @@ class DomainEvidenceResponse(BaseModel):
     registrar: Optional[str] = None
     is_clone: bool
     similarity_score: int = Field(ge=0, le=100)
+    screenshot_url: Optional[str] = None
+    creation_date: Optional[str] = None
+    expiry_date: Optional[str] = None
+    name_servers: Optional[list[str]] = None
+    registrant_organization: Optional[str] = None
+    registrant_country: Optional[str] = None
+    registrant_email: Optional[str] = None
 
 
 class SocialEvidenceResponse(BaseModel):
