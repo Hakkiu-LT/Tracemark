@@ -14,6 +14,8 @@ This document outlines the priority ordering for backend services, engines, data
 | Multi-tier `gather_evidence` scraper | ✅ Done | Scraping engine routing to BS4 custom scrapers, WHOIS, and Firecrawl fallback |
 | Amazon Tier 1 (requests + BS4) scraper | ✅ Done | Custom parser extracting titles, prices, and links without Firecrawl credits |
 | WHOIS Typosquatting lookup generator | ✅ Done | Generates domain variations and queries registry data via python-whois |
+| Extra WHOIS Metadata Parsing | ✅ Done | Extracts registration age, registrar dates, name servers, registrant organization/country, and contact email |
+| AI Domain Triage & Similarity Scorer | ✅ Done | Uses Gemini 2.5 Flash to evaluate domain name + WHOIS metadata, determine copycat status, and assign similarity scores |
 | `cases`, `evidence`, `decisions` schema migrations | ✅ Done | Supabase database migrations establishing tables, FKs, and RLS policies |
 | LangGraph brand-check AI pipeline | ✅ Done | Orchestrates evidence gathering, Gemini-based analysis, and decision creation |
 | `/api/v1/monitoring/gather-evidence` endpoint | ✅ Done | Exposes scraping and typosquatting results to client |

@@ -214,3 +214,13 @@ export async function fetchCaseFromSupabase(
     takedown_reports: (data.takedown_reports ?? []).map(mapTakedown),
   };
 }
+
+/**
+ * Delete a case and its related records from Supabase by id.
+ */
+export async function deleteCaseFromSupabase(caseId: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("cases").delete().eq("id", caseId);
+  return !error;
+}
+

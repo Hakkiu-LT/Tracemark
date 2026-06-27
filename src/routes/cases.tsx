@@ -22,7 +22,7 @@ import {
   PaginationNext,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { fetchCaseHistory, type CaseSummary } from "@/lib/supabase";
+import { fetchCaseHistory, deleteCaseFromSupabase, type CaseSummary } from "@/lib/supabase";
 
 import { RiskBadge } from "@/components/risk-badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { consumeCasesView, saveCasesView, type SortDir, type SortField } from "@/lib/cases-view";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 20;
 
@@ -56,6 +57,9 @@ const STATUS_STYLES: Record<string, string> = {
   analyzing: "bg-risk-med/10 text-risk-med border-risk-med/30",
   complete: "bg-muted text-muted-foreground border-border",
   error: "bg-risk-high/10 text-risk-high border-risk-high/30",
+  safe: "bg-success/10 text-success border-success/30",
+  dismissed: "bg-success/10 text-success border-success/30",
+  resolved: "bg-success/10 text-success border-success/30",
 };
 
 function CaseStatusBadge({ status }: { status: string }) {
@@ -167,6 +171,80 @@ function CasesList() {
     };
   }, []);
 
+  const handleDeleteCase = async (caseId: string) => {
+    try {
+      const ok = await deleteCaseFromSupabase(caseId);
+      if (!ok) throw new Error("Could not complete delete operation.");
+      setAll((prev) => prev.filter((c) => c.id !== caseId));
+      toast.success("Case deleted successfully");
+    } catch (err: any) {
+      console.error("Failed to delete case:", err);
+      toast.error("Failed to delete case", { description: err.message || String(err) });
+    }
+  };
+
+  const renderCaseRow = (c: CaseSummary) => (
+    <TableRow key={c.id} className="group cursor-pointer">
+      <TableCell>
+        <Link
+          to="/monitoring/$caseId"
+          params={{ caseId: c.id }}
+          className="flex flex-col min-w-0"
+        >
+          <span className="truncate text-sm font-medium">{c.brand_name}</span>
+          <span className="truncate text-xs text-muted-foreground font-mono">
+            {c.id.slice(0, 8)}
+          </span>
+        </Link>
+      </TableCell>
+      <TableCell>
+        {c.risk_level ? (
+          <RiskBadge risk={c.risk_level.toLowerCase() as "high" | "medium" | "low"} />
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell className="text-sm">{c.recommended_action ?? "—"}</TableCell>
+      <TableCell>
+        <CaseStatusBadge status={c.status} />
+      </TableCell>
+      <TableCell className="text-sm text-muted-foreground">
+        {new Date(c.created_at).toLocaleDateString()}
+      </TableCell>
+      <TableCell className="text-right font-mono text-sm">
+        {c.confidence_score != null
+          ? `${Math.round(c.confidence_score * 100)}%`
+          : "—"}
+      </TableCell>
+      <TableCell className="text-center">
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+          >
+            <Link to="/monitoring/$caseId" params={{ caseId: c.id }}>
+              See Case
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteCase(c.id);
+            }}
+            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+            title="Delete Case"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+
   const toggleSort = (field: SortField) => {
     if (sortBy === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -244,9 +322,12 @@ function CasesList() {
       return sortDir === "asc" ? cmp : -cmp;
     });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pendingCases = filtered.filter((c) => c.status === "pending" || c.status === "complete");
+  const otherCases = filtered.filter((c) => c.status !== "pending" && c.status !== "complete");
+
+  const totalPages = Math.max(1, Math.ceil(otherCases.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pagedOthers = otherCases.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   // Reset to the first page whenever the result set changes (but keep a restored page on mount).
   const firstRender = useRef(true);
@@ -373,167 +454,159 @@ function CasesList() {
         </FilterPopover>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <SortableHead field="brand" label="Brand" />
-                <SortableHead field="risk" label="Risk" />
-                <SortableHead field="action" label="Action" />
-                <SortableHead field="status" label="Status" />
-                <SortableHead field="date" label="Detected" />
-                <SortableHead
-                  field="confidence"
-                  label="Confidence"
-                  align="right"
-                  className="text-right"
-                />
-                <TableHead className="text-center">Case</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!loading &&
-                !error &&
-                paged.map((c) => (
-                  <TableRow key={c.id} className="group cursor-pointer">
-                    <TableCell>
-                      <Link
-                        to="/monitoring/$caseId"
-                        params={{ caseId: c.id }}
-                        className="flex flex-col min-w-0"
-                      >
-                        <span className="truncate text-sm font-medium">{c.brand_name}</span>
-                        <span className="truncate text-xs text-muted-foreground font-mono">
-                          {c.id.slice(0, 8)}
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {c.risk_level ? (
-                        <RiskBadge risk={c.risk_level.toLowerCase() as "high" | "medium" | "low"} />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">{c.recommended_action ?? "—"}</TableCell>
-                    <TableCell>
-                      <CaseStatusBadge status={c.status} />
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(c.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {c.confidence_score != null
-                        ? `${Math.round(c.confidence_score * 100)}%`
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        asChild
-                        className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
-                      >
-                        <Link to="/monitoring/$caseId" params={{ caseId: c.id }}>
-                          See Case
-                        </Link>
-                      </Button>
+      {/* Pending Reviews Block */}
+      {!loading && !error && pendingCases.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Pending Review ({pendingCases.length})</h2>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <SortableHead field="brand" label="Brand" />
+                    <SortableHead field="risk" label="Risk" />
+                    <SortableHead field="action" label="Action" />
+                    <SortableHead field="status" label="Status" />
+                    <SortableHead field="date" label="Detected" />
+                    <SortableHead
+                      field="confidence"
+                      label="Confidence"
+                      align="right"
+                      className="text-right"
+                    />
+                    <TableHead className="text-center">Case</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingCases.map((c) => renderCaseRow(c))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Main Table Block: Triage History */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Triage History</h2>
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <SortableHead field="brand" label="Brand" />
+                  <SortableHead field="risk" label="Risk" />
+                  <SortableHead field="action" label="Action" />
+                  <SortableHead field="status" label="Status" />
+                  <SortableHead field="date" label="Detected" />
+                  <SortableHead
+                    field="confidence"
+                    label="Confidence"
+                    align="right"
+                    className="text-right"
+                  />
+                  <TableHead className="text-center">Case</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {!loading &&
+                  !error &&
+                  pagedOthers.map((c) => renderCaseRow(c))}
+                {loading && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="py-10 text-center text-sm text-muted-foreground"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading cases…
+                      </span>
                     </TableCell>
                   </TableRow>
-                ))}
-              {loading && (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="py-10 text-center text-sm text-muted-foreground"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading cases…
-                    </span>
-                  </TableCell>
-                </TableRow>
-              )}
-              {error && (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-risk-high">
-                    Failed to load cases: {error}
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loading && !error && filtered.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="py-10 text-center text-sm text-muted-foreground"
-                  >
-                    No cases match your filters.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+                {error && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-risk-high">
+                      Failed to load cases: {error}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && !error && otherCases.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="py-10 text-center text-sm text-muted-foreground"
+                    >
+                      {filtered.length === 0 && (riskActive || statusActive || dateActive || confActive || search)
+                        ? "No cases match your filters."
+                        : "No cases in triage history."}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
 
-          {!loading && !error && filtered.length > 0 && (
-            <div className="flex items-center justify-between gap-4 border-t px-4 py-3">
-              <span className="text-sm text-muted-foreground">
-                {filtered.length} {filtered.length === 1 ? "case" : "cases"}
-              </span>
-              {totalPages > 1 && (
-                <Pagination className="mx-0 w-auto justify-end">
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        href="#"
-                        aria-disabled={currentPage === 1}
-                        className={cn(currentPage === 1 && "pointer-events-none opacity-50")}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setPage((p) => Math.max(1, p - 1));
-                        }}
-                      />
-                    </PaginationItem>
-                    {pageItems(currentPage, totalPages).map((item, i) =>
-                      item === "ellipsis" ? (
-                        <PaginationItem key={`ellipsis-${i}`}>
-                          <PaginationEllipsis />
-                        </PaginationItem>
-                      ) : (
-                        <PaginationItem key={item}>
-                          <PaginationLink
-                            href="#"
-                            isActive={item === currentPage}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setPage(item);
-                            }}
-                          >
-                            {item}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ),
-                    )}
-                    <PaginationItem>
-                      <PaginationNext
-                        href="#"
-                        aria-disabled={currentPage === totalPages}
-                        className={cn(
-                          currentPage === totalPages && "pointer-events-none opacity-50",
-                        )}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setPage((p) => Math.min(totalPages, p + 1));
-                        }}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            {!loading && !error && otherCases.length > 0 && (
+              <div className="flex items-center justify-between gap-4 border-t px-4 py-3">
+                <span className="text-sm text-muted-foreground">
+                  {otherCases.length} {otherCases.length === 1 ? "case" : "cases"}
+                </span>
+                {totalPages > 1 && (
+                  <Pagination className="mx-0 w-auto justify-end">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          aria-disabled={currentPage === 1}
+                          className={cn(currentPage === 1 && "pointer-events-none opacity-50")}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPage((p) => Math.max(1, p - 1));
+                          }}
+                        />
+                      </PaginationItem>
+                      {pageItems(currentPage, totalPages).map((item, i) =>
+                        item === "ellipsis" ? (
+                          <PaginationItem key={`ellipsis-${i}`}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        ) : (
+                          <PaginationItem key={item}>
+                            <PaginationLink
+                              href="#"
+                              isActive={item === currentPage}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setPage(item);
+                              }}
+                            >
+                              {item}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ),
+                      )}
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          aria-disabled={currentPage === totalPages}
+                          className={cn(
+                            currentPage === totalPages && "pointer-events-none opacity-50",
+                          )}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPage((p) => Math.min(totalPages, p + 1));
+                          }}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

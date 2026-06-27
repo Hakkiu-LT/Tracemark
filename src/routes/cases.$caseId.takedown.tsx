@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -22,6 +23,8 @@ import {
   Plus,
   CheckCircle2,
   ExternalLink,
+  CloudUpload,
+  Loader2,
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -99,11 +102,65 @@ function TakedownPage() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [successOpen, setSuccessOpen] = useState(false);
   const [successRef, setSuccessRef] = useState("");
+  const [isSavingToStorage, setIsSavingToStorage] = useState(false);
 
   // Re-sync when template changes
   function changeTemplate(v: string) {
     setTemplate(v);
     setText(buildLetter(v, i));
+  }
+
+  async function saveToSupabaseStorage() {
+    if (!i) return;
+    
+    setIsSavingToStorage(true);
+    try {
+      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      const lines = doc.splitTextToSize(text, 500);
+      doc.text(lines, 56, 72);
+      const pdfBlob = doc.output("blob");
+
+      const timestamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+      const fileName = `${i.id}/${template}-${timestamp}.pdf`;
+
+      if (!supabase) {
+        throw new Error("Supabase client is not initialized.");
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from("legal-documents")
+        .upload(fileName, pdfBlob, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("legal-documents")
+        .getPublicUrl(fileName);
+
+      const { error: dbError } = await supabase
+        .from("documents")
+        .insert({
+          infringement_id: i.id,
+          document_type: template === "dmca" ? "dmca" : "cease-desist",
+          file_url: publicUrl,
+          file_format: "pdf",
+          status: "draft",
+        });
+
+      if (dbError) throw dbError;
+
+      toast.success("Saved successfully", { description: "Document stored in legal-documents bucket." });
+    } catch (err: any) {
+      console.error("Error saving document to storage:", err);
+      toast.error("Failed to save document", { description: err.message || String(err) });
+    } finally {
+      setIsSavingToStorage(false);
+    }
   }
 
   if (!i) return <div className="py-20 text-center text-muted-foreground">Case not found.</div>;
@@ -336,6 +393,19 @@ function TakedownPage() {
             className="flex items-center gap-2"
           >
             <Download className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button
+            variant="outline"
+            disabled={isSavingToStorage}
+            onClick={saveToSupabaseStorage}
+            className="flex items-center gap-2"
+          >
+            {isSavingToStorage ? (
+              <Loader2 className="h-4 w-4 animate-spin text-accent" />
+            ) : (
+              <CloudUpload className="h-4 w-4 text-accent" />
+            )}
+            Save
           </Button>
           <Button onClick={() => setWebhookOpen(true)} className="flex items-center gap-2">
             <Send className="h-4 w-4" /> Send via Webhook
