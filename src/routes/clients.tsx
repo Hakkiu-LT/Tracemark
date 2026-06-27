@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useStore } from "@/lib/store";
-import { Plus, Trash2, Briefcase } from "lucide-react";
-import { useState } from "react";
+import { useStore, type Client } from "@/lib/store";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth";
+import { Plus, Trash2, Briefcase, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/clients")({
@@ -16,7 +18,7 @@ export const Route = createFileRoute("/clients")({
   component: ClientsPage,
 });
 
-function ClientsPage() {
+export function ClientsPage() {
   const persona = useStore((s) => s.persona);
   const clients = useStore((s) => s.clients);
   const infringements = useStore((s) => s.infringements);
@@ -24,8 +26,51 @@ function ClientsPage() {
   const addClient = useStore((s) => s.addClient);
   const removeClient = useStore((s) => s.removeClient);
 
+  const { profile, user } = useAuth();
+  const orgId = profile?.organization_id || user?.id;
+
+  const [dbClients, setDbClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(""), [industry, setIndustry] = useState(""), [contact, setContact] = useState("");
+
+  // Sync clients from Supabase table if it exists
+  useEffect(() => {
+    if (!supabase) {
+      setDbClients(clients);
+      setIsLoading(false);
+      return;
+    }
+
+    async function fetchDbClients() {
+      try {
+        const { data, error } = await supabase!
+          .from("clients")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        if (data) {
+          setDbClients(data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            industry: c.industry || "—",
+            plan: c.plan || "Pro",
+            mrr: c.mrr || 0,
+            contact: c.contact || "—",
+          })));
+        }
+      } catch (err: any) {
+        console.warn("Failed to load clients from DB, using Zustand store:", err);
+        setDbClients(clients);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchDbClients();
+  }, [orgId, clients]);
 
   if (persona !== "law_firm") {
     return (
@@ -38,21 +83,93 @@ function ClientsPage() {
     );
   }
 
-  function submit() {
+  async function submit() {
     if (!name) return toast.error("Client name required");
-    addClient({ name, industry: industry || "—", contact: contact || "—", plan: "Pro", mrr: 899 });
+
+    const newClientData = {
+      name,
+      industry: industry || "—",
+      contact: contact || "—",
+      plan: "Pro" as const,
+      mrr: 899,
+    };
+
+    // 1. Save to Zustand store
+    addClient(newClientData);
+
+    // 2. Save to Supabase
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("clients")
+          .insert({
+            name,
+            industry: industry || "—",
+            contact: contact || "—",
+            plan: "Pro",
+            mrr: 899,
+            organization_id: orgId,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          const clientObj: Client = {
+            id: data.id,
+            name: data.name,
+            industry: data.industry,
+            plan: data.plan,
+            mrr: data.mrr,
+            contact: data.contact,
+          };
+          setDbClients(prev => [clientObj, ...prev.filter(c => c.name !== name)]);
+        }
+      } catch (err: any) {
+        console.warn("Failed to insert client to database:", err);
+      }
+    }
+
     toast.success(`${name} added`);
     setName(""); setIndustry(""); setContact(""); setOpen(false);
   }
 
-  const totalMrr = clients.reduce((s, c) => s + c.mrr, 0);
+  async function handleRemove(id: string, name: string) {
+    // 1. Remove from Zustand
+    removeClient(id);
+    setDbClients(prev => prev.filter(c => c.id !== id));
+
+    // 2. Remove from Supabase
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from("clients")
+          .delete()
+          .eq("id", id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.warn("Failed to delete client from database:", err);
+      }
+    }
+
+    toast.success(`${name} removed`);
+  }
+
+  const totalMrr = dbClients.reduce((s, c) => s + c.mrr, 0);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Client portfolio</h1>
-          <p className="text-sm text-muted-foreground">{clients.length} clients · ${totalMrr.toLocaleString()} MRR</p>
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? (
+              <span className="flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading clients...</span>
+            ) : (
+              `${dbClients.length} clients · $${totalMrr.toLocaleString()} MRR`
+            )}
+          </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="mr-1 h-4 w-4" /> Add client</Button></DialogTrigger>
@@ -84,7 +201,7 @@ function ClientsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clients.map((c) => {
+              {dbClients.map((c) => {
                 const cMarks = marks.filter((m) => m.clientId === c.id).length;
                 const cCases = infringements.filter((i) => i.clientId === c.id && i.status === "active").length;
                 return (
@@ -99,7 +216,7 @@ function ClientsPage() {
                     <TableCell className="text-right font-mono text-sm">{cCases}</TableCell>
                     <TableCell className="text-right font-mono text-sm">${c.mrr}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { removeClient(c.id); toast.success("Client removed"); }}>
+                      <Button variant="ghost" size="icon" onClick={() => handleRemove(c.id, c.name)}>
                         <Trash2 className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </TableCell>
@@ -112,7 +229,7 @@ function ClientsPage() {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {clients.map((c) => {
+        {dbClients.map((c) => {
           const cCases = infringements.filter((i) => i.clientId === c.id);
           const td = cCases.filter((i) => i.status === "takedown_sent" || i.status === "resolved").length;
           return (

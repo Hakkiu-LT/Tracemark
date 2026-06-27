@@ -29,7 +29,8 @@ export function StatusBadge({ status }: { status: string }) {
     takedown_sent: "bg-accent/10 text-accent border-accent/30",
     escalated: "bg-risk-med/10 text-risk-med border-risk-med/30",
     resolved: "bg-success/10 text-success border-success/30",
-    safe: "bg-muted text-muted-foreground border-border",
+    safe: "bg-success/10 text-success border-success/30",
+    dismissed: "bg-success/10 text-success border-success/30",
   };
   const labels: Record<string, string> = {
     active: "Active",
@@ -37,6 +38,7 @@ export function StatusBadge({ status }: { status: string }) {
     escalated: "Escalated",
     resolved: "Resolved",
     safe: "Marked safe",
+    dismissed: "Marked safe",
   };
   return (
     <span className={cn("inline-flex rounded-md border px-2 py-0.5 text-xs font-medium", map[status])}>

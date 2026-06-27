@@ -32,6 +32,17 @@ _HIJACKING_SIGNALS = (
 )
 
 
+class DomainEvaluation(BaseModel):
+    domain_name: str = Field(description="The domain name being evaluated.")
+    is_clone: bool = Field(description="True if this domain is an unauthorized clone, brand copycat, typo-squat, or brand-targeting storefront.")
+    similarity_score: int = Field(description="A similarity score from 0 to 100 representing how closely the domain matches the brand name or impersonates the brand.")
+    reasoning: str = Field(description="A brief explanation of why this domain was flagged or dismissed.")
+
+
+class DomainEvaluationList(BaseModel):
+    items: list[DomainEvaluation]
+
+
 def _strip_token(url: str | None) -> str | None:
     """Remove access_token query param from Meta snapshot URLs before storing."""
     if not url:
@@ -1102,6 +1113,9 @@ class GoogleSERPAPI:
                 created_date = "unknown"
                 expiry_date = "unknown"
                 name_servers = []
+                org = "unknown"
+                country = "unknown"
+                emails = "unknown"
                 if w:
                     registrar = w.registrar or "unknown"
                     if isinstance(registrar, list):
@@ -1115,6 +1129,15 @@ class GoogleSERPAPI:
                     name_servers = w.name_servers or []
                     if isinstance(name_servers, str):
                         name_servers = [name_servers]
+                    org = w.get("org") or w.get("organization") or "unknown"
+                    if isinstance(org, list):
+                        org = org[0]
+                    country = w.get("country") or "unknown"
+                    if isinstance(country, list):
+                        country = country[0]
+                    emails = w.get("emails") or w.get("email") or "unknown"
+                    if isinstance(emails, list):
+                        emails = emails[0]
                 results.append({
                     "domain": domain,
                     "registrant": registrar,
@@ -1122,6 +1145,9 @@ class GoogleSERPAPI:
                     "expiry_date": str(expiry_date) if expiry_date else "unknown",
                     "status": "active",
                     "name_servers": list(name_servers),
+                    "registrant_organization": org,
+                    "registrant_country": country,
+                    "registrant_email": emails,
                 })
                 time.sleep(0.5)
             except ApiLimitError:
@@ -1134,6 +1160,9 @@ class GoogleSERPAPI:
                     "expiry_date": "unknown",
                     "status": "active",
                     "name_servers": [],
+                    "registrant_organization": "unknown",
+                    "registrant_country": "unknown",
+                    "registrant_email": "unknown",
                 })
         return results
 
@@ -1863,6 +1892,70 @@ Return a JSON array. If nothing suspicious, return [].
     return result.items
 
 
+def extract_domain_evaluations_with_ai(
+    brand_name: str,
+    domains_data: list[dict],
+    caller_id: str = "system",
+) -> list[DomainEvaluation]:
+    """
+    Uses Gemini to analyze discovered domains and their WHOIS registration data
+    to determine if they are copycats, clones, or typosquats, and assigns similarity scores.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key or not domains_data:
+        return []
+
+    try:
+        model = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0.0,
+            google_api_key=api_key,
+        )
+
+        prompt = f"""
+You are a brand protection legal analyst. Below is a list of suspicious domains discovered in search results for the brand "{brand_name}", along with their WHOIS registration data.
+
+Evaluate each domain to determine if it is a brand copycat, clone, typosquat, or unauthorized store using the brand name.
+For each domain, return:
+- domain_name: the domain name evaluated
+- is_clone: boolean indicating if it is a clone/infringement
+- similarity_score: integer from 0 to 100 representing how close the domain name or branding is to "{brand_name}". Typosquats (e.g. drila.com for derila) or subdomains/variants (e.g. buyderila.com) should have high scores (80-100). Completely unrelated domains (e.g. njctl.org) should have low scores (<30) and is_clone=False.
+- reasoning: brief reason for your decision
+
+Suspicious Domains Data:
+{json.dumps(domains_data, indent=2)}
+
+Return a JSON array of items matching the requested structure.
+"""
+        structured_model = model.with_structured_output(DomainEvaluationList)
+        result = call_with_tracking(
+            "gemini_flash", caller_id, "/extract-domain-evaluation",
+            lambda: structured_model.invoke(prompt)
+        )
+        return result.items
+    except Exception as e:
+        print(f"[extract_domain_evaluations_with_ai] Gemini call failed: {e}. Falling back to default scoring.")
+        fallback = []
+        brand = brand_name.lower().strip()
+        for d in domains_data:
+            domain_name = d.get("domain", "")
+            parts = domain_name.lower().split('.')
+            domain_part = parts[-2] if len(parts) > 1 else parts[0]
+            if brand in domain_part:
+                similarity = 90
+                is_clone = True
+            else:
+                similarity = 30
+                is_clone = False
+            fallback.append(DomainEvaluation(
+                domain_name=domain_name,
+                is_clone=is_clone,
+                similarity_score=similarity,
+                reasoning=f"Fallback scoring due to AI failure: {e}"
+            ))
+        return fallback
+
+
 async def gather_evidence(
     brand_name: str,
     platforms: list[str],
@@ -1902,16 +1995,31 @@ async def gather_evidence(
             print(f"[gather_evidence] Gemini extraction failed for {platform}: {e}")
 
     # Convert WHOIS dicts to Pydantic DomainEvidence models
+    evaluations = extract_domain_evaluations_with_ai(brand_name, raw.get("domains", []), caller_id=caller_id)
+    eval_map = {e.domain_name.lower().strip(): e for e in evaluations}
+
     domain_evidences = []
     for d in raw.get("domains", []):
-        domain_url = f"https://{d['domain']}"
+        domain_name = d["domain"]
+        domain_url = f"https://{domain_name}"
+        
+        eval_item = eval_map.get(domain_name.lower().strip())
+        is_clone = eval_item.is_clone if eval_item else True
+        similarity_score = eval_item.similarity_score if eval_item else 90
+
         domain_evidences.append(
             DomainEvidence(
-                domain_name=d["domain"],
+                domain_name=domain_name,
                 registrar=d.get("registrant") or "unknown",
-                is_clone=True,
-                similarity_score=90,
+                is_clone=is_clone,
+                similarity_score=similarity_score,
                 screenshot_url=_screenshot_listing(domain_url),
+                creation_date=d.get("created_date"),
+                expiry_date=d.get("expiry_date"),
+                name_servers=d.get("name_servers"),
+                registrant_organization=d.get("registrant_organization"),
+                registrant_country=d.get("registrant_country"),
+                registrant_email=d.get("registrant_email"),
             )
         )
 

@@ -8,6 +8,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase, fetchProfile, type Profile } from "./supabase";
+import { useStore } from "./store";
 
 interface AuthState {
   session: Session | null;
@@ -52,8 +53,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     let cancelled = false;
-    fetchProfile(userId).then((p) => {
-      if (!cancelled) setProfile(p);
+    fetchProfile(userId).then(async (p) => {
+      if (!cancelled) {
+        setProfile(p);
+
+        // Load persona from org_settings if available
+        if (p && supabase) {
+          const orgId = p.organization_id || userId;
+          try {
+            const { data, error } = await supabase
+              .from("org_settings")
+              .select("persona")
+              .eq("organization_id", orgId)
+              .maybeSingle();
+            if (!cancelled && !error && data?.persona) {
+              useStore.getState().setPersona(data.persona as any);
+            }
+          } catch (err) {
+            console.warn("Failed to load persona from Supabase:", err);
+          }
+        }
+      }
     });
     return () => {
       cancelled = true;
