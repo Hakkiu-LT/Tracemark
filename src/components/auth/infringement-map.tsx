@@ -85,7 +85,7 @@ function arcPath(a: [number, number], b: [number, number]): string {
   return `M ${x1} ${y1} Q ${mx} ${my - lift} ${x2} ${y2}`;
 }
 
-export function InfringementMap() {
+export function InfringementMap({ transparent = false }: { transparent?: boolean }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
@@ -98,7 +98,13 @@ export function InfringementMap() {
   const positionClass = POSITIONS[currentIndex % POSITIONS.length];
 
   return (
-    <div className="auth-grain relative h-full w-full overflow-hidden bg-[radial-gradient(120%_120%_at_30%_20%,#eef2fb_0%,#e9eefb_55%,#e3e9f7_100%)] dark:bg-[radial-gradient(120%_120%_at_30%_20%,#16213f_0%,#0c1326_55%,#080d1c_100%)]">
+    <div
+      className={cn(
+        "relative h-full w-full overflow-hidden",
+        !transparent &&
+          "auth-grain bg-[radial-gradient(120%_120%_at_30%_20%,#eef2fb_0%,#e9eefb_55%,#e3e9f7_100%)] dark:bg-[radial-gradient(120%_120%_at_30%_20%,#16213f_0%,#0c1326_55%,#080d1c_100%)]",
+      )}
+    >
       {/* accent glows for depth */}
       <div className="auth-drift pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-blue-200/40 blur-3xl dark:bg-accent/25" />
       <div className="pointer-events-none absolute bottom-0 left-10 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl dark:bg-indigo-500/20" />

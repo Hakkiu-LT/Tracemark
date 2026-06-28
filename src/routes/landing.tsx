@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -95,6 +95,8 @@ const steps = [
 ];
 
 function LandingPage() {
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  if (pathname !== "/landing") return <Outlet />;
   return (
     <>
       {/* TOP NAV */}
