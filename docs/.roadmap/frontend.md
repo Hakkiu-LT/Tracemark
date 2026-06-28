@@ -122,12 +122,12 @@ This document outlines the priority ordering for frontend routes, components, an
 ---
 
 ## 9. Geo-Targeted Scans & Proxy Location Management
-*Interactive controls to set and monitor regional scans per brand.*
+*Interactive controls to set and monitor regional scans per brand using a hybrid macro-region and country-specific selection.*
 
 | Task | Status | Notes |
 |---|---|---|
-| store.ts: add `targetRegions` to Mark state | ❌ Missing | Update client-side state model to persist selected scan locations |
-| Add/Edit Mark Modal: multi-select region dropdown | ❌ Missing | Add checkboxes or multi-select dropdown for target regions (e.g., US, Europe, Asia) |
-| UI Tooltips: explain geo-proxy scanning logic | ❌ Missing | Explain to users how selecting regions routes scans through local country proxies |
-| Monitored Assets table: display active target regions | ❌ Missing | Display country/region flags or badges for active locations on each brand row |
-| Infringement details: show detection location | ❌ Missing | Display which specific region/proxy location captured each piece of evidence |
+| store.ts: add `targetRegions` (ISO country codes list) to Mark state | ❌ Missing | Update client-side state model to persist selected scan locations as country code strings |
+| Add/Edit Mark Modal: hybrid region and country selector | ❌ Missing | Implement collapsible macro-region dropdowns (NA, EMEA, APAC, LATAM) containing individual checkboxes for primary country codes (e.g. US, CA, DE, FR, GB, AU, SG, JP, BR, MX). Support this in both brand creation and when clicking "Edit" on a monitored asset row |
+| UI Tooltips: explain geo-proxy scanning logic | ❌ Missing | Add info tooltips explaining that selecting a macro-region defaults to its primary countries, routing scans through local proxies |
+| Monitored Assets table: display active target regions | ❌ Missing | Display country flags/badges (and/or macro-region summary tags) for active locations on each brand row |
+| Infringement details: show detection location | ❌ Missing | Display which specific country proxy location captured each piece of evidence (e.g. "Detected via US proxy") |
