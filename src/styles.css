@@ -164,6 +164,36 @@
   animation: auth-ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
+/* ── Workflow section ──────────────────────────────────────────────── */
+/* Faint hand-sketched graph-paper texture, edge-faded so it stays seamless. */
+.sketch-bg {
+  background-image:
+    linear-gradient(to right, rgba(100, 116, 139, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(100, 116, 139, 0.07) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 78% 78% at 50% 42%, #000 28%, transparent 80%);
+  mask-image: radial-gradient(ellipse 78% 78% at 50% 42%, #000 28%, transparent 80%);
+}
+.dark .sketch-bg {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+}
+
+/* Continuous data-flow shimmer along the pipeline once it has drawn in. */
+@keyframes wf-flow {
+  to { stroke-dashoffset: -28; }
+}
+.wf-flow {
+  animation: wf-flow 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-flow {
+    animation: none;
+  }
+}
+
 /* ── Print Styles Override ─────────────────────────────────────────── */
 @media print {
   html, body {
