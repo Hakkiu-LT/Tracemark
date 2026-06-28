@@ -6,7 +6,7 @@ This document outlines the priority ordering for backend services, engines, data
 
 ---
 
-## 1. Phase 1: MVP Foundations (Done)
+## 1. MVP Foundations (Done)
 *Establishes the initial scraping engine, AI analysis framework, and database models.*
 
 | Task | Status | Notes |
@@ -48,7 +48,7 @@ This document outlines the priority ordering for backend services, engines, data
 
 ---
 
-## 3. Phase 2: Core Detection & Verification (Done)
+## 3. Core Detection & Verification (Done)
 *These tasks complete the foundational matchers, image inspection, and concurrency.*
 
 | Task | Status | Notes |
@@ -63,7 +63,7 @@ This document outlines the priority ordering for backend services, engines, data
 
 ---
 
-## 4. Phase 2: Scraping Concurrency & Performance (Done)
+## 4. Scraping Concurrency & Performance (Done)
 *Optimizes the scraping pipelines for concurrent execution to resolve network latency bounds.*
 
 | Task | Status | Notes |
@@ -75,17 +75,9 @@ This document outlines the priority ordering for backend services, engines, data
 | `batch_detect()` with `asyncio.gather` | ✅ Done | Implemented concurrently using asyncio.to_thread wrappers |
 | Concurrency performance validation | ✅ Done | Bounded by slowest single query rather than sum of latency |
 
-### Scraper Concurrency Performance Log
-- **Environment:** Local Python 3.11.9, simulating 500ms network round-trip time (RTT) per platform across 13 channels.
-
-| Strategy | Total Duration | Speedup Factor | Concurrency Target Met (<30s) |
-|---|---|---|---|
-| **Sequential (Old)** | `6.5059s` | 1.00x (Baseline) | ❌ No (scaled linearly with platform count) |
-| **Concurrent (New)** | `0.5087s` | **12.79x faster** | **✅ YES** |
-
 ---
 
-## 5. Phase 2: Takedown Management & Database Persistence (Done)
+## 5. Takedown Management & Database Persistence (Done)
 *Enables the editing and management of takedown actions.*
 
 | Task | Status | Notes |
@@ -101,7 +93,7 @@ This document outlines the priority ordering for backend services, engines, data
 
 ---
 
-## 6. Phase 2: Security, Admin & Payments
+## 6. Security, Admin & Payments
 *Gatekeeps resources and sets up payment/billing sessions.*
 
 | Task | Status | Notes |
@@ -118,7 +110,7 @@ This document outlines the priority ordering for backend services, engines, data
 
 ---
 
-## 7. Phase 3: Document Persistence & Notifications (Done)
+## 7. Document Persistence & Notifications (Done)
 *Stores generated legal notices, logs email dispatches, and handles client scoping.*
 
 | Task | Status | Notes |
@@ -137,7 +129,7 @@ This document outlines the priority ordering for backend services, engines, data
 
 ---
 
-## 8. Phase 3: Advanced Features & Law Firm Mode
+## 8. Advanced Features & Law Firm Mode
 *Scaling the platform to multi-client usage and advanced vector similarity search.*
 
 | Task | Status | Notes |
@@ -159,6 +151,7 @@ This document outlines the priority ordering for backend services, engines, data
 | Task | Status | Notes |
 |---|---|---|
 | Database: target locations on cases/brands | ❌ Missing | Store target locations as ISO country codes (e.g. `['US', 'DE', 'GB']`) in cases/brands |
+| Case Creation: split cases by detection region | ❌ Missing | Automatically partition detected copycats/infringements into separate Cases based on their detection region/country (e.g. creating one Case for North America, another for China/APAC) |
 | Proxy Integration: multi-region proxy configuration | ❌ Missing | Build configuration module mapping ISO country codes to country-specific proxy endpoints. Map macro-regions (NA, EMEA, APAC, LATAM) to default country code sets |
 | Parallel Scraper Execution | ❌ Missing | Orchestrate scans in parallel across all targeted platforms and selected countries/regions (e.g. using `asyncio.gather` or concurrent threads) to prevent serial execution bottlenecks |
 | Scraper: Google Search & Ads geo-targeting | ❌ Missing | Pass regional parameters (e.g. `gl` country code, `hl` language) and route queries through corresponding country proxies |
