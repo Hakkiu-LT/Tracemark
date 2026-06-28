@@ -130,4 +130,5 @@ This document outlines the priority ordering for frontend routes, components, an
 | Add/Edit Mark Modal: hybrid region and country selector | ❌ Missing | Implement collapsible macro-region dropdowns (NA, EMEA, APAC, LATAM) containing individual checkboxes for primary country codes (e.g. US, CA, DE, FR, GB, AU, SG, JP, BR, MX). Support this in both brand creation and when clicking "Edit" on a monitored asset row |
 | UI Tooltips: explain geo-proxy scanning logic | ❌ Missing | Add info tooltips explaining that selecting a macro-region defaults to its primary countries, routing scans through local proxies |
 | Monitored Assets table: display active target regions | ❌ Missing | Display country flags/badges (and/or macro-region summary tags) for active locations on each brand row |
+| Separate Cases per Detection Region | ❌ Missing | Group and display Cases separately based on their region (e.g., showing a Case for North America and a separate Case for China/APAC) on dashboard and case lists |
 | Infringement details: show detection location | ❌ Missing | Display which specific country proxy location captured each piece of evidence (e.g. "Detected via US proxy") |
