@@ -38,6 +38,16 @@ class EvidenceItem(BaseModel):
     created_at: str
 
 
+def _get_user_organization_id(user_id: str) -> str | None:
+    """Fetch the organization_id for a given user from the profiles table."""
+    sb = get_supabase()
+    try:
+        res = sb.table("profiles").select("organization_id").eq("id", user_id).maybe_single().execute()
+        return res.data.get("organization_id") if res.data else None
+    except Exception:
+        return None
+
+
 @router.get("", response_model=InfringementsResponse)
 def list_infringements(
     risk_level: str | None = Query(None, description="HIGH, MEDIUM or LOW"),
@@ -47,16 +57,22 @@ def list_infringements(
     offset: int = Query(0, ge=0),
     current_user=Depends(get_current_user),
 ) -> InfringementsResponse:
-    """Return a paginated list of infringements, newest first."""
+    """Return a paginated list of infringements scoped to the user's organization."""
     sb = get_supabase()
+    organization_id = _get_user_organization_id(current_user.id)
 
     query = (
         sb.table("infringements")
-        .select("*", count="exact")
+        .select("*, cases!inner(organization_id, user_id)", count="exact")
         .order("flagged_at", desc=True)
         .limit(limit)
         .offset(offset)
     )
+
+    if organization_id:
+        query = query.eq("cases.organization_id", organization_id)
+    else:
+        query = query.eq("cases.user_id", current_user.id)
 
     if risk_level:
         query = query.eq("risk_level", risk_level.upper())

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Literal
+from urllib.parse import urlparse
 from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
@@ -12,8 +13,27 @@ from tracemark_api.dependencies import get_current_user
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
 
+_PRIVATE_NETS = ("localhost", "127.", "10.", "172.16.", "172.17.", "172.18.",
+                  "172.19.", "172.2", "172.3", "192.168.", "0.0.0.0", "::1", "169.254.")
+
+
 class MonitorRequest(BaseModel):
     url: str
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        try:
+            parsed = urlparse(v)
+        except Exception:
+            raise ValueError("Invalid URL")
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("Only http/https URLs are allowed")
+        host = (parsed.hostname or "").lower()
+        for private in _PRIVATE_NETS:
+            if host.startswith(private) or host == private.rstrip("."):
+                raise ValueError("Internal/private URLs are not allowed")
+        return v
 
 
 class MonitorResponse(BaseModel):
@@ -26,7 +46,7 @@ class MonitorResponse(BaseModel):
 
 
 @router.post("/analyze", response_model=MonitorResponse)
-def analyze_url(payload: MonitorRequest) -> MonitorResponse:
+def analyze_url(payload: MonitorRequest, current_user=Depends(get_current_user)) -> MonitorResponse:
     try:
         scrape_result = scrape_page(payload.url)
     except Exception as e:
@@ -68,7 +88,7 @@ def analyze_url(payload: MonitorRequest) -> MonitorResponse:
 
 
 @router.post("/make-decision")
-def make_decision_endpoint(evidence: Evidence) -> Decision:
+def make_decision_endpoint(evidence: Evidence, current_user=Depends(get_current_user)) -> Decision:
     return make_decision(evidence)
 
 
@@ -188,11 +208,21 @@ class ExchangeMetaTokenRequest(BaseModel):
 
 
 @router.post("/exchange-meta-token")
-def exchange_meta_token(payload: ExchangeMetaTokenRequest):
+def exchange_meta_token(payload: ExchangeMetaTokenRequest, current_user=Depends(get_current_user)):
     """
     Exchanges a short-lived user token for a long-lived one,
     updates the .env file locally, and returns the result.
+    Restricted to admin users only.
     """
+    import os
+    admin_emails = {
+        e.strip().lower()
+        for e in os.environ.get("ADMIN_EMAILS", "").split(",")
+        if e.strip()
+    }
+    if admin_emails and (current_user.email or "").lower() not in admin_emails:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin access required.")
     try:
         result = exchange_short_lived_meta_token(payload.short_lived_token)
         new_token = result.get("access_token")
@@ -225,7 +255,7 @@ class UpdateStatusRequest(BaseModel):
 
 
 @router.post("/{case_id}/status")
-def update_status_endpoint(case_id: str, payload: UpdateStatusRequest):
+def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_user=Depends(get_current_user)):
     try:
         update_case_status(case_id, payload.status)
         

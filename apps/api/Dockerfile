@@ -19,6 +19,13 @@ COPY src/ ./src/
 # Run a quick final install to map the actual source code
 RUN uv pip install --system --no-cache .
 
+# Run as non-root user to reduce blast radius if the container is compromised
+RUN adduser --disabled-password --gecos "" appuser
+USER appuser
+
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 CMD ["uvicorn", "tracemark_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
