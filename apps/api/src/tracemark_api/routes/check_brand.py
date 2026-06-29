@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from tracemark_api.dependencies import get_current_user
 from datetime import datetime
 from typing import Literal, Optional
 
@@ -828,7 +829,7 @@ _FALLBACK_MOCK = {
 
 
 @router.post("", response_model=CheckBrandResponse)
-def check_brand_mock(payload: CheckBrandRequest) -> CheckBrandResponse:
+def check_brand_mock(payload: CheckBrandRequest, current_user=Depends(get_current_user)) -> CheckBrandResponse:
     """
     Run a full brand protection check and return an enforcement decision.
 

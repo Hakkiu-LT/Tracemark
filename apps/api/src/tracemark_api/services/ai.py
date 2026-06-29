@@ -1,12 +1,32 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime
 from typing import TypedDict, Literal
 from dataclasses import dataclass
 from pydantic import BaseModel, Field as PydanticField
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import StateGraph, START, END
+
+
+def _sanitize_brand_name(name: str) -> str:
+    """Strip prompt-injection attempts from brand names before LLM interpolation.
+
+    Removes instruction-like keywords and limits length so a user-supplied
+    brand name cannot hijack the LLM system prompt.
+    """
+    # Strip common prompt-injection signal words
+    cleaned = re.sub(
+        r"(?i)\b(ignore|disregard|forget|override|system|assistant|user|instruction|prompt)\b",
+        "",
+        name,
+    )
+    # Remove non-printable / control characters
+    cleaned = re.sub(r"[\x00-\x1f\x7f]", "", cleaned)
+    # Collapse extra whitespace and truncate
+    cleaned = " ".join(cleaned.split())[:120]
+    return cleaned or "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -444,7 +464,7 @@ def generate_evidence_analysis(
                     "type": "text",
                     "text": (
                         f"You are a brand protection analyst. Analyse this product screenshot "
-                        f"for potential infringement of the brand \"{brand_name}\".\n\n"
+                        f"for potential infringement of the brand \"{_sanitize_brand_name(brand_name)}\".\n\n"
                         f"Return a structured analysis with:\n"
                         f"- brand_match_detected: true/false\n"
                         f"- brand_names_found: list of brand names visible\n"
