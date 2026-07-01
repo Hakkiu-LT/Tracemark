@@ -193,14 +193,14 @@ export function Features() {
     >
       <div className="relative mx-auto max-w-[90rem] px-6 py-20 md:px-10 md:py-24 lg:px-12">
         {/* Header */}
-        <div className="max-w-2xl">
+        <div className="mx-auto max-w-2xl text-center lg:max-w-none">
           <div className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
-            Built for brand protection
+            Capabilities
           </div>
           <h2 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl">
             Built for brand protection
           </h2>
-          <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground lg:max-w-none lg:whitespace-nowrap">
             Four powerful capabilities work together to detect, document, and remove infringing
             activity across the internet.
           </p>

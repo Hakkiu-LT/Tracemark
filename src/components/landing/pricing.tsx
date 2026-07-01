@@ -292,7 +292,7 @@ export function Pricing() {
         </div>
 
         {/* Plans */}
-        <div className="mt-10 grid items-center gap-5 lg:grid-cols-3">
+        <div className="mx-auto mt-10 grid max-w-[380px] items-center gap-5 lg:max-w-none lg:grid-cols-3">
           {PLANS.map((plan, i) => (
             <PlanCard key={plan.name} plan={plan} index={i} inView={inView} />
           ))}
@@ -308,7 +308,7 @@ export function Pricing() {
           radius="calc(1rem + 2px)"
           streakHeight={120}
           className={cn(
-            "mt-8 transition-all duration-700 ease-out motion-reduce:transition-none",
+            "mx-auto mt-8 max-w-[380px] transition-all duration-700 ease-out motion-reduce:transition-none lg:max-w-none",
             inView ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
           )}
           style={{ transitionDelay: "300ms" }}
@@ -328,7 +328,7 @@ export function Pricing() {
               className="group inline-flex items-center gap-2.5 rounded-md border border-input bg-background px-5 py-2 text-sm font-semibold text-foreground/80 shadow-sm transition-colors hover:border-foreground/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <CompareGlyph />
-              Compare all plans
+              Compare all plans and features
               <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:transition-none" />
             </Link>
           </div>
