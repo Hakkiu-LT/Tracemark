@@ -462,11 +462,8 @@ export function Workflow() {
     <section
       ref={ref}
       id="how"
-      className="relative scroll-mt-10 overflow-hidden border-b border-border bg-background py-14 md:py-20"
+      className="relative scroll-mt-10 overflow-hidden border-b border-border py-14 md:py-20"
     >
-      {/* Sketchy graph-paper texture */}
-      <div className="auth-grain sketch-bg pointer-events-none absolute inset-0" aria-hidden="true" />
-
       <div className="relative mx-auto max-w-[88rem] px-6 md:px-16 lg:px-24">
         <div
           className={cn(
