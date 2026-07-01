@@ -1,17 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import {
-  ShieldCheck,
-  ArrowRight,
-  CheckCircle2,
-  Building2,
-  Gavel,
-} from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { ShieldCheck } from "lucide-react";
 import { HeroV2 } from "@/components/landing/hero-v2";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Workflow } from "@/components/landing/workflow";
 import { Coverage } from "@/components/landing/coverage";
 import { Features } from "@/components/landing/features";
+import { Pricing } from "@/components/landing/pricing";
+import { CTA } from "@/components/landing/cta";
 
 export const Route = createFileRoute("/landing/v2")({
   head: () => ({
@@ -44,14 +39,27 @@ function LandingPage() {
 
       {/* COVERAGE */}
       <Coverage />
-      
-      {/* HOW IT WORKS */}
-      <Workflow />
 
-      {/* FEATURES */}
-      <Features />
+      {/* HOW IT WORKS → FEATURES → PRICING share one continuous static dotted
+          field. The band sits behind the (now transparent) sections so the dot
+          grid runs unbroken from "From detection to takedown" down through the
+          pricing plans. */}
+      <div className="relative bg-background">
+        <div className="dot-bg-band pointer-events-none absolute inset-0" aria-hidden="true" />
+        <div className="relative">
+          {/* HOW IT WORKS */}
+          <Workflow />
 
-      
+          {/* FEATURES */}
+          <Features />
+
+          {/* USE CASES & PRICING */}
+          <Pricing />
+        </div>
+      </div>
+
+      {/* CLOSING CTA */}
+      <CTA />
 
       <footer className="border-t border-border bg-background">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-muted-foreground md:flex-row">
