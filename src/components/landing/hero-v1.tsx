@@ -12,11 +12,11 @@ const stats = [
 
 export function HeroV1() {
   return (
-    <section className="relative flex min-h-screen flex-col overflow-hidden border-b border-border bg-background px-6 py-10 text-foreground md:px-16 lg:px-24 xl:px-32">
+    <section className="relative flex min-h-screen flex-col overflow-hidden border-b border-border bg-background py-10 pl-6 pr-0 text-foreground md:pl-16 lg:pl-24 xl:pl-32">
       <div className="grid flex-1 gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-20">
         {/* Text */}
         <div className="flex flex-col justify-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-[oklch(0.58_0.18_255)]">
+          <div className="inline-flex max-w-max items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-[oklch(0.58_0.18_255)]">
             <Sparkles className="h-3.5 w-3.5" />
             Trademark & brand protection, automated
           </div>
@@ -51,7 +51,7 @@ export function HeroV1() {
       </div>
 
       {/* Stats — full width below text and map */}
-      <div className="mt-10 grid grid-cols-2 gap-6 border-t border-border pt-8 md:grid-cols-4">
+      <div className="mt-10 grid grid-cols-2 gap-6 border-t border-border pt-8 pr-6 md:grid-cols-4 md:pr-16 lg:pr-24 xl:pr-32">
         {stats.map((s) => (
           <div key={s.label}>
             <div className="text-3xl font-bold tracking-tight md:text-4xl">{s.value}</div>

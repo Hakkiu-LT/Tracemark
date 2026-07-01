@@ -1,10 +1,18 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ShieldCheck } from "lucide-react";
+import { HeroV1 } from "@/components/landing/hero-v1";
 import { HeroV2 } from "@/components/landing/hero-v2";
+import { HeroV3 } from "@/components/landing/hero-v3";
+import {
+  HeroVersionSwitcher,
+  type HeroVersion,
+} from "@/components/landing/hero-version-switcher";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Workflow } from "@/components/landing/workflow";
 import { Coverage } from "@/components/landing/coverage";
 import { Features } from "@/components/landing/features";
+import { ExposureCalculator } from "@/components/landing/exposure-calculator";
 import { Pricing } from "@/components/landing/pricing";
 import { CTA } from "@/components/landing/cta";
 
@@ -29,13 +37,24 @@ export const Route = createFileRoute("/landing/v2")({
 });
 
 function LandingPage() {
+  const [heroVersion, setHeroVersion] = useState<HeroVersion>("v3");
+
   return (
     <>
       {/* TOP NAV — transparent over the hero, gains a background on scroll */}
       <LandingNav />
 
+      {/* Temporary hero A/B selector — remove once a version is finalized */}
+      <HeroVersionSwitcher value={heroVersion} onChange={setHeroVersion} />
+
       {/* HERO */}
-      <HeroV2 />
+      {heroVersion === "v1" ? (
+        <HeroV1 />
+      ) : heroVersion === "v2" ? (
+        <HeroV2 />
+      ) : (
+        <HeroV3 />
+      )}
 
       {/* COVERAGE */}
       <Coverage />
@@ -52,6 +71,9 @@ function LandingPage() {
 
           {/* FEATURES */}
           <Features />
+
+          {/* BRAND EXPOSURE CALCULATOR */}
+          <ExposureCalculator />
 
           {/* USE CASES & PRICING */}
           <Pricing />
