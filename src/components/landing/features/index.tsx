@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Activity, Sparkles, FileText, Send, ArrowRight, Check, ShieldCheck, ScanSearch, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import bgUrl from "../bg.png?url";
 import { RadarPanel } from "./radar-panel";
 import { DetectionPanel } from "./detection-panel";
+import { CasePanel } from "./case-panel";
 
 const ACCENT = "oklch(0.58 0.18 255)";
 
@@ -189,15 +189,8 @@ export function Features() {
   return (
     <section
       id="features"
-      className="relative scroll-mt-16 overflow-hidden border-b border-border bg-background"
+      className="relative scroll-mt-16 overflow-hidden border-b border-border"
     >
-      {/* Tiled background image at reduced opacity, beneath the content. */}
-      <div
-        className="pointer-events-none absolute inset-0 bg-repeat opacity-50"
-        style={{ backgroundImage: `url(${bgUrl})`, backgroundSize: "1366px auto" }}
-        aria-hidden="true"
-      />
-
       <div className="relative mx-auto max-w-[90rem] px-6 py-20 md:px-10 md:py-24 lg:px-12">
         {/* Header */}
         <div className="max-w-2xl">
@@ -228,60 +221,67 @@ export function Features() {
           </div>
 
           {/* Right panel — detail for the active card, transparent and
-              borderless, with the live radar beside it for the first card. */}
-          <div className="hidden lg:flex lg:items-start">
-            <div key={active} className="flex-1">
-              <h3 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-                {FEATURES[active].title}
-              </h3>
-              <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-                {FEATURES[active].detail}
-              </p>
-              {active === 0 ? (
-                <div className="mt-7 space-y-5">
-                  <TagGroup
-                    icon={ShieldCheck}
-                    label="Protected assets"
-                    items={["Brand name", "Logo", "Product images", "Trademarks"]}
-                  />
-                  <TagGroup
-                    icon={ScanSearch}
-                    label="Signals watched"
-                    items={[
-                      "Logo misuse",
-                      "Domain mimicry",
-                      "Seller anomaly",
-                      "Profile impersonation",
-                      "Content misuse",
-                    ]}
-                  />
+              borderless, with the live radar beside it for the first card.
+              The case card breaks out into a full-width case-file graph. */}
+          <div key={active} className="hidden lg:block">
+            {active === 2 ? (
+              <CasePanel />
+            ) : (
+              <div className="flex items-start">
+                <div className="flex-1">
+                  <h3 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+                    {FEATURES[active].title}
+                  </h3>
+                  <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                    {FEATURES[active].detail}
+                  </p>
+                  {active === 0 ? (
+                    <div className="mt-7 space-y-5">
+                      <TagGroup
+                        icon={ShieldCheck}
+                        label="Protected assets"
+                        items={["Brand name", "Logo", "Product images", "Trademarks"]}
+                      />
+                      <TagGroup
+                        icon={ScanSearch}
+                        label="Signals watched"
+                        items={[
+                          "Logo misuse",
+                          "Domain mimicry",
+                          "Seller anomaly",
+                          "Profile impersonation",
+                          "Content misuse",
+                        ]}
+                      />
+                    </div>
+                  ) : (
+                    <ul className="mt-6 space-y-3">
+                      {FEATURES[active].points.map((point) => (
+                        <li key={point} className="flex items-center gap-3 text-sm font-medium">
+                          <span
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                            style={{ backgroundColor: "oklch(0.58 0.18 255 / 0.12)", color: ACCENT }}
+                          >
+                            <Check className="h-3 w-3" strokeWidth={3} />
+                          </span>
+                          {point}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-              ) : (
-                <ul className="mt-6 space-y-3">
-                  {FEATURES[active].points.map((point) => (
-                    <li key={point} className="flex items-center gap-3 text-sm font-medium">
-                      <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-                        style={{ backgroundColor: "oklch(0.58 0.18 255 / 0.12)", color: ACCENT }}
-                      >
-                        <Check className="h-3 w-3" strokeWidth={3} />
-                      </span>
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
 
-            {active === 0 && (
-              <div className="flex-1">
-                <RadarPanel />
-              </div>
-            )}
+                {active === 0 && (
+                  <div className="flex-1">
+                    <RadarPanel />
+                  </div>
+                )}
 
-            {active === 1 && (
-              <div className="flex-1">
-                <DetectionPanel />
+                {active === 1 && (
+                  <div className="flex-1">
+                    <DetectionPanel />
+                  </div>
+                )}
               </div>
             )}
           </div>
