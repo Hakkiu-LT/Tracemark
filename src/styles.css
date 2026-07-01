@@ -221,6 +221,11 @@
   }
 }
 
+/* Hero V3 — the red "copied IP" connector's dashes crawl toward the threat. */
+@keyframes dashmove {
+  to { stroke-dashoffset: -12; }
+}
+
 /* ── Star border (Enterprise pricing card) ─────────────────────────── */
 /* Two glowing streaks sweep along the top and bottom edges, reading as a
    comet tracing the card border. Duration is set inline via animationDuration. */
@@ -322,4 +327,62 @@
   p, span, div, td, th {
     color: #334155 !important;
   }
+}
+
+/* Features section — the active card's bar depletes over its visibility
+   window, showing how much time remains before the panel auto-advances.
+   Duration is set inline via animationDuration to match CYCLE_MS. */
+@keyframes feat-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.feat-progress {
+  width: 100%;
+  transform-origin: left;
+  animation: feat-progress linear forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .feat-progress {
+    animation: none;
+  }
+}
+
+/* Brand Exposure Calculator — the ad-spend range slider. The filled portion of
+   the track is painted by an inline linear-gradient (accent → track) set from
+   the current value; here we only shape the rail and the draggable thumb. */
+.exposure-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+.exposure-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: oklch(0.58 0.18 255);
+  border: 3px solid oklch(1 0 0);
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.28);
+  transition: box-shadow 0.15s ease;
+}
+.exposure-slider::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: oklch(0.58 0.18 255);
+  border: 3px solid oklch(1 0 0);
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.28);
+  transition: box-shadow 0.15s ease;
+}
+.exposure-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px oklch(0.58 0.18 255 / 0.25);
+}
+.exposure-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px oklch(0.58 0.18 255 / 0.25);
 }

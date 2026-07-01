@@ -467,16 +467,20 @@ export function Workflow() {
       <div className="relative mx-auto max-w-[88rem] px-6 md:px-16 lg:px-24">
         <div
           className={cn(
-            "transition-all duration-700 ease-out motion-reduce:transition-none ",
+            "text-center transition-all duration-700 ease-out motion-reduce:transition-none",
             inView ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
           )}
         >
           <div className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
             How it works
           </div>
-          <h2 className="mt-3 text-3xl font-bold leading-tight tracking-tight md:text-4xl">
+          <h2 className="mt-3 font-display text-3xl font-bold tracking-tight md:text-4xl lg:whitespace-nowrap">
             From detection to takedown, in one streamlined workflow.
           </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            Every infringement moves from first detection to a filed takedown
+            automatically&mdash;so your team stays focused on the brand, not the busywork.
+          </p>
         </div>
 
         {/* ── Desktop band: pipeline → branch → platform results ── */}
