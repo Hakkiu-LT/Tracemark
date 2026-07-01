@@ -180,6 +180,33 @@
     linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
 }
 
+/* Dotted "board" texture — a grid of soft dots, edge-faded to stay seamless. */
+.dot-bg {
+  background-image: radial-gradient(rgba(100, 116, 139, 0.18) 1.25px, transparent 1.25px);
+  background-size: 26px 26px;
+  background-position: -13px -13px;
+  -webkit-mask-image: radial-gradient(ellipse 78% 78% at 50% 42%, #000 28%, transparent 80%);
+  mask-image: radial-gradient(ellipse 78% 78% at 50% 42%, #000 28%, transparent 80%);
+}
+.dark .dot-bg {
+  background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1.25px, transparent 1.25px);
+}
+
+/* Continuous static dotted field — uniform across a multi-section band, with a
+   soft vertical fade only at the very top and bottom so it blends into the
+   neighbouring sections without restarting the grid in between. */
+.dot-bg-band {
+  background-image: radial-gradient(rgba(100, 116, 139, 0.18) 1.25px, transparent 1.25px);
+  background-attachment: fixed;
+  background-size: 26px 26px;
+  background-position: -13px -13px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent);
+}
+.dark .dot-bg-band {
+  background-image: radial-gradient(rgba(148, 163, 184, 0.14) 1.25px, transparent 1.25px);
+}
+
 /* Continuous data-flow shimmer along the pipeline once it has drawn in. */
 @keyframes wf-flow {
   to { stroke-dashoffset: -28; }
@@ -191,6 +218,31 @@
 @media (prefers-reduced-motion: reduce) {
   .wf-flow {
     animation: none;
+  }
+}
+
+/* ── Star border (Enterprise pricing card) ─────────────────────────── */
+/* Two glowing streaks sweep along the top and bottom edges, reading as a
+   comet tracing the card border. Duration is set inline via animationDuration. */
+@keyframes star-movement-bottom {
+  0% { transform: translate(0%, 0%); opacity: 1; }
+  100% { transform: translate(-100%, 0%); opacity: 0; }
+}
+@keyframes star-movement-top {
+  0% { transform: translate(0%, 0%); opacity: 1; }
+  100% { transform: translate(100%, 0%); opacity: 0; }
+}
+.star-movement-bottom {
+  animation: star-movement-bottom linear infinite alternate;
+}
+.star-movement-top {
+  animation: star-movement-top linear infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .star-movement-bottom,
+  .star-movement-top {
+    animation: none;
+    opacity: 0;
   }
 }
 
@@ -271,4 +323,3 @@
     color: #334155 !important;
   }
 }
-
