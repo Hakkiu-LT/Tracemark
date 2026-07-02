@@ -23,8 +23,13 @@ const supabaseKey =
  * case detail. All case/decision/takedown writes still go through the FastAPI
  * backend, which uses the service-role key.
  */
+const isValidUrl = (url: string | undefined): boolean => {
+  if (!url) return false;
+  return url.startsWith("http://") || url.startsWith("https://");
+};
+
 export const supabase =
-  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+  isValidUrl(supabaseUrl) && supabaseKey ? createClient(supabaseUrl!, supabaseKey) : null;
 
 /** A row from the `profiles` table — extra user metadata beyond auth.users. */
 export interface Profile {
