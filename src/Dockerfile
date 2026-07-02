@@ -2,17 +2,17 @@ FROM oven/bun:1.2-alpine
 
 WORKDIR /app
 
-COPY package.json bun.lock bunfig.toml ./
-RUN bun install --frozen-lockfile
-
-COPY . .
-
-RUN adduser -D -g "" appuser
+RUN adduser -D -g "" appuser && chown -R appuser:appuser /app
 USER appuser
 
-EXPOSE 5173
+COPY --chown=appuser:appuser package.json bun.lock bunfig.toml ./
+RUN bun install
+
+COPY --chown=appuser:appuser . .
+
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost:5173/ || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/landing || exit 1
 
 CMD ["bun", "run", "dev", "--", "--host", "0.0.0.0"]
