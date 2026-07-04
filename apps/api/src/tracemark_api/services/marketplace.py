@@ -983,7 +983,7 @@ class GoogleSERPAPI:
                     for item in data.get("organic_results", []):
                         link = item.get("link")
                         if link:
-                            self._add_link_to_domains(link, official_domains, domains)
+                            self._add_link_to_domains(link, official_domains, domains, brand_name)
                     time.sleep(0.5)
                 return list(domains)
             except ApiLimitError:
@@ -1032,7 +1032,7 @@ class GoogleSERPAPI:
                     for item in organic:
                         link = item.get("link")
                         if link:
-                            self._add_link_to_domains(link, official_domains, domains)
+                            self._add_link_to_domains(link, official_domains, domains, brand_name)
                     time.sleep(0.5)
                 return list(domains)
             except ApiLimitError:
@@ -1064,7 +1064,7 @@ class GoogleSERPAPI:
                         if match:
                             href = urllib.parse.unquote(match.group(1))
                     if href.startswith("http"):
-                        self._add_link_to_domains(href, official_domains, domains)
+                        self._add_link_to_domains(href, official_domains, domains, brand_name)
                 time.sleep(1.0)
         except ApiLimitError as e:
             self._last_search_failed = True
@@ -1075,7 +1075,13 @@ class GoogleSERPAPI:
             
         return list(domains)
 
-    def _add_link_to_domains(self, link: str, official_domains: set[str], domains: set[str]) -> None:
+    def _add_link_to_domains(
+        self,
+        link: str,
+        official_domains: set[str],
+        domains: set[str],
+        brand_name: str | None = None,
+    ) -> None:
         try:
             parsed = urllib.parse.urlparse(link)
             netloc = parsed.netloc.lower()
@@ -1086,6 +1092,23 @@ class GoogleSERPAPI:
                     return
                 if whitelist_service.is_whitelisted(netloc):
                     return
+                # Brand-relevance pre-filter: reject domains whose name
+                # has no textual similarity to the brand.  This prevents
+                # unrelated sites that merely appear in SERP results
+                # (e.g. njctl.org when monitoring "derila") from being
+                # forwarded to the expensive WHOIS + Gemini pipeline.
+                if brand_name:
+                    from rapidfuzz import fuzz
+                    from tracemark_api.services.domain_whitelist import get_registered_domain
+                    base = get_registered_domain(netloc)
+                    # Strip TLD to get the meaningful part (e.g. "njctl" from "njctl.org")
+                    domain_label = base.rsplit(".", 1)[0] if "." in base else base
+                    # Expand hyphens/dots into spaces for fair comparison
+                    domain_label_spaced = domain_label.replace("-", " ").replace(".", " ")
+                    brand_lower = brand_name.lower().strip()
+                    score = fuzz.partial_ratio(brand_lower, domain_label_spaced) / 100.0
+                    if score < 0.60:
+                        return
                 domains.add(netloc)
         except Exception:
             pass
@@ -2006,6 +2029,12 @@ async def gather_evidence(
         eval_item = eval_map.get(domain_name.lower().strip())
         is_clone = eval_item.is_clone if eval_item else True
         similarity_score = eval_item.similarity_score if eval_item else 90
+
+        # Post-filter: skip domains that the AI evaluator determined
+        # are NOT clones/infringements.  This prevents benign domains
+        # (e.g. njctl.org) from polluting the evidence output.
+        if not is_clone:
+            continue
 
         domain_evidences.append(
             DomainEvidence(

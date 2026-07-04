@@ -31,7 +31,7 @@ def score_evidence(evidence: "Evidence") -> EvidenceScore:
     """
     mp_count = len(evidence.marketplaces)
     ads_count = len(evidence.ads)
-    domains_count = len(evidence.domains)
+    domains_count = sum(1 for d in evidence.domains if d.is_clone)
     social_count = len(evidence.social)
     total_count = mp_count + ads_count + domains_count + social_count
 

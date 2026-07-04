@@ -29,6 +29,7 @@ export interface Mark {
   lastScan: string;
   status?: "active" | "on_hold";
   repeatCycle?: number;
+  targetRegions?: string[];
 }
 
 export interface Infringement {
@@ -71,8 +72,8 @@ const CLIENTS: Client[] = [
 ];
 
 const MARKS: Mark[] = [
-  { id: "m1", clientId: "c1", brandName: "Derila", registrationNumber: "US-89234112", website: "derila.com", platforms: ["Amazon", "Shopify", "Instagram"], logoColor: "oklch(0.58 0.18 255)", createdAt: "2025-02-14", lastScan: "8 min ago", status: "on_hold" },
-  { id: "m6", clientId: "c1", brandName: "Matsato", registrationNumber: "US-99123456", website: "matsato.com", platforms: ["Amazon", "eBay", "Web Domain"], logoColor: "oklch(0.72 0.17 65)", createdAt: "2025-03-01", lastScan: "12 min ago", status: "on_hold" },
+  { id: "m1", clientId: "c1", brandName: "Derila", registrationNumber: "US-89234112", website: "derila.com", platforms: ["Amazon", "Shopify", "Instagram"], logoColor: "oklch(0.58 0.18 255)", createdAt: "2025-02-14", lastScan: "8 min ago", status: "on_hold", targetRegions: ["US", "CA", "DE", "FR"] },
+  { id: "m6", clientId: "c1", brandName: "Matsato", registrationNumber: "US-99123456", website: "matsato.com", platforms: ["Amazon", "eBay", "Web Domain"], logoColor: "oklch(0.72 0.17 65)", createdAt: "2025-03-01", lastScan: "12 min ago", status: "on_hold", targetRegions: ["US", "JP", "SG"] },
 ];
 
 const ago = (mins: number) => new Date(Date.now() - mins * 60_000).toISOString();

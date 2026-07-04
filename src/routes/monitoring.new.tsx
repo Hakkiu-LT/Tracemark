@@ -15,7 +15,10 @@ import {
   FileText,
   CheckCircle2,
   Loader2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import { REGIONS } from "@/lib/regions";
 
 export const Route = createFileRoute("/monitoring/new")({
   head: () => ({
@@ -117,6 +120,8 @@ function NewAssetPage() {
   const [website, setWebsite] = useState("");
   const [clientId, setClientId] = useState(activeClientId ?? clients[0]?.id ?? "c1");
   const [selected, setSelected] = useState<Set<Platform>>(new Set([]));
+  const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set(["US"]));
+  const [expandedRegions, setExpandedRegions] = useState<Set<string>>(new Set(["NA", "EMEA"]));
   const [scanStep, setScanStep] = useState(0);
 
   const scanSteps = buildScanSteps(selected);
@@ -125,6 +130,29 @@ function NewAssetPage() {
     const next = new Set(selected);
     next.has(p) ? next.delete(p) : next.add(p);
     setSelected(next);
+  }
+
+  function toggleRegionExpanded(regKey: string) {
+    const next = new Set(expandedRegions);
+    next.has(regKey) ? next.delete(regKey) : next.add(regKey);
+    setExpandedRegions(next);
+  }
+
+  function toggleCountry(code: string) {
+    const next = new Set(selectedRegions);
+    next.has(code) ? next.delete(code) : next.add(code);
+    setSelectedRegions(next);
+  }
+
+  function toggleMacroRegion(regKey: string, countryCodes: string[]) {
+    const next = new Set(selectedRegions);
+    const allSelected = countryCodes.every((c) => next.has(c));
+    if (allSelected) {
+      countryCodes.forEach((c) => next.delete(c));
+    } else {
+      countryCodes.forEach((c) => next.add(c));
+    }
+    setSelectedRegions(next);
   }
 
   const apiPlatforms = Array.from(selected)
@@ -136,6 +164,7 @@ function NewAssetPage() {
       checkBrandFullPipeline({
         brand_name: brandName,
         platforms: apiPlatforms.length > 0 ? apiPlatforms : ["amazon", "google_ads", "domains"],
+        target_regions: Array.from(selectedRegions),
       }),
     onSuccess: (data) => {
       let cleanWebsite = website.trim();
@@ -149,6 +178,7 @@ function NewAssetPage() {
         clientId,
         platforms: Array.from(selected),
         logoColor: "oklch(0.58 0.18 255)",
+        targetRegions: Array.from(selectedRegions),
       });
       setScanResult(data.case_id, data);
       toast.success("Scan completed successfully");
@@ -284,6 +314,96 @@ function NewAssetPage() {
                     </div>
                   );
                 })}
+              </div>
+            </section>
+
+            {/* Target Regions & Proxy Location Management */}
+            <section className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-accent" />
+                <h3 className="text-lg font-semibold text-foreground">Target Regions & Proxy Location Management</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Route regional scans through local proxies to bypass geoblocking and capture location-specific infringements.
+              </p>
+
+              <div className="space-y-3 pt-2">
+                {REGIONS.map((reg) => {
+                  const isExpanded = expandedRegions.has(reg.key);
+                  const regCountries = reg.countries.map((c) => c.code);
+                  const selectedCount = reg.countries.filter((c) => selectedRegions.has(c.code)).length;
+                  const allSelected = selectedCount === reg.countries.length;
+                  const someSelected = selectedCount > 0 && !allSelected;
+
+                  return (
+                    <div key={reg.key} className="border border-border rounded-lg overflow-hidden bg-background/50">
+                      {/* Macro Region Header Row */}
+                      <div className="flex items-center justify-between p-3.5 bg-muted/20 hover:bg-muted/40 transition-colors select-none">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            ref={(el) => {
+                              if (el) el.indeterminate = someSelected;
+                            }}
+                            onChange={() => toggleMacroRegion(reg.key, regCountries)}
+                            className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
+                          />
+                          <span className="font-semibold text-sm text-foreground">{reg.label}</span>
+                          <span className="text-[10px] bg-muted text-muted-foreground font-mono px-2 py-0.5 rounded-full">
+                            {selectedCount}/{reg.countries.length}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleRegionExpanded(reg.key)}
+                          className="text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                      </div>
+
+                      {/* Country Checkboxes Under Macro Region */}
+                      {isExpanded && (
+                        <div className="p-4 border-t border-border grid grid-cols-2 gap-3 bg-card/30">
+                          {reg.countries.map((c) => {
+                            const active = selectedRegions.has(c.code);
+                            return (
+                              <label
+                                key={c.code}
+                                className={`flex items-center gap-3 p-2.5 rounded-md border transition-colors cursor-pointer text-xs ${
+                                  active
+                                    ? "border-accent bg-accent/5 text-foreground"
+                                    : "border-border/60 hover:bg-muted/30 text-muted-foreground"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={active}
+                                  onChange={() => toggleCountry(c.code)}
+                                  className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
+                                />
+                                <span className="text-base leading-none">{c.flag}</span>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-foreground">{c.name}</span>
+                                  <span className="text-[10px] text-muted-foreground font-mono">{c.code} proxy</span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Geo-proxy tooltip */}
+              <div className="flex gap-2 p-3 bg-accent/5 rounded-lg border border-accent/20 text-xs text-muted-foreground mt-4 leading-relaxed">
+                <Info className="h-4.5 w-4.5 text-accent shrink-0 mt-0.5" />
+                <span>
+                  <strong>Scanning Logic:</strong> Selecting a macro-region or individual country schedules automated scans that route requests through secure residential proxies physically located within those target regions. This ensures correct localization and captures geotargeted storefront clones or search ads.
+                </span>
               </div>
             </section>
           </div>

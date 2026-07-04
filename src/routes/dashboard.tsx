@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,8 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, 
 import { useQuery } from "@tanstack/react-query";
 import { getInfringements } from "@/lib/api";
 import { ClientBillingCard } from "@/components/ClientBillingCard";
+import { cn } from "@/lib/utils";
+import { getRegionForId, getMacroRegionForCountry } from "@/lib/regions";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -27,6 +30,7 @@ const trend = Array.from({ length: 30 }, (_, i) => ({
 function Dashboard() {
   const marks = useScopedMarks();
   const persona = useStore((s) => s.persona);
+  const [selectedMacroRegion, setSelectedMacroRegion] = useState("ALL");
 
   // Fetch actual live database infringements via FastAPI backend
   const { data: dbInfringementsData } = useQuery({
@@ -35,14 +39,21 @@ function Dashboard() {
   });
   const infringements = dbInfringementsData?.items ?? [];
 
-  const active = infringements.filter((i) => i.status === "flagged" || i.status === "active").length;
-  const takedowns = infringements.filter((i) => i.status === "reviewed" || i.status === "takedown_sent" || i.status === "resolved").length;
-  const total = infringements.length;
+  const filteredInfringements = infringements.filter((i) => {
+    if (selectedMacroRegion === "ALL") return true;
+    const cCode = getRegionForId(i.case_id || i.id);
+    const mReg = getMacroRegionForCountry(cCode);
+    return mReg === selectedMacroRegion;
+  });
+
+  const active = filteredInfringements.filter((i) => i.status === "flagged" || i.status === "active").length;
+  const takedowns = filteredInfringements.filter((i) => i.status === "reviewed" || i.status === "takedown_sent" || i.status === "resolved").length;
+  const total = filteredInfringements.length;
   const successRate = total > 0 ? Math.round((takedowns / total) * 100) : 0;
 
   // Group by platform dynamically using actual backend data names
   const platformCounts: Record<string, number> = {};
-  for (const item of infringements) {
+  for (const item of filteredInfringements) {
     const rawName = item.platform || "unknown";
     const name = rawName.charAt(0).toUpperCase() + rawName.slice(1).replace("_", " ");
     platformCounts[name] = (platformCounts[name] || 0) + 1;
@@ -66,6 +77,27 @@ function Dashboard() {
         <Button asChild>
           <Link to="/monitoring/new">+ Add monitored asset</Link>
         </Button>
+      </div>
+
+      {/* Region Tabs */}
+      <div className="flex border-b border-border gap-2">
+        {["ALL", "North America", "EMEA", "APAC", "LATAM"].map((region) => {
+          const active = selectedMacroRegion === region;
+          return (
+            <button
+              key={region}
+              onClick={() => setSelectedMacroRegion(region)}
+              className={cn(
+                "pb-2.5 px-4 text-sm font-semibold border-b-2 -mb-[2px] transition-all cursor-pointer select-none",
+                active
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {region === "ALL" ? "All Regions" : region}
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -122,7 +154,7 @@ function Dashboard() {
         </div>
       )}
 
-      <InfringementAlertFeed />
+      <InfringementAlertFeed regionFilter={selectedMacroRegion} />
     </div>
   );
 }
