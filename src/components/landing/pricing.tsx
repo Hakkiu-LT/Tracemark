@@ -266,7 +266,7 @@ export function Pricing() {
     <section
       ref={ref}
       id="pricing"
-      className="relative scroll-mt-16 overflow-hidden border-b border-border py-16 md:py-20 lg:flex lg:h-screen lg:flex-col lg:justify-center lg:py-0"
+      className="relative scroll-mt-16 overflow-hidden border-b border-border py-16 md:py-20 lg:py-24"
     >
       <div className="relative mx-auto w-full max-w-[80rem] px-6 md:px-10 lg:px-12">
         {/* Header */}

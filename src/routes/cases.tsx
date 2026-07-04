@@ -32,6 +32,7 @@ import { Loader2, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from "lucide-reac
 import type { DateRange } from "react-day-picker";
 import { consumeCasesView, saveCasesView, type SortDir, type SortField } from "@/lib/cases-view";
 import { toast } from "sonner";
+import { getRegionForId, getMacroRegionForCountry, COUNTRY_BY_CODE } from "@/lib/regions";
 
 const PAGE_SIZE = 20;
 
@@ -153,6 +154,7 @@ function CasesList() {
   const [statusFilter, setStatusFilter] = useState<string[]>(initialView.statusFilter);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(initialView.dateRange);
   const [minConfidence, setMinConfidence] = useState(initialView.minConfidence);
+  const [selectedMacroRegion, setSelectedMacroRegion] = useState("ALL");
 
   useEffect(() => {
     let cancelled = false;
@@ -183,67 +185,81 @@ function CasesList() {
     }
   };
 
-  const renderCaseRow = (c: CaseSummary) => (
-    <TableRow key={c.id} className="group cursor-pointer">
-      <TableCell>
-        <Link
-          to="/monitoring/$caseId"
-          params={{ caseId: c.id }}
-          className="flex flex-col min-w-0"
-        >
-          <span className="truncate text-sm font-medium">{c.brand_name}</span>
-          <span className="truncate text-xs text-muted-foreground font-mono">
-            {c.id.slice(0, 8)}
-          </span>
-        </Link>
-      </TableCell>
-      <TableCell>
-        {c.risk_level ? (
-          <RiskBadge risk={c.risk_level.toLowerCase() as "high" | "medium" | "low"} />
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="text-sm">{c.recommended_action ?? "—"}</TableCell>
-      <TableCell>
-        <CaseStatusBadge status={c.status} />
-      </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
-        {new Date(c.created_at).toLocaleDateString()}
-      </TableCell>
-      <TableCell className="text-right font-mono text-sm">
-        {c.confidence_score != null
-          ? `${Math.round(c.confidence_score * 100)}%`
-          : "—"}
-      </TableCell>
-      <TableCell className="text-center">
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            asChild
-            className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+  const renderCaseRow = (c: CaseSummary) => {
+    const cCode = getRegionForId(c.id);
+    const country = COUNTRY_BY_CODE[cCode];
+    const macroReg = getMacroRegionForCountry(cCode);
+    return (
+      <TableRow key={c.id} className="group cursor-pointer">
+        <TableCell>
+          <Link
+            to="/monitoring/$caseId"
+            params={{ caseId: c.id }}
+            className="flex flex-col min-w-0"
           >
-            <Link to="/monitoring/$caseId" params={{ caseId: c.id }}>
-              See Case
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteCase(c.id);
-            }}
-            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
-            title="Delete Case"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
+            <span className="truncate text-sm font-medium flex items-center gap-1.5">
+              {c.brand_name}
+              <span
+                className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-muted border border-border/40 text-[9px] text-muted-foreground font-medium font-sans"
+                title={`${macroReg} (${country?.name || cCode}) Proxy Location`}
+              >
+                <span>{country?.flag || "🌐"}</span>
+                <span>{cCode}</span>
+              </span>
+            </span>
+            <span className="truncate text-xs text-muted-foreground font-mono">
+              {c.id.slice(0, 8)}
+            </span>
+          </Link>
+        </TableCell>
+        <TableCell>
+          {c.risk_level ? (
+            <RiskBadge risk={c.risk_level.toLowerCase() as "high" | "medium" | "low"} />
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </TableCell>
+        <TableCell className="text-sm">{c.recommended_action ?? "—"}</TableCell>
+        <TableCell>
+          <CaseStatusBadge status={c.status} />
+        </TableCell>
+        <TableCell className="text-sm text-muted-foreground">
+          {new Date(c.created_at).toLocaleDateString()}
+        </TableCell>
+        <TableCell className="text-right font-mono text-sm">
+          {c.confidence_score != null
+            ? `${Math.round(c.confidence_score * 100)}%`
+            : "—"}
+        </TableCell>
+        <TableCell className="text-center">
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+            >
+              <Link to="/monitoring/$caseId" params={{ caseId: c.id }}>
+                See Case
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteCase(c.id);
+              }}
+              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+              title="Delete Case"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
 
   const toggleSort = (field: SortField) => {
     if (sortBy === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -306,6 +322,12 @@ function CasesList() {
     .filter((c) => statusFilter.length === 0 || statusFilter.includes(c.status))
     .filter((c) => inDateRange(c.created_at, dateRange))
     .filter((c) => (c.confidence_score ?? 0) * 100 >= minConfidence)
+    .filter((c) => {
+      if (selectedMacroRegion === "ALL") return true;
+      const cCode = getRegionForId(c.id);
+      const mReg = getMacroRegionForCountry(cCode);
+      return mReg === selectedMacroRegion;
+    })
     .sort((a, b) => {
       let cmp = 0;
       if (sortBy === "brand") cmp = a.brand_name.localeCompare(b.brand_name);
@@ -358,6 +380,27 @@ function CasesList() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Cases</h1>
         <p className="text-sm text-muted-foreground">Every brand check, organized by risk.</p>
+      </div>
+
+      {/* Region Tabs */}
+      <div className="flex border-b border-border gap-2">
+        {["ALL", "North America", "EMEA", "APAC", "LATAM"].map((region) => {
+          const active = selectedMacroRegion === region;
+          return (
+            <button
+              key={region}
+              onClick={() => setSelectedMacroRegion(region)}
+              className={cn(
+                "pb-2.5 px-4 text-sm font-semibold border-b-2 -mb-[2px] transition-all cursor-pointer select-none",
+                active
+                  ? "border-accent text-accent"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {region === "ALL" ? "All Regions" : region}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

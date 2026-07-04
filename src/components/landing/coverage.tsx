@@ -98,7 +98,7 @@ export function Coverage() {
   return (
     <section
       className="relative overflow-hidden border-y border-border"
-      style={{ backgroundColor: PANEL }}
+      style={{ backgroundColor: "var(--coverage-panel)" }}
       aria-labelledby="coverage-heading"
     >
       {/* Scrolling channel lanes — one drifts each way, both accelerate with scroll. */}
@@ -126,7 +126,7 @@ export function Coverage() {
         className="pointer-events-none absolute inset-0"
         aria-hidden="true"
         style={{
-          background: `linear-gradient(to right, transparent, ${PANEL} 34%, ${PANEL} 66%, transparent)`,
+          background: "linear-gradient(to right, transparent, var(--coverage-panel) 34%, var(--coverage-panel) 66%, transparent)",
         }}
       />
 

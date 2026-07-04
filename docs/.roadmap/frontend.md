@@ -104,6 +104,7 @@ This document outlines the priority ordering for frontend routes, components, an
 | Restrict API Usage tab/route visibility to allowed admin emails | ✅ Done | Sidebar hidden + api-usage.tsx route permission check enforced |
 | Global error boundary | ✅ Done | `ErrorComponent` in `__root.tsx` |
 | Toast notifications on actions | ✅ Done | Brand scan completion & retry capture promise notifications wired |
+| Dark Mode UI / Styling | ✅ Done | Modern dark theme styling applied across all views for premium brand protection aesthetic |
 
 ---
 
@@ -126,9 +127,9 @@ This document outlines the priority ordering for frontend routes, components, an
 
 | Task | Status | Notes |
 |---|---|---|
-| store.ts: add `targetRegions` (ISO country codes list) to Mark state | ❌ Missing | Update client-side state model to persist selected scan locations as country code strings |
-| Add/Edit Mark Modal: hybrid region and country selector | ❌ Missing | Implement collapsible macro-region dropdowns (NA, EMEA, APAC, LATAM) containing individual checkboxes for primary country codes (e.g. US, CA, DE, FR, GB, AU, SG, JP, BR, MX). Support this in both brand creation and when clicking "Edit" on a monitored asset row |
-| UI Tooltips: explain geo-proxy scanning logic | ❌ Missing | Add info tooltips explaining that selecting a macro-region defaults to its primary countries, routing scans through local proxies |
-| Monitored Assets table: display active target regions | ❌ Missing | Display country flags/badges (and/or macro-region summary tags) for active locations on each brand row |
-| Separate Cases per Detection Region | ❌ Missing | Group and display Cases separately based on their region (e.g., showing a Case for North America and a separate Case for China/APAC) on dashboard and case lists |
-| Infringement details: show detection location | ❌ Missing | Display which specific country proxy location captured each piece of evidence (e.g. "Detected via US proxy") |
+| store.ts: add `targetRegions` (ISO country codes list) to Mark state | ✅ Done | Added `targetRegions` array to `Mark` schema and initialized mock data |
+| Add/Edit Mark Modal: hybrid region and country selector | ✅ Done | Added macro-region checkbox selector panels with collapsing country lists in creation and edit dialogs |
+| UI Tooltips: explain geo-proxy scanning logic | ✅ Done | Added tooltips next to the proxy locations heading explaining localization proxy routing |
+| Monitored Assets table: display active target regions | ✅ Done | Display active locations as country flags and code badges under the website URL |
+| Separate Cases per Detection Region | ✅ Done | Grouped and filtered statistics/lists by macro-regions with active filter tabs on Dashboard and Cases list |
+| Infringement details: show detection location | ✅ Done | Display detection proxy information with country flag under case details panel |

@@ -148,6 +148,7 @@ class CheckBrandRequest(BaseModel):
     brand_name: str
     platforms: list[str] = ["amazon", "google_ads", "meta_ads", "domains"]
     official_advertisers: list[str] = []
+    target_regions: list[str] = ["US"]
 
 
 @router.post("/check-brand")

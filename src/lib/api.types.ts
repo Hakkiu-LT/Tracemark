@@ -77,4 +77,5 @@ export interface CheckBrandResponse {
 export interface CheckBrandRequest {
   brand_name: string;
   platforms?: string[];
+  target_regions?: string[];
 }

@@ -26,7 +26,6 @@ import { Route as MonitoringNewRouteImport } from './routes/monitoring.new'
 import { Route as MonitoringCaseIdRouteImport } from './routes/monitoring.$caseId'
 import { Route as LegacySignupRouteImport } from './routes/legacy/signup'
 import { Route as LegacyLoginRouteImport } from './routes/legacy/login'
-import { Route as LandingV2RouteImport } from './routes/landing.v2'
 import { Route as CasesCaseIdRouteImport } from './routes/cases.$caseId'
 import { Route as BillingSuccessRouteImport } from './routes/billing.success'
 import { Route as BillingCancelRouteImport } from './routes/billing.cancel'
@@ -121,11 +120,6 @@ const LegacyLoginRoute = LegacyLoginRouteImport.update({
   path: '/legacy/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LandingV2Route = LandingV2RouteImport.update({
-  id: '/v2',
-  path: '/v2',
-  getParentRoute: () => LandingRoute,
-} as any)
 const CasesCaseIdRoute = CasesCaseIdRouteImport.update({
   id: '/$caseId',
   path: '/$caseId',
@@ -175,7 +169,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRouteWithChildren
+  '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -185,7 +179,6 @@ export interface FileRoutesByFullPath {
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
-  '/landing/v2': typeof LandingV2Route
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
@@ -203,7 +196,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRouteWithChildren
+  '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -213,7 +206,6 @@ export interface FileRoutesByTo {
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
-  '/landing/v2': typeof LandingV2Route
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
@@ -232,7 +224,7 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRouteWithChildren
+  '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -242,7 +234,6 @@ export interface FileRoutesById {
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
-  '/landing/v2': typeof LandingV2Route
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
@@ -272,7 +263,6 @@ export interface FileRouteTypes {
     | '/billing/cancel'
     | '/billing/success'
     | '/cases/$caseId'
-    | '/landing/v2'
     | '/legacy/login'
     | '/legacy/signup'
     | '/monitoring/$caseId'
@@ -300,7 +290,6 @@ export interface FileRouteTypes {
     | '/billing/cancel'
     | '/billing/success'
     | '/cases/$caseId'
-    | '/landing/v2'
     | '/legacy/login'
     | '/legacy/signup'
     | '/monitoring/$caseId'
@@ -328,7 +317,6 @@ export interface FileRouteTypes {
     | '/billing/cancel'
     | '/billing/success'
     | '/cases/$caseId'
-    | '/landing/v2'
     | '/legacy/login'
     | '/legacy/signup'
     | '/monitoring/$caseId'
@@ -347,7 +335,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   ClientsRoute: typeof ClientsRoute
   DashboardRoute: typeof DashboardRoute
-  LandingRoute: typeof LandingRouteWithChildren
+  LandingRoute: typeof LandingRoute
   MonitoringRoute: typeof MonitoringRouteWithChildren
   PlansRoute: typeof PlansRoute
   SettingsRoute: typeof SettingsRouteWithChildren
@@ -481,13 +469,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegacyLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/landing/v2': {
-      id: '/landing/v2'
-      path: '/v2'
-      fullPath: '/landing/v2'
-      preLoaderRoute: typeof LandingV2RouteImport
-      parentRoute: typeof LandingRoute
-    }
     '/cases/$caseId': {
       id: '/cases/$caseId'
       path: '/$caseId'
@@ -569,17 +550,6 @@ const CasesRouteChildren: CasesRouteChildren = {
 
 const CasesRouteWithChildren = CasesRoute._addFileChildren(CasesRouteChildren)
 
-interface LandingRouteChildren {
-  LandingV2Route: typeof LandingV2Route
-}
-
-const LandingRouteChildren: LandingRouteChildren = {
-  LandingV2Route: LandingV2Route,
-}
-
-const LandingRouteWithChildren =
-  LandingRoute._addFileChildren(LandingRouteChildren)
-
 interface MonitoringCaseIdRouteChildren {
   MonitoringCaseIdTakedownRoute: typeof MonitoringCaseIdTakedownRoute
 }
@@ -628,7 +598,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   ClientsRoute: ClientsRoute,
   DashboardRoute: DashboardRoute,
-  LandingRoute: LandingRouteWithChildren,
+  LandingRoute: LandingRoute,
   MonitoringRoute: MonitoringRouteWithChildren,
   PlansRoute: PlansRoute,
   SettingsRoute: SettingsRouteWithChildren,
