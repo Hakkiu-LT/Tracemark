@@ -10,6 +10,7 @@ router = APIRouter(prefix="/check-brand", tags=["check-brand"])
 class CheckBrandRequest(BaseModel):
     brand_name: str
     platforms: list[str] = ["amazon", "google_ads", "domains"]
+    target_regions: list[str] = ["US"]
 
 
 # --- Response models ---

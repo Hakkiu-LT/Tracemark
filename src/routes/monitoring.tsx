@@ -29,10 +29,11 @@ import {
   type Platform,
   type RiskLevel,
 } from "@/lib/store";
-import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil } from "lucide-react";
+import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil, Globe, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { checkBrandFullPipeline } from "@/lib/api";
 import { PLATFORMS } from "@/lib/platforms";
+import { REGIONS, COUNTRY_BY_CODE } from "@/lib/regions";
 
 export const Route = createFileRoute("/monitoring")({
   head: () => ({
@@ -97,6 +98,8 @@ function MonitoringPage() {
   const [editClientId, setEditClientId] = useState("");
   const [editPlatforms, setEditPlatforms] = useState<Set<Platform>>(new Set());
   const [editRepeatCycle, setEditRepeatCycle] = useState("");
+  const [editSelectedRegions, setEditSelectedRegions] = useState<Set<string>>(new Set());
+  const [editExpandedRegions, setEditExpandedRegions] = useState<Set<string>>(new Set(["NA", "EMEA"]));
 
   const isRepeatCycleInvalid = editRepeatCycle !== "" && !/^\d+$/.test(editRepeatCycle);
 
@@ -112,6 +115,7 @@ function MonitoringPage() {
           ? String(editingMark.repeatCycle)
           : "",
       );
+      setEditSelectedRegions(new Set(editingMark.targetRegions || ["US"]));
     }
   }, [editingMark]);
 
@@ -343,6 +347,7 @@ function MonitoringPage() {
       clientId: editClientId,
       platforms: Array.from(editPlatforms),
       repeatCycle: repeatCycleNum,
+      targetRegions: Array.from(editSelectedRegions),
     });
     setEditingMark(null);
     toast.success("Monitored asset updated successfully.");
@@ -363,6 +368,29 @@ function MonitoringPage() {
       }
     }
   };
+
+  function toggleEditCountry(code: string) {
+    const next = new Set(editSelectedRegions);
+    next.has(code) ? next.delete(code) : next.add(code);
+    setEditSelectedRegions(next);
+  }
+
+  function toggleEditMacroRegion(regKey: string, countryCodes: string[]) {
+    const next = new Set(editSelectedRegions);
+    const allSelected = countryCodes.every((c) => next.has(c));
+    if (allSelected) {
+      countryCodes.forEach((c) => next.delete(c));
+    } else {
+      countryCodes.forEach((c) => next.add(c));
+    }
+    setEditSelectedRegions(next);
+  }
+
+  function toggleEditRegionExpanded(regKey: string) {
+    const next = new Set(editExpandedRegions);
+    next.has(regKey) ? next.delete(regKey) : next.add(regKey);
+    setEditExpandedRegions(next);
+  }
 
   return (
     <div className="space-y-6">
@@ -440,7 +468,7 @@ function MonitoringPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 px-3 max-h-[55vh] overflow-y-auto border-b border-border/20 pb-6 mb-2">
             {persona === "law_firm" && (
               <div className="space-y-2">
                 <Label htmlFor="edit-client">Client</Label>
@@ -490,12 +518,7 @@ function MonitoringPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="edit-repeatCycle">Repeat Cycle</Label>
-                <span className="text-[10px] text-muted-foreground font-medium">
-                  Entered value in minutes
-                </span>
-              </div>
+              <Label htmlFor="edit-repeatCycle">Repeat Cycle (Minutes)</Label>
               <Input
                 id="edit-repeatCycle"
                 type="text"
@@ -540,6 +563,86 @@ function MonitoringPage() {
                       <span>{label}</span>
                       {active && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
                     </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Target Regions & Proxy Location Management */}
+            <div className="space-y-2 pt-2 pb-6">
+              <div className="flex items-center gap-1.5">
+                <Label>Target Regions & Proxy Locations</Label>
+                <div className="group relative">
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded bg-popover border border-border p-2 text-[10px] text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 leading-normal">
+                    Selecting regions routes regional scans through local residential proxies.
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 border border-border rounded-md p-2 pb-4 bg-muted/10">
+                {REGIONS.map((reg) => {
+                  const isExpanded = editExpandedRegions.has(reg.key);
+                  const regCountries = reg.countries.map((c) => c.code);
+                  const selectedCount = reg.countries.filter((c) => editSelectedRegions.has(c.code)).length;
+                  const allSelected = selectedCount === reg.countries.length;
+                  const someSelected = selectedCount > 0 && !allSelected;
+
+                  return (
+                    <div key={reg.key} className="border border-border/80 rounded-md overflow-hidden bg-background">
+                      {/* Region Header */}
+                      <div className="flex items-center justify-between px-2.5 py-1.5 bg-muted/30 select-none">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            ref={(el) => {
+                              if (el) el.indeterminate = someSelected;
+                            }}
+                            onChange={() => toggleEditMacroRegion(reg.key, regCountries)}
+                            className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
+                          />
+                          <span className="font-semibold text-xs text-foreground">{reg.label}</span>
+                          <span className="text-[9px] bg-muted text-muted-foreground font-mono px-1.5 py-0.2 rounded-full">
+                            {selectedCount}/{reg.countries.length}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleEditRegionExpanded(reg.key)}
+                          className="text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+
+                      {/* Countries list under region */}
+                      {isExpanded && (
+                        <div className="px-3 py-2 border-t border-border/60 grid grid-cols-2 gap-1.5 bg-card/10">
+                          {reg.countries.map((c) => {
+                            const active = editSelectedRegions.has(c.code);
+                            return (
+                              <label
+                                key={c.code}
+                                className={`flex items-center gap-2 p-1.5 rounded border transition-colors cursor-pointer text-[10px] ${
+                                  active
+                                    ? "border-accent/60 bg-accent/5 text-foreground"
+                                    : "border-border/40 hover:bg-muted/30 text-muted-foreground"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={active}
+                                  onChange={() => toggleEditCountry(c.code)}
+                                  className="h-3 w-3 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
+                                />
+                                <span>{c.flag}</span>
+                                <span className="font-medium truncate">{c.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -621,6 +724,23 @@ function MarksTable({
                       {m.brandName}
                     </p>
                     <p className="text-xs text-muted-foreground font-mono">{m.website}</p>
+                    {m.targetRegions && m.targetRegions.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {m.targetRegions.map((code) => {
+                          const conf = COUNTRY_BY_CODE[code];
+                          return (
+                            <span
+                              key={code}
+                              className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-muted border border-border/40 text-[9px] text-muted-foreground font-medium"
+                              title={`${conf?.name || code} Proxy Location`}
+                            >
+                              <span>{conf?.flag || "🌐"}</span>
+                              <span>{code}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </TableCell>

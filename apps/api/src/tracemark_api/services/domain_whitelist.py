@@ -61,10 +61,10 @@ class DomainWhitelist:
         if self._loaded:
             return
 
-        # 1. Check if cache file exists and is recent (less than 7 days old)
+        # 1. Check if cache file exists and is recent (less than 24 hours old)
         if os.path.exists(CACHE_FILE):
             mtime = datetime.fromtimestamp(os.path.getmtime(CACHE_FILE))
-            if datetime.now() - mtime < timedelta(days=7):
+            if datetime.now() - mtime < timedelta(days=1):
                 try:
                     self._load_from_cache()
                     logger.info(f"Loaded {len(self._whitelist)} domains from cache: {CACHE_FILE}")
