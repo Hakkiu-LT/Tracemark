@@ -12,6 +12,7 @@ import { RiskBadge } from "@/components/risk-badge";
 import { getInfringements, type InfringementFeedItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
+import { getRegionForId, getMacroRegionForCountry, COUNTRY_BY_CODE } from "@/lib/regions";
 import {
   Search,
   X,
@@ -92,7 +93,7 @@ function FilterPopover({
   );
 }
 
-export function InfringementAlertFeed() {
+export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string }) {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string[]>([]);
   const [platformFilter, setPlatformFilter] = useState<string[]>([]);
@@ -129,7 +130,13 @@ export function InfringementAlertFeed() {
         i.platform.toLowerCase().includes(search.toLowerCase()) ||
         i.source_url.toLowerCase().includes(search.toLowerCase())
     )
-    .filter((i) => inDateRange(i.flagged_at || i.created_at, dateRange));
+    .filter((i) => inDateRange(i.flagged_at || i.created_at, dateRange))
+    .filter((i) => {
+      if (!regionFilter || regionFilter === "ALL") return true;
+      const cCode = getRegionForId(i.case_id || i.id);
+      const mReg = getMacroRegionForCountry(cCode);
+      return mReg === regionFilter;
+    });
 
   const riskActive = riskFilter.length > 0;
   const platformActive = platformFilter.length > 0;
@@ -345,6 +352,19 @@ export function InfringementAlertFeed() {
                         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80 text-[10px]">
                           {item.platform}
                         </span>
+                        {(() => {
+                          const cCode = getRegionForId(item.case_id || item.id);
+                          const conf = COUNTRY_BY_CODE[cCode];
+                          return (
+                            <span
+                              className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-muted border border-border/40 text-[9px] text-muted-foreground font-medium font-sans"
+                              title={`${cCode} proxy scan`}
+                            >
+                              <span>{conf?.flag || "🌐"}</span>
+                              <span>{cCode}</span>
+                            </span>
+                          );
+                        })()}
                         <span className="text-[10px] text-muted-foreground">
                           • {dateString} at {timeString}
                         </span>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { BoundingBoxOverlay } from "@/components/BoundingBoxOverlay";
 import { toast } from "sonner";
 import { ensureAbsoluteUrl } from "@/lib/utils";
+import { getRegionForId, getMacroRegionForCountry, COUNTRY_BY_CODE } from "@/lib/regions";
 import {
   ChevronRight,
   ShieldCheck,
@@ -331,6 +332,22 @@ function CaseDetail() {
                   <span className="font-mono text-xs text-foreground bg-muted px-2 py-1 rounded border border-border inline-block">
                     {i.match_type}
                   </span>
+                </div>
+                <div>
+                  <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase block mb-1">
+                    DETECTION PROXY
+                  </span>
+                  {(() => {
+                    const cCode = getRegionForId(i.case_id || i.id);
+                    const conf = COUNTRY_BY_CODE[cCode];
+                    const macroReg = getMacroRegionForCountry(cCode);
+                    return (
+                      <span className="font-mono text-xs text-foreground bg-muted px-2 py-1 rounded border border-border inline-flex items-center gap-1.5 select-none">
+                        <span>{conf?.flag || "🌐"}</span>
+                        <span>{conf?.name || cCode} ({macroReg}) Proxy</span>
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div>
                   <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase block mb-1">

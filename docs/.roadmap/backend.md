@@ -60,6 +60,7 @@ This document outlines the priority ordering for backend services, engines, data
 | Image OCR (Gemini Vision) | ✅ Done | `ocr_extract_text()` in `services/detection.py` — uses Gemini 2.5 Flash vision |
 | `generate_analysis()` in `ai.py` (AIAnalysis schema) | ✅ Done | `AIAnalysis` model + `generate_evidence_analysis()` in `services/ai.py` — structured per-evidence output via Gemini Vision |
 | `ai_analysis (jsonb)` stored on evidence row | ✅ Done | `persist_evidence()` auto-populates when `brand_name` is provided |
+| Fuzzy Domain Pre-Filter & Clone Validation | ✅ Done | Filters out non-brand relevant domains (similarity < 0.60) and ignores non-clone domains from evidence scoring |
 
 ---
 

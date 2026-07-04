@@ -46,27 +46,27 @@ const stats = [
 
 export function HeroV3() {
   return (
-    <section className="relative flex min-h-screen flex-col overflow-hidden border-b border-border bg-[radial-gradient(130%_120%_at_78%_18%,oklch(0.97_0.02_255)_0%,oklch(0.985_0.005_250)_46%,oklch(0.98_0.004_250)_100%)] text-foreground">
+    <section className="relative flex min-h-screen flex-col overflow-hidden border-b border-border bg-[radial-gradient(130%_120%_at_78%_18%,oklch(0.97_0.02_255)_0%,oklch(0.985_0.005_250)_46%,oklch(0.98_0.004_250)_100%)] dark:bg-[radial-gradient(130%_120%_at_78%_18%,oklch(0.18_0.04_260)_0%,oklch(0.14_0.03_260)_46%,oklch(0.12_0.03_260)_100%)] text-foreground">
       {/* faint grid detail */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-[0.5] [background-image:linear-gradient(oklch(0.7_0.03_255/0.12)_1px,transparent_1px),linear-gradient(90deg,oklch(0.7_0.03_255/0.12)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(120%_100%_at_75%_20%,black_0%,transparent_72%)]"
       />
 
-      <div className="relative mx-auto grid w-full max-w-[1560px] flex-1 items-center gap-12 px-6 pb-10 pt-28 md:px-12 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:gap-16 lg:pb-8 lg:pl-16 lg:pr-8 lg:pt-28 xl:pl-24 xl:pr-12">
+      <div className="relative mx-auto grid w-full max-w-[1560px] flex-1 items-start gap-12 px-6 pb-10 pt-20 md:px-12 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:gap-16 lg:pb-8 lg:pl-16 lg:pr-8 lg:pt-24 xl:pl-24 xl:pr-12">
         {/* ── LEFT: marketing content ─────────────────────────────── */}
         <div className="flex flex-col justify-center">
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[oklch(0.58_0.18_255/0.25)] bg-white/70 px-3.5 py-1.5 text-sm font-medium text-[oklch(0.5_0.16_255)] shadow-sm shadow-[oklch(0.58_0.18_255/0.08)] backdrop-blur">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[oklch(0.58_0.18_255/0.25)] dark:border-white/10 bg-white/70 dark:bg-slate-900/70 px-3.5 py-1.5 text-sm font-medium text-[oklch(0.5_0.16_255)] dark:text-blue-400 shadow-sm shadow-[oklch(0.58_0.18_255/0.08)] dark:shadow-none backdrop-blur">
             <Radio className="h-4 w-4" strokeWidth={2.25} />
             Always-on brand monitoring
           </div>
 
-          <h1 className="mt-7 font-display text-5xl font-bold leading-[1.03] tracking-tight text-[oklch(0.22_0.05_262)] md:text-6xl lg:text-[3.9rem]">
+          <h1 className="mt-7 font-display text-5xl font-bold leading-[1.03] tracking-tight text-[oklch(0.22_0.05_262)] dark:text-slate-100 md:text-6xl lg:text-[3.9rem]">
             Detect infringements before they spread
             <span className="text-[oklch(0.58_0.18_255)]">.</span>
           </h1>
 
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-[oklch(0.5_0.03_257)]">
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-[oklch(0.5_0.03_257)] dark:text-slate-400">
             Tracemark monitors marketplaces, social channels, domains, and listings to turn
             suspicious activity into evidence-ready takedown cases.
           </p>
@@ -86,7 +86,7 @@ export function HeroV3() {
               asChild
               size="lg"
               variant="outline"
-              className="h-12 gap-2 rounded-xl border-[oklch(0.58_0.18_255/0.35)] bg-white/60 px-6 text-base text-[oklch(0.45_0.16_262)] hover:bg-white hover:text-[oklch(0.4_0.17_262)]"
+              className="h-12 gap-2 rounded-xl border-[oklch(0.58_0.18_255/0.35)] dark:border-white/20 bg-white/60 dark:bg-slate-900/60 px-6 text-base text-[oklch(0.45_0.16_262)] dark:text-slate-300 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-[oklch(0.4_0.17_262)] dark:hover:text-white"
             >
               <a href="#how">
                 <Monitor className="h-4.5 w-4.5" />
@@ -108,10 +108,10 @@ export function HeroV3() {
           {stats.map((s) => (
             <div key={s.label} className="flex items-baseline gap-2">
               <dt className="sr-only">{s.label}</dt>
-              <dd className="font-display text-xl font-semibold tracking-tight text-[oklch(0.22_0.05_262)]">
+              <dd className="font-display text-xl font-semibold tracking-tight text-[oklch(0.22_0.05_262)] dark:text-slate-100">
                 {s.value}
               </dd>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-[oklch(0.5_0.03_257)]">
+              <span className="text-[11px] uppercase tracking-[0.14em] text-[oklch(0.5_0.03_257)] dark:text-slate-400">
                 {s.label}
               </span>
             </div>
@@ -291,7 +291,7 @@ function InvestigateScene() {
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.95_0.03_262)] text-[oklch(0.5_0.16_262)]">
               <e.icon className="h-3.5 w-3.5" strokeWidth={2} />
             </span>
-            <span className="text-xs font-medium leading-tight text-[oklch(0.3_0.04_262)]">
+            <span className="text-xs font-medium leading-tight text-[oklch(0.3_0.04_262)] dark:text-slate-200">
               {e.label}
             </span>
           </div>
@@ -454,7 +454,7 @@ function RadarField({ phase }: { phase: number }) {
    ──────────────────────────────────────────────────────────────────── */
 
 const cardBase =
-  "rounded-2xl border border-[oklch(0.9_0.01_255)] bg-white shadow-[0_18px_40px_-24px_oklch(0.4_0.1_262/0.45)]";
+  "rounded-2xl border border-[oklch(0.9_0.01_255)] dark:border-white/10 bg-white dark:bg-slate-900 shadow-[0_18px_40px_-24px_oklch(0.4_0.1_262/0.45)] dark:shadow-none";
 
 function ProductCard({
   reference,
@@ -467,7 +467,7 @@ function ProductCard({
     <div className={cn(cardBase, reference ? "w-40 p-3" : "w-48 p-3.5")}>
       <div
         className={cn(
-          "flex w-full items-center justify-center rounded-xl bg-[oklch(0.96_0.006_255)]",
+          "flex w-full items-center justify-center rounded-xl bg-[oklch(0.96_0.006_255)] dark:bg-slate-950",
           reference ? "h-14" : "h-20",
         )}
       >
@@ -479,26 +479,26 @@ function ProductCard({
           }}
         >
           <Headphones className={reference ? "h-5 w-5" : "h-6.5 w-6.5"} strokeWidth={1.5} />
-          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[0.55rem] font-bold text-[oklch(0.3_0.05_262)] shadow">
+          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white dark:bg-slate-800 text-[0.55rem] font-bold text-[oklch(0.3_0.05_262)] dark:text-slate-200 shadow">
             M
           </span>
         </div>
       </div>
       <div
         className={cn(
-          "mt-2.5 font-semibold text-[oklch(0.22_0.05_262)]",
+          "mt-2.5 font-semibold text-[oklch(0.22_0.05_262)] dark:text-slate-100",
           reference ? "text-sm" : "text-base",
         )}
       >
         Marka Headphones
       </div>
       <div className="mt-1 flex items-center gap-1.5">
-        <ShieldCheck className="h-3.5 w-3.5 text-[oklch(0.3_0.05_262)]" strokeWidth={2.25} />
-        <span className="text-xs font-medium text-[oklch(0.35_0.04_262)]">Marka</span>
+        <ShieldCheck className="h-3.5 w-3.5 text-[oklch(0.3_0.05_262)] dark:text-slate-400" strokeWidth={2.25} />
+        <span className="text-xs font-medium text-[oklch(0.35_0.04_262)] dark:text-slate-300">Marka</span>
         <BadgeCheck className="h-3.5 w-3.5 text-[oklch(0.58_0.18_255)]" strokeWidth={2.25} />
       </div>
       {protectedPill && (
-        <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.95_0.05_155)] px-2.5 py-1 text-xs font-semibold text-[oklch(0.45_0.12_155)]">
+        <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.95_0.05_155)] dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-semibold text-[oklch(0.45_0.12_155)] dark:text-emerald-400">
           <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.25} />
           Protected
         </span>
@@ -510,18 +510,18 @@ function ProductCard({
 function BrandRegistrationCard({ compact }: { compact?: boolean }) {
   return (
     <div className={cn(cardBase, compact ? "w-48 p-4" : "w-52 p-4")}>
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[oklch(0.95_0.03_262)] text-[oklch(0.55_0.18_262)]">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[oklch(0.95_0.03_262)] dark:bg-indigo-950/40 text-[oklch(0.55_0.18_262)] dark:text-indigo-400 dark:text-indigo-400">
         <Award className="h-5.5 w-5.5" strokeWidth={2} />
       </div>
-      <div className="mt-3 text-[0.95rem] font-semibold text-[oklch(0.25_0.05_262)]">
+      <div className="mt-3 text-[0.95rem] font-semibold text-[oklch(0.25_0.05_262)] dark:text-slate-100">
         Brand Registration
       </div>
-      <div className="mt-1 text-sm leading-snug text-[oklch(0.55_0.03_257)]">
+      <div className="mt-1 text-sm leading-snug text-[oklch(0.55_0.03_257)] dark:text-slate-400">
         USPTO
         <br />
         Reg. No. 5,123,456
       </div>
-      <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[oklch(0.5_0.13_155)]">
+      <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[oklch(0.5_0.13_155)] dark:text-emerald-400">
         <span className="h-2 w-2 rounded-full bg-[oklch(0.62_0.15_155)]" />
         Active
       </div>
@@ -533,22 +533,22 @@ function MarketplaceCard() {
   return (
     <div className={cn(cardBase, "w-52 p-4")}>
       <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[oklch(0.95_0.03_255)] text-[oklch(0.5_0.16_255)]">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[oklch(0.95_0.03_255)] dark:bg-blue-950/40 text-[oklch(0.5_0.16_255)] dark:text-blue-400">
           <ShoppingBag className="h-4 w-4" strokeWidth={2} />
         </span>
-        <span className="text-sm font-semibold text-[oklch(0.25_0.05_262)]">Amazon</span>
+        <span className="text-sm font-semibold text-[oklch(0.25_0.05_262)] dark:text-slate-100 dark:text-slate-100">Amazon</span>
       </div>
       <div className="mt-3 flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.96_0.006_255)] text-[oklch(0.4_0.03_262)]">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.96_0.006_255)] dark:bg-slate-950 text-[oklch(0.4_0.03_262)] dark:text-slate-300">
           <Headphones className="h-6 w-6" strokeWidth={1.75} />
         </div>
         <div className="min-w-0 flex-1 space-y-1.5">
-          <span className="block h-2 w-full rounded-full bg-[oklch(0.92_0.01_255)]" />
-          <span className="block h-2 w-3/5 rounded-full bg-[oklch(0.94_0.008_255)]" />
-          <span className="text-sm font-semibold text-[oklch(0.3_0.04_262)]">$59.99</span>
+          <span className="block h-2 w-full rounded-full bg-[oklch(0.92_0.01_255)] dark:bg-slate-800" />
+          <span className="block h-2 w-3/5 rounded-full bg-[oklch(0.94_0.008_255)] dark:bg-slate-850" />
+          <span className="text-sm font-semibold text-[oklch(0.3_0.04_262)] dark:text-slate-200">$59.99</span>
         </div>
       </div>
-      <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.95_0.03_255)] px-2.5 py-1 text-sm font-medium text-[oklch(0.5_0.16_255)]">
+      <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.95_0.03_255)] dark:bg-blue-950/40 px-2.5 py-1 text-sm font-medium text-[oklch(0.5_0.16_255)] dark:text-blue-400">
         <ShoppingBag className="h-3.5 w-3.5" strokeWidth={2} />
         Marketplace
       </span>
@@ -559,13 +559,13 @@ function MarketplaceCard() {
 function WebsiteCard() {
   return (
     <div className={cn(cardBase, "w-52 p-4")}>
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[oklch(0.95_0.04_180)] text-[oklch(0.5_0.13_180)]">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[oklch(0.95_0.04_180)] dark:bg-teal-950/40 text-[oklch(0.5_0.13_180)] dark:text-teal-400">
         <Globe className="h-5.5 w-5.5" strokeWidth={2} />
       </div>
-      <div className="mt-3 text-[0.95rem] font-semibold text-[oklch(0.25_0.05_262)]">
+      <div className="mt-3 text-[0.95rem] font-semibold text-[oklch(0.25_0.05_262)] dark:text-slate-100">
         cheapheadphones.co
       </div>
-      <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.95_0.04_180)] px-2.5 py-1 text-sm font-medium text-[oklch(0.45_0.11_180)]">
+      <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[oklch(0.95_0.04_180)] dark:bg-teal-950/40 px-2.5 py-1 text-sm font-medium text-[oklch(0.45_0.11_180)] dark:text-teal-400">
         <Globe className="h-3.5 w-3.5" strokeWidth={2} />
         Website / Domain
       </span>
@@ -576,7 +576,7 @@ function WebsiteCard() {
 // The suspicious listing — appears outside the boundary, then gets flagged.
 function UnauthorizedCard() {
   return (
-    <div className="relative w-56 rounded-2xl border border-[oklch(0.58_0.22_27/0.5)] bg-white p-4 shadow-[0_0_0_4px_oklch(0.58_0.22_27/0.08),0_18px_40px_-22px_oklch(0.58_0.22_27/0.5)] duration-500 animate-in fade-in-0 slide-in-from-bottom-3">
+    <div className="relative w-56 rounded-2xl border border-[oklch(0.58_0.22_27/0.5)] dark:border-red-950/50 bg-white dark:bg-slate-900 p-4 shadow-[0_0_0_4px_oklch(0.58_0.22_27/0.08),0_18px_40px_-22px_oklch(0.58_0.22_27/0.5)] dark:shadow-none duration-500 animate-in fade-in-0 slide-in-from-bottom-3">
       {/* target rings — Tracemark locks on */}
       <span className="absolute -left-3 -top-3 flex h-9 w-9 items-center justify-center">
         <span className="absolute h-full w-full rounded-full border-2 border-[oklch(0.58_0.22_27/0.5)] motion-safe:animate-ping" />
@@ -585,15 +585,15 @@ function UnauthorizedCard() {
 
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.96_0.006_255)] text-[oklch(0.4_0.03_262)]">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.96_0.006_255)] dark:bg-slate-950 text-[oklch(0.4_0.03_262)] dark:text-slate-300">
             <Headphones className="h-5.5 w-5.5" strokeWidth={1.75} />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-[oklch(0.25_0.05_262)]">
+            <div className="text-sm font-semibold text-[oklch(0.25_0.05_262)] dark:text-slate-100 dark:text-slate-100">
               Marka Headphones
             </div>
-            <div className="text-xs text-[oklch(0.55_0.03_257)]">Unknown Seller</div>
-            <div className="text-sm font-bold text-[oklch(0.55_0.2_27)]">$29.99</div>
+            <div className="text-xs text-[oklch(0.55_0.03_257)] dark:text-slate-400">Unknown Seller</div>
+            <div className="text-sm font-bold text-[oklch(0.55_0.2_27)] dark:text-red-400">$29.99</div>
           </div>
         </div>
         <span className="rounded-md bg-[oklch(0.58_0.22_27)] px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-white">
@@ -612,7 +612,7 @@ function UnauthorizedCard() {
 
 function RiskChip({ icon: Icon, label }: { icon: typeof ShieldCheck; label: string }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-lg bg-[oklch(0.96_0.04_27)] px-2.5 py-1 text-sm font-medium text-[oklch(0.55_0.2_27)]">
+    <div className="flex items-center gap-1.5 rounded-lg bg-[oklch(0.96_0.04_27)] dark:bg-red-950/40 px-2.5 py-1 text-sm font-medium text-[oklch(0.55_0.2_27)] dark:text-red-400">
       <Icon className="h-4 w-4" strokeWidth={2.25} />
       {label}
     </div>
@@ -622,25 +622,25 @@ function RiskChip({ icon: Icon, label }: { icon: typeof ShieldCheck; label: stri
 // The marketplace listing, reframed as the source once investigated.
 function SourceCard() {
   return (
-    <div className="w-52 rounded-2xl border border-[oklch(0.58_0.22_27/0.45)] bg-[oklch(0.99_0.01_27)] p-4 shadow-[0_18px_40px_-24px_oklch(0.58_0.22_27/0.4)]">
+    <div className="w-52 rounded-2xl border border-[oklch(0.58_0.22_27/0.45)] dark:border-red-950/50 bg-[oklch(0.99_0.01_27)] dark:bg-slate-900 p-4 shadow-[0_18px_40px_-24px_oklch(0.58_0.22_27/0.4)] dark:shadow-none">
       <div className="flex items-center gap-2">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[oklch(0.96_0.04_27)] text-[oklch(0.55_0.2_27)]">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[oklch(0.96_0.04_27)] dark:bg-red-950/40 text-[oklch(0.55_0.2_27)] dark:text-red-400">
           <ShoppingBag className="h-4 w-4" strokeWidth={2} />
         </span>
-        <span className="text-sm font-semibold text-[oklch(0.4_0.06_27)]">Amazon</span>
+        <span className="text-sm font-semibold text-[oklch(0.4_0.06_27)] dark:text-slate-100">Amazon</span>
       </div>
       <div className="mt-3 flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.96_0.02_27)] text-[oklch(0.5_0.12_27)]">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[oklch(0.96_0.02_27)] dark:bg-red-950/40 text-[oklch(0.5_0.12_27)] dark:text-red-300">
           <Headphones className="h-5.5 w-5.5" strokeWidth={1.75} />
         </div>
-        <div className="text-sm font-bold text-[oklch(0.55_0.2_27)]">$29.99</div>
+        <div className="text-sm font-bold text-[oklch(0.55_0.2_27)] dark:text-red-400">$29.99</div>
       </div>
       <div className="mt-3 rounded-lg bg-[oklch(0.96_0.04_27)] px-2.5 py-1.5">
-        <div className="flex items-center gap-1.5 text-sm font-semibold text-[oklch(0.5_0.2_27)]">
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-[oklch(0.5_0.2_27)] dark:text-red-400">
           <AlertTriangle className="h-4 w-4" strokeWidth={2.25} />
           Source of infringement
         </div>
-        <div className="mt-0.5 pl-5.5 text-xs text-[oklch(0.55_0.12_27)]">Under investigation</div>
+        <div className="mt-0.5 pl-5.5 text-xs text-[oklch(0.55_0.12_27)] dark:text-red-300">Under investigation</div>
       </div>
     </div>
   );
@@ -656,22 +656,22 @@ const EVIDENCE_CHECKLIST = [
 
 function EvidencePackCard() {
   return (
-    <div className="w-60 rounded-3xl border border-[oklch(0.6_0.12_300/0.3)] bg-white p-5 shadow-[0_28px_60px_-28px_oklch(0.4_0.1_262/0.5)]">
+    <div className="w-60 rounded-3xl border border-[oklch(0.6_0.12_300/0.3)] dark:border-white/10 bg-white dark:bg-slate-900 p-5 shadow-[0_28px_60px_-28px_oklch(0.4_0.1_262/0.5)] dark:shadow-none">
       <div className="flex items-center justify-between">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[oklch(0.95_0.04_300)] text-[oklch(0.5_0.16_300)]">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[oklch(0.95_0.04_300)] dark:bg-purple-950/40 text-[oklch(0.5_0.16_300)] dark:text-purple-400">
           <FolderCheck className="h-5.5 w-5.5" strokeWidth={2} />
         </div>
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[oklch(0.55_0.19_262)] text-xs font-bold text-white">
           5
         </span>
       </div>
-      <div className="mt-3 text-lg font-semibold text-[oklch(0.22_0.05_262)]">Evidence pack</div>
-      <div className="text-sm text-[oklch(0.55_0.03_257)]">5 captures</div>
+      <div className="mt-3 text-lg font-semibold text-[oklch(0.22_0.05_262)] dark:text-slate-100">Evidence pack</div>
+      <div className="text-sm text-[oklch(0.55_0.03_257)] dark:text-slate-400">5 captures</div>
       <ul className="mt-3 space-y-1.5">
         {EVIDENCE_CHECKLIST.map((item, i) => (
           <li
             key={item}
-            className="flex items-center gap-2 text-sm text-[oklch(0.35_0.03_262)] duration-500 animate-in fade-in-0 slide-in-from-left-2"
+            className="flex items-center gap-2 text-sm text-[oklch(0.35_0.03_262)] dark:text-slate-350 duration-500 animate-in fade-in-0 slide-in-from-left-2"
             style={{ animationDelay: `${i * 80}ms` }}
           >
             <Check className="h-4 w-4 text-[oklch(0.55_0.13_155)]" strokeWidth={2.75} />
@@ -695,31 +695,31 @@ const TAKEDOWN_ROWS = [
 
 function TakedownCard() {
   return (
-    <div className="w-72 rounded-3xl border border-[oklch(0.62_0.15_155/0.4)] bg-white p-6 shadow-[0_0_0_4px_oklch(0.62_0.15_155/0.08),0_32px_70px_-30px_oklch(0.4_0.1_262/0.55)] duration-500 animate-in fade-in-0 zoom-in-95">
+    <div className="w-72 rounded-3xl border border-[oklch(0.62_0.15_155/0.4)] dark:border-white/10 bg-white dark:bg-slate-900 p-6 shadow-[0_0_0_4px_oklch(0.62_0.15_155/0.08),0_32px_70px_-30px_oklch(0.4_0.1_262/0.55)] dark:shadow-none duration-500 animate-in fade-in-0 zoom-in-95">
       <div className="flex justify-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[oklch(0.95_0.05_155)] text-[oklch(0.55_0.14_155)]">
           <Check className="h-7 w-7" strokeWidth={3} />
         </span>
       </div>
-      <div className="mt-3 text-center text-xl font-semibold text-[oklch(0.45_0.13_155)]">
+      <div className="mt-3 text-center text-xl font-semibold text-[oklch(0.45_0.13_155)] dark:text-emerald-400">
         Takedown ready
       </div>
       <dl className="mt-4 space-y-2.5">
         {TAKEDOWN_ROWS.map((r) => (
           <div key={r.label} className="flex items-center justify-between gap-2">
-            <dt className="flex items-center gap-1.5 text-sm text-[oklch(0.5_0.03_257)]">
+            <dt className="flex items-center gap-1.5 text-sm text-[oklch(0.5_0.03_257)] dark:text-slate-400">
               <r.icon className="h-4 w-4" strokeWidth={2} />
               {r.label}
             </dt>
-            <dd className="text-sm font-medium text-[oklch(0.28_0.04_262)]">{r.value}</dd>
+            <dd className="text-sm font-medium text-[oklch(0.28_0.04_262)] dark:text-slate-200">{r.value}</dd>
           </div>
         ))}
         <div className="flex items-center justify-between gap-2">
-          <dt className="flex items-center gap-1.5 text-sm text-[oklch(0.5_0.03_257)]">
+          <dt className="flex items-center gap-1.5 text-sm text-[oklch(0.5_0.03_257)] dark:text-slate-400">
             <Clock className="h-4 w-4" strokeWidth={2} />
             Status
           </dt>
-          <dd className="flex items-center gap-1.5 text-sm font-medium text-[oklch(0.45_0.12_155)]">
+          <dd className="flex items-center gap-1.5 text-sm font-medium text-[oklch(0.45_0.12_155)] dark:text-emerald-400">
             <span className="h-2 w-2 rounded-full bg-[oklch(0.62_0.15_155)]" />
             Ready to submit
           </dd>

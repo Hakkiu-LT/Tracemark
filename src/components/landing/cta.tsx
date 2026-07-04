@@ -50,13 +50,13 @@ export function CTA() {
   return (
     <section ref={ref} className="relative overflow-hidden border-b border-border bg-background px-6 py-16 md:py-20">
       <div
-        className="pointer-events-none absolute inset-0 bg-repeat opacity-50"
+        className="pointer-events-none absolute inset-0 bg-repeat opacity-50 dark:opacity-0"
         style={{ backgroundImage: `url(${bgUrl})`, backgroundSize: "1366px auto" }}
         aria-hidden="true"
       />
       <div
         className={cn(
-          "relative mx-auto max-w-[80rem] overflow-hidden rounded-3xl bg-[oklch(0.21_0.05_260)] text-white shadow-[0_30px_80px_-40px_rgba(15,23,42,0.55)] transition-all duration-700 ease-out motion-reduce:transition-none",
+          "relative mx-auto max-w-[80rem] overflow-hidden rounded-3xl bg-[oklch(0.21_0.05_260)] dark:bg-white border border-transparent dark:border-white/10 text-white dark:text-slate-900 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.55)] dark:shadow-none transition-all duration-700 ease-out motion-reduce:transition-none",
           inView ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
         )}
       >
@@ -98,7 +98,7 @@ export function CTA() {
               <h2 className="font-display text-3xl font-bold leading-tight tracking-tight md:text-4xl">
                 Your brand won&rsquo;t protect itself.
               </h2>
-              <p className="mt-2 max-w-md text-base leading-relaxed text-white/65">
+              <p className="mt-2 max-w-md text-base leading-relaxed text-white/65 dark:text-slate-600">
                 Start monitoring in minutes. Detect, document, and take action from one
                 workspace.
               </p>
@@ -123,7 +123,7 @@ export function CTA() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="border-white/25 bg-white/5 text-white hover:border-white/40 hover:bg-white/10 hover:text-white"
+                className="border-white/25 bg-white/5 text-white hover:border-white/40 hover:bg-white/10 hover:text-white dark:border-slate-300 dark:bg-transparent dark:text-slate-900 dark:hover:bg-slate-100 dark:hover:text-slate-900"
               >
                 <Link to="/plans">
                   Book a demo
@@ -131,7 +131,7 @@ export function CTA() {
                 </Link>
               </Button>
             </div>
-            <div className="flex items-center gap-2 text-sm text-white/65">
+            <div className="flex items-center gap-2 text-sm text-white/65 dark:text-slate-600">
               <CheckCircle2
                 className="h-4 w-4 shrink-0"
                 strokeWidth={2}
