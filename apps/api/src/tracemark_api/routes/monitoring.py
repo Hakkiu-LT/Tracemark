@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, field_validator
 from typing import Literal
 from urllib.parse import urlparse
+import socket
+import ipaddress
 from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
@@ -30,9 +32,21 @@ class MonitorRequest(BaseModel):
         if parsed.scheme not in ("http", "https"):
             raise ValueError("Only http/https URLs are allowed")
         host = (parsed.hostname or "").lower()
+
+        # String blocklist fallback
         for private in _PRIVATE_NETS:
             if host.startswith(private) or host == private.rstrip("."):
                 raise ValueError("Internal/private URLs are not allowed")
+
+        # Resolve IP to prevent DNS-based bypass and IP obfuscation
+        try:
+            ip = socket.gethostbyname(host)
+            ip_obj = ipaddress.ip_address(ip)
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_multicast or ip_obj.is_reserved:
+                raise ValueError("Internal/private URLs are not allowed")
+        except socket.gaierror:
+            pass # Invalid host will fail to resolve
+
         return v
 
 
