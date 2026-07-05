@@ -37,19 +37,36 @@ SAMPLE_EVIDENCE = {
 
 def _make_sb(data, count=None):
     sb = MagicMock()
-    q = MagicMock()
-    q.select.return_value = q
-    q.order.return_value = q
-    q.limit.return_value = q
-    q.offset.return_value = q
-    q.eq.return_value = q
-    q.ilike.return_value = q
-    q.maybe_single.return_value = q
-    result = MagicMock()
-    result.data = data
-    result.count = count
-    q.execute.return_value = result
-    sb.table.return_value = q
+    q_infringements = MagicMock()
+    q_infringements.select.return_value = q_infringements
+    q_infringements.order.return_value = q_infringements
+    q_infringements.limit.return_value = q_infringements
+    q_infringements.offset.return_value = q_infringements
+    q_infringements.eq.return_value = q_infringements
+    q_infringements.ilike.return_value = q_infringements
+    q_infringements.is_.return_value = q_infringements
+    q_infringements.not_ = q_infringements
+    q_infringements.maybe_single.return_value = q_infringements
+    result_inf = MagicMock()
+    result_inf.data = data
+    result_inf.count = count
+    q_infringements.execute.return_value = result_inf
+    
+    sb.table.return_value = q_infringements
+
+    def get_query(name):
+        if name == "org_settings":
+            q_org = MagicMock()
+            q_org.select.return_value = q_org
+            q_org.eq.return_value = q_org
+            q_org.maybe_single.return_value = q_org
+            res_org = MagicMock()
+            res_org.data = {"persona": "brand_owner"}
+            q_org.execute.return_value = res_org
+            return q_org
+        return q_infringements
+
+    sb.table.side_effect = get_query
     return sb
 
 

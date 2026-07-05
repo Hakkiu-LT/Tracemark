@@ -1,0 +1,890 @@
+﻿diff --git a/apps/api/src/tracemark_api/services/marketplace.py b/apps/api/src/tracemark_api/services/marketplace.py
+index 087f35b..f56c7a7 100644
+--- a/apps/api/src/tracemark_api/services/marketplace.py
++++ b/apps/api/src/tracemark_api/services/marketplace.py
+@@ -14,6 +14,13 @@ from tracemark_api.services.firecrawl_client import scrape_page, ScrapeResult
+ from tracemark_api.services.domain_whitelist import whitelist_service
+ from dotenv import find_dotenv
+ from tracemark_api.services.ai import Evidence, MarketplaceEvidence, DomainEvidence, AdEvidence, SocialEvidence
++from tracemark_api.services.geo import (
++    AMAZON_DOMAINS,
++    EBAY_DOMAINS,
++    EBAY_GLOBAL_IDS,
++    firecrawl_location,
++    serpapi_geo_params,
++)
+ 
+ # Import usage tracker components
+ from tracemark_api.services.api_usage_tracker import tracker, call_with_tracking, ApiLimitError
+@@ -277,21 +284,17 @@ class AmazonScraper:
+ 
+     def __init__(self):
+         self._scraper = UnifiedScraper()
+-
+-    def search(self, keyword: str, max_pages: int = 3, caller_id: str = "system") -> list[dict]:
++    def search(
++        self, keyword: str, max_pages: int = 3, caller_id: str = "system", country: str = "US"
++    ) -> list[dict]:
+         """
+         Scrape Amazon search results pages.
+-        Args:
+-            keyword:   Brand name to search
+-            max_pages: Number of result pages to crawl
+-            caller_id: Authenticated user email or id
+-        Returns:
+-            List of listing dicts: title, price, seller, url, rating, reviews, ship_from
+         """
+         listings = []
+         encoded = keyword.replace(" ", "+")
++        domain = AMAZON_DOMAINS.get(country.upper(), "www.amazon.com")
+         for page in range(1, max_pages + 1):
+-            url = f"https://www.amazon.com/s?k={encoded}&page={page}"
++            url = f"https://{domain}/s?k={encoded}&page={page}"
+             try:
+                 result = self._scraper.scrape(url, caller_id=caller_id)
+                 if not result.success or not result.html:
+@@ -299,7 +302,7 @@ class AmazonScraper:
+                     break
+                 soup = BeautifulSoup(result.html, "html.parser")
+                 for item in soup.select("[data-component-type='s-search-result']"):
+-                    listing = self.extract_listing_data(item)
++                    listing = self.extract_listing_data(item, country=country)
+                     if listing:
+                         listings.append(listing)
+             except ApiLimitError:
+@@ -309,10 +312,9 @@ class AmazonScraper:
+                 break
+         return listings
+ 
+-    def extract_listing_data(self, element) -> dict | None:
++    def extract_listing_data(self, element, country: str = "US") -> dict | None:
+         """
+         Parse a single product card element from Amazon's HTML.
+-        Returns dict with: title, price, seller, url, rating, reviews, ship_from
+         """
+         try:
+             title = element.select_one("h2 span")
+@@ -321,11 +323,12 @@ class AmazonScraper:
+             link = element.select_one("h2 a")
+             rating = element.select_one(".a-icon-alt")
+             reviews = element.select_one(".a-size-small .a-link-normal")
++            domain = AMAZON_DOMAINS.get(country.upper(), "www.amazon.com")
+             return {
+                 "title": title.text.strip() if title else None,
+                 "price": price.text.strip() if price else None,
+                 "seller": seller.text.strip() if seller else None,
+-                "url": f"https://amazon.com{link['href']}" if link and 'href' in link.attrs else None,
++                "url": f"https://{domain}{link['href']}" if link and 'href' in link.attrs else None,
+                 "rating": rating.text.split(" ")[0] if rating else None,
+                 "reviews": reviews.text.strip() if reviews else None,
+                 "ship_from": "N/A",
+@@ -344,7 +347,9 @@ class EbayScraper:
+     def __init__(self):
+         self._scraper = UnifiedScraper()
+ 
+-    def _search_via_api(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict] | None:
++    def _search_via_api(
++        self, keyword: str, max_pages: int = 2, caller_id: str = "system", country: str = "US"
++    ) -> list[dict] | None:
+         app_id = os.environ.get("EBAY_APP_ID")
+         if not app_id:
+             return None
+@@ -361,6 +366,7 @@ class EbayScraper:
+                     "keywords": keyword,
+                     "paginationInput.entriesPerPage": 20,
+                     "paginationInput.pageNumber": page,
++                    "GLOBAL-ID": EBAY_GLOBAL_IDS.get(country.upper(), "EBAY-US"),
+                 }
+                 resp = call_with_tracking(
+                     "ebay_api", caller_id, "/findItems",
+@@ -398,18 +404,21 @@ class EbayScraper:
+             print(f"[EbayScraper] API search failed: {e}")
+             return None
+ 
+-    def search(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict]:
++    def search(
++        self, keyword: str, max_pages: int = 2, caller_id: str = "system", country: str = "US"
++    ) -> list[dict]:
+         """
+         Scrape eBay search results pages and extract structured listing data.
+         """
+-        api_results = self._search_via_api(keyword, max_pages, caller_id)
++        api_results = self._search_via_api(keyword, max_pages, caller_id, country=country)
+         if api_results is not None:
+             return api_results
+ 
+         listings = []
+         encoded = keyword.replace(" ", "+")
++        domain = EBAY_DOMAINS.get(country.upper(), "www.ebay.com")
+         for page in range(1, max_pages + 1):
+-            url = f"https://www.ebay.com/sch/i.html?_nkw={encoded}&_pgn={page}"
++            url = f"https://{domain}/sch/i.html?_nkw={encoded}&_pgn={page}"
+             try:
+                 result = self._scraper.scrape(url, caller_id=caller_id)
+                 if not result.success or not result.html:
+@@ -533,7 +542,7 @@ class AlibabaScraper:
+             print(f"[AlibabaScraper] API search failed: {e}")
+             return None
+ 
+-    def search(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict]:
++    def search(self, keyword: str, max_pages: int = 2, caller_id: str = "system", country: str = "US") -> list[dict]:
+         api_results = self._search_via_api(keyword, max_pages, caller_id)
+         if api_results is not None:
+             return api_results
+@@ -578,7 +587,7 @@ class EtsyScraper:
+     def __init__(self):
+         self._scraper = UnifiedScraper()
+ 
+-    def search(self, keyword: str, max_pages: int = 2, caller_id: str = "system") -> list[dict]:
++    def search(self, keyword: str, max_pages: int = 2, caller_id: str = "system", country: str = "US") -> list[dict]:
+         listings = []
+         encoded = urllib.parse.quote_plus(keyword)
+         for page in range(1, max_pages + 1):
+@@ -700,7 +709,7 @@ class AliExpressScraper:
+             print(f"[AliExpressScraper] API search failed: {e}")
+             return None
+ 
+-    def search(self, keyword: str, caller_id: str = "system") -> str:
++    def search(self, keyword: str, caller_id: str = "system", country: str = "US") -> str:
+         """
+         Scrape AliExpress search results via Firecrawl and return raw markdown.
+         Structured extraction is handled downstream by Gemini in extract_marketplace_evidence().
+@@ -712,7 +721,7 @@ class AliExpressScraper:
+         encoded = keyword.replace(" ", "+")
+         url = f"https://www.aliexpress.com/wholesale?SearchText={encoded}"
+         try:
+-            result = self._scraper.scrape(url, caller_id=caller_id)
++            result = self._scraper.scrape(url, caller_id=caller_id, location=firecrawl_location(country))
+             return result.markdown if result and result.success else ""
+         except ApiLimitError:
+             raise
+@@ -733,11 +742,11 @@ class ShopifyScraper:
+     def __init__(self):
+         self._scraper = UnifiedScraper()
+ 
+-    def search(self, keyword: str, caller_id: str = "system") -> list[dict]:
++    def search(self, keyword: str, caller_id: str = "system", country: str = "US") -> list[dict]:
+         listings = []
+         encoded = keyword.replace(" ", "+")
+         # Step 1: Discover Shopify stores via Google SERP
+-        search_url = f"https://www.google.com/search?q=site:*.myshopify.com+{encoded}"
++        search_url = f"https://www.google.com/search?q=site:*.myshopify.com+{encoded}&gl={country.lower()}"
+         try:
+             result = self._scraper.scrape(search_url, caller_id=caller_id)
+             if not result.success or not result.html:
+@@ -795,11 +804,11 @@ class FacebookMarketplaceScraper:
+     def __init__(self):
+         self._scraper = UnifiedScraper()
+ 
+-    def search(self, keyword: str, caller_id: str = "system") -> str:
++    def search(self, keyword: str, caller_id: str = "system", country: str = "US") -> str:
+         encoded = urllib.parse.quote_plus(keyword)
+         url = f"https://www.facebook.com/marketplace/search/?query={encoded}"
+         try:
+-            result = self._scraper.scrape(url, caller_id=caller_id)
++            result = self._scraper.scrape(url, caller_id=caller_id, location=firecrawl_location(country))
+             if result and result.success and len(result.markdown) > 100:
+                 return result.markdown
+             print("[FacebookMarketplaceScraper] Scrape returned insufficient content (likely blocked).")
+@@ -821,11 +830,11 @@ class TikTokScraper:
+     def __init__(self):
+         self._scraper = UnifiedScraper()
+ 
+-    def search(self, keyword: str, caller_id: str = "system") -> str:
++    def search(self, keyword: str, caller_id: str = "system", country: str = "US") -> str:
+         encoded = urllib.parse.quote_plus(keyword)
+         url = f"https://www.tiktok.com/search?q={encoded}"
+         try:
+-            result = self._scraper.scrape(url, caller_id=caller_id)
++            result = self._scraper.scrape(url, caller_id=caller_id, location=firecrawl_location(country))
+             return result.markdown if result and result.success else ""
+         except ApiLimitError:
+             raise
+@@ -844,11 +853,11 @@ class InstagramScraper:
+     def __init__(self):
+         self._scraper = UnifiedScraper()
+ 
+-    def search(self, keyword: str, caller_id: str = "system") -> str:
++    def search(self, keyword: str, caller_id: str = "system", country: str = "US") -> str:
+         tag = keyword.lower().replace(" ", "")
+         url = f"https://www.instagram.com/explore/tags/{tag}/"
+         try:
+-            result = self._scraper.scrape(url, caller_id=caller_id)
++            result = self._scraper.scrape(url, caller_id=caller_id, location=firecrawl_location(country))
+             return result.markdown if result and result.success else ""
+         except ApiLimitError:
+             raise
+@@ -867,10 +876,10 @@ class GoogleShoppingScraper:
+     def __init__(self):
+         self._scraper = UnifiedScraper()
+ 
+-    def search(self, keyword: str, caller_id: str = "system") -> list[dict]:
++    def search(self, keyword: str, caller_id: str = "system", country: str = "US") -> list[dict]:
+         listings = []
+         encoded = keyword.replace(" ", "+")
+-        url = f"https://www.google.com/search?tbm=shop&q={encoded}"
++        url = f"https://www.google.com/search?tbm=shop&q={encoded}&gl={country.lower()}"
+         try:
+             result = self._scraper.scrape(url, caller_id=caller_id)
+             if not result.success or not result.html:
+@@ -933,7 +942,9 @@ class GoogleSERPAPI:
+     def __init__(self):
+         self._last_search_failed = False
+ 
+-    def search(self, brand_name: str, max_pages: int = 2, caller_id: str = "system") -> list[str]:
++    def search(
++        self, brand_name: str, max_pages: int = 2, caller_id: str = "system", country: str = "US"
++    ) -> list[str]:
+         """
+         Scrapes google search pages, queries SerpApi, or queries SearchCans for brand_name,
+         extracts URLs and returns domains.
+@@ -970,6 +981,7 @@ class GoogleSERPAPI:
+                         "engine": "google",
+                         "start": start
+                     }
++                    params.update(serpapi_geo_params(country))
+                     resp = call_with_tracking(
+                         "google_serp", caller_id, "/check-brand",
+                         lambda: requests.get(serp_url, params=params, headers=HEADERS, timeout=10)
+@@ -1046,7 +1058,7 @@ class GoogleSERPAPI:
+         try:
+             for page in range(max_pages):
+                 start = page * 10
+-                url = f"https://www.google.com/search?q={query}&start={start}"
++                url = f"https://www.google.com/search?q={query}&start={start}&gl={country.lower()}"
+                 resp = call_with_tracking(
+                     "google_serp", caller_id, "/check-brand",
+                     lambda: requests.get(url, headers=HEADERS, timeout=10)
+@@ -1113,9 +1125,9 @@ class GoogleSERPAPI:
+         except Exception:
+             pass
+ 
+-    def check_serp_domains(self, brand_name: str, caller_id: str = "system") -> list[dict]:
++    def check_serp_domains(self, brand_name: str, caller_id: str = "system", country: str = "US") -> list[dict]:
+         import whois
+-        domains = self.search(brand_name, caller_id=caller_id)
++        domains = self.search(brand_name, caller_id=caller_id, country=country)
+         
+         # Fallback if Google blocked us and we got no domains:
+         if not domains:
+@@ -1137,7 +1149,7 @@ class GoogleSERPAPI:
+                 expiry_date = "unknown"
+                 name_servers = []
+                 org = "unknown"
+-                country = "unknown"
++                country_val = "unknown"
+                 emails = "unknown"
+                 if w:
+                     registrar = w.registrar or "unknown"
+@@ -1155,9 +1167,9 @@ class GoogleSERPAPI:
+                     org = w.get("org") or w.get("organization") or "unknown"
+                     if isinstance(org, list):
+                         org = org[0]
+-                    country = w.get("country") or "unknown"
+-                    if isinstance(country, list):
+-                        country = country[0]
++                    country_val = w.get("country") or "unknown"
++                    if isinstance(country_val, list):
++                        country_val = country_val[0]
+                     emails = w.get("emails") or w.get("email") or "unknown"
+                     if isinstance(emails, list):
+                         emails = emails[0]
+@@ -1169,8 +1181,9 @@ class GoogleSERPAPI:
+                     "status": "active",
+                     "name_servers": list(name_servers),
+                     "registrant_organization": org,
+-                    "registrant_country": country,
++                    "registrant_country": country_val,
+                     "registrant_email": emails,
++                    "country": country,
+                 })
+                 time.sleep(0.5)
+             except ApiLimitError:
+@@ -1186,6 +1199,7 @@ class GoogleSERPAPI:
+                     "registrant_organization": "unknown",
+                     "registrant_country": "unknown",
+                     "registrant_email": "unknown",
++                    "country": country,
+                 })
+         return results
+ 
+@@ -1207,14 +1221,17 @@ class GoogleAdsAPI:
+         region: str = "US",
+         official_advertisers: list[str] | None = None,
+         caller_id: str = "system",
++        country: str = "US",
+     ) -> list[dict]:
+         """
+         Searches the Google Ads Transparency database for ads mentioning brand_keyword.
+         """
++        # Map region to country parameter if provided
++        reg = region if region != "US" else country
+         try:
+             params = {
+                 "query": brand_keyword,
+-                "region": region,
++                "region": reg,
+                 "format": "json",
+             }
+             resp = call_with_tracking(
+@@ -1231,7 +1248,7 @@ class GoogleAdsAPI:
+                     pass
+             # Fallback: scrape the Transparency Center page with BeautifulSoup
+             print(f"[GoogleAdsAPI] JSON API unavailable (status {resp.status_code}), falling back to HTML scrape.")
+-            return self._scrape_fallback(brand_keyword, official_advertisers, caller_id=caller_id)
++            return self._scrape_fallback(brand_keyword, official_advertisers, caller_id=caller_id, region=reg)
+         except ApiLimitError:
+             raise
+         except Exception as e:
+@@ -1262,14 +1279,15 @@ class GoogleAdsAPI:
+         brand_keyword: str,
+         official_advertisers: list[str] | None = None,
+         caller_id: str = "system",
++        region: str = "US",
+     ) -> list[dict]:
+         """Fallback when the JSON API is unavailable."""
+-        ads = self._scrape_html(brand_keyword, official_advertisers, caller_id=caller_id)
++        ads = self._scrape_html(brand_keyword, official_advertisers, caller_id=caller_id, region=region)
+         if ads:
+             return ads
+         if os.environ.get("FIRECRAWL_API_KEY") and os.environ.get("GEMINI_API_KEY"):
+             print("[GoogleAdsAPI] HTML scrape empty ΓÇö trying Firecrawl + Gemini extraction.")
+-            return self._firecrawl_extract(brand_keyword, official_advertisers, caller_id=caller_id)
++            return self._firecrawl_extract(brand_keyword, official_advertisers, caller_id=caller_id, region=region)
+         return []
+ 
+     def _scrape_html(
+@@ -1277,10 +1295,11 @@ class GoogleAdsAPI:
+         brand_keyword: str,
+         official_advertisers: list[str] | None = None,
+         caller_id: str = "system",
++        region: str = "US",
+     ) -> list[dict]:
+         """BS4 scrape of adstransparency.google.com search page."""
+         try:
+-            url = f"{self.FALLBACK_URL}?query={brand_keyword.replace(' ', '+')}&region=US"
++            url = f"{self.FALLBACK_URL}?query={brand_keyword.replace(' ', '+')}&region={region}"
+             resp = call_with_tracking(
+                 "google_ads", caller_id, "/check-ads",
+                 lambda: requests.get(url, headers=HEADERS, timeout=15)
+@@ -1311,8 +1330,9 @@ class GoogleAdsAPI:
+         brand_keyword: str,
+         official_advertisers: list[str] | None = None,
+         caller_id: str = "system",
++        region: str = "US",
+     ) -> list[dict]:
+-        url = f"{self.FALLBACK_URL}?query={brand_keyword.replace(' ', '+')}&region=US"
++        url = f"{self.FALLBACK_URL}?query={brand_keyword.replace(' ', '+')}&region={region}"
+         result = call_with_tracking(
+             "firecrawl", caller_id, "/google-ads-extract",
+             lambda: scrape_page(url),
+@@ -1574,6 +1594,7 @@ class MarketplaceScraper:
+         platforms: list[str],
+         official_advertisers: list[str] | None = None,
+         caller_id: str = "system",
++        countries: list[str] = ["US"],
+     ) -> tuple[dict, list[str]]:
+         """
+         Runs scraping tasks concurrently using asyncio.gather and asyncio.to_thread.
+@@ -1586,165 +1607,197 @@ class MarketplaceScraper:
+             "timestamp": datetime.now().isoformat(),
+         }
+         blocked_apis = []
+-
+         tasks = []
+ 
+-        # Tier 1: Static HTML scrapers (free, local resources)
+-        if "amazon" in platforms:
+-            async def wrap_amazon():
+-                try:
+-                    res = await asyncio.to_thread(self.amazon.search, brand_name, caller_id=caller_id)
+-                    results["marketplaces"]["amazon"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Amazon rate limit reached: {e}")
+-                    blocked_apis.append("amazon_scraper")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Amazon search failed: {e}")
+-            tasks.append(wrap_amazon())
++        # Initialize results structure
++        for p in platforms:
++            if p in ["amazon", "ebay", "alibaba", "etsy", "google_shopping", "aliexpress", "shopify", "facebook_marketplace"]:
++                results["marketplaces"][p] = {}
++            elif p in ["google_ads", "meta_ads"]:
++                pass  # handled individually
++            elif p in ["tiktok", "instagram"]:
++                results["social"][p] = {}
+ 
++        # Amazon
++        if "amazon" in platforms:
++            for country in countries:
++                async def wrap_amazon(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.amazon.search, brand_name, caller_id=caller_id, country=c)
++                        results["marketplaces"]["amazon"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Amazon rate limit reached for {c}: {e}")
++                        blocked_apis.append("amazon_scraper")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Amazon search failed for {c}: {e}")
++                tasks.append(wrap_amazon())
++
++        # eBay
+         if "ebay" in platforms:
+-            async def wrap_ebay():
+-                try:
+-                    res = await asyncio.to_thread(self.ebay.search, brand_name, caller_id=caller_id)
+-                    results["marketplaces"]["ebay"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] eBay rate limit reached: {e}")
+-                    blocked_apis.append("ebay_scraper")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] eBay search failed: {e}")
+-            tasks.append(wrap_ebay())
+-
++            for country in countries:
++                async def wrap_ebay(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.ebay.search, brand_name, caller_id=caller_id, country=c)
++                        results["marketplaces"]["ebay"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] eBay rate limit reached for {c}: {e}")
++                        blocked_apis.append("ebay_scraper")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] eBay search failed for {c}: {e}")
++                tasks.append(wrap_ebay())
++
++        # Alibaba
+         if "alibaba" in platforms:
+-            async def wrap_alibaba():
+-                try:
+-                    res = await asyncio.to_thread(self.alibaba.search, brand_name, caller_id=caller_id)
+-                    results["marketplaces"]["alibaba"] = res
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Alibaba search failed: {e}")
+-            tasks.append(wrap_alibaba())
+-
++            for country in countries:
++                async def wrap_alibaba(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.alibaba.search, brand_name, caller_id=caller_id, country=c)
++                        results["marketplaces"]["alibaba"][c] = res
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Alibaba search failed for {c}: {e}")
++                tasks.append(wrap_alibaba())
++
++        # Etsy
+         if "etsy" in platforms:
+-            async def wrap_etsy():
+-                try:
+-                    res = await asyncio.to_thread(self.etsy.search, brand_name, caller_id=caller_id)
+-                    results["marketplaces"]["etsy"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Etsy rate limit reached: {e}")
+-                    blocked_apis.append("etsy_scraper")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Etsy search failed: {e}")
+-            tasks.append(wrap_etsy())
+-
++            for country in countries:
++                async def wrap_etsy(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.etsy.search, brand_name, caller_id=caller_id, country=c)
++                        results["marketplaces"]["etsy"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Etsy rate limit reached for {c}: {e}")
++                        blocked_apis.append("etsy_scraper")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Etsy search failed for {c}: {e}")
++                tasks.append(wrap_etsy())
++
++        # Google Shopping
+         if "google_shopping" in platforms:
+-            async def wrap_google_shopping():
+-                try:
+-                    res = await asyncio.to_thread(self.google_shopping.search, brand_name, caller_id=caller_id)
+-                    results["marketplaces"]["google_shopping"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Google Shopping rate limit reached: {e}")
+-                    blocked_apis.append("google_shopping_scraper")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Google Shopping search failed: {e}")
+-            tasks.append(wrap_google_shopping())
+-
+-        # Tier 2: JS-heavy / Firecrawl scrapers
++            for country in countries:
++                async def wrap_google_shopping(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.google_shopping.search, brand_name, caller_id=caller_id, country=c)
++                        results["marketplaces"]["google_shopping"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Google Shopping rate limit reached for {c}: {e}")
++                        blocked_apis.append("google_shopping_scraper")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Google Shopping search failed for {c}: {e}")
++                tasks.append(wrap_google_shopping())
++
++        # AliExpress
+         if "aliexpress" in platforms:
+-            async def wrap_aliexpress():
+-                try:
+-                    res = await asyncio.to_thread(self.aliexpress.search, brand_name, caller_id=caller_id)
+-                    results["marketplaces"]["aliexpress"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] AliExpress rate limit reached: {e}")
+-                    blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] AliExpress search failed: {e}")
+-            tasks.append(wrap_aliexpress())
+-
++            for country in countries:
++                async def wrap_aliexpress(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.aliexpress.search, brand_name, caller_id=caller_id, country=c)
++                        results["marketplaces"]["aliexpress"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] AliExpress rate limit reached for {c}: {e}")
++                        blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] AliExpress search failed for {c}: {e}")
++                tasks.append(wrap_aliexpress())
++
++        # Shopify
+         if "shopify" in platforms:
+-            async def wrap_shopify():
+-                try:
+-                    res = await asyncio.to_thread(self.shopify.search, brand_name, caller_id=caller_id)
+-                    results["marketplaces"]["shopify"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Shopify rate limit reached: {e}")
+-                    blocked_apis.append("shopify_scraper")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Shopify search failed: {e}")
+-            tasks.append(wrap_shopify())
+-
++            for country in countries:
++                async def wrap_shopify(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.shopify.search, brand_name, caller_id=caller_id, country=c)
++                        results["marketplaces"]["shopify"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Shopify rate limit reached for {c}: {e}")
++                        blocked_apis.append("shopify_scraper")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Shopify search failed for {c}: {e}")
++                tasks.append(wrap_shopify())
++
++        # Facebook Marketplace
+         if "facebook_marketplace" in platforms:
+-            async def wrap_facebook_marketplace():
+-                try:
+-                    res = await asyncio.to_thread(self.facebook_marketplace.search, brand_name, caller_id=caller_id)
+-                    results["marketplaces"]["facebook_marketplace"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Facebook Marketplace rate limit reached: {e}")
+-                    blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Facebook Marketplace search failed: {e}")
+-            tasks.append(wrap_facebook_marketplace())
+-
+-        # Social media scrapers
++            for country in countries:
++                async def wrap_facebook_marketplace(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.facebook_marketplace.search, brand_name, caller_id=caller_id, country=c)
++                        results["marketplaces"]["facebook_marketplace"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Facebook Marketplace rate limit reached for {c}: {e}")
++                        blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Facebook Marketplace search failed for {c}: {e}")
++                tasks.append(wrap_facebook_marketplace())
++
++        # TikTok
+         if "tiktok" in platforms:
+-            async def wrap_tiktok():
+-                try:
+-                    res = await asyncio.to_thread(self.tiktok.search, brand_name, caller_id=caller_id)
+-                    results["social"]["tiktok"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] TikTok rate limit reached: {e}")
+-                    blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] TikTok search failed: {e}")
+-            tasks.append(wrap_tiktok())
+-
++            for country in countries:
++                async def wrap_tiktok(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.tiktok.search, brand_name, caller_id=caller_id, country=c)
++                        results["social"]["tiktok"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] TikTok rate limit reached for {c}: {e}")
++                        blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] TikTok search failed for {c}: {e}")
++                tasks.append(wrap_tiktok())
++
++        # Instagram
+         if "instagram" in platforms:
+-            async def wrap_instagram():
+-                try:
+-                    res = await asyncio.to_thread(self.instagram.search, brand_name, caller_id=caller_id)
+-                    results["social"]["instagram"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Instagram rate limit reached: {e}")
+-                    blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Instagram search failed: {e}")
+-            tasks.append(wrap_instagram())
+-
+-        # Tier 3: Official APIs
++            for country in countries:
++                async def wrap_instagram(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.instagram.search, brand_name, caller_id=caller_id, country=c)
++                        results["social"]["instagram"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Instagram rate limit reached for {c}: {e}")
++                        blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "firecrawl")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Instagram search failed for {c}: {e}")
++                tasks.append(wrap_instagram())
++
++        # Google Ads
+         if "google_ads" in platforms:
+-            async def wrap_google_ads():
+-                try:
+-                    res = await asyncio.to_thread(self.google_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id)
+-                    results["ads"]["google"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Google Ads rate limit reached: {e}")
+-                    blocked_apis.append("google_ads")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Google Ads search failed: {e}")
+-            tasks.append(wrap_google_ads())
+-
++            results["ads"]["google"] = {}
++            for country in countries:
++                async def wrap_google_ads(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.google_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id, country=c)
++                        results["ads"]["google"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Google Ads rate limit reached for {c}: {e}")
++                        blocked_apis.append("google_ads")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Google Ads search failed for {c}: {e}")
++                tasks.append(wrap_google_ads())
++
++        # Meta Ads
+         if "meta_ads" in platforms:
+-            async def wrap_meta_ads():
+-                try:
+-                    res = await asyncio.to_thread(self.meta_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id)
+-                    results["ads"]["meta"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Meta Ads rate limit reached: {e}")
+-                    blocked_apis.append("meta_ads")
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Meta Ads search failed: {e}")
+-            tasks.append(wrap_meta_ads())
+-
++            results["ads"]["meta"] = {}
++            for country in countries:
++                async def wrap_meta_ads(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.meta_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id, country=c)
++                        results["ads"]["meta"][c] = res
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Meta Ads rate limit reached for {c}: {e}")
++                        blocked_apis.append("meta_ads")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Meta Ads search failed for {c}: {e}")
++                tasks.append(wrap_meta_ads())
++
++        # Domains
+         if "whois" in platforms or "domains" in platforms or "serp" in platforms:
+-            async def wrap_domains():
+-                try:
+-                    res = await asyncio.to_thread(self.serp.check_serp_domains, brand_name, caller_id=caller_id)
+-                    results["domains"] = res
+-                except ApiLimitError as e:
+-                    print(f"[MarketplaceScraper] Google SERP/WHOIS rate limit reached: {e}")
+-                    blocked_apis.append(e.api_key)
+-                except Exception as e:
+-                    print(f"[MarketplaceScraper] Domain search failed: {e}")
+-            tasks.append(wrap_domains())
++            for country in countries:
++                async def wrap_domains(c=country):
++                    try:
++                        res = await asyncio.to_thread(self.serp.check_serp_domains, brand_name, caller_id=caller_id, country=c)
++                        results["domains"].extend(res)
++                    except ApiLimitError as e:
++                        print(f"[MarketplaceScraper] Google SERP/WHOIS rate limit reached for {c}: {e}")
++                        blocked_apis.append(e.api_key if hasattr(e, 'api_key') else "google_serp")
++                    except Exception as e:
++                        print(f"[MarketplaceScraper] Domain search failed for {c}: {e}")
++                tasks.append(wrap_domains())
+ 
+         if tasks:
+             await asyncio.gather(*tasks)
+@@ -1984,6 +2037,7 @@ async def gather_evidence(
+     platforms: list[str],
+     official_advertisers: list[str] | None = None,
+     caller_id: str = "system",
++    countries: list[str] = ["US"],
+ ) -> Evidence:
+     """
+     Main entrypoint. Runs the 3-tier scraping pipeline and returns
+@@ -1994,28 +2048,30 @@ async def gather_evidence(
+         return _mock_evidence(brand_name)
+ 
+     scraper = MarketplaceScraper()
+-    raw, blocked_apis = await scraper.batch_detect(brand_name, platforms, official_advertisers, caller_id)
++    raw, blocked_apis = await scraper.batch_detect(brand_name, platforms, official_advertisers, caller_id, countries=countries)
+ 
+     all_marketplace_evidence = []
+ 
+     # Process Tier 1 + Tier 3 marketplace results through Gemini
+-    for platform, content in raw["marketplaces"].items():
+-        if isinstance(content, list):
+-            content_str = str(content)  # Tier 1 returns list of dicts
+-        else:
+-            content_str = content or ""  # Tier 3 returns markdown string
+-        try:
+-            listings = extract_marketplace_evidence(brand_name, platform, content_str, caller_id)
+-            for listing in listings:
+-                if listing.listing_url and not listing.screenshot_url:
+-                    listing.screenshot_url = _screenshot_listing(listing.listing_url)
+-            all_marketplace_evidence.extend(listings)
+-        except ApiLimitError as e:
+-            print(f"[gather_evidence] Gemini rate limit reached: {e}")
+-            if "gemini_flash" not in blocked_apis:
+-                blocked_apis.append("gemini_flash")
+-        except Exception as e:
+-            print(f"[gather_evidence] Gemini extraction failed for {platform}: {e}")
++    for platform, country_dict in raw["marketplaces"].items():
++        for country, content in country_dict.items():
++            if isinstance(content, list):
++                content_str = str(content)  # Tier 1 returns list of dicts
++            else:
++                content_str = content or ""  # Tier 3 returns markdown string
++            try:
++                listings = extract_marketplace_evidence(brand_name, platform, content_str, caller_id)
++                for listing in listings:
++                    listing.detection_region = country
++                    if listing.listing_url and not listing.screenshot_url:
++                        listing.screenshot_url = _screenshot_listing(listing.listing_url)
++                all_marketplace_evidence.extend(listings)
++            except ApiLimitError as e:
++                print(f"[gather_evidence] Gemini rate limit reached: {e}")
++                if "gemini_flash" not in blocked_apis:
++                    blocked_apis.append("gemini_flash")
++            except Exception as e:
++                print(f"[gather_evidence] Gemini extraction failed for {platform} ({country}): {e}")
+ 
+     # Convert WHOIS dicts to Pydantic DomainEvidence models
+     evaluations = extract_domain_evaluations_with_ai(brand_name, raw.get("domains", []), caller_id=caller_id)
+@@ -2049,30 +2105,40 @@ async def gather_evidence(
+                 registrant_organization=d.get("registrant_organization"),
+                 registrant_country=d.get("registrant_country"),
+                 registrant_email=d.get("registrant_email"),
++                detection_region=d.get("country", "US"),
+             )
+         )
+ 
+     # Map raw ad dicts ΓåÆ AdEvidence Pydantic models
+     ad_evidences: list[AdEvidence] = []
+-    for ad in (raw["ads"].get("google", []) + raw["ads"].get("meta", [])):
+-        if isinstance(ad, AdEvidence):
+-            ad_evidences.append(ad)
+-        elif isinstance(ad, dict):
+-            ad_evidences.append(_ad_dict_to_evidence(ad))
++    for source in ["google", "meta"]:
++        source_dict = raw["ads"].get(source, {})
++        for country, ads_list in source_dict.items():
++            for ad in ads_list:
++                if isinstance(ad, AdEvidence):
++                    ad.detection_region = country
++                    ad_evidences.append(ad)
++                elif isinstance(ad, dict):
++                    evidence_item = _ad_dict_to_evidence(ad)
++                    evidence_item.detection_region = country
++                    ad_evidences.append(evidence_item)
+ 
+     # Extract social media evidence from TikTok/Instagram raw content
+     social_evidences: list[SocialEvidence] = []
+-    for platform, content in raw.get("social", {}).items():
+-        if isinstance(content, str) and content.strip():
+-            try:
+-                social_items = extract_social_evidence(brand_name, platform, content, caller_id)
+-                social_evidences.extend(social_items)
+-            except ApiLimitError as e:
+-                print(f"[gather_evidence] Gemini rate limit reached for {platform} social: {e}")
+-                if "gemini_flash" not in blocked_apis:
+-                    blocked_apis.append("gemini_flash")
+-            except Exception as e:
+-                print(f"[gather_evidence] Gemini social extraction failed for {platform}: {e}")
++    for platform, country_dict in raw.get("social", {}).items():
++        for country, content in country_dict.items():
++            if isinstance(content, str) and content.strip():
++                try:
++                    social_items = extract_social_evidence(brand_name, platform, content, caller_id)
++                    for item in social_items:
++                        item.detection_region = country
++                    social_evidences.extend(social_items)
++                except ApiLimitError as e:
++                    print(f"[gather_evidence] Gemini rate limit reached for {platform} social: {e}")
++                    if "gemini_flash" not in blocked_apis:
++                        blocked_apis.append("gemini_flash")
++                except Exception as e:
++                    print(f"[gather_evidence] Gemini social extraction failed for {platform} ({country}): {e}")
+ 
+     return Evidence(
+         marketplaces=all_marketplace_evidence,
+@@ -2089,6 +2155,7 @@ async def check_ads_hijacking(
+     platforms: list[str] | None = None,
+     official_advertisers: list[str] | None = None,
+     caller_id: str = "system",
++    countries: list[str] = ["US"],
+ ) -> dict:
+     """
+     Scan Google + Meta ad libraries for hijacking ads targeting brand_name.
+@@ -2096,9 +2163,22 @@ async def check_ads_hijacking(
+     """
+     platforms = platforms or ["google_ads", "meta_ads"]
+     scraper = MarketplaceScraper()
+-    raw, blocked_apis = await scraper.batch_detect(brand_name, platforms, official_advertisers, caller_id)
+-    google_ads = raw["ads"].get("google", [])
+-    meta_ads = raw["ads"].get("meta", [])
++    raw, blocked_apis = await scraper.batch_detect(brand_name, platforms, official_advertisers, caller_id, countries=countries)
++    
++    google_ads = []
++    for country, ads in raw["ads"].get("google", {}).items():
++        for ad in ads:
++            if isinstance(ad, dict):
++                ad["country"] = country
++            google_ads.append(ad)
++
++    meta_ads = []
++    for country, ads in raw["ads"].get("meta", {}).items():
++        for ad in ads:
++            if isinstance(ad, dict):
++                ad["country"] = country
++            meta_ads.append(ad)
++            
+     all_ads = google_ads + meta_ads
+     return {
+         "brand_name": brand_name,
+@@ -2109,7 +2189,10 @@ async def check_ads_hijacking(
+             "meta_hijacking_ads": len(meta_ads),
+             "total_hijacking_ads": len(all_ads),
+         },
+-        "hijacking_ads": [_ad_dict_to_evidence(ad).model_dump() for ad in all_ads],
++        "hijacking_ads": [
++            (ad.model_dump() if isinstance(ad, AdEvidence) else _ad_dict_to_evidence(ad).model_dump())
++            for ad in all_ads
++        ],
+         "raw_ads": all_ads,
+         "blocked_apis": blocked_apis,
+         "timestamp": raw["timestamp"],

@@ -524,7 +524,7 @@ class TestGoogleSERPAPI:
         mock_resp.status_code = 200
         mock_resp.text = """
         <html><body>
-          <a href="/url?q=https://infringing-store-xyz.com/product-page"><h3>Fake Store Link</h3></a>
+          <a href="/url?q=https://testbrand-infringing-store-xyz.com/product-page"><h3>Fake Store Link</h3></a>
           <a href="https://legitimate-store.com"><h3>Another Link</h3></a>
         </body></html>
         """
@@ -543,14 +543,14 @@ class TestGoogleSERPAPI:
         }.get(key, default)
         mock_whois.return_value = mock_w
 
-        # Mock domain whitelist behavior to not filter infringing-store-xyz.com
+        # Mock domain whitelist behavior to not filter testbrand-infringing-store-xyz.com
         with patch("tracemark_api.services.marketplace.whitelist_service.is_whitelisted", return_value=False):
             with patch.dict("os.environ", {}, clear=True):
                 results = serp.check_serp_domains("TestBrand", caller_id="test")
 
         assert len(results) >= 1
-        assert any(r["domain"] == "infringing-store-xyz.com" for r in results)
-        target = next(r for r in results if r["domain"] == "infringing-store-xyz.com")
+        assert any(r["domain"] == "testbrand-infringing-store-xyz.com" for r in results)
+        target = next(r for r in results if r["domain"] == "testbrand-infringing-store-xyz.com")
         assert target["registrant"] == "GoDaddy.com, LLC"
         assert target["name_servers"] == ["ns1.godaddy.com", "ns2.godaddy.com"]
         assert target["registrant_organization"] == "Fake Corp LLC"
@@ -568,8 +568,8 @@ class TestGoogleSERPAPI:
         mock_resp.json.return_value = {
             "data": {
                 "organic": [
-                    {"title": "Fake Watch", "link": "https://suspicious-watch-shop.com/item1"},
-                    {"title": "Legit Site", "link": "https://legit-site.com/home"}
+                    {"title": "Fake Watch", "link": "https://testbrand-suspicious-watch-shop.com/item1"},
+                    {"title": "Legit Site", "link": "https://testbrand-legit-site.com/home"}
                 ]
             }
         }
@@ -593,8 +593,8 @@ class TestGoogleSERPAPI:
         
         mock_post.assert_called_once()
         mock_get.assert_not_called()
-        assert "suspicious-watch-shop.com" in results
-        assert "legit-site.com" in results
+        assert "testbrand-suspicious-watch-shop.com" in results
+        assert "testbrand-legit-site.com" in results
 
     @patch("tracemark_api.services.marketplace.requests.post")
     def test_searchcans_yield_measurement(self, mock_post):
@@ -605,9 +605,9 @@ class TestGoogleSERPAPI:
         mock_resp.json.return_value = {
             "data": {
                 "organic": [
-                    {"title": "Watch Shop 1", "link": "https://shop1.com/item1"},
-                    {"title": "Watch Shop 2", "link": "https://shop2.com/item2"},
-                    {"title": "Duplicate Shop 1", "link": "https://shop1.com/item3"},
+                    {"title": "Watch Shop 1", "link": "https://testbrand-shop1.com/item1"},
+                    {"title": "Watch Shop 2", "link": "https://testbrand-shop2.com/item2"},
+                    {"title": "Duplicate Shop 1", "link": "https://testbrand-shop1.com/item3"},
                     {"title": "Official Shop", "link": "https://testbrand.com/home"},
                     {"title": "Whitelisted Shop", "link": "https://google.com/search"}
                 ]
@@ -625,8 +625,8 @@ class TestGoogleSERPAPI:
                 results = serp.search("TestBrand", max_pages=1, caller_id="test")
                 
         assert len(results) == 2
-        assert "shop1.com" in results
-        assert "shop2.com" in results
+        assert "testbrand-shop1.com" in results
+        assert "testbrand-shop2.com" in results
         
         credits_used = 1
         yield_per_credit = len(results) / credits_used
