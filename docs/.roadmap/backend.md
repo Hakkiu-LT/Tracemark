@@ -130,33 +130,47 @@ This document outlines the priority ordering for backend services, engines, data
 
 ---
 
-## 8. Advanced Features & Law Firm Mode
-*Scaling the platform to multi-client usage and advanced vector similarity search.*
+## 8. Law Firm Mode
+*Scaling the platform to multi-client usage and firm customization.*
 
 | Task | Status | Notes |
 |---|---|---|
-| Neural/Vector Matcher (CLIP + pgvector) | ❌ Missing | Advanced logo/visual similarity search using CLIP embeddings and Supabase pgvector |
-| `clients` Supabase migration + `client_id` FK on cases/infringements | ❌ Missing | Database migration to isolate client accounts under a single org |
-| Client CRUD endpoints (`routes/clients.py`) | ❌ Missing | Management endpoints for clients |
-| `GET /api/v1/clients/{id}/billing` endpoint | ❌ Missing | Specific billing/usage metrics per client |
-| Per-client RLS policies | ❌ Missing | Database level isolation of client data |
-| Independent Mode Isolation (Brand Owner vs. Law Firm) | ❌ Missing | Ensure complete isolation between modes: brands/cases saved in Brand Owner mode (`client_id` is NULL) must not be accessible or shown under Law Firm mode configurations (`client_id` is NOT NULL), ensuring independent settings and data stores for each mode |
-| Law Firm custom email branding (firm name, logo) | ❌ Missing | Customize notification styles based on active firm/organization settings |
-| Law Firm branding inside generated PDFs | ❌ Missing | Dynamically inject legal firm details into downloaded notices |
+| `clients` Supabase migration + `client_id` FK on cases/infringements | ✅ Done | Database migration to isolate client accounts under a single org |
+| Client CRUD endpoints (`routes/clients.py`) | ✅ Done | Management endpoints for clients |
+| `GET /api/v1/clients/{id}/billing` endpoint | ✅ Done | Specific billing/usage metrics per client |
+| Per-client RLS policies | ✅ Done | Database level isolation of client data |
+| Independent Mode Isolation (Brand Owner vs. Law Firm) | ✅ Done | Ensure complete isolation between modes: brands/cases saved in Brand Owner mode (`client_id` is NULL) must not be accessible or shown under Law Firm mode configurations (`client_id` is NOT NULL), ensuring independent settings and data stores for each mode |
+| Law Firm custom email branding (firm name, logo) | ✅ Done | Customize notification styles based on active firm/organization settings |
+| Law Firm branding inside generated PDFs | ✅ Done | Dynamically inject legal firm details into downloaded notices |
 
 ---
 
-## 9. Geo-Targeted Scans & Proxy Location Management
-*Allows routing scans through country-specific proxies to discover geo-fenced copycat ads and listings using a hybrid macro-region mapping to country codes.*
+## 9. Geo-Targeted Scans & Multi-Region Location Management
+*Allows routing scans through region-specific APIs, parameters, and localized domains (using SerpApi, Firecrawl location payload, Meta Ad Library filters, and local marketplace domains) to discover geo-fenced copycat ads and listings.*
 
 | Task | Status | Notes |
 |---|---|---|
-| Database: target locations on cases/brands | ❌ Missing | Store target locations as ISO country codes (e.g. `['US', 'DE', 'GB']`) in cases/brands |
-| Case Creation: split cases by detection region | ❌ Missing | Automatically partition detected copycats/infringements into separate Cases based on their detection region/country (e.g. creating one Case for North America, another for China/APAC) |
-| Proxy Integration: multi-region proxy configuration | ❌ Missing | Build configuration module mapping ISO country codes to country-specific proxy endpoints. Map macro-regions (NA, EMEA, APAC, LATAM) to default country code sets |
-| Parallel Scraper Execution | ❌ Missing | Orchestrate scans in parallel across all targeted platforms and selected countries/regions (e.g. using `asyncio.gather` or concurrent threads) to prevent serial execution bottlenecks |
-| Scraper: Google Search & Ads geo-targeting | ❌ Missing | Pass regional parameters (e.g. `gl` country code, `hl` language) and route queries through corresponding country proxies |
-| Scraper: Localized marketplace sessions (Amazon, eBay, AliExpress, Alibaba) | ❌ Missing | Configure region-specific delivery postcodes/cookies and run requests via corresponding country proxies |
-| Scraper: Meta Ads Ad Library country routing | ❌ Missing | Map target country codes to Meta's Ad Library country query filter parameter |
-| Scraper: Social media crawlers (Instagram, TikTok) | ❌ Missing | Route social crawls through country proxies to simulate local feeds and bypass geo-blocks |
-| Unit tests for proxy routing, parallelism & parameter mapping | ❌ Missing | Validate concurrent execution and resolution of macro-regions into ISO country codes and proxy endpoints |
+| Database: target locations on cases/brands | ✅ Completed | Added target_regions array and detection_region string column to `cases` table |
+| Case Creation: split cases by detection region | ✅ Completed | Split scanning loop in `/check-brand` FastAPI endpoint to scan countries concurrently, saving separate cases per country code |
+| API Integration: multi-region parameter mapping | ✅ Completed | Created `geo.py` module to map countries/regions to SerpApi params, Firecrawl locations, and marketplace domains |
+| Parallel Scraper Execution | ✅ Completed | Orchestrated concurrent scans using `asyncio.gather` over targeted country/platform combinations |
+| Scraper: Google Search & Ads geo-targeting | ✅ Completed | Configured Google SERP and Google Ads API integrations to dynamically route queries with region parameters |
+| Scraper: Localized marketplace domains & sessions (Amazon, eBay, AliExpress, Alibaba) | ✅ Completed | Localized scrapers for Amazon, eBay, AliExpress, and Alibaba based on active target country |
+| Scraper: Meta Ads Ad Library country routing | ✅ Completed | Forwarded mapped target country code filter into Meta Ads search queries |
+| Scraper: Social media crawlers (Instagram, TikTok) | ✅ Completed | Configured Firecrawl location settings inside social media scrapers |
+| Unit tests for region mapping, parallelism & parameter formatting | ✅ Completed | Added full unit coverage in `test_geo.py` and aligned all test cases |
+
+--
+
+## 10. Advanced Features
+*Scaling the platform with advanced logo/visual copycat detection.*
+
+| Task | Status | Notes |
+|---|---|---|
+| **1. Scraping Module (`scraper.py`)** | ❌ Missing | Extract candidate logos from favicon, `<meta og:image>`, and header/nav elements (using "logo" class/id/alt heuristics). Download local copies, track source URLs, and handle failures gracefully. |
+| **2. CLIP Embedding & Similarity (`embedder.py`)** | ❌ Missing | Generate 512-dimensional visual embeddings for both reference and scraped logos using `open_clip` or Hugging Face `transformers` CLIP model. Calculate and sort by cosine similarity. |
+| **3. Filtering Logic** | ❌ Missing | Filter scraped logos based on configurable similarity threshold (default `0.75`) and top-N limits (default `20`). |
+| **4. Gemini Visual Verification (`gemini_check.py`)** | ❌ Missing | Pass candidate + reference images to `gemini-3.5-flash` (`thinking_level=high`) to obtain structured verdicts (`yes`/`no`/`maybe`), confidence scores, and visual match justifications. |
+| **5. End-to-End Orchestrator (`pipeline.py`)** | ❌ Missing | Wire modules together with logging, environment variable configuration (e.g. `GEMINI_API_KEY`), and output reports in CSV/JSON format sorted by Gemini confidence. |
+
+*Note for future database integration: Keep pgvector migration schema ready to store image vectors in Supabase table columns (`logo_embedding` and `image_embedding` as `vector(512)`) and optimize queries using HNSW cosine indexes.*

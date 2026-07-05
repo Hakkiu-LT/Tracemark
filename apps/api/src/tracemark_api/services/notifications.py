@@ -29,14 +29,25 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
     brand_name = event.get("brand_name", "Unknown Brand")
     case_id = event.get("case_id", "")
     app_url = os.environ.get("APP_URL", "http://localhost:5173").rstrip("/")
+    
+    firm_name = event.get("firm_name")
+    firm_logo_url = event.get("firm_logo_url")
+    persona = event.get("persona")
 
     subject = ""
     body = ""
 
+    footer = f"\nBest regards,\n{firm_name}\n" if (persona == "law_firm" and firm_name) else "\nBest regards,\nTracemark Team\n"
+    if persona == "law_firm" and firm_logo_url:
+        footer += f"\nLogo: {firm_logo_url}\n"
+
     if event_type == "new_infringement":
         platform = event.get("platform", "Unknown Platform")
         source_url = event.get("source_url", "")
-        subject = f"🔴 New HIGH Risk Infringement Found — {brand_name}"
+        if persona == "law_firm" and firm_name:
+            subject = f"🔴 New HIGH Risk Infringement Found — {brand_name} (via {firm_name})"
+        else:
+            subject = f"🔴 New HIGH Risk Infringement Found — {brand_name}"
         body = f"""Hello,
 
 A new HIGH risk infringement has been detected on {platform}.
@@ -49,16 +60,16 @@ Details:
 
 You can view the case details and take action at:
 {app_url}/cases/{case_id}
-
-Best regards,
-Tracemark Team
-"""
+{footer}"""
     elif event_type == "takedown_generated":
         platform = event.get("platform", "Unknown Platform")
         infringing_url = event.get("infringing_url", "")
         file_url = event.get("file_url", "")
         doc_type = event.get("document_type", "takedown").upper()
-        subject = f"📄 Takedown Notice Draft Ready — {brand_name}"
+        if persona == "law_firm" and firm_name:
+            subject = f"📄 Takedown Notice Draft Ready — {brand_name} (via {firm_name})"
+        else:
+            subject = f"📄 Takedown Notice Draft Ready — {brand_name}"
         body = f"""Hello,
 
 A new {doc_type} document draft has been generated for {brand_name}.
@@ -71,34 +82,31 @@ Details:
 
 Review and send the document at:
 {app_url}/cases/{case_id}
-
-Best regards,
-Tracemark Team
-"""
+{footer}"""
     elif event_type == "case_escalated":
-        subject = f"⚠️ Case Escalated — {brand_name}"
+        if persona == "law_firm" and firm_name:
+            subject = f"⚠️ Case Escalated — {brand_name} (via {firm_name})"
+        else:
+            subject = f"⚠️ Case Escalated — {brand_name}"
         body = f"""Hello,
 
 The case for {brand_name} has been escalated for takedown actions.
 
 You can view the case details at:
 {app_url}/cases/{case_id}
-
-Best regards,
-Tracemark Team
-"""
+{footer}"""
     elif event_type == "case_dismissed":
-        subject = f"✅ Case Dismissed — {brand_name}"
+        if persona == "law_firm" and firm_name:
+            subject = f"✅ Case Dismissed — {brand_name} (via {firm_name})"
+        else:
+            subject = f"✅ Case Dismissed — {brand_name}"
         body = f"""Hello,
 
 The case for {brand_name} has been dismissed.
 
 You can view the case details at:
 {app_url}/cases/{case_id}
-
-Best regards,
-Tracemark Team
-"""
+{footer}"""
     elif event_type == "test":
         subject = "🔔 Test Notification — Tracemark"
         body = event.get("message", "This is a test notification from Tracemark.")
@@ -175,22 +183,35 @@ def dispatch_notifications(event: dict) -> None:
 
     # 3. Resolve user email to send notification to
     recipient_email = None
+    persona = None
+    firm_name = None
+    firm_logo_url = None
 
     # Check org_settings if organization_id is available
     if org_id:
         try:
             settings_res = (
                 sb.table("org_settings")
-                .select("notification_email")
+                .select("notification_email, persona, firm_name, firm_logo_url")
                 .eq("organization_id", org_id)
                 .single()
                 .execute()
             )
             if settings_res.data:
                 recipient_email = settings_res.data.get("notification_email")
+                persona = settings_res.data.get("persona")
+                firm_name = settings_res.data.get("firm_name")
+                firm_logo_url = settings_res.data.get("firm_logo_url")
         except Exception as e:
             # Table might not exist or be empty, fail silently and fall back
             print(f"[Notifications] org_settings query bypassed/failed: {e}")
+
+    if persona:
+        event["persona"] = persona
+    if firm_name:
+        event["firm_name"] = firm_name
+    if firm_logo_url:
+        event["firm_logo_url"] = firm_logo_url
 
     # Fallback 1: NOTIFICATION_EMAIL env
     if not recipient_email:
