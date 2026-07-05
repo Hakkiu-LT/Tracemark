@@ -355,14 +355,61 @@ def _build_notice(
     infringing_url: str,
     key_findings: list[str],
     date: str,
+    firm_name: str | None = None,
+    client_name: str | None = None,
 ) -> str:
     bullets = "\n".join(f"  - {f}" for f in key_findings) if key_findings else "  - See attached evidence."
-    return _NOTICE_TEMPLATE.format(
+    
+    if firm_name and client_name:
+        representative_statement = f"I am the authorized legal representative of \"{client_name}\", the owner of the brand \"{brand_name}\"."
+        signature_block = f"Signature: [AUTHORIZED SIGNATURE FOR {firm_name}]\nRepresented by: {firm_name}"
+    elif firm_name:
+        representative_statement = f"I am the authorized legal representative of the owner of the brand \"{brand_name}\"."
+        signature_block = f"Signature: [AUTHORIZED SIGNATURE FOR {firm_name}]\nRepresented by: {firm_name}"
+    else:
+        representative_statement = f"I am the owner / authorized representative of the intellectual property rights\nfor the brand \"{brand_name}\"."
+        signature_block = "Signature: [RIGHTS OWNER NAME]"
+
+    notice_template = """\
+DMCA / IP INFRINGEMENT NOTICE
+==============================
+Date: {date}
+Platform: {platform}
+
+To Whom It May Concern,
+
+{representative_statement}
+
+I have a good faith belief that the content at the URL below infringes upon
+my intellectual property rights without authorization:
+
+  Infringing URL: {infringing_url}
+
+My rights:
+  Registered trademark / copyright for "{brand_name}" covering goods and
+  services in relevant classes.
+
+Key evidence:
+{evidence_bullets}
+
+I request the immediate removal or disabling of access to the infringing
+material identified above.
+
+I swear, under penalty of perjury, that the information in this notification
+is accurate and that I am the owner or authorized agent of the affected rights.
+
+{signature_block}
+Contact:   [EMAIL ADDRESS]
+""".strip()
+
+    return notice_template.format(
         date=date,
         platform=platform,
         brand_name=brand_name,
         infringing_url=infringing_url,
         evidence_bullets=bullets,
+        representative_statement=representative_statement,
+        signature_block=signature_block,
     )
 
 
@@ -415,6 +462,36 @@ def generate_takedown_reports(
     if not force and decision.recommended_action != "TAKEDOWN":
         return []
 
+    # Retrieve branding details
+    sb = get_supabase()
+    org_id = None
+    client_id = None
+    try:
+        case_res = sb.table("cases").select("organization_id, client_id").eq("id", case_id).maybe_single().execute()
+        if case_res.data:
+            org_id = case_res.data.get("organization_id")
+            client_id = case_res.data.get("client_id")
+    except Exception as e:
+        print(f"[Takedown] Failed to resolve case metadata: {e}")
+
+    firm_name = None
+    client_name = None
+    if org_id:
+        try:
+            org_res = sb.table("org_settings").select("persona, firm_name").eq("organization_id", org_id).maybe_single().execute()
+            if org_res.data and org_res.data.get("persona") == "law_firm":
+                firm_name = org_res.data.get("firm_name")
+        except Exception as e:
+            print(f"[Takedown] Failed to fetch org settings for branding: {e}")
+
+    if client_id:
+        try:
+            client_res = sb.table("clients").select("name").eq("id", client_id).maybe_single().execute()
+            if client_res.data:
+                client_name = client_res.data.get("name")
+        except Exception as e:
+            print(f"[Takedown] Failed to fetch client name: {e}")
+
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     reports: list[TakedownReport] = []
 
@@ -435,6 +512,8 @@ def generate_takedown_reports(
                 infringing_url=listing.listing_url,
                 key_findings=decision.key_findings,
                 date=date_str,
+                firm_name=firm_name,
+                client_name=client_name,
             ),
         )
         reports.append(report)
@@ -461,6 +540,8 @@ def generate_takedown_reports(
                 infringing_url=ad.destination_url,
                 key_findings=decision.key_findings,
                 date=date_str,
+                firm_name=firm_name,
+                client_name=client_name,
             ),
         )
         reports.append(report)
@@ -483,6 +564,8 @@ def generate_takedown_reports(
                 infringing_url=infringing_url,
                 key_findings=decision.key_findings,
                 date=date_str,
+                firm_name=firm_name,
+                client_name=client_name,
             ),
         )
         reports.append(report)
@@ -506,6 +589,8 @@ def generate_takedown_reports(
                 infringing_url=social.post_url,
                 key_findings=decision.key_findings,
                 date=date_str,
+                firm_name=firm_name,
+                client_name=client_name,
             ),
         )
         reports.append(report)

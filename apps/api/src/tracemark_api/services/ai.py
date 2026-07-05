@@ -39,6 +39,7 @@ class MarketplaceEvidence(BaseModel):
     listing_url: str = PydanticField(description="Direct URL to the listing.")
     price: str | None = PydanticField(default=None, description="The listed price of the product.")
     screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL if available.")
+    detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
 
 
 class AdEvidence(BaseModel):
@@ -46,6 +47,7 @@ class AdEvidence(BaseModel):
     ad_copy: str = PydanticField(description="The text content or headline of the ad.")
     destination_url: str = PydanticField(description="The destination URL the ad directs to.")
     screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL of the ad.")
+    detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
 
 
 class DomainEvidence(BaseModel):
@@ -60,6 +62,7 @@ class DomainEvidence(BaseModel):
     registrant_organization: str | None = PydanticField(default=None, description="Registrant organization name if available.")
     registrant_country: str | None = PydanticField(default=None, description="Registrant organization or contact country.")
     registrant_email: str | None = PydanticField(default=None, description="Registrant or registrar abuse email address.")
+    detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
 
 
 class SocialEvidence(BaseModel):
@@ -67,6 +70,7 @@ class SocialEvidence(BaseModel):
     handle: str = PydanticField(description="The social account handle.")
     post_url: str | None = PydanticField(default=None, description="Direct URL to a specific infringing post.")
     follower_count: int | None = PydanticField(default=None, description="Follower count of the account.")
+    detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
 
 
 class Evidence(BaseModel):

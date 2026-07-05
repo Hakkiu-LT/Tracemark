@@ -16,7 +16,7 @@ class ScrapeResult:
     error_message: str | None = None
 
 
-def screenshot_page(url: str) -> str | None:
+def screenshot_page(url: str, location: dict | None = None) -> str | None:
     """
     Take a screenshot of a URL using Firecrawl.
     Returns the screenshot URL (Firecrawl CDN) or None on failure.
@@ -27,9 +27,12 @@ def screenshot_page(url: str) -> str | None:
     if not api_key or api_key == "your_firecrawl_api_key_here":
         return None
     try:
+        payload = {"url": url, "formats": ["screenshot"], "waitFor": 3000}
+        if location:
+            payload["location"] = location
         response = httpx.post(
             "https://api.firecrawl.dev/v1/scrape",
-            json={"url": url, "formats": ["screenshot"], "waitFor": 3000},
+            json=payload,
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             timeout=60.0,
         )
@@ -41,7 +44,7 @@ def screenshot_page(url: str) -> str | None:
         return None
 
 
-def scrape_page(url: str, with_screenshot: bool = False) -> ScrapeResult:
+def scrape_page(url: str, with_screenshot: bool = False, location: dict | None = None) -> ScrapeResult:
     api_key = os.environ.get("FIRECRAWL_API_KEY")
     if not api_key:
         if "example.com" in url or "test" in url:
@@ -66,6 +69,8 @@ def scrape_page(url: str, with_screenshot: bool = False) -> ScrapeResult:
             "url": url,
             "formats": formats,
         }
+        if location:
+            payload["location"] = location
         
         response = httpx.post(
             "https://api.firecrawl.dev/v1/scrape",

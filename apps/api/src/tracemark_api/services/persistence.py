@@ -111,6 +111,14 @@ def persist_infringement(
     screenshot_url = getattr(item, "screenshot_url", None)
 
     sb = get_supabase()
+    client_id = None
+    try:
+        case_res = sb.table("cases").select("client_id").eq("id", case_id).maybe_single().execute()
+        if case_res.data:
+            client_id = case_res.data.get("client_id")
+    except Exception as e:
+        print(f"[warn] Failed to fetch client_id for case {case_id}: {e}")
+
     result = (
         sb.table("infringements")
         .upsert(
@@ -123,6 +131,7 @@ def persist_infringement(
                 "match_type": _match_type(item),
                 "status": "flagged",
                 "screenshot_url": screenshot_url,
+                "client_id": client_id,
             },
             on_conflict="case_id,source_url",
         )

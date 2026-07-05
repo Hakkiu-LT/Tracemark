@@ -12,6 +12,7 @@ from tracemark_api.routes.usage import router as usage_router
 from tracemark_api.routes.auth import router as auth_router
 from tracemark_api.routes.infringements import router as infringements_router
 from tracemark_api.routes.documents import router as documents_router
+from tracemark_api.routes.clients import router as clients_router
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
@@ -36,6 +37,7 @@ app.include_router(usage_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(infringements_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
+app.include_router(clients_router, prefix="/api/v1")
 
 _allowed_origins = [
     "http://localhost:8080",
