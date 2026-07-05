@@ -350,13 +350,16 @@ class UnifiedScraper:
     # Public API
     # ------------------------------------------------------------------
 
-    def scrape(self, url: str, caller_id: str = "system") -> UnifiedScrapeResult:
+    def scrape(
+        self, url: str, caller_id: str = "system", location: dict | None = None
+    ) -> UnifiedScrapeResult:
         """
         Smart-route a URL to the best available scraping method.
 
         Args:
             url:       The target URL to scrape.
             caller_id: User email or ID for usage tracking.
+            location:  Optional geo-location payload for Firecrawl.
 
         Returns:
             UnifiedScrapeResult with content and metadata.
@@ -367,7 +370,7 @@ class UnifiedScraper:
         site_type = DomainRegistry.classify(url)
 
         if site_type == SCRAPE_JS:
-            return self._scrape_js(url, caller_id)
+            return self._scrape_js(url, caller_id, location)
 
         if site_type == SCRAPE_STATIC:
             return self._scrape_static(url, caller_id)
@@ -375,13 +378,13 @@ class UnifiedScraper:
         # Unknown domain — run heuristic then route
         needs_js = detect_requires_javascript(url)
         if needs_js:
-            return self._scrape_js(url, caller_id)
+            return self._scrape_js(url, caller_id, location)
 
         # Static-first with JS fallback for unknown domains
-        return self.scrape_with_fallback(url, caller_id)
+        return self.scrape_with_fallback(url, caller_id, location)
 
     def scrape_with_fallback(
-        self, url: str, caller_id: str = "system"
+        self, url: str, caller_id: str = "system", location: dict | None = None
     ) -> UnifiedScrapeResult:
         """
         Try a static HTTP scrape first; if the result is empty or fails,
@@ -398,7 +401,7 @@ class UnifiedScraper:
             f"[UnifiedScraper] Static scrape insufficient for {url} "
             f"(content={len(static_result.markdown)} chars), falling back to JS scraper."
         )
-        return self._scrape_js(url, caller_id)
+        return self._scrape_js(url, caller_id, location)
 
     # ------------------------------------------------------------------
     # Private: static HTTP scrape (runs on local resources — no API cost)
@@ -459,7 +462,7 @@ class UnifiedScraper:
     # ------------------------------------------------------------------
 
     def _scrape_js(
-        self, url: str, caller_id: str = "system"
+        self, url: str, caller_id: str = "system", location: dict | None = None
     ) -> UnifiedScrapeResult:
         """
         Scrape a JS-heavy page via Firecrawl. Uses a 24 h in-memory cache
@@ -486,7 +489,7 @@ class UnifiedScraper:
                 "firecrawl",
                 caller_id,
                 "/unified-scrape-js",
-                lambda: scrape_page(url),
+                lambda: scrape_page(url, location=location),
                 credits_used=10,
             )
         except ApiLimitError:

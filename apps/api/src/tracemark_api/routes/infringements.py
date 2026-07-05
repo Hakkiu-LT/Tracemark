@@ -48,11 +48,23 @@ def _get_user_organization_id(user_id: str) -> str | None:
         return None
 
 
+def _get_user_persona(user_id: str, organization_id: str | None) -> str:
+    if not organization_id:
+        return "brand_owner"
+    sb = get_supabase()
+    try:
+        res = sb.table("org_settings").select("persona").eq("organization_id", organization_id).maybe_single().execute()
+        return res.data.get("persona", "brand_owner") if res.data else "brand_owner"
+    except Exception:
+        return "brand_owner"
+
+
 @router.get("", response_model=InfringementsResponse)
 def list_infringements(
     risk_level: str | None = Query(None, description="HIGH, MEDIUM or LOW"),
     status: str | None = Query(None, description="flagged, reviewed or dismissed"),
     platform: str | None = Query(None, description="e.g. amazon, instagram"),
+    client_id: str | None = Query(None, description="Filter by client_id"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user=Depends(get_current_user),
@@ -60,6 +72,7 @@ def list_infringements(
     """Return a paginated list of infringements scoped to the user's organization."""
     sb = get_supabase()
     organization_id = _get_user_organization_id(current_user.id)
+    persona = _get_user_persona(current_user.id, organization_id)
 
     query = (
         sb.table("infringements")
@@ -73,6 +86,15 @@ def list_infringements(
         query = query.eq("cases.organization_id", organization_id)
     else:
         query = query.eq("cases.user_id", current_user.id)
+
+    # Apply persona mode isolation
+    if persona == "law_firm":
+        if client_id:
+            query = query.eq("client_id", client_id)
+        else:
+            query = query.not_.is_("client_id", "null")
+    else:
+        query = query.is_("client_id", "null")
 
     if risk_level:
         query = query.eq("risk_level", risk_level.upper())

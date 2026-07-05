@@ -1,8 +1,16 @@
 from unittest.mock import patch, MagicMock
+import pytest
 from fastapi.testclient import TestClient
 from tracemark_api.main import app
+from tracemark_api.dependencies import get_current_user, AuthUser
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def mock_auth():
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(id="550e8400-e29b-41d4-a716-446655440000", email="gabo.seqq@gmail.com")
+    yield
+    app.dependency_overrides.clear()
 
 
 @patch("tracemark_api.routes.monitoring.update_case_status")
