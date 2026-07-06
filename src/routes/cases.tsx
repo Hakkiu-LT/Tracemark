@@ -28,11 +28,12 @@ import { RiskBadge } from "@/components/risk-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
-import { Loader2, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from "lucide-react";
+import { Loader2, ArrowUpDown, ArrowUp, ArrowDown, Search, X, Info } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { consumeCasesView, saveCasesView, type SortDir, type SortField } from "@/lib/cases-view";
 import { toast } from "sonner";
 import { getRegionForId, getMacroRegionForCountry, COUNTRY_BY_CODE } from "@/lib/regions";
+import { useStore } from "@/lib/store";
 
 const PAGE_SIZE = 20;
 
@@ -56,7 +57,8 @@ const STATUS_ORDER: Record<string, number> = { pending: 1, analyzing: 2, complet
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground border-border",
   analyzing: "bg-risk-med/10 text-risk-med border-risk-med/30",
-  complete: "bg-muted text-muted-foreground border-border",
+  complete: "bg-success/10 text-success border-success/30",
+  completed: "bg-success/10 text-success border-success/30",
   error: "bg-risk-high/10 text-risk-high border-risk-high/30",
   safe: "bg-success/10 text-success border-success/30",
   dismissed: "bg-success/10 text-success border-success/30",
@@ -64,7 +66,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function CaseStatusBadge({ status }: { status: string }) {
-  const label = status === "complete" ? "pending" : status;
+  const label = (status === "complete" || status === "completed" || status === "resolved") ? "completed" : status;
   return (
     <span
       className={cn(
@@ -156,11 +158,18 @@ function CasesList() {
   const [minConfidence, setMinConfidence] = useState(initialView.minConfidence);
   const [selectedMacroRegion, setSelectedMacroRegion] = useState("ALL");
 
+  const persona = useStore((s) => s.persona);
+  const activeClientId = useStore((s) => s.activeClientId);
+
   useEffect(() => {
     let cancelled = false;
-    fetchCaseHistory()
-      .then((cases) => {
-        if (!cancelled) setAll(cases);
+    setLoading(true);
+    fetchCaseHistory(50, persona, activeClientId)
+      .then((history) => {
+        if (!cancelled) {
+          setAll(history);
+          setLoading(false);
+        }
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load cases");
@@ -171,7 +180,7 @@ function CasesList() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [persona, activeClientId]);
 
   const handleDeleteCase = async (caseId: string) => {
     try {
@@ -344,8 +353,8 @@ function CasesList() {
       return sortDir === "asc" ? cmp : -cmp;
     });
 
-  const pendingCases = filtered.filter((c) => c.status === "pending" || c.status === "complete");
-  const otherCases = filtered.filter((c) => c.status !== "pending" && c.status !== "complete");
+  const pendingCases = filtered.filter((c) => c.status === "pending" || c.status === "analyzing");
+  const otherCases = filtered.filter((c) => c.status !== "pending" && c.status !== "analyzing");
 
   const totalPages = Math.max(1, Math.ceil(otherCases.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -377,9 +386,17 @@ function CasesList() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Cases</h1>
-        <p className="text-sm text-muted-foreground">Every brand check, organized by risk.</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Cases</h1>
+          <p className="text-sm text-muted-foreground">Every brand check, organized by risk.</p>
+        </div>
+        <div className="bg-muted/50 border border-border px-4 py-2.5 rounded-lg flex items-center gap-3 text-xs text-muted-foreground max-w-md shadow-sm">
+          <Info className="h-4 w-4 text-accent shrink-0" />
+          <div>
+            <span className="font-semibold text-foreground">Storage Policy:</span> Screenshots and other heavy evidence files are hosted for a maximum of 100 days after a case is completed.
+          </div>
+        </div>
       </div>
 
       {/* Region Tabs */}

@@ -19,6 +19,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CasesRouteImport } from './routes/cases'
 import { Route as ApiUsageRouteImport } from './routes/api-usage'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsClientsRouteImport } from './routes/settings.clients'
 import { Route as SettingsBillingRouteImport } from './routes/settings.billing'
@@ -84,6 +85,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsProfileRoute = SettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
   id: '/notifications',
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -213,6 +220,7 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -270,6 +279,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/clients'
     | '/settings/notifications'
+    | '/settings/profile'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   fileRoutesByTo: FileRoutesByTo
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/clients'
     | '/settings/notifications'
+    | '/settings/profile'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   id:
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/clients'
     | '/settings/notifications'
+    | '/settings/profile'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   fileRoutesById: FileRoutesById
@@ -419,6 +431,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/settings/profile': {
+      id: '/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRoute
     }
     '/settings/notifications': {
       id: '/settings/notifications'
@@ -579,12 +598,14 @@ interface SettingsRouteChildren {
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsClientsRoute: typeof SettingsClientsRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsProfileRoute: typeof SettingsProfileRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBillingRoute: SettingsBillingRoute,
   SettingsClientsRoute: SettingsClientsRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsProfileRoute: SettingsProfileRoute,
 }
 
 const SettingsRouteWithChildren = SettingsRoute._addFileChildren(

@@ -71,6 +71,7 @@ function LandingPage() {
             <ShieldCheck className="h-4 w-4 text-[oklch(0.58_0.18_255)]" />
             <span className="font-semibold text-foreground">Tracemark</span>
             <span>· Brand protection, automated.</span>
+            <span>· Made with AI.</span>
           </div>
           <div>© {new Date().getFullYear()} Tracemark. All rights reserved.</div>
         </div>

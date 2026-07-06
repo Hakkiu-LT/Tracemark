@@ -4,6 +4,7 @@ import { EvidenceScreenshotDialog } from "@/components/cases/evidence-screenshot
 import type { EvidenceResponse } from "@/lib/api.types";
 import { Globe, ShoppingCart, Megaphone, ExternalLink, Image } from "lucide-react";
 import { ensureAbsoluteUrl } from "@/lib/utils";
+import { COUNTRY_BY_CODE } from "@/lib/regions";
 
 const ANIM = "animate-in fade-in-0 slide-in-from-bottom-3 duration-500";
 const animStyle = (delay: number): React.CSSProperties => ({
@@ -43,7 +44,13 @@ function EvidenceUrl({ url, className }: { url: string; className?: string }) {
   );
 }
 
-export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
+export function EvidenceSection({
+  evidence,
+  detectionRegion,
+}: {
+  evidence: EvidenceResponse;
+  detectionRegion?: string | null;
+}) {
   const hasMarketplaces = evidence.marketplaces.length > 0;
   const hasDomains = evidence.domains.length > 0;
   const hasAds = evidence.ads.length > 0;
@@ -59,9 +66,20 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
         />
       )}
 
-      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-        Evidence Collected
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+          Evidence Collected
+        </h3>
+        {detectionRegion && (() => {
+          const conf = COUNTRY_BY_CODE[detectionRegion];
+          return (
+            <span className="text-xs font-mono text-foreground bg-muted px-2 py-1 rounded border border-border inline-flex items-center gap-1.5 select-none animate-fade-in">
+              <span>{conf?.flag || "🌐"}</span>
+              <span>Monitored Region: {conf?.name || detectionRegion}</span>
+            </span>
+          );
+        })()}
+      </div>
 
       {/* Marketplaces */}
       <div className={ANIM} style={animStyle(0)}>
@@ -107,6 +125,15 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                           Screenshot available
                         </button>
                       )}
+                      {detectionRegion && (() => {
+                        const conf = COUNTRY_BY_CODE[detectionRegion];
+                        return (
+                          <span className="text-xs font-mono bg-muted px-2 py-1 rounded border border-border text-muted-foreground inline-flex items-center gap-1" title={`Scanned from ${conf?.name || detectionRegion}`}>
+                            <span>{conf?.flag || "🌐"}</span>
+                            <span>{detectionRegion}</span>
+                          </span>
+                        );
+                      })()}
                       <span className="text-xs font-mono bg-muted px-2 py-1 rounded border border-border text-muted-foreground uppercase">
                         {m.platform}
                       </span>
@@ -215,6 +242,15 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                           Clone
                         </span>
                       )}
+                      {detectionRegion && (() => {
+                        const conf = COUNTRY_BY_CODE[detectionRegion];
+                        return (
+                          <span className="text-xs font-mono bg-muted px-2 py-1 rounded border border-border text-muted-foreground inline-flex items-center gap-1" title={`Scanned from ${conf?.name || detectionRegion}`}>
+                            <span>{conf?.flag || "🌐"}</span>
+                            <span>{detectionRegion}</span>
+                          </span>
+                        );
+                      })()}
                       <span className="text-xs text-muted-foreground font-mono">
                         {d.similarity_score}% match
                       </span>
@@ -258,6 +294,15 @@ export function EvidenceSection({ evidence }: { evidence: EvidenceResponse }) {
                             Screenshot available
                           </button>
                         )}
+                        {detectionRegion && (() => {
+                          const conf = COUNTRY_BY_CODE[detectionRegion];
+                          return (
+                            <span className="text-xs font-mono bg-muted px-2 py-1 rounded border border-border text-muted-foreground inline-flex items-center gap-1" title={`Scanned from ${conf?.name || detectionRegion}`}>
+                              <span>{conf?.flag || "🌐"}</span>
+                              <span>{detectionRegion}</span>
+                            </span>
+                          );
+                        })()}
                         <span className="text-xs font-mono bg-muted px-2 py-1 rounded border border-border text-muted-foreground uppercase">
                           {a.platform}
                         </span>
