@@ -40,10 +40,10 @@ export function checkBrandFullPipeline(payload: CheckBrandRequest, signal?: Abor
   });
 }
 
-export function updateCaseStatusBackend(caseId: string, status: string): Promise<{ success: boolean }> {
+export function updateCaseStatusBackend(caseId: string, status: string, declineReason?: string): Promise<{ success: boolean }> {
   return apiFetch<{ success: boolean }>(`/monitoring/${caseId}/status`, {
     method: "POST",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, decline_reason: declineReason }),
   });
 }
 
@@ -59,6 +59,7 @@ export interface InfringementFeedItem {
   screenshot_url: string | null;
   flagged_at: string;
   created_at: string;
+  detection_region?: string | null;
 }
 
 export interface InfringementsResponse {
@@ -100,10 +101,10 @@ export function getInfringementEvidence(id: string): Promise<EvidenceItem[]> {
   return apiFetch<EvidenceItem[]>(`/infringements/${id}/evidence`);
 }
 
-export function updateInfringementStatus(id: string, status: string): Promise<InfringementFeedItem> {
+export function updateInfringementStatus(id: string, status: string, declineReason?: string): Promise<InfringementFeedItem> {
   return apiFetch<InfringementFeedItem>(`/infringements/${id}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, decline_reason: declineReason }),
   });
 }
 

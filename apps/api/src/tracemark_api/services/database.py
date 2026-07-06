@@ -72,9 +72,25 @@ def save_decision(case_id: str, decision: Decision, score: EvidenceScore | None 
     return result.data[0]["id"]
 
 
-def update_case_status(case_id: str, status: str) -> None:
+def update_case_status(case_id: str, status: str, decline_reason: str | None = None) -> None:
     sb = get_supabase()
-    sb.table("cases").update({"status": status}).eq("id", case_id).execute()
+    updates = {"status": status}
+    if decline_reason is not None:
+        updates["decline_reason"] = decline_reason
+    try:
+        sb.table("cases").update(updates).eq("id", case_id).execute()
+    except Exception as e:
+        if "decline_reason" in str(e):
+            sb.table("cases").update({"status": status}).eq("id", case_id).execute()
+            if decline_reason:
+                dec_res = sb.table("decisions").select("id, case_summary").eq("case_id", case_id).execute()
+                if dec_res.data:
+                    dec_id = dec_res.data[0]["id"]
+                    old_summary = dec_res.data[0].get("case_summary") or ""
+                    new_summary = f"Decline Reason: {decline_reason}\n\n{old_summary}"
+                    sb.table("decisions").update({"case_summary": new_summary}).eq("id", dec_id).execute()
+        else:
+            raise e
 
 
 def get_case_with_decision(case_id: str) -> dict:

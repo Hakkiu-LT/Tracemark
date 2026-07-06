@@ -207,10 +207,14 @@ export function useScopedInfringements() {
   const activeClientId = useStore((s) => s.activeClientId);
 
   return useMemo(() => {
-    if (persona === "law_firm" && activeClientId) {
-      return infringements.filter((i) => i.clientId === activeClientId);
+    if (persona === "law_firm") {
+      if (activeClientId) {
+        return infringements.filter((i) => i.clientId === activeClientId);
+      }
+      return infringements.filter((i) => i.clientId !== "");
     }
-    return infringements;
+    // brand_owner: only show infringements with empty/missing client ID
+    return infringements.filter((i) => !i.clientId || i.clientId === "");
   }, [infringements, persona, activeClientId]);
 }
 
@@ -220,9 +224,13 @@ export function useScopedMarks() {
   const activeClientId = useStore((s) => s.activeClientId);
 
   return useMemo(() => {
-    if (persona === "law_firm" && activeClientId) {
-      return marks.filter((m) => m.clientId === activeClientId);
+    if (persona === "law_firm") {
+      if (activeClientId) {
+        return marks.filter((m) => m.clientId === activeClientId);
+      }
+      return marks.filter((m) => m.clientId !== "");
     }
-    return marks;
+    // brand_owner: only show marks with empty/missing client ID
+    return marks.filter((m) => !m.clientId || m.clientId === "");
   }, [marks, persona, activeClientId]);
 }

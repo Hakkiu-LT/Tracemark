@@ -149,6 +149,7 @@ class CheckBrandRequest(BaseModel):
     platforms: list[str] = ["amazon", "google_ads", "meta_ads", "domains"]
     official_advertisers: list[str] = []
     target_regions: list[str] = ["US"]
+    client_id: str | None = None
 
 
 @router.post("/check-brand")
@@ -170,7 +171,15 @@ async def check_brand(
         except Exception as e:
             print(f"[warn] Failed to fetch organization_id for user {current_user.id}: {e}")
 
-    case_id = create_case(payload.brand_name, organization_id)
+    # Use the first target region as the detection region if available, otherwise default to US
+    detection_region = payload.target_regions[0] if payload.target_regions else "US"
+    case_id = create_case(
+        brand_name=payload.brand_name,
+        organization_id=organization_id,
+        detection_region=detection_region,
+        target_regions=payload.target_regions,
+        client_id=payload.client_id,
+    )
 
     try:
         update_case_status(case_id, "analyzing")
@@ -198,6 +207,7 @@ async def check_brand(
             "decision": decision.model_dump(),
             "evidence": evidence.model_dump(),
             "takedown_reports": [r.model_dump() for r in reports],
+            "detection_region": detection_region,
         }
     except Exception as e:
         update_case_status(case_id, "error")
@@ -253,12 +263,13 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest, current_user=Depends(
 
 class UpdateStatusRequest(BaseModel):
     status: str
+    decline_reason: str | None = None
 
 
 @router.post("/{case_id}/status")
 def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_user=Depends(get_current_user)):
     try:
-        update_case_status(case_id, payload.status)
+        update_case_status(case_id, payload.status, decline_reason=payload.decline_reason)
         
         if payload.status == "escalated":
             case_data = get_full_case(case_id)
