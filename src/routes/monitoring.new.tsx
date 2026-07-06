@@ -165,6 +165,7 @@ function NewAssetPage() {
         brand_name: brandName,
         platforms: apiPlatforms.length > 0 ? apiPlatforms : ["amazon", "google_ads", "domains"],
         target_regions: Array.from(selectedRegions),
+        client_id: persona === "law_firm" ? clientId : undefined,
       }),
     onSuccess: (data) => {
       let cleanWebsite = website.trim();
@@ -175,7 +176,7 @@ function NewAssetPage() {
         brandName,
         registrationNumber: regNum || "Pending",
         website: cleanWebsite.replace(/^https?:\/\//, ""),
-        clientId,
+        clientId: persona === "law_firm" ? clientId : "",
         platforms: Array.from(selected),
         logoColor: "oklch(0.58 0.18 255)",
         targetRegions: Array.from(selectedRegions),

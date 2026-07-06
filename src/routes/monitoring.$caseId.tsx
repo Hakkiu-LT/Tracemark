@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { DecisionCard } from "@/components/cases/decision-card";
 import { KeyFindings } from "@/components/cases/key-findings";
 import { EvidenceSection } from "@/components/cases/evidence-section";
-import { ChevronRight, FileText, ArrowLeft, Loader2, ShieldCheck, RefreshCw, Gavel } from "lucide-react";
+import { ChevronRight, FileText, ArrowLeft, Loader2, ShieldCheck, RefreshCw, Gavel, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { updateCaseStatusBackend } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { openEscalationEmail, buildScanResultEscalationText } from "@/lib/escalation-email";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/monitoring/$caseId")({
   head: ({ params }) => ({
@@ -34,23 +37,38 @@ const animStyle = (delay: number): React.CSSProperties => ({
 function MonitoringScanResultPage() {
   const { caseId } = Route.useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const result = useStore((s) => s.scanResults[caseId]);
   const setScanResult = useStore((s) => s.setScanResult);
   // Only show a loading state when we don't already have the result locally and
   // still need to try fetching it from Supabase.
   const [loading, setLoading] = useState(!result);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
 
-  const handleUpdateStatus = async (status: string) => {
+  const handleUpdateStatus = async (status: string, reason?: string) => {
     setUpdating(status);
     try {
-      await updateCaseStatusBackend(caseId, status);
+      await updateCaseStatusBackend(caseId, status, reason);
       const updatedCase = await fetchCaseFromSupabase(caseId);
       if (updatedCase) {
         setScanResult(caseId, updatedCase);
       }
       if (status === "safe") toast.success("Marked as safe");
-      else if (status === "escalated") toast.success("Escalated to counsel");
+      else if (status === "declined") toast.success("Case declined");
+      else if (status === "complete") toast.success("Marked as completed");
+      else if (status === "escalated") {
+        toast.success("Escalated to counsel");
+        if (result) {
+          const { subject, body } = buildScanResultEscalationText(caseId, result);
+          openEscalationEmail({
+            emailPreference: user?.email || "",
+            subject,
+            body,
+          });
+        }
+      }
       else toast.success("Status updated to analyzing");
       markCasesViewForRestore();
       navigate({ to: "/cases" });
@@ -154,7 +172,7 @@ function MonitoringScanResultPage() {
             ) : (
               <ShieldCheck className="h-4 w-4 text-success" />
             )}
-            Mark as Safe
+            Safe
           </Button>
           <Button
             variant="outline"
@@ -182,6 +200,32 @@ function MonitoringScanResultPage() {
             )}
             Escalate to Counsel
           </Button>
+          <Button
+            variant="outline"
+            disabled={updating !== null}
+            onClick={() => handleUpdateStatus("complete")}
+            className="flex items-center gap-2"
+          >
+            {updating === "complete" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-success" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-success" />
+            )}
+            Complete
+          </Button>
+          <Button
+            variant="outline"
+            disabled={updating !== null}
+            onClick={() => setShowDeclineDialog(true)}
+            className="flex items-center gap-2"
+          >
+            {updating === "declined" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+            ) : (
+              <XCircle className="h-4 w-4 text-destructive" />
+            )}
+            Declined
+          </Button>
           <Button asChild>
             <Link to="/monitoring/$caseId/takedown" params={{ caseId }}>
               <FileText className="h-4 w-4 mr-2" />
@@ -208,12 +252,56 @@ function MonitoringScanResultPage() {
           <DecisionCard decision={result.decision} />
         </div>
         <div className={`xl:col-span-2 ${ANIM}`} style={animStyle(260)}>
-          <EvidenceSection evidence={result.evidence} />
+          <EvidenceSection
+            evidence={result.evidence}
+            detectionRegion={result.detection_region}
+          />
         </div>
         <div className={ANIM} style={animStyle(320)}>
           <KeyFindings decision={result.decision} />
         </div>
       </div>
+
+      <Dialog open={showDeclineDialog} onOpenChange={setShowDeclineDialog}>
+        <DialogContent className="sm:max-w-[425px] bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Decline Case</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Please write the reason why this case is being declined.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Enter decline reason..."
+              className="w-full h-24 px-3 py-2 text-sm text-foreground bg-background rounded-md border border-border focus:border-accent focus:ring-1 focus:ring-accent outline-none resize-none transition-colors"
+              required
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeclineDialog(false);
+                setDeclineReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!declineReason.trim()}
+              onClick={() => {
+                setShowDeclineDialog(false);
+                handleUpdateStatus("declined", declineReason);
+              }}
+            >
+              Decline Case
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

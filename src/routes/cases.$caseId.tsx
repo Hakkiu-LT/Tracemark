@@ -18,10 +18,15 @@ import {
   Clock,
   RefreshCw,
   Loader2,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { getInfringementById, getInfringementEvidence, updateInfringementStatus } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useAuth } from "@/lib/auth";
+import { openEscalationEmail, buildInfringementEscalationText } from "@/lib/escalation-email";
 import { CaseTimeline, type TimelineEvent } from "@/components/cases/CaseTimeline";
 
 export const Route = createFileRoute("/cases/$caseId")({
@@ -45,6 +50,7 @@ function CaseDetail() {
   const { caseId } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: i, isLoading: isCaseLoading, error: caseError } = useQuery({
     queryKey: ["infringement", caseId],
@@ -63,17 +69,38 @@ function CaseDetail() {
 
   const reviewedCount = Object.values(reviews).filter(Boolean).length;
 
+  const [showDeclineDialog, setShowDeclineDialog] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+
   const updateStatusMutation = useMutation({
-    mutationFn: (status: string) => updateInfringementStatus(caseId, status),
-    onSuccess: (data, status) => {
+    mutationFn: ({ status, reason }: { status: string; reason?: string }) =>
+      updateInfringementStatus(caseId, status, reason),
+    onSuccess: (data, variables) => {
+      const { status } = variables;
       queryClient.setQueryData(["infringement", caseId], data);
-      if (status === "dismissed" || status === "safe") toast.success("Marked as safe");
-      else if (status === "analyzing" || status === "active") toast.success(`Status updated to ${status}`);
-      else toast.success("Status escalated");
+      if (status === "dismissed" || status === "safe") {
+        toast.success("Marked as safe");
+      } else if (status === "declined") {
+        toast.success("Case declined");
+      } else if (status === "analyzing" || status === "active") {
+        toast.success(`Status updated to ${status}`);
+      } else if (status === "resolved" || status === "complete") {
+        toast.success("Marked as completed");
+      } else {
+        toast.success("Status escalated");
+        if (data) {
+          const { subject, body } = buildInfringementEscalationText(data);
+          openEscalationEmail({
+            emailPreference: user?.email || "",
+            subject,
+            body,
+          });
+        }
+      }
     },
-    onError: () => {
+    onError: (err) => {
       toast.error("Failed to update status");
-    }
+    },
   });
 
   if (caseError) {
@@ -118,8 +145,8 @@ function CaseDetail() {
     );
   }
 
-  const handleUpdateStatus = (status: string) => {
-    updateStatusMutation.mutate(status);
+  const handleUpdateStatus = (status: string, reason?: string) => {
+    updateStatusMutation.mutate({ status, reason });
   };
 
   const handleRetryCapture = () => {
@@ -141,10 +168,14 @@ function CaseDetail() {
       case "takedown_sent":
         return "Takedown Notice Sent";
       case "resolved":
-        return "Resolved";
+      case "complete":
+      case "completed":
+        return "Completed";
       case "safe":
       case "dismissed":
         return "Marked as Safe";
+      case "declined":
+        return "Declined";
       case "error":
         return "Capture Failed";
       default:
@@ -211,15 +242,15 @@ function CaseDetail() {
           <Button
             variant="outline"
             disabled={isUpdating}
-            onClick={() => handleUpdateStatus("dismissed")}
+            onClick={() => handleUpdateStatus("safe")}
             className="flex items-center gap-2"
           >
-            {isUpdating && updateStatusMutation.variables === "dismissed" ? (
+            {isUpdating && updateStatusMutation.variables?.status === "safe" ? (
               <Loader2 className="h-4 w-4 animate-spin text-success" />
             ) : (
               <ShieldCheck className="h-4 w-4 text-success" />
             )}
-            Mark as Safe
+            Safe
           </Button>
           <Button
             variant="outline"
@@ -227,7 +258,7 @@ function CaseDetail() {
             onClick={() => handleUpdateStatus("active")}
             className="flex items-center gap-2"
           >
-            {isUpdating && updateStatusMutation.variables === "active" ? (
+            {isUpdating && updateStatusMutation.variables?.status === "active" ? (
               <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
             ) : (
               <RefreshCw className="h-4 w-4 text-amber-500" />
@@ -240,12 +271,38 @@ function CaseDetail() {
             onClick={() => handleUpdateStatus("escalated")}
             className="flex items-center gap-2"
           >
-            {isUpdating && updateStatusMutation.variables === "escalated" ? (
+            {isUpdating && updateStatusMutation.variables?.status === "escalated" ? (
               <Loader2 className="h-4 w-4 animate-spin text-accent" />
             ) : (
               <Gavel className="h-4 w-4 text-accent" />
             )}
             Escalate to Counsel
+          </Button>
+          <Button
+            variant="outline"
+            disabled={isUpdating}
+            onClick={() => handleUpdateStatus("resolved")}
+            className="flex items-center gap-2"
+          >
+            {isUpdating && updateStatusMutation.variables?.status === "resolved" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-success" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-success" />
+            )}
+            Complete
+          </Button>
+          <Button
+            variant="outline"
+            disabled={isUpdating}
+            onClick={() => setShowDeclineDialog(true)}
+            className="flex items-center gap-2"
+          >
+            {isUpdating && updateStatusMutation.variables?.status === "declined" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+            ) : (
+              <XCircle className="h-4 w-4 text-destructive" />
+            )}
+            Declined
           </Button>
           <Button
             onClick={() =>
@@ -338,7 +395,7 @@ function CaseDetail() {
                     DETECTION PROXY
                   </span>
                   {(() => {
-                    const cCode = getRegionForId(i.case_id || i.id);
+                    const cCode = i.detection_region || getRegionForId(i.case_id || i.id);
                     const conf = COUNTRY_BY_CODE[cCode];
                     const macroReg = getMacroRegionForCountry(cCode);
                     return (
@@ -446,6 +503,47 @@ function CaseDetail() {
           <CaseTimeline events={timelineEvents} />
         </div>
       </div>
+
+      <Dialog open={showDeclineDialog} onOpenChange={setShowDeclineDialog}>
+        <DialogContent className="sm:max-w-[425px] bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Decline Case</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Please write the reason why this case is being declined.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Enter decline reason..."
+              className="w-full h-24 px-3 py-2 text-sm text-foreground bg-background rounded-md border border-border focus:border-accent focus:ring-1 focus:ring-accent outline-none resize-none transition-colors"
+              required
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeclineDialog(false);
+                setDeclineReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!declineReason.trim()}
+              onClick={() => {
+                setShowDeclineDialog(false);
+                handleUpdateStatus("declined", declineReason);
+              }}
+            >
+              Decline Case
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
