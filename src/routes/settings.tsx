@@ -6,11 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useStore, type Persona } from "@/lib/store";
-import { Building2, Scale, Check, CreditCard, Calendar, Download, Trash2, ArrowUpRight, Lock, Loader2, RefreshCw } from "lucide-react";
+import { Building2, Scale, Check, CreditCard, Calendar, Download, Trash2, ArrowUpRight, Lock, Loader2, RefreshCw, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
-import { NotificationDeliveryLog } from "@/components/notification-delivery-log";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { ClientsPage } from "./clients";
@@ -35,7 +34,116 @@ export function SettingsPage() {
   const [newCardExpiry, setNewCardExpiry] = useState("");
   const [newCardCvc, setNewCardCvc] = useState("");
 
+  const [fullName, setFullName] = useState("");
+  const [emailVal, setEmailVal] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+
   const currentPlan = profile?.plan || "free";
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || "");
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (!orgId || !supabase) {
+      setLoadingProfile(false);
+      return;
+    }
+
+    async function loadOrgSettings() {
+      try {
+        const { data, error } = await supabase!
+          .from("org_settings")
+          .select("notification_email, firm_name")
+          .eq("organization_id", orgId)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data) {
+          setEmailVal(data.notification_email || user?.email || "");
+          setOrgName(data.firm_name || (persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc."));
+        } else {
+          setEmailVal(user?.email || "");
+          setOrgName(persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc.");
+        }
+      } catch (err) {
+        console.error("Error loading org settings:", err);
+      } finally {
+        setLoadingProfile(false);
+      }
+    }
+
+    loadOrgSettings();
+  }, [orgId, user, persona]);
+
+  const handleSaveProfile = async () => {
+    if (!user || !supabase) return;
+    setSavingProfile(true);
+    try {
+      // 1. Update profiles table
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          full_name: fullName,
+        })
+        .eq("id", user.id);
+      if (profileError) throw profileError;
+
+      // 2. Update org_settings table
+      const { error: orgError } = await supabase
+        .from("org_settings")
+        .upsert({
+          organization_id: orgId,
+          firm_name: orgName,
+          notification_email: emailVal,
+          updated_at: new Date().toISOString(),
+        });
+      if (orgError) throw orgError;
+
+      // 3. Optional: update auth email if changed
+      if (emailVal.trim() && emailVal.trim() !== user.email) {
+        const { error: authError } = await supabase.auth.updateUser({ email: emailVal.trim() });
+        if (authError) {
+          console.warn("Auth email update error:", authError);
+          toast.warning("Profile saved. Confirm change on your email address(es) to update login email.");
+        }
+      }
+
+      await refreshProfile();
+      toast.success("Profile saved successfully");
+    } catch (err: any) {
+      console.error("Error saving profile:", err);
+      toast.error(err.message || "Failed to save profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleTestEmailClient = () => {
+    if (!emailVal.trim()) {
+      toast.error("Please enter an email address to test.");
+      return;
+    }
+    const emailStr = emailVal.trim();
+    const isGmail = emailStr.toLowerCase().endsWith("@gmail.com") || emailStr.toLowerCase().includes("gmail");
+    const subject = "Test Alert — Tracemark";
+    const body = "This is a test notification from Tracemark to verify your profile settings.";
+
+    if (isGmail) {
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailStr)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(gmailUrl, "_blank");
+      toast.success("Opened Gmail compose window in a new tab");
+    } else {
+      const mailtoUrl = `mailto:${encodeURIComponent(emailStr)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailtoUrl;
+      toast.success("Opened default email client");
+    }
+  };
 
   const planDetails = {
     free: { name: "Free Plan", price: 0 },
@@ -48,6 +156,7 @@ export function SettingsPage() {
   const currentPlanInfo = planDetails[currentPlan as keyof typeof planDetails] || planDetails.free;
 
   const getActiveTab = (path: string) => {
+    if (path.endsWith("/profile")) return "profile";
     if (path.endsWith("/notifications")) return "notifications";
     if (path.endsWith("/billing")) return "billing";
     if (path.endsWith("/clients")) return "clients";
@@ -63,6 +172,8 @@ export function SettingsPage() {
   function handleTabChange(value: string) {
     if (value === "persona") {
       navigate({ to: "/settings" });
+    } else if (value === "profile") {
+      navigate({ to: "/settings/profile" });
     } else if (value === "notifications") {
       navigate({ to: "/settings/notifications" });
     } else if (value === "billing") {
@@ -163,15 +274,79 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="profile" className="mt-4">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Profile</CardTitle></CardHeader>
+          <Card className="border-border/40 bg-card/60 backdrop-blur-md">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-accent" />
+                Profile & Workspace Info
+              </CardTitle>
+              <CardDescription>
+                Manage your profile details, organization settings, and notification alerts recipient.
+              </CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2"><Label>Full name</Label><Input defaultValue="Avery Chen" /></div>
-                <div className="space-y-2"><Label>Email</Label><Input defaultValue="avery@tracemark.io" /></div>
-              </div>
-              <div className="space-y-2"><Label>Organization</Label><Input defaultValue={persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc."} /></div>
-              <Button>Save changes</Button>
+              {loadingProfile ? (
+                <div className="flex h-32 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="full-name">Full name</Label>
+                      <Input
+                        id="full-name"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="bg-background/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="profile-email">Alert Email Address</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="profile-email"
+                          type="email"
+                          value={emailVal}
+                          onChange={(e) => setEmailVal(e.target.value)}
+                          className="bg-background/50"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleTestEmailClient}
+                          title="Test Opening Default Email Client"
+                          className="shrink-0"
+                        >
+                          <Mail className="h-4 w-4 mr-2 text-accent" />
+                          Test
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="organization">Organization / Firm Name</Label>
+                    <Input
+                      id="organization"
+                      value={orgName}
+                      onChange={(e) => setOrgName(e.target.value)}
+                      className="bg-background/50"
+                    />
+                  </div>
+                  <div className="flex justify-end pt-2">
+                    <Button onClick={handleSaveProfile} disabled={savingProfile}>
+                      {savingProfile ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save changes"
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -185,7 +360,6 @@ export function SettingsPage() {
         <TabsContent value="notifications" className="mt-4">
           <div className="space-y-6">
             <NotificationSettingsPanel />
-            <NotificationDeliveryLog />
           </div>
         </TabsContent>
 

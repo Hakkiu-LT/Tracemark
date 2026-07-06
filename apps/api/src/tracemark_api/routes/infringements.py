@@ -22,6 +22,7 @@ class InfringementItem(BaseModel):
     screenshot_url: str | None
     flagged_at: str
     created_at: str
+    detection_region: str | None = None
 
 
 class InfringementsResponse(BaseModel):
@@ -120,14 +121,19 @@ def get_infringement(
     sb = get_supabase()
     result = (
         sb.table("infringements")
-        .select("*")
+        .select("*, cases(detection_region)")
         .eq("id", infringement_id)
         .maybe_single()
         .execute()
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Infringement not found")
-    return result.data
+        
+    data = result.data
+    cases_data = data.get("cases")
+    detection_region = cases_data.get("detection_region") if cases_data else None
+    data["detection_region"] = detection_region
+    return data
 
 
 @router.get("/{infringement_id}/evidence", response_model=list[EvidenceItem])
@@ -148,6 +154,7 @@ def get_evidence(
 
 class UpdateStatusRequest(BaseModel):
     status: str
+    decline_reason: str | None = None
 
 @router.patch("/{infringement_id}/status", response_model=InfringementItem)
 def update_infringement_status(
@@ -163,12 +170,28 @@ def update_infringement_status(
     if not existing.data:
         raise HTTPException(status_code=404, detail="Infringement not found")
         
-    result = (
-        sb.table("infringements")
-        .update({"status": payload.status})
-        .eq("id", infringement_id)
-        .execute()
-    )
+    updates = {"status": payload.status}
+    if payload.decline_reason is not None:
+        updates["decline_reason"] = payload.decline_reason
+
+    try:
+        result = (
+            sb.table("infringements")
+            .update(updates)
+            .eq("id", infringement_id)
+            .execute()
+        )
+    except Exception as e:
+        if "decline_reason" in str(e):
+            result = (
+                sb.table("infringements")
+                .update({"status": payload.status})
+                .eq("id", infringement_id)
+                .execute()
+            )
+            print(f"[Infringements] Decline reason fallback: {payload.decline_reason}")
+        else:
+            raise e
     
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to update status")

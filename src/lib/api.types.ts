@@ -72,10 +72,13 @@ export interface CheckBrandResponse {
   decision: DecisionResponse;
   evidence: EvidenceResponse;
   takedown_reports: TakedownReport[];
+  detection_region?: string | null;
 }
 
 export interface CheckBrandRequest {
   brand_name: string;
   platforms?: string[];
+  official_advertisers?: string[];
   target_regions?: string[];
+  client_id?: string;
 }

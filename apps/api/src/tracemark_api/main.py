@@ -65,3 +65,23 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     return response
+
+
+@app.on_event("startup")
+def startup_event():
+    import threading
+    import time
+    from tracemark_api.services.storage import cleanup_old_cases
+    
+    def run_periodically():
+        # Sleep for a minute to let the server start up smoothly
+        time.sleep(60)
+        while True:
+            try:
+                cleanup_old_cases()
+            except Exception as ex:
+                print(f"[Cleanup Scheduler] Exception during run: {ex}")
+            # Sleep for 24 hours (86400 seconds)
+            time.sleep(24 * 3600)
+            
+    threading.Thread(target=run_periodically, daemon=True).start()
