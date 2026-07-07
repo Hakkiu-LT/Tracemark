@@ -1,9 +1,14 @@
 import os
 import json
+import sys
 from supabase import create_client
 
-supabase_url = "https://kdiyjwwejrdqnccfqhyv.supabase.co"
-supabase_key = "sb_secret_***REVOKED***"
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SECRET_KEY")
+
+if not supabase_url or not supabase_key:
+    print("Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY) must be set in environment variables.")
+    sys.exit(1)
 
 supabase = create_client(supabase_url, supabase_key)
 
