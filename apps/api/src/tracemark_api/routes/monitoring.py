@@ -231,7 +231,7 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest, current_user=Depends(
         for e in os.environ.get("ADMIN_EMAILS", "").split(",")
         if e.strip()
     }
-    if admin_emails and (current_user.email or "").lower() not in admin_emails:
+    if not admin_emails or (current_user.email or "").lower() not in admin_emails:
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin access required.")
     try:

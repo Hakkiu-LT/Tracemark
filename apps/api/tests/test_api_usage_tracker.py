@@ -152,7 +152,11 @@ def test_usage_stats_endpoint():
     ))
 
     from tracemark_api.dependencies import AuthUser
-    response = get_usage_stats(current_user=AuthUser(id="user-123", email="avery@tracemark.io"))
+    import tracemark_api.routes.usage as usage_mod
+    from unittest.mock import patch
+
+    with patch.object(usage_mod, '_ADMIN_EMAILS', {"avery@tracemark.io"}):
+        response = get_usage_stats(current_user=AuthUser(id="user-123", email="avery@tracemark.io"))
     assert response.generated_at is not None
     assert len(response.summary) == len(API_REGISTRY)
     assert len(response.by_developer) == 1
