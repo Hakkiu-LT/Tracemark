@@ -97,10 +97,14 @@ def test_usage_stats_allows_admin_email(monkeypatch):
         import tracemark_api.routes.usage as usage_mod
         importlib.reload(usage_mod)
 
-        response = client.get(
-            "/api/v1/usage-stats",
-            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
-        )
+        # We also need to patch the usage tracker to avoid DB calls
+        with patch.object(usage_mod.tracker, 'get_usage_summary', return_value=[]), \
+             patch.object(usage_mod.tracker, 'get_by_developer', return_value=[]), \
+             patch.object(usage_mod.tracker, 'get_hourly_breakdown', return_value=[]):
+            response = client.get(
+                "/api/v1/usage-stats",
+                headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+            )
     assert response.status_code == 200
 
 

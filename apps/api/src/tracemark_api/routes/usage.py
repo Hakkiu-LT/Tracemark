@@ -27,7 +27,7 @@ class UsageStatsResponse(BaseModel):
 def get_usage_stats(current_user=Depends(get_current_user)) -> UsageStatsResponse:
     """Returns real-time API usage statistics. Restricted to admin emails."""
     user_email = (current_user.email or "").lower()
-    if _ADMIN_EMAILS and user_email not in _ADMIN_EMAILS:
+    if not _ADMIN_EMAILS or user_email not in _ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Access restricted to admins.")
     return UsageStatsResponse(
         summary=[vars(s) for s in tracker.get_usage_summary()],
