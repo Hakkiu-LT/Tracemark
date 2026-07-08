@@ -87,12 +87,12 @@ PLATFORM_REGISTRY: dict[str, dict] = {
     # Social Media
     "instagram": {
         "category": "social_media",
-        "submission_url": "https://help.instagram.com/contact/372592039493026",
+        "submission_url": "https://help.instagram.com/contact/230197320740525",
         "submission_method": "web_form",
     },
     "facebook": {
         "category": "social_media",
-        "submission_url": "https://www.facebook.com/help/contact/208282075858952",
+        "submission_url": "https://www.facebook.com/help/contact/trademarkform",
         "submission_method": "web_form",
     },
     "tiktok": {
@@ -173,7 +173,7 @@ PLATFORM_REGISTRY: dict[str, dict] = {
     },
     "meta_ads": {
         "category": "ad_platform",
-        "submission_url": "https://www.facebook.com/help/contact/1735443093393986",
+        "submission_url": "https://www.facebook.com/help/contact/trademarkform",
         "submission_method": "web_form",
     },
     "tiktok_ads": {
