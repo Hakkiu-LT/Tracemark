@@ -1,16 +1,37 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
+import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ShieldCheck, Loader2, Lock, ArrowLeft, CreditCard } from "lucide-react";
+import { ShieldCheck, Loader2, Lock, ArrowLeft, CreditCard, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/lib/auth";
+import { stripePromise, isStripeConfigured } from "@/lib/stripe";
+import {
+  getPlan,
+  ADDONS,
+  effectiveMonthly,
+  intervalTotal,
+  type BillingInterval,
+} from "@/lib/billing";
+import {
+  createSubscription,
+  updateSubscription,
+  getSubscription,
+  type AddonSelection,
+} from "@/lib/api";
 
 const checkoutSearchSchema = z.object({
-  plan: z.string().catch("pro"),
+  plan: z.string().catch("growth"),
+  interval: z.enum(["month", "year"]).catch("month"),
 });
 
 export const Route = createFileRoute("/checkout")({
@@ -24,103 +45,75 @@ export const Route = createFileRoute("/checkout")({
   component: CheckoutPage,
 });
 
-const PLANS = {
-  starter: { name: "Starter Plan", price: 49, interval: "mo" },
-  pro: { name: "Pro Plan", price: 199, interval: "mo" },
-  firm: { name: "Firm Plan", price: 599, interval: "mo" },
-};
-
 function CheckoutPage() {
-  const navigate = useNavigate();
   const search = Route.useSearch();
-  const { user } = useAuth();
-  
-  const planId = search.plan as keyof typeof PLANS;
-  const plan = PLANS[planId] || PLANS.pro;
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const interval = search.interval as BillingInterval;
+  const plan = getPlan(search.plan) ?? getPlan("growth")!;
 
-  const [name, setName] = useState(user?.user_metadata?.full_name || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvc, setCvc] = useState("");
-  const [zip, setZip] = useState("");
-  
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStep, setProcessingStep] = useState(0);
+  // Is the user already subscribed? Then this is a plan change (uses the card on
+  // file via update-subscription) rather than a fresh checkout. We must wait for
+  // this query before acting — otherwise a subscriber could hit create (409).
+  const { data: currentSub, isLoading: subLoading } = useQuery({
+    queryKey: ["billing_subscription"],
+    queryFn: getSubscription,
+  });
+  const hasActiveSub = ["active", "trialing", "past_due"].includes(currentSub?.status ?? "");
 
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    const matches = v.match(/\d{4,16}/g);
-    const match = (matches && matches[0]) || "";
-    const parts = [];
+  // addon key -> quantity (0 = not selected)
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
+  const selectedAddons: AddonSelection[] = ADDONS.filter((a) => (quantities[a.key] ?? 0) > 0).map(
+    (a) => ({ key: a.key, quantity: quantities[a.key] }),
+  );
 
-    if (parts.length > 0) {
-      return parts.join(" ");
-    } else {
-      return v;
-    }
-  };
+  const planMonthly = plan.monthly ?? 0;
+  const addonsMonthly = selectedAddons.reduce((sum, sel) => {
+    const meta = ADDONS.find((a) => a.key === sel.key);
+    return sum + (meta ? meta.price * sel.quantity : 0);
+  }, 0);
+  const monthlyTotal = planMonthly + addonsMonthly;
+  const dueToday = intervalTotal(monthlyTotal, interval);
 
-  const formatExpiry = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    if (v.length >= 2) {
-      return `${v.slice(0, 2)}/${v.slice(2, 4)}`;
-    }
-    return v;
-  };
+  function setQty(key: string, next: number) {
+    setQuantities((q) => ({ ...q, [key]: Math.max(0, next) }));
+  }
 
-  const handlePay = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cardNumber || !expiry || !cvc || !zip) {
-      toast.error("Please fill in all credit card details.");
+  async function handleContinue() {
+    if (!isStripeConfigured) {
+      toast.error("Payments are not configured (missing Stripe key).");
       return;
     }
-    setIsProcessing(true);
-  };
-
-  useEffect(() => {
-    if (!isProcessing) return;
-
-    const steps = [
-      "Contacting secure vault...",
-      "Validating dynamic check...",
-      "Authorizing recurring payment profile...",
-      "Applying seat licenses...",
-    ];
-
-    const timer = setInterval(() => {
-      setProcessingStep((prev) => {
-        if (prev >= steps.length - 1) {
-          clearInterval(timer);
-          setTimeout(() => {
-            navigate({
-              to: "/billing/success",
-              search: { plan: planId || "pro" },
-            });
-          }, 600);
-          return prev;
-        }
-        return prev + 1;
+    setPreparing(true);
+    try {
+      if (hasActiveSub) {
+        // Plan change: swap the plan/add-ons on the existing subscription and
+        // bill the card on file (proration). No new card entry needed.
+        await updateSubscription({ plan: plan.id, interval, addons: selectedAddons });
+        await queryClient.invalidateQueries({ queryKey: ["billing_subscription"] });
+        await queryClient.invalidateQueries({ queryKey: ["billing_invoices"] });
+        toast.success("Plan updated!");
+        navigate({ to: "/billing/success", search: { plan: plan.id, interval } });
+        return;
+      }
+      const { client_secret } = await createSubscription({
+        plan: plan.id,
+        interval,
+        addons: selectedAddons,
       });
-    }, 800);
-
-    return () => clearInterval(timer);
-  }, [isProcessing, navigate, planId]);
-
-  const steps = [
-    "Contacting secure vault...",
-    "Validating dynamic check...",
-    "Authorizing recurring payment profile...",
-    "Applying seat licenses...",
-  ];
+      setClientSecret(client_secret);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not start checkout.");
+    } finally {
+      setPreparing(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-4xl py-6 space-y-6">
-      {/* Back button */}
       <div>
         <Button variant="ghost" size="sm" asChild className="gap-2">
           <Link to="/plans">
@@ -130,163 +123,238 @@ function CheckoutPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-12">
-        {/* Left Column - Checkout Form */}
+        {/* Left: payment / add-on selection */}
         <div className="md:col-span-7">
-          <Card className="border-border/60 shadow-lg relative overflow-hidden bg-card/50 backdrop-blur-sm">
-            {isProcessing && (
-              <div className="absolute inset-0 bg-background/95 z-50 flex flex-col items-center justify-center p-6 text-center animate-fade-in animate-duration-300">
-                <Loader2 className="h-10 w-10 animate-spin text-accent mb-4" />
-                <h3 className="text-lg font-semibold tracking-tight">Processing Payment</h3>
-                <p className="text-sm text-muted-foreground mt-2 max-w-xs h-6 transition-all duration-300">
-                  {steps[processingStep]}
-                </p>
-                <div className="mt-8 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                  <Lock className="h-3 w-3" /> PCI-DSS Compliant Encryption Active
-                </div>
-              </div>
-            )}
-
+          <Card className="border-border/60 shadow-lg bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl font-semibold">
                 <CreditCard className="h-5 w-5 text-accent" /> Secure Checkout
               </CardTitle>
-              <CardDescription>Enter your billing details to complete your plan upgrade.</CardDescription>
+              <CardDescription>
+                {clientSecret
+                  ? "Enter your card details to complete your subscription."
+                  : hasActiveSub
+                    ? "Choose your add-ons, then confirm your plan change."
+                    : "Choose your add-ons, then continue to payment."}
+              </CardDescription>
             </CardHeader>
 
-            <form onSubmit={handlePay}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name on Card</Label>
-                  <Input
-                    id="name"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Jane Doe"
-                    className="bg-background/50 focus:border-accent"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Billing Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="jane.doe@example.com"
-                    className="bg-background/50 focus:border-accent"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cardNumber">Card Number</Label>
-                  <div className="relative">
-                    <Input
-                      id="cardNumber"
-                      required
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                      placeholder="4111 2222 3333 4444"
-                      maxLength={19}
-                      className="bg-background/50 pr-10 font-mono tracking-widest focus:border-accent"
-                    />
-                    <Lock className="absolute right-3 top-3 h-4 w-4 text-muted-foreground/60" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-1 space-y-2">
-                    <Label htmlFor="expiry">Expiry</Label>
-                    <Input
-                      id="expiry"
-                      required
-                      value={expiry}
-                      onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                      placeholder="MM/YY"
-                      maxLength={5}
-                      className="bg-background/50 font-mono text-center focus:border-accent"
-                    />
-                  </div>
-                  <div className="col-span-1 space-y-2">
-                    <Label htmlFor="cvc">CVC</Label>
-                    <Input
-                      id="cvc"
-                      required
-                      type="password"
-                      value={cvc}
-                      onChange={(e) => setCvc(e.target.value.replace(/\D/g, ""))}
-                      placeholder="•••"
-                      maxLength={4}
-                      className="bg-background/50 font-mono text-center focus:border-accent"
-                    />
-                  </div>
-                  <div className="col-span-1 space-y-2">
-                    <Label htmlFor="zip">ZIP / Postal</Label>
-                    <Input
-                      id="zip"
-                      required
-                      value={zip}
-                      onChange={(e) => setZip(e.target.value.toUpperCase())}
-                      placeholder="90210"
-                      className="bg-background/50 text-center focus:border-accent"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 flex items-start gap-2.5 bg-accent/5 border border-accent/10 rounded-lg p-3 text-xs text-muted-foreground leading-relaxed">
-                  <ShieldCheck className="h-4.5 w-4.5 text-accent shrink-0 mt-0.5" />
-                  <span>
-                    Your upgrade to the <span className="font-semibold text-foreground">{plan.name}</span> will take effect immediately. Subscriptions are billed monthly and can be cancelled any time.
-                  </span>
-                </div>
-              </CardContent>
-
-              <CardFooter className="flex flex-col gap-3">
-                <Button type="submit" className="w-full font-semibold cursor-pointer">
-                  Upgrade & Pay ${plan.price}/month
-                </Button>
-                <Button variant="ghost" asChild className="w-full text-muted-foreground hover:text-foreground">
-                  <Link to="/billing/cancel">Cancel Checkout</Link>
-                </Button>
-              </CardFooter>
-            </form>
+            {!clientSecret ? (
+              <>
+                <CardContent className="space-y-3">
+                  <p className="text-sm font-medium">Add-ons (optional)</p>
+                  {ADDONS.map((addon) => {
+                    const qty = quantities[addon.key] ?? 0;
+                    return (
+                      <div
+                        key={addon.key}
+                        className="flex items-start justify-between gap-3 rounded-lg border p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{addon.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            ${addon.price}/mo per {addon.unit}
+                          </p>
+                        </div>
+                        {addon.perUnit ? (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setQty(addon.key, qty - 1)}
+                              disabled={qty === 0}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center text-sm tabular-nums">{qty}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setQty(addon.key, qty + 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant={qty > 0 ? "default" : "outline"}
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => setQty(addon.key, qty > 0 ? 0 : 1)}
+                          >
+                            {qty > 0 ? "Added" : "Add"}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+                <CardFooter className="flex flex-col gap-3">
+                  <Button
+                    className="w-full font-semibold cursor-pointer"
+                    onClick={handleContinue}
+                    disabled={preparing || subLoading}
+                  >
+                    {preparing || subLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                        {subLoading ? "Loading…" : hasActiveSub ? "Updating…" : "Preparing…"}
+                      </>
+                    ) : hasActiveSub ? (
+                      "Confirm plan change"
+                    ) : (
+                      "Continue to payment"
+                    )}
+                  </Button>
+                </CardFooter>
+              </>
+            ) : (
+              <Elements
+                stripe={stripePromise}
+                options={{ clientSecret, appearance: { theme: "stripe" } }}
+              >
+                <PaymentForm plan={plan.id} interval={interval} dueToday={dueToday} />
+              </Elements>
+            )}
           </Card>
         </div>
 
-        {/* Right Column - Order Summary */}
+        {/* Right: order summary */}
         <div className="md:col-span-5">
           <Card className="border-border bg-card/35 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-base font-semibold">Order Summary</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{plan.name} (Monthly)</span>
-                <span className="font-semibold">${plan.price}.00</span>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  {plan.name} ({interval === "year" ? "Yearly" : "Monthly"})
+                </span>
+                <span className="font-semibold">
+                  ${effectiveMonthly(planMonthly, interval).toLocaleString()}/mo
+                </span>
               </div>
+              {selectedAddons.map((sel) => {
+                const meta = ADDONS.find((a) => a.key === sel.key)!;
+                return (
+                  <div key={sel.key} className="flex justify-between text-muted-foreground">
+                    <span>
+                      {meta.name}
+                      {meta.perUnit ? ` ×${sel.quantity}` : ""}
+                    </span>
+                    <span>${(meta.price * sel.quantity).toLocaleString()}/mo</span>
+                  </div>
+                );
+              })}
               <hr className="border-border/60" />
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">Setup fee</span>
                 <span className="text-emerald-500 font-medium">Free</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax</span>
-                <span>$0.00</span>
-              </div>
               <hr className="border-border" />
               <div className="flex justify-between items-baseline">
-                <span className="text-sm font-semibold">Total due today</span>
-                <span className="text-xl font-bold text-accent">${plan.price}.00</span>
+                <span className="font-semibold">Total due today</span>
+                <span className="text-xl font-bold text-accent">
+                  ${dueToday.toLocaleString()}.00
+                </span>
               </div>
+              {interval === "year" && (
+                <p className="text-xs text-muted-foreground">
+                  Billed yearly — equivalent to ${monthlyTotal.toLocaleString()}/mo at the monthly
+                  rate.
+                </p>
+              )}
             </CardContent>
             <CardFooter className="bg-muted/20 border-t border-border/40 py-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-              <Lock className="h-3.5 w-3.5 text-muted-foreground/80" /> Billed securely via Stripe Mock
+              <Lock className="h-3.5 w-3.5" /> Billed securely via Stripe
             </CardFooter>
           </Card>
         </div>
       </div>
     </div>
+  );
+}
+
+function PaymentForm({
+  plan,
+  interval,
+  dueToday,
+}: {
+  plan: string;
+  interval: BillingInterval;
+  dueToday: number;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handlePay(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setSubmitting(true);
+
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+      confirmParams: {
+        return_url: `${window.location.origin}/billing/success?plan=${plan}&interval=${interval}`,
+      },
+    });
+
+    if (error) {
+      toast.error(error.message ?? "Payment failed. Please try again.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (paymentIntent && paymentIntent.status === "succeeded") {
+      navigate({ to: "/billing/success", search: { plan, interval } });
+    } else {
+      // 3DS / redirect flows land back via return_url; otherwise wait for webhook.
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handlePay}>
+      <CardContent className="space-y-4">
+        <PaymentElement />
+        <div className="pt-1 flex items-start gap-2.5 bg-accent/5 border border-accent/10 rounded-lg p-3 text-xs text-muted-foreground leading-relaxed">
+          <ShieldCheck className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+          <span>
+            Subscriptions renew {interval === "year" ? "yearly" : "monthly"} and can be cancelled
+            any time.
+          </span>
+        </div>
+      </CardContent>
+      <CardFooter className="flex flex-col gap-3">
+        <Button
+          type="submit"
+          className="w-full font-semibold cursor-pointer"
+          disabled={!stripe || submitting}
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…
+            </>
+          ) : (
+            `Pay $${dueToday.toLocaleString()}`
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          asChild
+          className="w-full text-muted-foreground hover:text-foreground"
+        >
+          <Link to="/billing/cancel">Cancel Checkout</Link>
+        </Button>
+      </CardFooter>
+    </form>
   );
 }

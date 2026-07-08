@@ -37,7 +37,7 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   organization_id: string | null;
-  plan: "free" | "starter" | "pro" | "firm" | "enterprise";
+  plan: "free" | "starter" | "growth" | "pro" | "agency" | "enterprise";
 }
 
 /**

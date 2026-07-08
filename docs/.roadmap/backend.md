@@ -105,9 +105,23 @@ This document outlines the priority ordering for backend services, engines, data
 | Google OAuth configured in Supabase | ✅ Done | Enabled on Supabase dashboard, Client ID/Secret added |
 | Restrict `/api/v1/usage-stats` to allowed admin emails | ✅ Done | `ADMIN_EMAILS` env var, 403 if email not in list — `routes/usage.py` |
 | `pytest tests/test_auth.py` | ✅ Done | 7 tests — /me JWT validation, admin 403/200, no-token 401 |
-| `POST /api/v1/billing/create-checkout-session` | ❌ Missing | Stripe checkout session creation |
-| `POST /api/v1/billing/create-portal-session` | ❌ Missing | Stripe billing portal redirect session |
-| `POST /api/v1/billing/webhook` | ❌ Missing | Handle Stripe events and update organization subscription status |
+| `POST /api/v1/billing/create-subscription` | ✅ Done | Stripe Elements: creates customer + incomplete subscription (plan + add-on items), returns PaymentIntent client_secret — `routes/billing.py` |
+| `POST /api/v1/billing/update-subscription` | ✅ Done | Change plan/interval or reconcile add-on quantities with prorations |
+| `POST /api/v1/billing/cancel-subscription` | ✅ Done | Cancel at period end / resume |
+| `GET /api/v1/billing/subscription` · `GET /api/v1/billing/invoices` | ✅ Done | Read current subscription + add-ons and synced invoice history |
+| `POST /api/v1/billing/create-portal-session` | ✅ Done | Stripe billing portal redirect session |
+| `POST /api/v1/billing/webhook` | ✅ Done | Verifies signature; syncs `subscriptions`/`subscription_addons`/`invoices` and mirrors `profiles.plan` |
+| `POST /api/v1/billing/charge-managed-takedown` | ✅ Done | Phase F: one-off $500 invoice item per successful managed takedown |
+| Webhook idempotency (dedupe by event id) | ✅ Done | `stripe_events` ledger; duplicate events skipped, degrades gracefully pre-migration |
+| RLS hardening (`user_id` ownership) | ✅ Done | Dedicated `user_id` column replaces the `organization_id = auth.uid()` overload; backend auto-populates |
+| Stripe error handling → clean HTTP | ✅ Done | `_do_stripe` maps `CardError`→402, `StripeError`→502 (keeps CORS headers, avoids opaque 500s) |
+| Stripe Price seeding helper | ✅ Done | `apps/api/scripts/seed_stripe.py` — creates Products/Prices, prints `.env` lines |
+| `billing_config.py` price mapping | ✅ Done | (plan,interval)/add-on → Stripe Price IDs from env + reverse lookups |
+| Unit tests `tests/test_billing.py` | ✅ Done | 11 tests (config, webhook signature, validation, managed takedown) |
+| Live E2E verification | ✅ Done | 26/26 checks: create→confirm→webhook→active→update→addon→cancel→resume→invoices→managed takedown + idempotency + user_id/dedup |
+| Migration `20260707000001_billing.sql` | ✅ Done | `subscriptions`, `subscription_addons`, `invoices` + `org_settings.stripe_customer_id`, RLS |
+| Migration `20260707000002_billing_hardening.sql` | ✅ Done | `user_id` columns + tightened RLS, `stripe_events` idempotency table |
+| Managed-takedown charge trigger | ✅ Done | Manual "Let us handle it — $500" button on the takedown page (Pro/Agency), idempotent per report id |
 
 ---
 
