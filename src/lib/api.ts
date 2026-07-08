@@ -59,6 +59,7 @@ export interface InfringementFeedItem {
   screenshot_url: string | null;
   flagged_at: string;
   created_at: string;
+  case_updated_at?: string;
   detection_region?: string | null;
 }
 

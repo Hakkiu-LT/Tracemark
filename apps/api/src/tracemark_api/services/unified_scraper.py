@@ -373,7 +373,7 @@ class UnifiedScraper:
             return self._scrape_js(url, caller_id, location)
 
         if site_type == SCRAPE_STATIC:
-            return self._scrape_static(url, caller_id)
+            return self.scrape_with_fallback(url, caller_id, location)
 
         # Unknown domain — run heuristic then route
         needs_js = detect_requires_javascript(url)
@@ -401,7 +401,13 @@ class UnifiedScraper:
             f"[UnifiedScraper] Static scrape insufficient for {url} "
             f"(content={len(static_result.markdown)} chars), falling back to JS scraper."
         )
-        return self._scrape_js(url, caller_id, location)
+        js_result = self._scrape_js(url, caller_id, location)
+        if not js_result.success:
+            print(
+                f"[UnifiedScraper] Failed to scrape/retrieve information from the domain: {url}. "
+                f"Static error: {static_result.error_message}. JS error: {js_result.error_message}"
+            )
+        return js_result
 
     # ------------------------------------------------------------------
     # Private: static HTTP scrape (runs on local resources — no API cost)

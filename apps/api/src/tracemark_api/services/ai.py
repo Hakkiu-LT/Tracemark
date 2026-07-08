@@ -79,6 +79,7 @@ class Evidence(BaseModel):
     domains: list[DomainEvidence] = PydanticField(default_factory=list)
     social: list[SocialEvidence] = PydanticField(default_factory=list)
     blocked_apis: list[str] = PydanticField(default_factory=list)
+    scanned_platforms: list[str] = PydanticField(default_factory=list, description="List of platform names that were actually scanned/monitored.")
     timestamp: datetime = PydanticField(default_factory=datetime.now)
 
 
@@ -155,6 +156,7 @@ def build_agent_graph():
                 ads=[],
                 domains=[],
                 social=[],
+                scanned_platforms=["amazon", "ebay", "aliexpress", "google_ads", "meta_ads", "domains", "tiktok", "instagram"],
             )
             return {"evidence": mock_evidence}
 
@@ -329,6 +331,8 @@ def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
 You are a brand protection legal analyst. Based on the structured evidence below,
 make an enforcement decision.
 
+SCANNED PLATFORMS: {evidence.scanned_platforms}
+
 PRE-COMPUTED EVIDENCE QUALITY SCORE: {score.total_score:.2f}/1.0 ({score.quality_label})
 - Marketplace listings score: {score.marketplace_score:.2f}
 - Ads score: {score.ads_score:.2f}
@@ -349,10 +353,11 @@ SAMPLE LISTINGS (up to 5):
 {[m.model_dump() for m in evidence.marketplaces[:5]]}
 
 DECISION GUIDELINES:
-- Use the pre-computed evidence score to anchor your confidence_score (e.g. score 0.7 → confidence ~0.7-0.8)
-- HIGH + TAKEDOWN: evidence_score >= 0.65 OR ad hijacking detected OR 5+ marketplace listings
-- MEDIUM + MONITOR: evidence_score 0.30-0.64 OR 1-4 listings OR suspicious domains only
-- LOW + DISMISS: evidence_score < 0.30 AND no marketplace listings
+- Anchor your confidence_score to the pre-computed evidence score relative to the scope of what was scanned (represented by the normalized PRE-COMPUTED EVIDENCE QUALITY SCORE).
+- If ONLY domains were scanned, evaluate the risk level, confidence, and recommended action based solely on the domain threat (e.g. a highly similar clone domain should warrant HIGH/MEDIUM risk and TAKEDOWN/MONITOR with high confidence).
+- HIGH + TAKEDOWN: evidence_score >= 0.65 OR ad hijacking detected OR 5+ marketplace listings OR a highly similar clone domain (similarity >= 85%) when domains were scanned.
+- MEDIUM + MONITOR: evidence_score 0.30-0.64 OR 1-4 listings OR suspicious domains.
+- LOW + DISMISS: evidence_score < 0.30 AND no marketplace listings and no suspicious domains.
 
 Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings.
 """

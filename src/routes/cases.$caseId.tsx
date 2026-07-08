@@ -78,6 +78,9 @@ function CaseDetail() {
     onSuccess: (data, variables) => {
       const { status } = variables;
       queryClient.setQueryData(["infringement", caseId], data);
+      queryClient.invalidateQueries({ queryKey: ["dashboard_cases"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard_infringements"] });
+      queryClient.invalidateQueries({ queryKey: ["infringements"] });
       if (status === "dismissed" || status === "safe") {
         toast.success("Marked as safe");
       } else if (status === "declined") {
