@@ -22,7 +22,7 @@ class ApiDefinition:
 API_REGISTRY: list[ApiDefinition] = [
     ApiDefinition("google_serp",     "Google SERP Scraper",              10,   RESET_DAILY,   "search", "GOOGLE_SERP_API"),
     ApiDefinition("searchcans",      "SearchCans API",                   16,   RESET_MONTHLY, "search", "SEARCHCANS_API"),
-    ApiDefinition("whois",           "WHOIS Lookup",                     500,  RESET_DAILY,   "whois"),
+    ApiDefinition("whois",           "WHOIS Lookup",                     800,  RESET_DAILY,   "whois"),
     ApiDefinition("google_ads",      "Google Ads Transparency",          100,  RESET_DAILY,   "ads"),
     ApiDefinition("meta_ads",        "Meta Ad Library API",              200,  RESET_DAILY,   "ads",     "META_ADS_ACCESS_TOKEN"),
     ApiDefinition("firecrawl",       "Firecrawl JS Scraper",             400,  RESET_MONTHLY, "scraper", "FIRECRAWL_API_KEY"),
