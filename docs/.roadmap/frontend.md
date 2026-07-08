@@ -99,12 +99,29 @@ This document outlines the priority ordering for frontend routes, components, an
 
 | Task | Status | Notes |
 |---|---|---|
-| `/settings/billing` page | ✅ Done | Implemented Settings tab, billing subroute and dashboard controls |
-| `/billing/success` + `/billing/cancel` pages | ✅ Done | Dynamic checkout forms and status landing updates |
+| `/settings/billing` page | ✅ Done | Real data: current plan+interval, next-invoice date, add-on management, cancel, Stripe portal, real invoice history w/ PDF links |
+| `/billing/success` + `/billing/cancel` pages | ✅ Done | Success page polls `GET /billing/subscription` until `active` (webhook is source of truth; no browser plan writes) |
 | Restrict API Usage tab/route visibility to allowed admin emails | ✅ Done | Sidebar hidden + api-usage.tsx route permission check enforced |
 | Global error boundary | ✅ Done | `ErrorComponent` in `__root.tsx` |
 | Toast notifications on actions | ✅ Done | Brand scan completion & retry capture promise notifications wired |
 | Dark Mode UI / Styling | ✅ Done | Modern dark theme styling applied across all views for premium brand protection aesthetic |
+
+---
+
+## 7b. Stripe Billing (Real Payments) — Done
+*Replaces the mock checkout with a real Stripe Elements subscription flow. See `docs/BILLING.md`.*
+
+| Task | Status | Notes |
+|---|---|---|
+| Shared plan/add-on metadata `src/lib/billing.ts` | ✅ Done | 5 tiers (starter/growth/pro/agency/enterprise), monthly+yearly, add-ons; single UI source of truth |
+| Stripe.js loader `src/lib/stripe.ts` | ✅ Done | Shared `loadStripe` from `VITE_STRIPE_PUBLISHABLE_KEY` |
+| Billing API fetchers in `src/lib/api.ts` | ✅ Done | create/update/cancel/get subscription, invoices, portal, managed-takedown; parses `detail` errors |
+| `/plans` — real tiers + monthly/yearly toggle | ✅ Done | Upgrade/Downgrade labels (interval- and enterprise-aware); Enterprise = Contact sales |
+| `/checkout` — Stripe Elements | ✅ Done | `<PaymentElement>` + `confirmPayment`; new subscribers pay, existing subscribers do a plan change (update-subscription, card on file); add-on picker + order summary |
+| `/settings` billing tab | ✅ Done | Add-on management (prorated), cancel (period end), portal, live invoices; cache invalidation + `refreshProfile` after changes |
+| Landing pricing `components/landing/pricing.tsx` | ✅ Done | All 5 tiers, responsive grid |
+| Manual + live E2E verification | ✅ Done | 26/26 live E2E checks (create→pay→webhook→update→cancel→invoices→managed takedown) |
+| Managed-takedown "bill" button in takedown flow | ✅ Done | `ManagedTakedownAction` on `/monitoring/$caseId/takedown`, Pro/Agency only, idempotent per report id |
 
 ---
 

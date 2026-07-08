@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { fetchCaseFromSupabase, supabase } from "@/lib/supabase";
-import { updateTakedownReport, sendTakedownEmail } from "@/lib/api";
+import { updateTakedownReport, sendTakedownEmail, chargeManagedTakedown } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -24,6 +25,7 @@ import {
   Save,
   CloudUpload,
   Download,
+  Gavel,
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -37,20 +39,83 @@ const METHOD_CONFIG: Record<
   TakedownReport["submission_method"],
   { label: string; icon: React.ElementType; className: string }
 > = {
-  email:    { label: "Email",    icon: Mail,     className: "text-blue-600 bg-blue-500/10 border-blue-500/20" },
-  web_form: { label: "Web Form", icon: Globe,    className: "text-violet-600 bg-violet-500/10 border-violet-500/20" },
-  api:      { label: "API",      icon: Zap,      className: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20" },
-  udrp:     { label: "UDRP",     icon: Scale,    className: "text-amber-600 bg-amber-500/10 border-amber-500/20" },
+  email: {
+    label: "Email",
+    icon: Mail,
+    className: "text-blue-600 bg-blue-500/10 border-blue-500/20",
+  },
+  web_form: {
+    label: "Web Form",
+    icon: Globe,
+    className: "text-violet-600 bg-violet-500/10 border-violet-500/20",
+  },
+  api: {
+    label: "API",
+    icon: Zap,
+    className: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20",
+  },
+  udrp: {
+    label: "UDRP",
+    icon: Scale,
+    className: "text-amber-600 bg-amber-500/10 border-amber-500/20",
+  },
 };
 
 function MethodBadge({ method }: { method: TakedownReport["submission_method"] }) {
   const cfg = METHOD_CONFIG[method];
   const Icon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${cfg.className}`}>
+    <span
+      className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${cfg.className}`}
+    >
       <Icon className="h-3 w-3" />
       {cfg.label}
     </span>
+  );
+}
+
+// Optional paid add-on (Pro & Agency): let our team submit + follow up on this
+// takedown for a one-off $500 fee, billed to the card on file. Idempotent per report.
+function ManagedTakedownAction({ report }: { report: TakedownReport }) {
+  const { profile } = useAuth();
+  const [charging, setCharging] = useState(false);
+  const [requested, setRequested] = useState(false);
+
+  // Managed takedown is available only on Pro and Agency tiers.
+  if (profile?.plan !== "pro" && profile?.plan !== "agency") return null;
+
+  const handleRequest = async () => {
+    setCharging(true);
+    try {
+      await chargeManagedTakedown(report.id!);
+      setRequested(true);
+      toast.success("Managed takedown requested", {
+        description:
+          "Our team will submit and follow up. A $500 fee was added to your next invoice.",
+      });
+    } catch (e) {
+      toast.error("Could not request managed takedown", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setCharging(false);
+    }
+  };
+
+  return (
+    <Button
+      onClick={handleRequest}
+      disabled={charging || requested}
+      variant="outline"
+      className="w-full border-amber-500/30 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
+    >
+      {charging ? (
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      ) : (
+        <Gavel className="h-4 w-4 mr-2" />
+      )}
+      {requested ? "Managed takedown requested" : "Let us handle it — $500"}
+    </Button>
   );
 }
 
@@ -61,9 +126,13 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
     return (
       <Alert className="border-emerald-500/30 bg-emerald-500/5">
         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-        <AlertTitle className="text-emerald-700 dark:text-emerald-400">Automatically Reported</AlertTitle>
+        <AlertTitle className="text-emerald-700 dark:text-emerald-400">
+          Automatically Reported
+        </AlertTitle>
         <AlertDescription className="text-emerald-700/80 dark:text-emerald-400/80 text-xs">
-          This infringement has already been submitted automatically via the platform's API integration. No further action is required — you can track the status in your platform dashboard.
+          This infringement has already been submitted automatically via the platform's API
+          integration. No further action is required — you can track the status in your platform
+          dashboard.
         </AlertDescription>
       </Alert>
     );
@@ -75,7 +144,10 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
         <Scale className="h-4 w-4 text-amber-600" />
         <AlertTitle className="text-amber-700 dark:text-amber-400">UDRP Procedure</AlertTitle>
         <AlertDescription className="text-amber-700/80 dark:text-amber-400/80 text-xs">
-          UDRP (Uniform Domain-Name Dispute-Resolution Policy) is a formal legal procedure administered by ICANN-accredited providers such as WIPO or the NAF. Filing requires submitting a complaint with evidence of bad faith registration, trademark rights, and identity of the registrant. We recommend engaging a trademark attorney to proceed.
+          UDRP (Uniform Domain-Name Dispute-Resolution Policy) is a formal legal procedure
+          administered by ICANN-accredited providers such as WIPO or the NAF. Filing requires
+          submitting a complaint with evidence of bad faith registration, trademark rights, and
+          identity of the registrant. We recommend engaging a trademark attorney to proceed.
         </AlertDescription>
       </Alert>
     );
@@ -98,7 +170,8 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
     return (
       <div className="flex flex-col gap-3">
         <p className="text-xs text-muted-foreground">
-          Submit this notice via the platform's official reporting page. Copy the notice text and paste it into the form.
+          Submit this notice via the platform's official reporting page. Copy the notice text and
+          paste it into the form.
         </p>
         <Button asChild disabled={!report.submission_url} className="w-full">
           <a href={report.submission_url ?? "#"} target="_blank" rel="noopener noreferrer">
@@ -106,10 +179,20 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
             Go to reporting page
           </a>
         </Button>
-        <Button onClick={handleMarkSent} disabled={sending || report.status === "sent"} className="w-full" variant="outline">
-          {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+        <Button
+          onClick={handleMarkSent}
+          disabled={sending || report.status === "sent"}
+          className="w-full"
+          variant="outline"
+        >
+          {sending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+          )}
           {report.status === "sent" ? "Marked as Sent" : "Mark as Sent"}
         </Button>
+        <ManagedTakedownAction report={report} />
       </div>
     );
   }
@@ -135,7 +218,11 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
           ? `Send to: ${report.submission_email}`
           : "No submission email on file."}
       </p>
-      <Button onClick={handleSendEmail} disabled={sending || report.status === "sent"} className="w-full">
+      <Button
+        onClick={handleSendEmail}
+        disabled={sending || report.status === "sent"}
+        className="w-full"
+      >
         {sending ? (
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         ) : report.status === "sent" ? (
@@ -145,6 +232,7 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
         )}
         {report.status === "sent" ? "Sent" : "Send email directly"}
       </Button>
+      <ManagedTakedownAction report={report} />
     </div>
   );
 }
@@ -154,7 +242,7 @@ function TakedownNoticesPage() {
   const navigate = useNavigate();
   const result = useStore((s) => s.scanResults[caseId]);
   const setScanResult = useStore((s) => s.setScanResult);
-  
+
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(!result);
   const [noticeText, setNoticeText] = useState("");
@@ -183,7 +271,10 @@ function TakedownNoticesPage() {
       doc.text(lines, 56, 72);
       const pdfBlob = doc.output("blob");
 
-      const timestamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[-:T.]/g, "")
+        .slice(0, 14);
       const fileName = `${caseId}/${selected.submission_method}-${timestamp}.pdf`;
 
       if (!supabase) {
@@ -199,23 +290,23 @@ function TakedownNoticesPage() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("legal-documents")
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("legal-documents").getPublicUrl(fileName);
 
-      const { error: dbError } = await supabase
-        .from("documents")
-        .insert({
-          infringement_id: caseId,
-          document_type: selected.submission_method === "email" ? "cease-desist" : "dmca",
-          file_url: publicUrl,
-          file_format: "pdf",
-          status: "draft",
-        });
+      const { error: dbError } = await supabase.from("documents").insert({
+        infringement_id: caseId,
+        document_type: selected.submission_method === "email" ? "cease-desist" : "dmca",
+        file_url: publicUrl,
+        file_format: "pdf",
+        status: "draft",
+      });
 
       if (dbError) throw dbError;
 
-      toast.success("Saved successfully", { description: "Document stored in legal-documents bucket." });
+      toast.success("Saved successfully", {
+        description: "Document stored in legal-documents bucket.",
+      });
     } catch (err: any) {
       console.error("Error saving document to storage:", err);
       toast.error("Failed to save document", { description: err.message || String(err) });
@@ -299,29 +390,39 @@ function TakedownNoticesPage() {
   }
 
   const screenshotUrl = selected
-    ? (
-        result.evidence.marketplaces.find(
-          (m) => m.platform.toLowerCase() === selected.platform.toLowerCase() && m.screenshot_url
-        )?.screenshot_url ??
-        result.evidence.ads.find(
-          (a) => a.platform.toLowerCase() === selected.platform.toLowerCase() && a.screenshot_url
-        )?.screenshot_url ??
-        null
-      )
+    ? (result.evidence.marketplaces.find(
+        (m) => m.platform.toLowerCase() === selected.platform.toLowerCase() && m.screenshot_url,
+      )?.screenshot_url ??
+      result.evidence.ads.find(
+        (a) => a.platform.toLowerCase() === selected.platform.toLowerCase() && a.screenshot_url,
+      )?.screenshot_url ??
+      null)
     : null;
 
   const isEdited = selected && noticeText !== selected.notice_text;
 
   const ANIM = "animate-in fade-in-0 slide-in-from-bottom-3 duration-500";
-  const anim = (delay: number): React.CSSProperties => ({ animationDelay: `${delay}ms`, animationFillMode: "both" });
+  const anim = (delay: number): React.CSSProperties => ({
+    animationDelay: `${delay}ms`,
+    animationFillMode: "both",
+  });
 
   return (
     <div className="space-y-6 pb-10">
       {/* Breadcrumb */}
-      <div className={`flex items-center gap-2 text-sm text-muted-foreground ${ANIM}`} style={anim(0)}>
-        <Link to="/monitoring" className="hover:text-accent transition-colors">Monitoring</Link>
+      <div
+        className={`flex items-center gap-2 text-sm text-muted-foreground ${ANIM}`}
+        style={anim(0)}
+      >
+        <Link to="/monitoring" className="hover:text-accent transition-colors">
+          Monitoring
+        </Link>
         <ChevronRight className="h-3.5 w-3.5" />
-        <Link to="/monitoring/$caseId" params={{ caseId }} className="hover:text-accent transition-colors font-mono">
+        <Link
+          to="/monitoring/$caseId"
+          params={{ caseId }}
+          className="hover:text-accent transition-colors font-mono"
+        >
           Case #{caseId.slice(0, 8).toUpperCase()}
         </Link>
         <ChevronRight className="h-3.5 w-3.5" />
@@ -378,13 +479,19 @@ function TakedownNoticesPage() {
                       style={anim(200 + i * 50)}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground truncate capitalize">{r.platform.replace(/_/g, " ")}</p>
+                        <p className="text-sm font-semibold text-foreground truncate capitalize">
+                          {r.platform.replace(/_/g, " ")}
+                        </p>
                         <MethodBadge method={r.submission_method} />
                       </div>
-                      <p className="text-xs text-muted-foreground truncate font-mono">{r.infringing_url}</p>
+                      <p className="text-xs text-muted-foreground truncate font-mono">
+                        {r.infringing_url}
+                      </p>
                       <div className="flex items-center gap-2">
                         <Icon className={`h-3 w-3 ${cfg.className.split(" ")[0]}`} />
-                        <span className="text-[11px] text-muted-foreground capitalize">{r.status}</span>
+                        <span className="text-[11px] text-muted-foreground capitalize">
+                          {r.status}
+                        </span>
                       </div>
                     </button>
                   );
@@ -396,12 +503,18 @@ function TakedownNoticesPage() {
           {selected ? (
             <>
               {/* Col 2: Notice document */}
-              <div key={`doc-${selected.id}`} className={`col-span-12 xl:col-span-6 flex flex-col ${ANIM}`} style={anim(0)}>
+              <div
+                key={`doc-${selected.id}`}
+                className={`col-span-12 xl:col-span-6 flex flex-col ${ANIM}`}
+                style={anim(0)}
+              >
                 <Card className="overflow-hidden flex flex-col h-full">
                   <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 border-b bg-muted/20">
                     <div className="flex items-center gap-3">
                       <FileText className="h-4 w-4 text-accent" />
-                      <span className="text-sm font-semibold text-foreground capitalize">{selected.platform.replace(/_/g, " ")}</span>
+                      <span className="text-sm font-semibold text-foreground capitalize">
+                        {selected.platform.replace(/_/g, " ")}
+                      </span>
                       <MethodBadge method={selected.submission_method} />
                     </div>
                     <div className="flex items-center gap-3">
@@ -420,7 +533,11 @@ function TakedownNoticesPage() {
                         disabled={!isEdited || saving || selected.status === "sent"}
                         onClick={handleSaveText}
                       >
-                        {saving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Save className="h-3 w-3 mr-2" />}
+                        {saving ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                        ) : (
+                          <Save className="h-3 w-3 mr-2" />
+                        )}
                         Save Changes
                       </Button>
                     </div>
@@ -440,7 +557,11 @@ function TakedownNoticesPage() {
               </div>
 
               {/* Col 3: Actions */}
-              <div key={`actions-${selected.id}`} className={`col-span-12 xl:col-span-3 ${ANIM}`} style={anim(80)}>
+              <div
+                key={`actions-${selected.id}`}
+                className={`col-span-12 xl:col-span-3 ${ANIM}`}
+                style={anim(80)}
+              >
                 <Card className="@container">
                   <CardContent className="px-6 py-5">
                     <div className="grid grid-cols-1 @[600px]:grid-cols-2 gap-6">
@@ -449,7 +570,7 @@ function TakedownNoticesPage() {
                           Actions
                         </p>
                         <NoticeActions report={selected} onUpdate={loadCase} />
-                        
+
                         <div className="border-t border-border/60 my-2 pt-4 flex flex-col gap-2">
                           <Button
                             variant="outline"

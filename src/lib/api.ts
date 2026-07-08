@@ -20,7 +20,17 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(`API ${res.status}: ${text}`);
+    // FastAPI returns {"detail": "..."} — surface that clean message to the user.
+    let message = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed?.detail) {
+        message = typeof parsed.detail === "string" ? parsed.detail : JSON.stringify(parsed.detail);
+      }
+    } catch {
+      /* not JSON — keep raw text */
+    }
+    throw new Error(message || `API ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
@@ -32,7 +42,10 @@ export function checkBrand(payload: CheckBrandRequest): Promise<CheckBrandRespon
   });
 }
 
-export function checkBrandFullPipeline(payload: CheckBrandRequest, signal?: AbortSignal): Promise<CheckBrandResponse> {
+export function checkBrandFullPipeline(
+  payload: CheckBrandRequest,
+  signal?: AbortSignal,
+): Promise<CheckBrandResponse> {
   return apiFetch<CheckBrandResponse>("/monitoring/check-brand", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -40,7 +53,11 @@ export function checkBrandFullPipeline(payload: CheckBrandRequest, signal?: Abor
   });
 }
 
-export function updateCaseStatusBackend(caseId: string, status: string, declineReason?: string): Promise<{ success: boolean }> {
+export function updateCaseStatusBackend(
+  caseId: string,
+  status: string,
+  declineReason?: string,
+): Promise<{ success: boolean }> {
   return apiFetch<{ success: boolean }>(`/monitoring/${caseId}/status`, {
     method: "POST",
     body: JSON.stringify({ status, decline_reason: declineReason }),
@@ -78,8 +95,8 @@ export function getInfringements(params?: {
     Object.fromEntries(
       Object.entries(params ?? {})
         .filter(([, v]) => v !== undefined && v !== null && v !== "")
-        .map(([k, v]) => [k, String(v)])
-    )
+        .map(([k, v]) => [k, String(v)]),
+    ),
   ).toString();
   return apiFetch<InfringementsResponse>(`/infringements${query ? `?${query}` : ""}`);
 }
@@ -101,29 +118,122 @@ export function getInfringementEvidence(id: string): Promise<EvidenceItem[]> {
   return apiFetch<EvidenceItem[]>(`/infringements/${id}/evidence`);
 }
 
-export function updateInfringementStatus(id: string, status: string, declineReason?: string): Promise<InfringementFeedItem> {
+export function updateInfringementStatus(
+  id: string,
+  status: string,
+  declineReason?: string,
+): Promise<InfringementFeedItem> {
   return apiFetch<InfringementFeedItem>(`/infringements/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status, decline_reason: declineReason }),
   });
 }
 
-export function updateTakedownReport(id: string, data: { notice_text?: string; status?: string }): Promise<any> {
+export function updateTakedownReport(
+  id: string,
+  data: { notice_text?: string; status?: string },
+): Promise<any> {
   return apiFetch<any>(`/monitoring/takedowns/${id}`, {
     method: "PUT",
     body: JSON.stringify(data),
   });
 }
 
-export function sendTakedownEmail(id: string): Promise<{ success: boolean; message: string; submitted_at: string }> {
-  return apiFetch<{ success: boolean; message: string; submitted_at: string }>(`/monitoring/takedowns/${id}/send-email`, {
-    method: "POST",
-  });
+export function sendTakedownEmail(
+  id: string,
+): Promise<{ success: boolean; message: string; submitted_at: string }> {
+  return apiFetch<{ success: boolean; message: string; submitted_at: string }>(
+    `/monitoring/takedowns/${id}/send-email`,
+    {
+      method: "POST",
+    },
+  );
 }
 
-export function testEmailNotification(email: string): Promise<{ success: boolean; message: string }> {
+export function testEmailNotification(
+  email: string,
+): Promise<{ success: boolean; message: string }> {
   return apiFetch<{ success: boolean; message: string }>("/monitoring/notifications/test/email", {
     method: "POST",
     body: JSON.stringify({ email }),
+  });
+}
+
+// ── Billing ──────────────────────────────────────────────────────────────────
+
+export interface AddonSelection {
+  key: string;
+  quantity: number;
+}
+
+export interface SubscriptionInfo {
+  plan: string;
+  status: string;
+  interval?: "month" | "year";
+  current_period_end?: string | null;
+  cancel_at_period_end?: boolean;
+  addons: AddonSelection[];
+}
+
+export interface InvoiceRecord {
+  id: string;
+  stripe_invoice_id: string | null;
+  amount_due: number;
+  currency: string;
+  status: string;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+  created_at: string;
+}
+
+/** Start a subscription and get back the PaymentIntent client_secret for Elements. */
+export function createSubscription(payload: {
+  plan: string;
+  interval: "month" | "year";
+  addons?: AddonSelection[];
+}): Promise<{ subscription_id: string; client_secret: string }> {
+  return apiFetch("/billing/create-subscription", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Change plan/interval or reconcile add-on quantities on the active subscription. */
+export function updateSubscription(payload: {
+  plan?: string;
+  interval?: "month" | "year";
+  addons?: AddonSelection[];
+}): Promise<{ status: string; plan: string; interval: string }> {
+  return apiFetch("/billing/update-subscription", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function cancelSubscription(cancel: boolean): Promise<{ cancel_at_period_end: boolean }> {
+  return apiFetch("/billing/cancel-subscription", {
+    method: "POST",
+    body: JSON.stringify({ cancel }),
+  });
+}
+
+export function getSubscription(): Promise<SubscriptionInfo> {
+  return apiFetch<SubscriptionInfo>("/billing/subscription");
+}
+
+export function getInvoices(): Promise<InvoiceRecord[]> {
+  return apiFetch<InvoiceRecord[]>("/billing/invoices");
+}
+
+/** Open the Stripe Billing Portal (manage payment method / cancel externally). */
+export function createPortalSession(): Promise<{ url: string }> {
+  return apiFetch("/billing/create-portal-session", { method: "POST" });
+}
+
+/** Phase F: bill a one-off $500 fee for a successful managed takedown. */
+export function chargeManagedTakedown(takedownId?: string): Promise<{ invoice_item_id: string }> {
+  return apiFetch("/billing/charge-managed-takedown", {
+    method: "POST",
+    body: JSON.stringify({ takedown_id: takedownId ?? null }),
   });
 }

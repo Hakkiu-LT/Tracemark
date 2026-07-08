@@ -1,18 +1,47 @@
 import { createFileRoute, useNavigate, useLocation, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useStore, type Persona } from "@/lib/store";
-import { Building2, Scale, Check, CreditCard, Calendar, Download, Trash2, ArrowUpRight, Lock, Loader2, RefreshCw, Mail } from "lucide-react";
+import {
+  Building2,
+  Scale,
+  Check,
+  Calendar,
+  Download,
+  ArrowUpRight,
+  Lock,
+  Loader2,
+  Mail,
+  Minus,
+  Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { ClientsPage } from "./clients";
+import {
+  getSubscription,
+  getInvoices,
+  cancelSubscription,
+  updateSubscription,
+  createPortalSession,
+  type AddonSelection,
+} from "@/lib/api";
+import { getPlan, ADDONS, effectiveMonthly } from "@/lib/billing";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Tracemark" }] }),
@@ -27,12 +56,21 @@ export function SettingsPage() {
   const { profile, user, refreshProfile } = useAuth();
   const orgId = profile?.organization_id || user?.id;
 
-  const [showCardModal, setShowCardModal] = useState(false);
+  const queryClient = useQueryClient();
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [newCardNum, setNewCardNum] = useState("");
-  const [newCardExpiry, setNewCardExpiry] = useState("");
-  const [newCardCvc, setNewCardCvc] = useState("");
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const [savingAddons, setSavingAddons] = useState(false);
+  const [addonDraft, setAddonDraft] = useState<Record<string, number> | null>(null);
+
+  const { data: subscription } = useQuery({
+    queryKey: ["billing_subscription"],
+    queryFn: getSubscription,
+  });
+  const { data: invoices } = useQuery({
+    queryKey: ["billing_invoices"],
+    queryFn: getInvoices,
+  });
 
   const [fullName, setFullName] = useState("");
   const [emailVal, setEmailVal] = useState("");
@@ -66,7 +104,9 @@ export function SettingsPage() {
 
         if (data) {
           setEmailVal(data.notification_email || user?.email || "");
-          setOrgName(data.firm_name || (persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc."));
+          setOrgName(
+            data.firm_name || (persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc."),
+          );
         } else {
           setEmailVal(user?.email || "");
           setOrgName(persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc.");
@@ -95,14 +135,12 @@ export function SettingsPage() {
       if (profileError) throw profileError;
 
       // 2. Update org_settings table
-      const { error: orgError } = await supabase
-        .from("org_settings")
-        .upsert({
-          organization_id: orgId,
-          firm_name: orgName,
-          notification_email: emailVal,
-          updated_at: new Date().toISOString(),
-        });
+      const { error: orgError } = await supabase.from("org_settings").upsert({
+        organization_id: orgId,
+        firm_name: orgName,
+        notification_email: emailVal,
+        updated_at: new Date().toISOString(),
+      });
       if (orgError) throw orgError;
 
       // 3. Optional: update auth email if changed
@@ -110,15 +148,17 @@ export function SettingsPage() {
         const { error: authError } = await supabase.auth.updateUser({ email: emailVal.trim() });
         if (authError) {
           console.warn("Auth email update error:", authError);
-          toast.warning("Profile saved. Confirm change on your email address(es) to update login email.");
+          toast.warning(
+            "Profile saved. Confirm change on your email address(es) to update login email.",
+          );
         }
       }
 
       await refreshProfile();
       toast.success("Profile saved successfully");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error saving profile:", err);
-      toast.error(err.message || "Failed to save profile");
+      toast.error(err instanceof Error ? err.message : "Failed to save profile");
     } finally {
       setSavingProfile(false);
     }
@@ -130,7 +170,8 @@ export function SettingsPage() {
       return;
     }
     const emailStr = emailVal.trim();
-    const isGmail = emailStr.toLowerCase().endsWith("@gmail.com") || emailStr.toLowerCase().includes("gmail");
+    const isGmail =
+      emailStr.toLowerCase().endsWith("@gmail.com") || emailStr.toLowerCase().includes("gmail");
     const subject = "Test Alert — Tracemark";
     const body = "This is a test notification from Tracemark to verify your profile settings.";
 
@@ -145,15 +186,20 @@ export function SettingsPage() {
     }
   };
 
-  const planDetails = {
-    free: { name: "Free Plan", price: 0 },
-    starter: { name: "Starter Plan", price: 49 },
-    pro: { name: "Pro Plan", price: 199 },
-    firm: { name: "Firm Plan", price: 599 },
-    enterprise: { name: "Enterprise Plan", price: null },
+  const planMeta = getPlan(currentPlan);
+  const interval = subscription?.interval ?? "month";
+  const currentPlanInfo = {
+    name: planMeta ? `${planMeta.name} Plan` : "Free Plan",
+    price: planMeta ? planMeta.monthly : 0,
   };
-
-  const currentPlanInfo = planDetails[currentPlan as keyof typeof planDetails] || planDetails.free;
+  const shownMonthly =
+    currentPlanInfo.price && currentPlanInfo.price > 0
+      ? effectiveMonthly(currentPlanInfo.price, interval)
+      : currentPlanInfo.price;
+  const nextInvoiceDate = subscription?.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString()
+    : null;
+  const currentAddons: AddonSelection[] = subscription?.addons ?? [];
 
   const getActiveTab = (path: string) => {
     if (path.endsWith("/profile")) return "profile";
@@ -191,13 +237,11 @@ export function SettingsPage() {
 
     if (supabase && orgId) {
       try {
-        await supabase
-          .from("org_settings")
-          .upsert({
-            organization_id: orgId,
-            persona: p,
-            updated_at: new Date().toISOString(),
-          });
+        await supabase.from("org_settings").upsert({
+          organization_id: orgId,
+          persona: p,
+          updated_at: new Date().toISOString(),
+        });
       } catch (err) {
         console.warn("Failed to persist persona to Supabase:", err);
       }
@@ -209,38 +253,72 @@ export function SettingsPage() {
   const handleCancelSubscription = async () => {
     setCancelling(true);
     try {
-      if (supabase && profile?.id) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ plan: "free" })
-          .eq("id", profile.id);
-        if (error) {
-          toast.error("Failed to cancel subscription.");
-        } else {
-          await refreshProfile();
-          toast.success("Subscription cancelled successfully.");
-          setShowCancelModal(false);
-        }
-      }
+      await cancelSubscription(true);
+      await queryClient.invalidateQueries({ queryKey: ["billing_subscription"] });
+      await queryClient.invalidateQueries({ queryKey: ["billing_invoices"] });
+      await refreshProfile();
+      toast.success("Subscription will end at the close of your billing period.");
+      setShowCancelModal(false);
     } catch (err) {
-      console.error(err);
-      toast.error("An error occurred while cancelling your subscription.");
+      toast.error(err instanceof Error ? err.message : "Failed to cancel subscription.");
     } finally {
       setCancelling(false);
     }
   };
 
-  const handleUpdateCard = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCardNum || !newCardExpiry || !newCardCvc) {
-      toast.error("Please fill in all credit card fields.");
-      return;
+  const handleOpenPortal = async () => {
+    setOpeningPortal(true);
+    try {
+      const { url } = await createPortalSession();
+      window.location.href = url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not open billing portal.");
+      setOpeningPortal(false);
     }
-    toast.success("Payment method updated successfully!");
-    setShowCardModal(false);
-    setNewCardNum("");
-    setNewCardExpiry("");
-    setNewCardCvc("");
+  };
+
+  // Add-on management: draft starts from the current subscription add-ons.
+  const addonQty = (key: string): number =>
+    addonDraft?.[key] ?? currentAddons.find((a) => a.key === key)?.quantity ?? 0;
+
+  const setAddonQty = (key: string, next: number) => {
+    setAddonDraft((prev) => {
+      const base = prev ?? Object.fromEntries(currentAddons.map((a) => [a.key, a.quantity]));
+      return { ...base, [key]: Math.max(0, next) };
+    });
+  };
+
+  // Only enable "Save add-ons" when the draft actually differs from what's live.
+  const addonsChanged =
+    addonDraft !== null &&
+    ADDONS.some(
+      (a) => addonQty(a.key) !== (currentAddons.find((c) => c.key === a.key)?.quantity ?? 0),
+    );
+
+  const handleSaveAddons = async () => {
+    setSavingAddons(true);
+    try {
+      const addons: AddonSelection[] = ADDONS.map((a) => ({
+        key: a.key,
+        quantity: addonQty(a.key),
+      })).filter((a) => a.quantity > 0);
+      // Pass the current plan + interval explicitly so the backend never drifts
+      // the plan while we're only changing add-ons.
+      await updateSubscription({
+        plan: currentPlan,
+        interval: interval as "month" | "year",
+        addons,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["billing_subscription"] });
+      await queryClient.invalidateQueries({ queryKey: ["billing_invoices"] });
+      await refreshProfile();
+      setAddonDraft(null);
+      toast.success("Add-ons updated. Prorated charges apply to your next invoice.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update add-ons.");
+    } finally {
+      setSavingAddons(false);
+    }
   };
 
   return (
@@ -264,11 +342,25 @@ export function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Workspace mode</CardTitle>
-              <p className="text-sm text-muted-foreground">Tailors navigation, dashboards, and case workflows to your role.</p>
+              <p className="text-sm text-muted-foreground">
+                Tailors navigation, dashboards, and case workflows to your role.
+              </p>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
-              <PersonaCard active={persona === "brand_owner"} onClick={() => switchPersona("brand_owner")} icon={Building2} title="Brand Owner" desc="Single-brand workspace for e-commerce and SaaS teams protecting their own marks." />
-              <PersonaCard active={persona === "law_firm"} onClick={() => switchPersona("law_firm")} icon={Scale} title="Law Firm" desc="Multi-tenant workspace for managing many client brands with per-client billing." />
+              <PersonaCard
+                active={persona === "brand_owner"}
+                onClick={() => switchPersona("brand_owner")}
+                icon={Building2}
+                title="Brand Owner"
+                desc="Single-brand workspace for e-commerce and SaaS teams protecting their own marks."
+              />
+              <PersonaCard
+                active={persona === "law_firm"}
+                onClick={() => switchPersona("law_firm")}
+                icon={Scale}
+                title="Law Firm"
+                desc="Multi-tenant workspace for managing many client brands with per-client billing."
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -281,7 +373,8 @@ export function SettingsPage() {
                 Profile & Workspace Info
               </CardTitle>
               <CardDescription>
-                Manage your profile details, organization settings, and notification alerts recipient.
+                Manage your profile details, organization settings, and notification alerts
+                recipient.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -381,20 +474,30 @@ export function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-baseline">
                   <span className="text-3xl font-bold text-foreground">
-                    {currentPlanInfo.price !== null ? `$${currentPlanInfo.price}` : "Custom"}
+                    {shownMonthly !== null ? `$${(shownMonthly ?? 0).toLocaleString()}` : "Custom"}
                   </span>
-                  {currentPlanInfo.price !== null && (
-                    <span className="text-xs text-muted-foreground">/ month</span>
+                  {shownMonthly !== null && (
+                    <span className="text-xs text-muted-foreground">
+                      / month{interval === "year" ? " (billed yearly)" : ""}
+                    </span>
                   )}
                 </div>
-                {currentPlan !== "free" && currentPlanInfo.price !== null && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" /> Next invoice on {new Date(Date.now() + 12 * 86400000).toLocaleDateString()}
+                {subscription?.cancel_at_period_end && (
+                  <p className="text-xs text-amber-500">
+                    Your plan is set to cancel
+                    {nextInvoiceDate ? ` on ${nextInvoiceDate}` : " at period end"}.
                   </p>
                 )}
+                {currentPlan !== "free" &&
+                  !subscription?.cancel_at_period_end &&
+                  nextInvoiceDate && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" /> Next invoice on {nextInvoiceDate}
+                    </p>
+                  )}
                 {currentPlan === "free" && (
                   <p className="text-xs text-muted-foreground">
-                    Upgrade to unlock automatic takedowns, proxy selections, and Slack integrations.
+                    Upgrade to unlock automatic takedowns, all platforms, and real-time monitoring.
                   </p>
                 )}
               </CardContent>
@@ -404,11 +507,18 @@ export function SettingsPage() {
                     Change Plan <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
                   </Link>
                 </Button>
-                {currentPlan !== "free" && currentPlan !== "enterprise" && (
-                  <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 border-destructive/20 hover:border-destructive/30 cursor-pointer" onClick={() => setShowCancelModal(true)}>
-                    Cancel Subscription
-                  </Button>
-                )}
+                {currentPlan !== "free" &&
+                  currentPlan !== "enterprise" &&
+                  !subscription?.cancel_at_period_end && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive/10 border-destructive/20 hover:border-destructive/30 cursor-pointer"
+                      onClick={() => setShowCancelModal(true)}
+                    >
+                      Cancel Subscription
+                    </Button>
+                  )}
               </CardFooter>
             </Card>
 
@@ -416,33 +526,114 @@ export function SettingsPage() {
             <Card className="border-border/60">
               <CardHeader>
                 <CardTitle className="text-base">Payment Method</CardTitle>
-                <CardDescription>Linked credit card details.</CardDescription>
+                <CardDescription>Manage your card via the secure Stripe portal.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {currentPlan !== "free" ? (
-                  <div className="flex items-center gap-4 p-3 rounded-lg border border-border bg-muted/20">
-                    <div className="h-10 w-12 rounded bg-muted/65 border border-border flex items-center justify-center font-bold tracking-widest text-[9px] text-muted-foreground/80 uppercase">
-                      CARD
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">Visa ending in •••• 4242</p>
-                      <p className="text-xs text-muted-foreground">Expires 12/2028</p>
-                    </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 text-xs text-muted-foreground">
+                    <Lock className="h-4 w-4 shrink-0 text-accent" />
+                    <span>
+                      Your card is stored securely by Stripe. Use the portal to view or update it.
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border text-xs text-muted-foreground">
                     <Lock className="h-4 w-4 shrink-0" />
-                    <span>No credit card linked. Choose a plan to subscribe.</span>
+                    <span>No card linked. Choose a plan to subscribe.</span>
                   </div>
                 )}
               </CardContent>
               <CardFooter className="flex gap-3 border-t border-border/30 pt-4 mt-2">
-                <Button variant="outline" size="sm" className="cursor-pointer" disabled={currentPlan === "free"} onClick={() => setShowCardModal(true)}>
-                  Update Payment Method
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  disabled={currentPlan === "free" || openingPortal}
+                  onClick={handleOpenPortal}
+                >
+                  {openingPortal ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Manage payment method"
+                  )}
                 </Button>
               </CardFooter>
             </Card>
           </div>
+
+          {/* Add-ons management */}
+          {currentPlan !== "free" && currentPlan !== "enterprise" && (
+            <Card className="border-border/60">
+              <CardHeader>
+                <CardTitle className="text-base">Add-ons</CardTitle>
+                <CardDescription>
+                  Extend your plan. Changes are prorated on your next invoice.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {ADDONS.map((addon) => {
+                  const qty = addonQty(addon.key);
+                  return (
+                    <div
+                      key={addon.key}
+                      className="flex items-start justify-between gap-3 rounded-lg border p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{addon.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          ${addon.price}/mo per {addon.unit}
+                        </p>
+                      </div>
+                      {addon.perUnit ? (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => setAddonQty(addon.key, qty - 1)}
+                            disabled={qty === 0}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-6 text-center text-sm tabular-nums">{qty}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => setAddonQty(addon.key, qty + 1)}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant={qty > 0 ? "default" : "outline"}
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => setAddonQty(addon.key, qty > 0 ? 0 : 1)}
+                        >
+                          {qty > 0 ? "Added" : "Add"}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+              <CardFooter className="flex justify-end border-t border-border/30 pt-4 mt-2">
+                <Button
+                  size="sm"
+                  className="cursor-pointer"
+                  disabled={!addonsChanged || savingAddons}
+                  onClick={handleSaveAddons}
+                >
+                  {savingAddons ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save add-ons"}
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
 
           {/* Invoice History */}
           <Card className="border-border/60">
@@ -451,7 +642,7 @@ export function SettingsPage() {
               <CardDescription>Recent invoices and transaction receipts.</CardDescription>
             </CardHeader>
             <CardContent>
-              {currentPlan !== "free" ? (
+              {invoices && invoices.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -464,42 +655,53 @@ export function SettingsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60 text-sm">
-                      <tr>
-                        <td className="py-3.5 px-4 font-mono text-xs">INV-2026-003</td>
-                        <td className="py-3.5 px-4 text-muted-foreground">{new Date(Date.now() - 10 * 86400000).toLocaleDateString()}</td>
-                        <td className="py-3.5 px-4 font-medium">${currentPlanInfo.price}.00</td>
-                        <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                            Paid
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer" onClick={() => toast.success("Downloading Invoice INV-2026-003 PDF...")}>
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-3.5 px-4 font-mono text-xs">INV-2026-002</td>
-                        <td className="py-3.5 px-4 text-muted-foreground">{new Date(Date.now() - 40 * 86400000).toLocaleDateString()}</td>
-                        <td className="py-3.5 px-4 font-medium">${currentPlanInfo.price}.00</td>
-                        <td className="py-3.5 px-4">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                            Paid
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer" onClick={() => toast.success("Downloading Invoice INV-2026-002 PDF...")}>
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
+                      {invoices.map((inv) => (
+                        <tr key={inv.id}>
+                          <td className="py-3.5 px-4 font-mono text-xs">
+                            {inv.stripe_invoice_id ?? inv.id.slice(0, 8)}
+                          </td>
+                          <td className="py-3.5 px-4 text-muted-foreground">
+                            {new Date(inv.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="py-3.5 px-4 font-medium">
+                            {inv.currency.toUpperCase()} {(inv.amount_due / 100).toFixed(2)}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border capitalize",
+                                inv.status === "paid"
+                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                  : "bg-amber-500/10 text-amber-500 border-amber-500/20",
+                              )}
+                            >
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            {inv.invoice_pdf ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                asChild
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                              >
+                                <a href={inv.invoice_pdf} target="_blank" rel="noopener noreferrer">
+                                  <Download className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
                 <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg border-dashed border-border">
-                  No billing history available on the Free Plan.
+                  No invoices yet.
                 </div>
               )}
             </CardContent>
@@ -508,94 +710,68 @@ export function SettingsPage() {
 
         <TabsContent value="api" className="mt-4">
           <Card>
-            <CardHeader><CardTitle className="text-base">API key</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">API key</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
-              <Input readOnly value="mg_live_•••••••••••••••••••••••••••• 4f9a" className="font-mono text-xs" />
-              <div className="flex gap-2"><Button variant="outline" size="sm">Reveal</Button><Button variant="outline" size="sm">Rotate</Button></div>
+              <Input
+                readOnly
+                value="mg_live_•••••••••••••••••••••••••••• 4f9a"
+                className="font-mono text-xs"
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm">
+                  Reveal
+                </Button>
+                <Button variant="outline" size="sm">
+                  Rotate
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Credit Card Update Modal */}
-      {showCardModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="w-full max-w-sm border-border bg-card shadow-2xl animate-fade-in animate-duration-200">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Update Payment Method</CardTitle>
-              <CardDescription>Enter your new credit card details.</CardDescription>
-            </CardHeader>
-            <form onSubmit={handleUpdateCard}>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="modalCard">Card Number</Label>
-                  <Input
-                    id="modalCard"
-                    required
-                    value={newCardNum}
-                    onChange={(e) => setNewCardNum(e.target.value.replace(/\s+/g, "").replace(/[^0-9]/gi, "").slice(0, 16))}
-                    placeholder="4111 2222 3333 4444"
-                    className="bg-background/50 font-mono"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="modalExpiry">Expiry (MM/YY)</Label>
-                    <Input
-                      id="modalExpiry"
-                      required
-                      value={newCardExpiry}
-                      onChange={(e) => setNewCardExpiry(e.target.value.slice(0, 5))}
-                      placeholder="12/28"
-                      className="bg-background/50 text-center font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="modalCvc">CVC</Label>
-                    <Input
-                      id="modalCvc"
-                      required
-                      type="password"
-                      value={newCardCvc}
-                      onChange={(e) => setNewCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      placeholder="•••"
-                      className="bg-background/50 text-center font-mono"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-3 pt-2">
-                <Button type="button" variant="ghost" onClick={() => setShowCardModal(false)} className="cursor-pointer">
-                  Cancel
-                </Button>
-                <Button type="submit" className="cursor-pointer">
-                  Save Card
-                </Button>
-              </CardFooter>
-            </form>
-          </Card>
-        </div>
-      )}
 
       {/* Cancel Subscription Confirmation Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="w-full max-w-sm border-border bg-card shadow-2xl animate-fade-in animate-duration-200">
             <CardHeader>
-              <CardTitle className="text-base font-semibold text-destructive">Cancel Subscription</CardTitle>
-              <CardDescription>Downgrade to the Free Plan.</CardDescription>
+              <CardTitle className="text-base font-semibold text-destructive">
+                Cancel Subscription
+              </CardTitle>
+              <CardDescription>
+                Your plan stays active until the end of the current billing period.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground leading-relaxed">
               <p>Are you sure you want to cancel your subscription?</p>
-              <p>Downgrading to the <strong>Free Plan</strong> limits active monitoring checks to 1 brand asset and disables automated DMCA / C&amp;D takedowns.</p>
+              <p>
+                You'll keep full access until
+                {nextInvoiceDate ? ` ${nextInvoiceDate}` : " the end of the period"}, then downgrade
+                to the <strong>Free Plan</strong>, which disables automated DMCA / C&amp;D takedowns
+                and limits monitoring.
+              </p>
             </CardContent>
             <CardFooter className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="ghost" disabled={cancelling} onClick={() => setShowCancelModal(false)} className="cursor-pointer">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={cancelling}
+                onClick={() => setShowCancelModal(false)}
+                className="cursor-pointer"
+              >
                 No, Keep Plan
               </Button>
-              <Button type="button" variant="destructive" disabled={cancelling} onClick={handleCancelSubscription} className="cursor-pointer gap-2">
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={cancelling}
+                onClick={handleCancelSubscription}
+                className="cursor-pointer gap-2"
+              >
                 {cancelling && <Loader2 className="h-4 w-4 animate-spin" />}
-                Yes, Downgrade
+                Yes, Cancel
               </Button>
             </CardFooter>
           </Card>
@@ -605,17 +781,40 @@ export function SettingsPage() {
   );
 }
 
-function PersonaCard({ active, onClick, icon: Icon, title, desc }: { active: boolean; onClick: () => void; icon: React.ComponentType<{className?:string}>; title: string; desc: string }) {
+function PersonaCard({
+  active,
+  onClick,
+  icon: Icon,
+  title,
+  desc,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  desc: string;
+}) {
   return (
     <button
       onClick={onClick}
       className={cn(
         "relative flex flex-col items-start gap-2 rounded-lg border p-5 text-left transition-all",
-        active ? "border-accent bg-accent/5 ring-1 ring-accent" : "hover:border-accent/40 hover:bg-muted/40"
+        active
+          ? "border-accent bg-accent/5 ring-1 ring-accent"
+          : "hover:border-accent/40 hover:bg-muted/40",
       )}
     >
-      {active && <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-accent-foreground"><Check className="h-3 w-3" /></span>}
-      <div className={cn("flex h-10 w-10 items-center justify-center rounded-md", active ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground")}>
+      {active && (
+        <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-accent-foreground">
+          <Check className="h-3 w-3" />
+        </span>
+      )}
+      <div
+        className={cn(
+          "flex h-10 w-10 items-center justify-center rounded-md",
+          active ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground",
+        )}
+      >
         <Icon className="h-5 w-5" />
       </div>
       <p className="font-semibold">{title}</p>
@@ -623,4 +822,3 @@ function PersonaCard({ active, onClick, icon: Icon, title, desc }: { active: boo
     </button>
   );
 }
-

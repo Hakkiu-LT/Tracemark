@@ -4,6 +4,8 @@ import {
   Building2,
   Users,
   Scale,
+  Rocket,
+  Briefcase,
   CheckCircle2,
   Star,
   Sparkles,
@@ -29,7 +31,15 @@ type Tone = "blue" | "violet";
 // JIT picks them up. Drives the card border, badge, icons, and CTA per plan.
 const TONE: Record<
   Tone,
-  { text: string; softBg: string; border: string; shadow: string; badge: string; solid: string; outline: string }
+  {
+    text: string;
+    softBg: string;
+    border: string;
+    shadow: string;
+    badge: string;
+    solid: string;
+    outline: string;
+  }
 > = {
   blue: {
     text: "text-[oklch(0.58_0.18_255)]",
@@ -73,14 +83,15 @@ const PLANS: Plan[] = [
     name: "Starter",
     icon: Building2,
     audience: "For brand owners",
-    price: "$199",
+    price: "$99",
     period: "/mo",
-    blurb: "Perfect for in-house teams and single brands.",
+    blurb: "For founders protecting a single brand.",
     features: [
-      "1 brand / 5 monitored marks",
-      "Daily scans across 3 platforms",
-      "Manual takedown workflow",
-      "Email alerts",
+      "1 brand",
+      "3 platforms",
+      "Weekly scans",
+      "Assisted takedown notices",
+      "Email support",
     ],
     cta: "Start monitoring",
     to: "/dashboard",
@@ -89,16 +100,15 @@ const PLANS: Plan[] = [
     name: "Growth",
     icon: Users,
     audience: "For growing brand teams",
-    price: "$499",
+    price: "$249",
     period: "/mo",
-    blurb: "Built for scaling brand teams with more coverage and faster takedowns.",
+    blurb: "For scaling e-commerce and SaaS teams.",
     features: [
-      "Up to 5 brands / 50 marks",
-      "Hourly scans, all platforms",
-      "Automated DMCA + C&D templates",
-      "Webhook + Slack alerts",
-      "Evidence PDF export",
-      "Faster takedowns with priority support",
+      "5 brands",
+      "All 13 platforms",
+      "Daily scans",
+      "Auto takedown generation",
+      "Priority support",
     ],
     cta: "Start monitoring",
     to: "/dashboard",
@@ -107,23 +117,57 @@ const PLANS: Plan[] = [
     featured: true,
   },
   {
+    name: "Pro",
+    icon: Rocket,
+    audience: "For established brands",
+    price: "$599",
+    period: "/mo",
+    blurb: "Real-time protection with domain tracking.",
+    features: [
+      "20 brands",
+      "All platforms + domain tracking",
+      "Real-time monitoring",
+      "Auto-generated DMCA & C&D docs",
+      "Dedicated account manager",
+    ],
+    cta: "Start monitoring",
+    to: "/dashboard",
+  },
+  {
+    name: "Agency",
+    icon: Briefcase,
+    audience: "For agencies & law firms",
+    price: "$1,499",
+    period: "/mo",
+    blurb: "White-label multi-client workspace.",
+    features: [
+      "Unlimited brands",
+      "White-label reports",
+      "Full API access",
+      "Multi-client dashboard",
+      "SLA + dedicated support",
+    ],
+    cta: "Start monitoring",
+    to: "/dashboard",
+    tone: "violet",
+    badge: { label: "Best for agencies", icon: Sparkles },
+  },
+  {
     name: "Enterprise",
     icon: Scale,
-    audience: "For law firms / IP counsel",
+    audience: "For large corporations",
     price: "Custom",
-    blurb: "Tailored for law firms and IP counsel managing complex enforcement.",
+    blurb: "Managed service — we do the work for you.",
     features: [
-      "Unlimited marks & scans",
-      "Manage multiple clients and matters",
-      "Dedicated success manager",
-      "Custom integrations & APIs",
-      "Contractual SLAs",
-      "On-prem evidence retention",
+      "Managed takedown service",
+      "Court-ready evidence & legal integration",
+      "Dedicated scraping infrastructure",
+      "Custom integrations (SSO/SAML)",
+      "99.9% SLA · SOC 2 · GDPR",
     ],
     cta: "Book a demo",
     to: "/plans",
     tone: "violet",
-    badge: { label: "Pro-grade", icon: Sparkles },
   },
 ];
 
@@ -178,7 +222,14 @@ function CompareGlyph() {
         className="origin-bottom fill-[oklch(0.58_0.18_255)] transition-transform duration-300 ease-out group-hover:scale-y-100 motion-reduce:transition-none"
         style={{ transformBox: "fill-box", transform: "scaleY(0.68)" }}
       />
-      <rect x="13" y="4.5" width="4" height="9.5" rx="1.25" className="fill-[oklch(0.55_0.22_300)]" />
+      <rect
+        x="13"
+        y="4.5"
+        width="4"
+        height="9.5"
+        rx="1.25"
+        className="fill-[oklch(0.55_0.22_300)]"
+      />
     </svg>
   );
 }
@@ -292,7 +343,7 @@ export function Pricing() {
         </div>
 
         {/* Plans */}
-        <div className="mx-auto mt-10 grid max-w-[380px] items-center gap-5 lg:max-w-none lg:grid-cols-3">
+        <div className="mx-auto mt-10 grid max-w-[380px] items-center gap-5 sm:max-w-none sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {PLANS.map((plan, i) => (
             <PlanCard key={plan.name} plan={plan} index={i} inView={inView} />
           ))}

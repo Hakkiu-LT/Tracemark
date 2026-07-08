@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,48 +8,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useStore, type Persona } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { PLANS, effectiveMonthly, type BillingInterval } from "@/lib/billing";
 
 export const Route = createFileRoute("/plans")({
   head: () => ({ meta: [{ title: "Plans – Tracemark" }] }),
   component: PlansPage,
 });
-
-const PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 49,
-    blurb: "For founders protecting a single brand.",
-    features: ["1 brand / 5 monitored marks", "Daily scans across 3 platforms", "Manual takedown workflow", "Email alerts"],
-    audience: "brand_owner" as const,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 199,
-    blurb: "For scaling e-commerce and SaaS teams.",
-    features: ["Up to 5 brands / 50 marks", "Hourly scans, all platforms", "Automated DMCA + C&D templates", "Webhook + Slack alerts", "Evidence PDF export"],
-    audience: "brand_owner" as const,
-    highlight: true,
-  },
-  {
-    id: "firm",
-    name: "Firm",
-    price: 599,
-    blurb: "Multi-client workspace for IP practices.",
-    features: ["Unlimited client tenants", "Per-client billing & reports", "White-label takedown letters", "Audit log + SSO", "Priority support"],
-    audience: "law_firm" as const,
-    highlight: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: null,
-    blurb: "Custom volume, SLAs, and integrations.",
-    features: ["Unlimited marks & scans", "Dedicated success manager", "Custom integrations & APIs", "Contractual SLAs", "On-prem evidence retention"],
-    audience: "both" as const,
-  },
-];
 
 function PlansPage() {
   const persona = useStore((s) => s.persona);
@@ -56,7 +21,9 @@ function PlansPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Plans & Billing</h1>
-        <p className="text-sm text-muted-foreground">Choose the plan that best fits your workspace.</p>
+        <p className="text-sm text-muted-foreground">
+          Choose the plan that best fits your workspace.
+        </p>
       </div>
       <PlansContent persona={persona} />
     </div>
@@ -66,8 +33,9 @@ function PlansPage() {
 function PlansContent({ persona }: { persona: Persona }) {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [interval, setInterval] = useState<BillingInterval>("month");
   const currentPlanId = profile?.plan || "free";
-  const recommended = persona === "law_firm" ? "firm" : "pro";
+  const recommended = persona === "law_firm" ? "agency" : "growth";
 
   return (
     <>
@@ -76,7 +44,12 @@ function PlansContent({ persona }: { persona: Persona }) {
           <div>
             <CardTitle className="text-base">Current plan</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              You're on <span className="font-medium text-foreground">{PLANS.find(p => p.id === currentPlanId)?.name || "Free"}</span>{currentPlanId !== "free" && ` — next invoice ${new Date(Date.now() + 12 * 86400000).toLocaleDateString()}.`}
+              You're on{" "}
+              <span className="font-medium text-foreground">
+                {PLANS.find((p) => p.id === currentPlanId)?.name || "Free"}
+              </span>
+              {currentPlanId !== "free" &&
+                ` — next invoice ${new Date(Date.now() + 12 * 86400000).toLocaleDateString()}.`}
             </p>
           </div>
           <Button variant="outline" size="sm" asChild>
@@ -85,17 +58,52 @@ function PlansContent({ persona }: { persona: Persona }) {
         </CardHeader>
       </Card>
 
+      {/* Billing interval toggle */}
+      <div className="flex items-center justify-center">
+        <div className="inline-flex rounded-lg border bg-muted/40 p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => setInterval("month")}
+            className={cn(
+              "cursor-pointer rounded-md px-4 py-1.5 font-medium transition-colors",
+              interval === "month" ? "bg-background shadow-sm" : "text-muted-foreground",
+            )}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            onClick={() => setInterval("year")}
+            className={cn(
+              "cursor-pointer rounded-md px-4 py-1.5 font-medium transition-colors",
+              interval === "year" ? "bg-background shadow-sm" : "text-muted-foreground",
+            )}
+          >
+            Yearly <span className="text-accent">–2 months</span>
+          </button>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {PLANS.filter(p => p.audience === "both" || p.audience === persona).map((plan) => {
+        {PLANS.filter((p) => p.audience === "both" || p.audience === persona).map((plan) => {
           const isCurrent = plan.id === currentPlanId;
           const isRecommended = plan.id === recommended && !isCurrent;
+          const monthly = plan.monthly;
+          const shownPrice = monthly !== null ? effectiveMonthly(monthly, interval) : null;
+          const currentPlanMeta = PLANS.find((p) => p.id === currentPlanId);
+          // Enterprise (monthly null) is the top tier → everything else downgrades;
+          // free / unknown is the bottom → everything else upgrades.
+          const currentMonthly = currentPlanMeta
+            ? (currentPlanMeta.monthly ?? Number.POSITIVE_INFINITY)
+            : 0;
+          const isDowngrade = monthly !== null && monthly < currentMonthly;
           return (
             <div
               key={plan.id}
               className={cn(
                 "relative flex flex-col rounded-lg border bg-card p-5",
                 plan.highlight && "border-accent/50 shadow-sm",
-                isCurrent && "ring-1 ring-accent"
+                isCurrent && "ring-1 ring-accent",
               )}
             >
               {isRecommended && (
@@ -106,6 +114,19 @@ function PlansContent({ persona }: { persona: Persona }) {
               <div className="flex items-baseline justify-between">
                 <p className="font-semibold">{plan.name}</p>
                 {isCurrent && <span className="text-xs font-medium text-accent">Current</span>}
+              </div>
+              <div className="mt-2">
+                {shownPrice !== null ? (
+                  <>
+                    <span className="text-2xl font-bold">${shownPrice.toLocaleString()}</span>
+                    <span className="text-sm text-muted-foreground">/mo</span>
+                    {interval === "year" && (
+                      <span className="ml-1 text-xs text-muted-foreground">billed yearly</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-2xl font-bold">Custom</span>
+                )}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{plan.blurb}</p>
               <ul className="mt-4 flex-1 space-y-2 text-sm">
@@ -121,20 +142,25 @@ function PlansContent({ persona }: { persona: Persona }) {
                 variant={isCurrent ? "outline" : plan.highlight ? "default" : "outline"}
                 disabled={isCurrent}
                 onClick={() => {
-                  if (plan.price === null) {
-                    toast.info(`Please contact sales at sales@tracemark.io to negotiate Enterprise terms.`);
+                  if (!plan.selfServe) {
+                    toast.info(
+                      "Please contact sales at sales@tracemark.io to negotiate Enterprise terms.",
+                    );
                   } else {
-                    navigate({ to: "/checkout", search: { plan: plan.id } });
+                    navigate({ to: "/checkout", search: { plan: plan.id, interval } });
                   }
                 }}
               >
-                {isCurrent ? "Current plan" : plan.price === null ? "Contact sales" : `Upgrade to ${plan.name}`}
+                {isCurrent
+                  ? "Current plan"
+                  : !plan.selfServe
+                    ? "Contact sales"
+                    : `${isDowngrade ? "Downgrade" : "Upgrade"} to ${plan.name}`}
               </Button>
             </div>
           );
         })}
       </div>
-
     </>
   );
 }
