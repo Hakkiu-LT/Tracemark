@@ -598,7 +598,7 @@ MOCK_DB: dict[str, dict] = {
                 "platform": "meta_ads",
                 "platform_category": "ad_platform",
                 "infringing_url": "https://fake-nike-store.com",
-                "submission_url": "https://www.facebook.com/help/contact/1735443093393986",
+                "submission_url": "https://www.facebook.com/help/contact/trademarkform",
                 "submission_method": "api",
                 "submission_email": None,
                 "notice_text": (
