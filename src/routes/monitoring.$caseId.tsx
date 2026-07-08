@@ -11,6 +11,7 @@ import { ChevronRight, FileText, ArrowLeft, Loader2, ShieldCheck, RefreshCw, Gav
 import { toast } from "sonner";
 import { updateCaseStatusBackend } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
 import { openEscalationEmail, buildScanResultEscalationText } from "@/lib/escalation-email";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
@@ -38,6 +39,7 @@ function MonitoringScanResultPage() {
   const { caseId } = Route.useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const result = useStore((s) => s.scanResults[caseId]);
   const setScanResult = useStore((s) => s.setScanResult);
   // Only show a loading state when we don't already have the result locally and
@@ -51,6 +53,9 @@ function MonitoringScanResultPage() {
     setUpdating(status);
     try {
       await updateCaseStatusBackend(caseId, status, reason);
+      queryClient.invalidateQueries({ queryKey: ["dashboard_cases"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard_infringements"] });
+      queryClient.invalidateQueries({ queryKey: ["infringements"] });
       const updatedCase = await fetchCaseFromSupabase(caseId);
       if (updatedCase) {
         setScanResult(caseId, updatedCase);

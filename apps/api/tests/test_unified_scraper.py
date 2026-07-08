@@ -12,6 +12,7 @@ from tracemark_api.services.unified_scraper import (
     UnifiedScraper,
     SCRAPE_STATIC,
     SCRAPE_JS,
+    UnifiedScrapeResult,
 )
 
 
@@ -125,9 +126,8 @@ class TestUnifiedScraperRouting:
     We patch _scrape_static and _scrape_js so no real HTTP calls are made.
     """
 
-    def _make_result(self, used: str) -> object:
-        from tracemark_api.services.unified_scraper import UnifiedScrapeResult
-        return UnifiedScrapeResult(url="https://example.com", title="Test", markdown="content", success=True, scraper_used=used)
+    def _make_result(self, used: str, markdown: str = "content" * 100) -> UnifiedScrapeResult:
+        return UnifiedScrapeResult(url="https://example.com", title="Test", markdown=markdown, success=True, scraper_used=used)
 
     def test_amazon_routes_to_static(self):
         scraper = UnifiedScraper()
@@ -137,6 +137,27 @@ class TestUnifiedScraperRouting:
             mock_static.assert_called_once()
             mock_js.assert_not_called()
             assert result.scraper_used == SCRAPE_STATIC
+
+    def test_amazon_static_failure_falls_back_to_js(self):
+        """If a static domain scrape has insufficient content, it should fall back to JS scraper."""
+        scraper = UnifiedScraper()
+        with patch.object(scraper, "_scrape_static", return_value=self._make_result(SCRAPE_STATIC, markdown="short")) as mock_static, \
+             patch.object(scraper, "_scrape_js", return_value=self._make_result(SCRAPE_JS)) as mock_js:
+            result = scraper.scrape("https://www.amazon.com/s?k=nike")
+            mock_static.assert_called_once()
+            mock_js.assert_called_once()
+            assert result.scraper_used == SCRAPE_JS
+
+    def test_amazon_static_error_falls_back_to_js(self):
+        """If a static domain scrape fails with error, it should fall back to JS scraper."""
+        scraper = UnifiedScraper()
+        failed_static = UnifiedScrapeResult(url="https://www.amazon.com", title=None, markdown="", success=False, error_message="Blocked", scraper_used=SCRAPE_STATIC)
+        with patch.object(scraper, "_scrape_static", return_value=failed_static) as mock_static, \
+             patch.object(scraper, "_scrape_js", return_value=self._make_result(SCRAPE_JS)) as mock_js:
+            result = scraper.scrape("https://www.amazon.com/s?k=nike")
+            mock_static.assert_called_once()
+            mock_js.assert_called_once()
+            assert result.scraper_used == SCRAPE_JS
 
     def test_aliexpress_routes_to_js(self):
         scraper = UnifiedScraper()
@@ -229,3 +250,20 @@ class TestScrapeStaticAntibot:
         result = scraper._scrape_static("https://example.com")
         assert result.success is False
         assert "Antibot" in result.error_message
+
+
+class TestFallbackFailureLogging:
+    @patch("builtins.print")
+    def test_fallback_failure_prints_message(self, mock_print):
+        scraper = UnifiedScraper()
+        failed_static = UnifiedScrapeResult(url="https://example.com", title=None, markdown="", success=False, error_message="Static Blocked")
+        failed_js = UnifiedScrapeResult(url="https://example.com", title=None, markdown="", success=False, error_message="JS Timeout", scraper_used=SCRAPE_JS)
+        with patch.object(scraper, "_scrape_static", return_value=failed_static), \
+             patch.object(scraper, "_scrape_js", return_value=failed_js):
+            result = scraper.scrape_with_fallback("https://example.com")
+            assert result.success is False
+            # Verify the failure message is printed
+            mock_print.assert_any_call(
+                "[UnifiedScraper] Failed to scrape/retrieve information from the domain: https://example.com. "
+                "Static error: Static Blocked. JS error: JS Timeout"
+            )

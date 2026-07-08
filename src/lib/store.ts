@@ -150,7 +150,11 @@ export const useStore = create<State>()(
       addClient: (c) => set((s) => ({ clients: [...s.clients, { ...c, id: `c${Date.now()}` }] })),
       removeClient: (id) => set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
       updateCaseStatus: (id, status) =>
-        set((s) => ({ infringements: s.infringements.map((i) => (i.id === id ? { ...i, status } : i)) })),
+        set((s) => ({
+          infringements: s.infringements.map((i) =>
+            i.id === id ? { ...i, status, case_updated_at: new Date().toISOString() } : i
+          ),
+        })),
       setScanResult: (caseId, result) =>
         set((s) => ({ scanResults: { ...s.scanResults, [caseId]: result } })),
       addInfringement: (i) =>
