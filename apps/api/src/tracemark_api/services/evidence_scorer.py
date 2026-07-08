@@ -23,7 +23,8 @@ def score_evidence(evidence: "Evidence") -> EvidenceScore:
     """
     Scores incoming Evidence across 4 dimensions and returns a quality rating.
 
-    Scoring weights:
+    Scoring weights are dynamically normalized based on the platforms scanned.
+    Base scoring weights (when all are scanned):
     - Marketplace listings: 40%  (most direct proof of counterfeiting)
     - Ads:                  30%  (impersonation via paid ads is high-value signal)
     - Domains:              20%  (typosquatting is lower severity but common)
@@ -47,16 +48,66 @@ def score_evidence(evidence: "Evidence") -> EvidenceScore:
             is_empty=True,
         )
 
+    # Determine which categories were scanned based on evidence.scanned_platforms
+    scanned = getattr(evidence, "scanned_platforms", [])
+    if not scanned:
+        # Default / backward compatibility: assume all categories scanned
+        categories_scanned = {"marketplaces", "ads", "domains", "social"}
+    else:
+        categories_scanned = set()
+        for p in scanned:
+            p_lower = p.lower()
+            if p_lower in {
+                "amazon", "ebay", "alibaba", "etsy", "google_shopping",
+                "aliexpress", "shopify", "facebook_marketplace", "marketplace"
+            }:
+                categories_scanned.add("marketplaces")
+            elif p_lower in {"google_ads", "meta_ads", "ads"}:
+                categories_scanned.add("ads")
+            elif p_lower in {"domains", "whois", "serp", "domain"}:
+                categories_scanned.add("domains")
+            elif p_lower in {"tiktok", "instagram", "social"}:
+                categories_scanned.add("social")
+
+        # Ensure categories where evidence was actually found are counted as scanned
+        if mp_count > 0:
+            categories_scanned.add("marketplaces")
+        if ads_count > 0:
+            categories_scanned.add("ads")
+        if domains_count > 0:
+            categories_scanned.add("domains")
+        if social_count > 0:
+            categories_scanned.add("social")
+
+        if not categories_scanned:
+            categories_scanned = {"marketplaces", "ads", "domains", "social"}
+
+    base_weights = {
+        "marketplaces": 0.40,
+        "ads": 0.30,
+        "domains": 0.20,
+        "social": 0.10,
+    }
+
+    # Normalize weights so active scanned categories sum to 1.0
+    weight_sum = sum(base_weights[cat] for cat in categories_scanned)
+    normalized_weights = {}
+    for cat in base_weights:
+        if cat in categories_scanned and weight_sum > 0:
+            normalized_weights[cat] = base_weights[cat] / weight_sum
+        else:
+            normalized_weights[cat] = 0.0
+
     mp_score = min(mp_count / 10, 1.0)
     ads_score = min(ads_count / 5, 1.0)
     domains_score = min(domains_count / 5, 1.0)
     social_score = min(social_count / 3, 1.0)
 
     total = (
-        mp_score * 0.40
-        + ads_score * 0.30
-        + domains_score * 0.20
-        + social_score * 0.10
+        mp_score * normalized_weights["marketplaces"]
+        + ads_score * normalized_weights["ads"]
+        + domains_score * normalized_weights["domains"]
+        + social_score * normalized_weights["social"]
     )
 
     if total >= 0.65:

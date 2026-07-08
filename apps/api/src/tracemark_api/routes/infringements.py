@@ -22,6 +22,7 @@ class InfringementItem(BaseModel):
     screenshot_url: str | None
     flagged_at: str
     created_at: str
+    case_updated_at: str | None = None
     detection_region: str | None = None
 
 
@@ -77,7 +78,7 @@ def list_infringements(
 
     query = (
         sb.table("infringements")
-        .select("*, cases!inner(organization_id, user_id)", count="exact")
+        .select("*, cases!inner(organization_id, user_id, status, updated_at)", count="exact")
         .order("flagged_at", desc=True)
         .limit(limit)
         .offset(offset)
@@ -106,8 +107,16 @@ def list_infringements(
 
     result = query.execute()
 
+    # Flatten cases status and updated_at
+    items = []
+    for row in (result.data or []):
+        case_info = row.get("cases") or {}
+        row["status"] = case_info.get("status") or row.get("status")
+        row["case_updated_at"] = case_info.get("updated_at")
+        items.append(row)
+
     return InfringementsResponse(
-        items=result.data or [],
+        items=items,
         total=result.count or 0,
     )
 
@@ -121,18 +130,18 @@ def get_infringement(
     sb = get_supabase()
     result = (
         sb.table("infringements")
-        .select("*, cases(detection_region)")
+        .select("*, cases(detection_region, status, updated_at)")
         .eq("id", infringement_id)
-        .maybe_single()
-        .execute()
+        .maybe_single().execute()
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Infringement not found")
         
     data = result.data
-    cases_data = data.get("cases")
-    detection_region = cases_data.get("detection_region") if cases_data else None
-    data["detection_region"] = detection_region
+    cases_data = data.get("cases") or {}
+    data["detection_region"] = cases_data.get("detection_region")
+    data["status"] = cases_data.get("status") or data.get("status")
+    data["case_updated_at"] = cases_data.get("updated_at")
     return data
 
 
@@ -196,4 +205,26 @@ def update_infringement_status(
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to update status")
         
-    return result.data[0]
+    updated_inf = result.data[0]
+    
+    # Cascade status update to the linked case (trigger will set updated_at to now)
+    case_id = updated_inf.get("case_id")
+    if case_id:
+        case_updates = {"status": payload.status}
+        if payload.decline_reason is not None:
+            case_updates["decline_reason"] = payload.decline_reason
+        try:
+            case_res = (
+                sb.table("cases")
+                .update(case_updates)
+                .eq("id", case_id)
+                .select("status, updated_at")
+                .execute()
+            )
+            if case_res.data:
+                updated_inf["status"] = case_res.data[0].get("status") or updated_inf["status"]
+                updated_inf["case_updated_at"] = case_res.data[0].get("updated_at")
+        except Exception as e_case:
+            print(f"[Infringements] Failed to sync case status: {e_case}")
+            
+    return updated_inf

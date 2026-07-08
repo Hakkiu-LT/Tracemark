@@ -108,6 +108,42 @@ class TestEvidenceScorer:
         assert score.domains_score == 0.0
         assert score.social_score == 0.0
 
+    def test_domain_only_scan_normalizes_weights(self):
+        # Scan ONLY domains
+        # 5 clone domains -> domains_score = 1.0. With only domains scanned, normalized weight = 1.0 -> total = 1.0
+        evidence = Evidence(
+            marketplaces=[],
+            ads=[],
+            domains=[make_domain(f"clone{i}.com") for i in range(5)],
+            social=[],
+            scanned_platforms=["domains"],
+            timestamp=datetime.now(),
+        )
+        score = score_evidence(evidence)
+        assert score.domains_score == 1.0
+        assert score.total_score == 1.0
+        assert score.quality_label == "STRONG"
+
+    def test_domain_and_ads_normalizes_weights(self):
+        # Scan domains and ads
+        # 5 clone domains -> domains_score = 1.0
+        # no ads -> ads_score = 0.0
+        # Normalized weights: domains = 0.2/(0.2+0.3) = 0.4, ads = 0.3/(0.2+0.3) = 0.6
+        # total = 1.0 * 0.4 + 0.0 * 0.6 = 0.4
+        evidence = Evidence(
+            marketplaces=[],
+            ads=[],
+            domains=[make_domain(f"clone{i}.com") for i in range(5)],
+            social=[],
+            scanned_platforms=["domains", "google_ads"],
+            timestamp=datetime.now(),
+        )
+        score = score_evidence(evidence)
+        assert score.domains_score == 1.0
+        assert score.ads_score == 0.0
+        assert score.total_score == pytest.approx(0.4)
+        assert score.quality_label == "MODERATE"
+
 
 # ---------------------------------------------------------------------------
 # DecisionAgent tests (mock mode — no GEMINI_API_KEY required)
