@@ -2147,6 +2147,7 @@ async def gather_evidence(
         domains=domain_evidences,
         social=social_evidences,
         blocked_apis=blocked_apis,
+        scanned_platforms=platforms,
         timestamp=datetime.now(),
     )
 
@@ -2241,6 +2242,7 @@ def _mock_evidence(brand_name: str) -> Evidence:
         ],
         social=[],
         blocked_apis=[],
+        scanned_platforms=["amazon", "google_ads", "meta_ads", "domains"],
         timestamp=datetime.now(),
     )
 

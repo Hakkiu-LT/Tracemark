@@ -131,11 +131,12 @@ This document outlines the priority ordering for backend services, engines, data
 | Task | Status | Notes |
 |---|---|---|
 | `notification_deliveries` Supabase migration | ✅ Done | `20260625000002_notification_deliveries.sql` — RLS enabled |
-| `notifications.py` — `send_email_notification()` | ✅ Done | SMTP dispatch with template support (new_infringement, takedown_generated, case_escalated, case_dismissed) |
-| `dispatch_notifications()` for email delivery | ✅ Done | Resolves recipient email (checks org settings, env fallbacks) |
+| `notifications.py` — `send_email_notification()` | ✅ Done | SMTP connectivity deactivated in favor of client-side browser/Gmail redirects |
+| `dispatch_notifications()` for email delivery | ✅ Done | Simplified to lightweight print logging |
 | `log_delivery()` + event triggers (new_infringement, etc.) | ✅ Done | `services/delivery_log.py` + trigger `persistence.py` HIGH risk |
 | `POST /api/v1/monitoring/takedowns/{id}/send-email` endpoint | ✅ Done | Sends takedown notice text via SMTP, records log, updates status |
-| `test_notifications.py` + `test_delivery_log.py` | ✅ Done | All 11 tests passing (`test_notifications.py` + `test_delivery_log.py`) |
+| `test_notifications.py` + `test_delivery_log.py` | ✅ Done | All tests updated to assert no-op/print logic |
+| `decline_reason schema migration & update fallback` | ✅ Done | Added migration for decline_reason columns on cases/infringements with robust database update fallback |
 | `documents` Supabase migration | ✅ Done | `20260625000001_documents.sql` — FK to infringements, RLS enabled |
 | `legal-documents` Storage bucket | ✅ Done | Auto-created by `_ensure_bucket()` in `document_persistence.py` |
 | `persist_document()` | ✅ Done | `services/document_persistence.py` — uploads bytes, inserts row, returns record |

@@ -63,7 +63,7 @@ def test_escalation_generates_reports_when_empty(
     assert response.json() == {"success": True}
 
     # Verify status was updated in database
-    mock_update_status.assert_called_once_with("test-case-123", "escalated")
+    mock_update_status.assert_called_once_with("test-case-123", "escalated", decline_reason=None)
     
     # Verify notice generation was triggered with force=True
     mock_generate_reports.assert_called_once()
@@ -134,7 +134,7 @@ def test_escalation_does_not_duplicate_reports_when_not_empty(
     assert response.json() == {"success": True}
 
     # Verify status was updated in database
-    mock_update_status.assert_called_once_with("test-case-123", "escalated")
+    mock_update_status.assert_called_once_with("test-case-123", "escalated", decline_reason=None)
     
     # Verify notice generation was NOT called again to avoid duplication
     mock_generate_reports.assert_not_called()
@@ -158,7 +158,7 @@ def test_other_status_updates_do_not_generate_reports(
     assert response.json() == {"success": True}
 
     # Verify status was updated in database
-    mock_update_status.assert_called_once_with("test-case-123", "safe")
+    mock_update_status.assert_called_once_with("test-case-123", "safe", decline_reason=None)
     
     # Verify notice generation and decision updates were NOT called
     mock_get_case.assert_not_called()
