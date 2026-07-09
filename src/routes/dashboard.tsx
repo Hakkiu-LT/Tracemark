@@ -8,6 +8,7 @@ import { InfringementAlertFeed } from "@/components/cases/InfringementAlertFeed"
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell, Legend } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { getInfringements } from "@/lib/api";
+import { fetchCaseHistory } from "@/lib/supabase";
 import { ClientBillingCard } from "@/components/ClientBillingCard";
 import { cn } from "@/lib/utils";
 import { getRegionForId, getMacroRegionForCountry } from "@/lib/regions";
@@ -22,22 +23,31 @@ export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
-const trend = Array.from({ length: 30 }, (_, i) => ({
-  day: i + 1,
-  rate: Math.round(72 + Math.sin(i / 3) * 6 + i * 0.3),
-}));
-
 function Dashboard() {
   const marks = useScopedMarks();
   const persona = useStore((s) => s.persona);
   const [selectedMacroRegion, setSelectedMacroRegion] = useState("ALL");
 
-  // Fetch actual live database infringements via FastAPI backend
+  // Fetch actual live database cases via Supabase
+  const { data: dbCasesData } = useQuery({
+    queryKey: ["dashboard_cases", persona],
+    queryFn: () => fetchCaseHistory(100, persona),
+  });
+  const cases = dbCasesData ?? [];
+
+  // Fetch actual live database infringements for platform distribution
   const { data: dbInfringementsData } = useQuery({
     queryKey: ["dashboard_infringements"],
     queryFn: () => getInfringements({ limit: 100 }),
   });
   const infringements = dbInfringementsData?.items ?? [];
+
+  const filteredCases = cases.filter((c) => {
+    if (selectedMacroRegion === "ALL") return true;
+    const cCode = getRegionForId(c.id);
+    const mReg = getMacroRegionForCountry(cCode);
+    return mReg === selectedMacroRegion;
+  });
 
   const filteredInfringements = infringements.filter((i) => {
     if (selectedMacroRegion === "ALL") return true;
@@ -46,10 +56,52 @@ function Dashboard() {
     return mReg === selectedMacroRegion;
   });
 
-  const active = filteredInfringements.filter((i) => i.status === "flagged" || i.status === "active").length;
-  const takedowns = filteredInfringements.filter((i) => i.status === "reviewed" || i.status === "takedown_sent" || i.status === "resolved").length;
-  const total = filteredInfringements.length;
-  const successRate = total > 0 ? Math.round((takedowns / total) * 100) : 0;
+  const active = filteredCases.filter(
+    (c) => c.status === "pending" || c.status === "analyzing" || c.status === "reviewed" || c.status === "active"
+  ).length;
+  
+  // Successful takedowns: status is complete, completed, or resolved
+  const successfulTakedowns = filteredCases.filter(
+    (c) => c.status === "complete" || c.status === "completed" || c.status === "resolved"
+  ).length;
+
+  // Declined takedowns
+  const declinedTakedowns = filteredCases.filter((c) => c.status === "declined").length;
+
+  // Success rate is calculated over the cases that have been resolved/finalized (complete or declined)
+  const totalResolved = successfulTakedowns + declinedTakedowns;
+  const successRate = totalResolved > 0 ? Math.round((successfulTakedowns / totalResolved) * 100) : 100;
+
+  // Compute real success rate trend over the last 30 days using cases
+  const trend = Array.from({ length: 30 }, (_, i) => {
+    // Generate dates from 29 days ago to today
+    const dayDate = new Date();
+    dayDate.setDate(dayDate.getDate() - (29 - i));
+    dayDate.setHours(23, 59, 59, 999);
+
+    // Get all cases created or updated to resolved/declined up to this day
+    const historicalCases = filteredCases.filter((item) => {
+      const isResolved = item.status === "complete" || item.status === "completed" || item.status === "resolved" || item.status === "declined";
+      const caseDate = new Date(
+        (isResolved && item.updated_at) ? item.updated_at : item.created_at
+      );
+      return caseDate <= dayDate;
+    });
+
+    // Count completes/resolved vs declined up to this day
+    const completes = historicalCases.filter(
+      (item) => item.status === "complete" || item.status === "completed" || item.status === "resolved"
+    ).length;
+    const declineds = historicalCases.filter((item) => item.status === "declined").length;
+
+    const historicalResolved = completes + declineds;
+    const rate = historicalResolved > 0 ? Math.round((completes / historicalResolved) * 100) : 100;
+
+    return {
+      day: dayDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      rate,
+    };
+  });
 
   // Group by platform dynamically using actual backend data names
   const platformCounts: Record<string, number> = {};
@@ -103,7 +155,7 @@ function Dashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metric icon={ShieldCheck} label="Monitored marks" value={marks.length} sub="across all platforms" />
         <Metric icon={AlertTriangle} label="Active infringements" value={active} sub="awaiting review" tone="risk" />
-        <Metric icon={CheckCircle2} label="Successful takedowns" value={takedowns} sub="this quarter" tone="success" />
+        <Metric icon={CheckCircle2} label="Successful takedowns" value={successfulTakedowns} sub="this quarter" tone="success" />
         <Metric icon={TrendingUp} label="Success rate" value={`${successRate}%`} sub="30-day rolling avg" tone="accent" />
       </div>
 
@@ -122,7 +174,7 @@ function Dashboard() {
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 257)" />
-                <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 257)" domain={[60, 100]} unit="%" />
+                <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 257)" domain={[0, 100]} unit="%" />
                 <Tooltip contentStyle={{ background: "oklch(0.22 0.05 260)", border: "none", borderRadius: 8, color: "white", fontSize: 12 }} />
                 <Area type="monotone" dataKey="rate" stroke="oklch(0.58 0.18 255)" strokeWidth={2} fill="url(#g)" />
               </AreaChart>

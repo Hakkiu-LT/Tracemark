@@ -63,7 +63,7 @@ This document outlines the priority ordering for frontend routes, components, an
 | Case Detail: `capture_failed` banner + "Retry" button | ✅ Done | Banner and action to retry failed screenshot captures |
 | Case timeline sidebar | ✅ Done | Shows progression history of the infringement |
 | Delete Case button (with Supabase sync) | ✅ Done | Small X hover button on case rows deletes cases and related records from Supabase |
-| Segmented Cases listing blocks | ✅ Done | Splits pending cases into a Pending Review card above, and triage history below |
+| Segmented Cases listing blocks | ✅ Done | Refined Pending Review vs. Triage History route partitioning (complete/resolved items go to history) |
 | Light Green "Marked Safe" badges | ✅ Done | Changes marked safe (safe/dismissed) status styling to green instead of gray |
 | WHOIS metadata grid on Case Details page | ✅ Done | Displays domain registration dates, organization, country, abuse emails, and name servers |
 
@@ -88,7 +88,7 @@ This document outlines the priority ordering for frontend routes, components, an
 | Task | Status | Notes |
 |---|---|---|
 | `/settings/notifications` route + `<NotificationSettingsPanel />` | ✅ Done | Form saves to `org_settings` table, SMTP connection test triggers backend |
-| `<NotificationDeliveryLog />` component | ✅ Done | Fetches last 20 audit events from `notification_deliveries` table with styled badges |
+| `<NotificationDeliveryLog />` component | ✅ Done | Removed from settings UI layout since background SMTP notifications are deactivated |
 | `POST /api/v1/notifications/test/email` API endpoint | ✅ Done | Fully implemented, verified via unit tests and frontend settings panel |
 | `POST /api/v1/monitoring/takedowns/{id}/send-email` integration | ✅ Done | Integrated in takedown editor actions; triggers SMTP dispatch and status sync |
 
@@ -136,6 +136,7 @@ This document outlines the priority ordering for frontend routes, components, an
 | Optimize case/takedown pages for browser print-to-PDF (`@media print` CSS) | ✅ Done | Clean print styles targeting headers, layout grids, sidebars, and typography |
 | Manual PDF Save to Storage Button | ✅ Done | "Save" button in takedown editor uploads PDF to legal-documents bucket & logs metadata |
 | End-to-end QA Walkthrough verification | ✅ Done | Tested alert feeds, screenshot retries, SMTP connection test, and client portfolios |
+| Decline case dialog + button rename | ✅ Done | Added "Declined" action button with Radix UI textarea dialog to capture decline reason, renamed Safe/Complete button labels |
 
 ---
 

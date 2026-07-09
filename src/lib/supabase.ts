@@ -140,6 +140,7 @@ export interface CaseSummary {
   brand_name: string;
   status: string;
   created_at: string;
+  updated_at: string;
   risk_level: RiskLevel | null;
   recommended_action: RecommendedAction | null;
   confidence_score: number | null;
@@ -150,6 +151,7 @@ interface CaseListRow {
   brand_name: string;
   status: string;
   created_at: string;
+  updated_at: string;
   decisions:
     | {
         risk_level: RiskLevel;
@@ -172,7 +174,7 @@ export async function fetchCaseHistory(
 
   let query = supabase
     .from("cases")
-    .select("id, brand_name, status, created_at, decisions(risk_level, recommended_action, confidence_score)");
+    .select("id, brand_name, status, created_at, updated_at, decisions(risk_level, recommended_action, confidence_score)");
 
   if (persona === "law_firm") {
     if (activeClientId) {
@@ -198,6 +200,7 @@ export async function fetchCaseHistory(
       brand_name: row.brand_name,
       status: row.status,
       created_at: row.created_at,
+      updated_at: row.updated_at,
       risk_level: decision?.risk_level ?? null,
       recommended_action: decision?.recommended_action ?? null,
       confidence_score: decision?.confidence_score ?? null,
