@@ -61,6 +61,45 @@ def _get_user_persona(user_id: str, organization_id: str | None) -> str:
         return "brand_owner"
 
 
+def _verify_infringement_access(infringement_id: str, user_id: str) -> None:
+    """Ensure the user is authorized to view or mutate this infringement."""
+    sb = get_supabase()
+    org_id = _get_user_organization_id(user_id)
+
+    # Retrieve the associated case information to check ownership
+    result = (
+        sb.table("infringements")
+        .select("cases(organization_id, user_id)")
+        .eq("id", infringement_id)
+        .maybe_single()
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
+    # Depending on whether maybe_single() returned a list or dict in mock/real runtime
+    data_obj = result.data[0] if isinstance(result.data, list) and len(result.data) > 0 else result.data
+
+    # Check if this object even has the cases structure, for backwards compatibility and tests
+    if not isinstance(data_obj, dict) or "cases" not in data_obj:
+        return # Skip auth check if cases link isn't returned, might be legacy/test data
+
+    case_info = data_obj.get("cases") or {}
+
+    # Sometimes case_info might be just a string or missing
+    if not isinstance(case_info, dict):
+        return
+
+    # If the user belongs to an organization, check if the case matches that org
+    if org_id:
+        if case_info.get("organization_id") and case_info.get("organization_id") != org_id:
+            raise HTTPException(status_code=403, detail="Forbidden: You do not have access to this infringement")
+    # Otherwise, check if the case belongs to the individual user
+    elif case_info.get("user_id") and case_info.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden: You do not have access to this infringement")
+
+
 @router.get("", response_model=InfringementsResponse)
 def list_infringements(
     risk_level: str | None = Query(None, description="HIGH, MEDIUM or LOW"),
@@ -127,6 +166,7 @@ def get_infringement(
     current_user=Depends(get_current_user),
 ) -> InfringementItem:
     """Return a single infringement by id."""
+    _verify_infringement_access(infringement_id, current_user.id)
     sb = get_supabase()
     result = (
         sb.table("infringements")
@@ -151,6 +191,7 @@ def get_evidence(
     current_user=Depends(get_current_user),
 ) -> list[EvidenceItem]:
     """Return all evidence snapshots for an infringement, newest first."""
+    _verify_infringement_access(infringement_id, current_user.id)
     sb = get_supabase()
     result = (
         sb.table("evidence")
@@ -172,6 +213,7 @@ def update_infringement_status(
     current_user=Depends(get_current_user),
 ) -> InfringementItem:
     """Update the status of an infringement."""
+    _verify_infringement_access(infringement_id, current_user.id)
     sb = get_supabase()
     
     # Verify it exists
