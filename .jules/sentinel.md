@@ -1,0 +1,4 @@
+## 2026-06-25 - IDOR in Infringements API
+**Vulnerability:** The endpoints for accessing specific infringements (`GET /infringements/{id}`, `GET /infringements/{id}/evidence`, `PATCH /infringements/{id}/status`) lacked authorization checks. They accepted an `infringement_id` and fetched or mutated the record without verifying if the requested infringement belonged to a case associated with the current user's `organization_id` or `user_id`.
+**Learning:** Missing authorization checks when fetching records by ID from a flat table structure can lead to Insecure Direct Object References (IDOR), allowing users to access data outside their organization.
+**Prevention:** Always implement an authorization check helper that validates ownership or organizational boundaries before fetching or updating sensitive objects directly via their primary keys.
