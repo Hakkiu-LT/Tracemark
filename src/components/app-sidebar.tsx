@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard, Activity } from "lucide-react";
+import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard, Activity, Users as UsersIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,20 +15,14 @@ import {
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 
-const ADMIN_EMAILS = [
-  "gabo.seqq@gmail.com",
-  "marcius.pask@gmail.com",
-  "domantasjanus@gmail.com",
-];
-
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const persona = useStore((s) => s.persona);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
-  const isAdmin = ADMIN_EMAILS.includes((user?.email ?? "").toLowerCase());
+  const isAdmin = !!profile?.is_admin;
 
   const items = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -36,8 +30,10 @@ export function AppSidebar() {
     { title: "Cases", url: "/cases", icon: ShieldAlert },
     ...(persona === "law_firm" ? [{ title: "Clients", url: "/clients", icon: Briefcase }] : []),
     { title: "Settings", url: "/settings", icon: Settings },
-    { title: "Plans", url: "/plans", icon: CreditCard },
-    ...(isAdmin ? [{ title: "API Usage", url: "/api-usage", icon: Activity }] : []),
+    ...(isAdmin ? [
+      { title: "API Usage", url: "/api-usage", icon: Activity },
+      { title: "Users", url: "/users", icon: UsersIcon },
+    ] : []),
   ];
 
   const isActive = (url: string) => {

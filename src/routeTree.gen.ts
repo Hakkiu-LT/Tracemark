@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsersRouteImport } from './routes/users'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as MonitoringRouteImport } from './routes/monitoring'
@@ -36,6 +37,11 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as MonitoringCaseIdTakedownRouteImport } from './routes/monitoring.$caseId.takedown'
 import { Route as CasesCaseIdTakedownRouteImport } from './routes/cases.$caseId.takedown'
 
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
   '/settings': typeof SettingsRouteWithChildren
+  '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -266,6 +275,7 @@ export interface FileRouteTypes {
     | '/monitoring'
     | '/plans'
     | '/settings'
+    | '/users'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -294,6 +304,7 @@ export interface FileRouteTypes {
     | '/monitoring'
     | '/plans'
     | '/settings'
+    | '/users'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -322,6 +333,7 @@ export interface FileRouteTypes {
     | '/monitoring'
     | '/plans'
     | '/settings'
+    | '/users'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -351,6 +363,7 @@ export interface RootRouteChildren {
   MonitoringRoute: typeof MonitoringRouteWithChildren
   PlansRoute: typeof PlansRoute
   SettingsRoute: typeof SettingsRouteWithChildren
+  UsersRoute: typeof UsersRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
@@ -362,6 +375,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -623,6 +643,7 @@ const rootRouteChildren: RootRouteChildren = {
   MonitoringRoute: MonitoringRouteWithChildren,
   PlansRoute: PlansRoute,
   SettingsRoute: SettingsRouteWithChildren,
+  UsersRoute: UsersRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,

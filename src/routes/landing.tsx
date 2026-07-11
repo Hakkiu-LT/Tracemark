@@ -1,13 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ShieldCheck } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ShieldCheck, ArrowRight } from "lucide-react";
 import { HeroV3 } from "@/components/landing/hero-v3";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Workflow } from "@/components/landing/workflow";
 import { Coverage } from "@/components/landing/coverage";
 import { Features } from "@/components/landing/features";
 import { ExposureCalculator } from "@/components/landing/exposure-calculator";
-import { Pricing } from "@/components/landing/pricing";
-import { CTA } from "@/components/landing/cta";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/landing")({
   head: () => ({
@@ -57,13 +56,23 @@ function LandingPage() {
           {/* BRAND EXPOSURE CALCULATOR */}
           <ExposureCalculator />
 
-          {/* USE CASES & PRICING */}
-          <Pricing />
+          {/* COMPARE PLANS AND PRICING CTA */}
+          <div className="mx-auto max-w-[80rem] px-6 pb-20 pt-10 md:px-10 lg:px-12 flex flex-col items-center justify-center text-center">
+            <h3 className="font-display text-2xl font-bold tracking-tight mb-4">
+              Plans built for brand teams and IP professionals
+            </h3>
+            <p className="mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground mb-6">
+              Choose the plan that fits your team and enforcement needs.
+            </p>
+            <Button asChild size="lg" className="h-12 gap-2 rounded-xl bg-[oklch(0.55_0.19_262)] px-8 text-base shadow-lg shadow-[oklch(0.55_0.19_262/0.28)] hover:bg-[oklch(0.5_0.19_262)] cursor-pointer">
+              <Link to="/plans">
+                Compare plans and pricing
+                <ArrowRight className="h-4.5 w-4.5" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
-
-      {/* CLOSING CTA */}
-      <CTA />
 
       <footer className="border-t border-border bg-background">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-muted-foreground md:flex-row">

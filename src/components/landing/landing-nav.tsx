@@ -53,8 +53,8 @@ export function LandingNav() {
           "hidden items-center gap-9 text-[15px] transition-colors md:flex",
           scrolled ? "text-muted-foreground" : "text-white/80"
         )}>
-          <a href="#features" className={cn("transition-colors", scrolled ? "hover:text-foreground" : "hover:text-white")}>Features</a>
-          <a href="#how" className={cn("transition-colors", scrolled ? "hover:text-foreground" : "hover:text-white")}>How it works</a>
+          <Link to="/landing" hash="features" className={cn("transition-colors", scrolled ? "hover:text-foreground" : "hover:text-white")}>Features</Link>
+          <Link to="/landing" hash="how" className={cn("transition-colors", scrolled ? "hover:text-foreground" : "hover:text-white")}>How it works</Link>
           <Link to="/plans" className={cn("transition-colors", scrolled ? "hover:text-foreground" : "hover:text-white")}>Pricing</Link>
         </nav>
         <div className="flex items-center gap-2.5">

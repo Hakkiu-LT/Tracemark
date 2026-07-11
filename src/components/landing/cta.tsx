@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import { ShieldCheck, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import bgUrl from "./bg.png?url";
 import DotField from "./dot-field";
 
 const ACCENT = "oklch(0.58 0.18 255)";
@@ -49,11 +48,6 @@ export function CTA() {
 
   return (
     <section ref={ref} className="relative overflow-hidden border-b border-border bg-background px-6 py-16 md:py-20">
-      <div
-        className="pointer-events-none absolute inset-0 bg-repeat opacity-50 dark:opacity-0"
-        style={{ backgroundImage: `url(${bgUrl})`, backgroundSize: "1366px auto" }}
-        aria-hidden="true"
-      />
       <div
         className={cn(
           "relative mx-auto max-w-[80rem] overflow-hidden rounded-3xl bg-[oklch(0.21_0.05_260)] dark:bg-white border border-transparent dark:border-white/10 text-white dark:text-slate-900 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.55)] dark:shadow-none transition-all duration-700 ease-out motion-reduce:transition-none",
