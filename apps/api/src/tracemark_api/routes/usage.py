@@ -7,14 +7,7 @@ from datetime import datetime, timezone
 
 router = APIRouter(prefix="/usage-stats", tags=["monitoring"])
 
-# Comma-separated list of emails allowed to view usage stats, e.g.:
-# ADMIN_EMAILS=dom@tracemark.io,avery@tracemark.io
-_ADMIN_EMAILS: set[str] = {
-    e.strip().lower()
-    for e in os.environ.get("ADMIN_EMAILS", "").split(",")
-    if e.strip()
-}
-
+from tracemark_api.routes.admin import verify_admin
 
 class UsageStatsResponse(BaseModel):
     summary: list[dict]        # serialized list[ApiUsageSummary]
@@ -24,11 +17,8 @@ class UsageStatsResponse(BaseModel):
 
 
 @router.get("", response_model=UsageStatsResponse)
-def get_usage_stats(current_user=Depends(get_current_user)) -> UsageStatsResponse:
+def get_usage_stats(admin_user=Depends(verify_admin)) -> UsageStatsResponse:
     """Returns real-time API usage statistics. Restricted to admin emails."""
-    user_email = (current_user.email or "").lower()
-    if _ADMIN_EMAILS and user_email not in _ADMIN_EMAILS:
-        raise HTTPException(status_code=403, detail="Access restricted to admins.")
     return UsageStatsResponse(
         summary=[vars(s) for s in tracker.get_usage_summary()],
         by_developer=[vars(d) for d in tracker.get_by_developer()],

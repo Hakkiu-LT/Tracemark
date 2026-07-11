@@ -67,17 +67,11 @@ function shouldHideLimit(api: ApiUsageSummary): boolean {
   return api.free_limit >= 999_999 || api.api_key === "whois";
 }
 
-const ADMIN_EMAILS = [
-  "gabo.seqq@gmail.com",
-  "marcius.pask@gmail.com",
-  "domantasjanus@gmail.com",
-];
-
 function ApiUsagePage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [alertDismissed, setAlertDismissed] = useState(false);
 
-  const isAdmin = ADMIN_EMAILS.includes((user?.email ?? "").toLowerCase());
+  const isAdmin = !!profile?.is_admin || profile?.plan === "admin";
 
   const { data, isLoading, error, refetch } = useQuery<UsageStatsResponse, Error>({
     queryKey: ["api-usage-stats"],

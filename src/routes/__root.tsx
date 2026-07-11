@@ -24,6 +24,7 @@ const PUBLIC_PATHS = new Set([
   "/auth/sign-in",
   "/auth/sign-up",
   "/auth/callback",
+  "/plans",
 ]);
 
 function NotFoundComponent() {

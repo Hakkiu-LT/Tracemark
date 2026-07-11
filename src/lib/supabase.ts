@@ -37,7 +37,8 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   organization_id: string | null;
-  plan: "free" | "starter" | "growth" | "pro" | "agency" | "enterprise";
+  plan: "free" | "starter" | "growth" | "pro" | "agency" | "enterprise" | "admin";
+  is_admin?: boolean;
 }
 
 /**
@@ -49,7 +50,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, organization_id, plan")
+    .select("id, full_name, avatar_url, organization_id, plan, is_admin")
     .eq("id", userId)
     .maybeSingle<Profile>();
 
