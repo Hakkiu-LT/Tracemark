@@ -10,7 +10,9 @@ src/tracemark_api.egg-info/requires.txt
 src/tracemark_api.egg-info/top_level.txt
 src/tracemark_api/routes/__init__.py
 src/tracemark_api/routes/auth.py
+src/tracemark_api/routes/billing.py
 src/tracemark_api/routes/check_brand.py
+src/tracemark_api/routes/clients.py
 src/tracemark_api/routes/documents.py
 src/tracemark_api/routes/health.py
 src/tracemark_api/routes/infringements.py
@@ -19,6 +21,7 @@ src/tracemark_api/routes/usage.py
 src/tracemark_api/services/__init__.py
 src/tracemark_api/services/ai.py
 src/tracemark_api/services/api_usage_tracker.py
+src/tracemark_api/services/billing_config.py
 src/tracemark_api/services/database.py
 src/tracemark_api/services/decision.py
 src/tracemark_api/services/delivery_log.py
@@ -27,6 +30,7 @@ src/tracemark_api/services/document_persistence.py
 src/tracemark_api/services/domain_whitelist.py
 src/tracemark_api/services/evidence_scorer.py
 src/tracemark_api/services/firecrawl_client.py
+src/tracemark_api/services/geo.py
 src/tracemark_api/services/marketplace.py
 src/tracemark_api/services/notifications.py
 src/tracemark_api/services/persistence.py
@@ -36,13 +40,17 @@ src/tracemark_api/services/takedown.py
 src/tracemark_api/services/unified_scraper.py
 tests/test_api_usage_tracker.py
 tests/test_auth.py
+tests/test_billing.py
+tests/test_clients.py
 tests/test_credentials.py
 tests/test_decision_agent.py
 tests/test_decision_stub.py
 tests/test_delivery_log.py
 tests/test_document_persistence.py
+tests/test_domain_false_positives.py
 tests/test_domain_whitelist.py
 tests/test_escalation.py
+tests/test_geo.py
 tests/test_infringements.py
 tests/test_matchers.py
 tests/test_meta_refresh.py

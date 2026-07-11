@@ -18,3 +18,4 @@ Requires-Dist: playwright>=1.40.0
 Requires-Dist: Pillow>=10.0.0
 Requires-Dist: imagehash>=4.3.1
 Requires-Dist: rapidfuzz>=3.0.0
+Requires-Dist: stripe>=11.0.0

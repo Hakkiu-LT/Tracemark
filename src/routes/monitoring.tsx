@@ -251,12 +251,12 @@ function MonitoringPage() {
         setScanResult(result.case_id, result);
         toast.success(`Copycat found for ${mark.brandName}! New case created.`, {
           id: toastId,
-          duration: 5000,
+          duration: 1000,
         });
       } else {
         toast.error("No cats found", {
           id: toastId,
-          duration: 5000,
+          duration: 1000,
           style: {
             border: "2px solid #ef4444",
             backgroundColor: "#fef2f2",
@@ -273,7 +273,7 @@ function MonitoringPage() {
         return;
       }
       console.error("Scan failed:", e);
-      toast.error(`Scan failed for ${mark.brandName}.`, { id: toastId, duration: 5000 });
+      toast.error(`Scan failed for ${mark.brandName}.`, { id: toastId, duration: 1000 });
 
       scheduleRepeatIfConfigured(id);
     }
@@ -322,7 +322,7 @@ function MonitoringPage() {
         clearTimeout(existingTimeout);
         timeoutsRef.current.delete(id);
       }
-      toast.success("Monitoring stopped", { duration: 5000 });
+      toast.success("Monitoring stopped", { duration: 1000 });
     }
   };
 
