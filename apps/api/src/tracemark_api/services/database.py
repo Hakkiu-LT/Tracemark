@@ -22,6 +22,7 @@ def create_case(
     detection_region: str | None = None,
     target_regions: list[str] | None = None,
     client_id: str | None = None,
+    user_id: str | None = None,
 ) -> str:
     sb = get_supabase()
     payload = {"brand_name": brand_name, "status": "pending"}
@@ -33,6 +34,8 @@ def create_case(
         payload["target_regions"] = target_regions
     if client_id:
         payload["client_id"] = client_id
+    if user_id:
+        payload["user_id"] = user_id
     result = sb.table("cases").insert(payload).execute()
     return result.data[0]["id"]
 

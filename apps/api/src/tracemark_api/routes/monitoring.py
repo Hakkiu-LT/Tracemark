@@ -179,6 +179,7 @@ async def check_brand(
         detection_region=detection_region,
         target_regions=payload.target_regions,
         client_id=payload.client_id,
+        user_id=getattr(current_user, "id", None),
     )
 
     try:
