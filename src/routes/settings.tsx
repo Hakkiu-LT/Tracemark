@@ -26,6 +26,7 @@ import {
   Mail,
   Minus,
   Plus,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -79,6 +80,8 @@ export function SettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
 
   const currentPlan = profile?.plan || "free";
+
+  const isAdmin = !!profile?.is_admin;
 
   useEffect(() => {
     if (profile) {
@@ -189,13 +192,14 @@ export function SettingsPage() {
   const planMeta = getPlan(currentPlan);
   const interval = subscription?.interval ?? "month";
   const currentPlanInfo = {
-    name: planMeta ? `${planMeta.name} Plan` : "Free Plan",
-    price: planMeta ? planMeta.monthly : 0,
+    name: isAdmin ? "Admin Plan" : (planMeta ? `${planMeta.name} Plan` : "Free Plan"),
+    price: isAdmin ? 0 : (planMeta ? planMeta.monthly : 0),
   };
-  const shownMonthly =
+  const shownMonthly = isAdmin ? 0 : (
     currentPlanInfo.price && currentPlanInfo.price > 0
       ? effectiveMonthly(currentPlanInfo.price, interval)
-      : currentPlanInfo.price;
+      : currentPlanInfo.price
+  );
   const nextInvoiceDate = subscription?.current_period_end
     ? new Date(subscription.current_period_end).toLocaleDateString()
     : null;
@@ -464,7 +468,9 @@ export function SettingsPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-base">Subscription Plan</CardTitle>
-                    <CardDescription>Your current workspace tier.</CardDescription>
+                    <CardDescription>
+                      {isAdmin ? "Full administrator access with API rights." : "Your current workspace tier."}
+                    </CardDescription>
                   </div>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent/15 text-accent border border-accent/20 capitalize">
                     {currentPlanInfo.name}
@@ -474,52 +480,60 @@ export function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-baseline">
                   <span className="text-3xl font-bold text-foreground">
-                    {shownMonthly !== null ? `$${(shownMonthly ?? 0).toLocaleString()}` : "Custom"}
+                    {isAdmin ? "$0" : (shownMonthly !== null ? `$${(shownMonthly ?? 0).toLocaleString()}` : "Custom")}
                   </span>
                   {shownMonthly !== null && (
                     <span className="text-xs text-muted-foreground">
-                      / month{interval === "year" ? " (billed yearly)" : ""}
+                      / month{interval === "year" && !isAdmin ? " (billed yearly)" : ""}
                     </span>
                   )}
                 </div>
-                {subscription?.cancel_at_period_end && (
+                {subscription?.cancel_at_period_end && !isAdmin && (
                   <p className="text-xs text-amber-500">
                     Your plan is set to cancel
                     {nextInvoiceDate ? ` on ${nextInvoiceDate}` : " at period end"}.
                   </p>
                 )}
                 {currentPlan !== "free" &&
+                  !isAdmin &&
                   !subscription?.cancel_at_period_end &&
                   nextInvoiceDate && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                       <Calendar className="h-3.5 w-3.5" /> Next invoice on {nextInvoiceDate}
                     </p>
                   )}
-                {currentPlan === "free" && (
+                {currentPlan === "free" && !isAdmin && (
                   <p className="text-xs text-muted-foreground">
                     Upgrade to unlock automatic takedowns, all platforms, and real-time monitoring.
                   </p>
                 )}
+                {isAdmin && (
+                  <p className="text-xs text-muted-foreground">
+                    You have unlimited access to all platform features and scraping resources.
+                  </p>
+                )}
               </CardContent>
-              <CardFooter className="flex gap-3 border-t border-border/30 pt-4 mt-2">
-                <Button asChild size="sm" className="cursor-pointer">
-                  <Link to="/plans">
-                    Change Plan <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-                  </Link>
-                </Button>
-                {currentPlan !== "free" &&
-                  currentPlan !== "enterprise" &&
-                  !subscription?.cancel_at_period_end && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:bg-destructive/10 border-destructive/20 hover:border-destructive/30 cursor-pointer"
-                      onClick={() => setShowCancelModal(true)}
-                    >
-                      Cancel Subscription
-                    </Button>
-                  )}
-              </CardFooter>
+              {!isAdmin && (
+                <CardFooter className="flex gap-3 border-t border-border/30 pt-4 mt-2">
+                  <Button asChild size="sm" className="cursor-pointer">
+                    <Link to="/plans">
+                      Change Plan <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                    </Link>
+                  </Button>
+                  {currentPlan !== "free" &&
+                    currentPlan !== "enterprise" &&
+                    !subscription?.cancel_at_period_end && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:bg-destructive/10 border-destructive/20 hover:border-destructive/30 cursor-pointer"
+                        onClick={() => setShowCancelModal(true)}
+                      >
+                        Cancel Subscription
+                      </Button>
+                    )}
+                </CardFooter>
+              )}
             </Card>
 
             {/* Payment Method Card */}
@@ -529,7 +543,12 @@ export function SettingsPage() {
                 <CardDescription>Manage your card via the secure Stripe portal.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {currentPlan !== "free" ? (
+                {isAdmin ? (
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border bg-muted/20 text-xs text-muted-foreground">
+                    <Lock className="h-4 w-4 shrink-0 text-accent" />
+                    <span>No card required for Admin plan.</span>
+                  </div>
+                ) : currentPlan !== "free" ? (
                   <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20 text-xs text-muted-foreground">
                     <Lock className="h-4 w-4 shrink-0 text-accent" />
                     <span>
@@ -543,21 +562,23 @@ export function SettingsPage() {
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="flex gap-3 border-t border-border/30 pt-4 mt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer"
-                  disabled={currentPlan === "free" || openingPortal}
-                  onClick={handleOpenPortal}
-                >
-                  {openingPortal ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Manage payment method"
-                  )}
-                </Button>
-              </CardFooter>
+              {!isAdmin && (
+                <CardFooter className="flex gap-3 border-t border-border/30 pt-4 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="cursor-pointer"
+                    disabled={currentPlan === "free" || openingPortal}
+                    onClick={handleOpenPortal}
+                  >
+                    {openingPortal ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Manage payment method"
+                    )}
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           </div>
 
