@@ -141,7 +141,6 @@ const PLANS: Plan[] = [
     period: "/mo",
     blurb: "White-label multi-client workspace.",
     features: [
-      "Unlimited brands",
       "White-label reports",
       "Full API access",
       "Multi-client dashboard",
@@ -348,42 +347,6 @@ export function Pricing() {
             <PlanCard key={plan.name} plan={plan} index={i} inView={inView} />
           ))}
         </div>
-
-        {/* Assurance bar — guarantees on the left, compare link capping the end.
-            Wrapped in a star border so a comet traces its edges. */}
-        <StarBorder
-          color={STAR_COLOR}
-          trackColor={STAR_TRACK}
-          speed="6s"
-          thickness={2}
-          radius="calc(1rem + 2px)"
-          streakHeight={120}
-          className={cn(
-            "mx-auto mt-8 max-w-[380px] transition-all duration-700 ease-out motion-reduce:transition-none lg:max-w-none",
-            inView ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
-          )}
-          style={{ transitionDelay: "300ms" }}
-        >
-          <div className="flex flex-col gap-4 rounded-2xl bg-card px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col items-center gap-3 sm:flex-row sm:divide-x sm:divide-border">
-              {ASSURANCES.map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-2.5 sm:px-4 sm:first:pl-1">
-                  <Icon className="h-5 w-5 shrink-0" style={{ color: ACCENT }} strokeWidth={2} />
-                  <span className="text-sm font-medium text-foreground/80">{label}</span>
-                </div>
-              ))}
-            </div>
-
-            <Link
-              to="/plans"
-              className="group inline-flex items-center gap-2.5 rounded-md border border-input bg-background px-5 py-2 text-sm font-semibold text-foreground/80 shadow-sm transition-colors hover:border-foreground/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <CompareGlyph />
-              Compare all plans and features
-              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:transition-none" />
-            </Link>
-          </div>
-        </StarBorder>
       </div>
     </section>
   );

@@ -82,7 +82,6 @@ export const PLANS: PlanMeta[] = [
     monthly: 1499,
     blurb: "White-label multi-client workspace for agencies & law firms.",
     features: [
-      "Unlimited brands",
       "White-label reports",
       "Full API access",
       "Multi-client dashboard",
