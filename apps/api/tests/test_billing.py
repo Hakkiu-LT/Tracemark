@@ -12,8 +12,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from tracemark_api.dependencies import AuthUser, get_current_user
+from tracemark_api.dependencies import (
+    AuthUser,
+    CurrentProfile,
+    get_current_profile,
+    get_current_user,
+)
 from tracemark_api.main import app
+from tracemark_api.services.entitlements import PLAN_ENTITLEMENTS
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -149,9 +155,21 @@ def test_get_subscription_returns_free_when_empty():
 # Phase F: managed takedown one-off charge
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _override_profile(plan: str):
+    """Force a specific plan's entitlements for the duration of a test."""
+    app.dependency_overrides[get_current_profile] = lambda: CurrentProfile(
+        id="user-123",
+        email="user@example.com",
+        organization_id="org-1",
+        plan=plan,
+        entitlements=PLAN_ENTITLEMENTS[plan],
+    )
+
+
 def test_charge_managed_takedown_requires_customer():
+    # Pro is entitled to managed takedown, so we reach the customer check.
+    _override_profile("pro")
     mock_sb = MagicMock()
-    # org id lookup
     mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = {
         "organization_id": "org-1",
         "stripe_customer_id": None,
@@ -159,3 +177,10 @@ def test_charge_managed_takedown_requires_customer():
     with patch("tracemark_api.routes.billing.get_supabase", return_value=mock_sb):
         resp = client.post("/api/v1/billing/charge-managed-takedown", json={})
     assert resp.status_code == 404
+
+
+def test_charge_managed_takedown_blocked_for_lower_plan():
+    # Starter is NOT entitled — must be refused before any Stripe/customer work.
+    _override_profile("starter")
+    resp = client.post("/api/v1/billing/charge-managed-takedown", json={})
+    assert resp.status_code == 403

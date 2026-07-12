@@ -238,3 +238,68 @@ export function chargeManagedTakedown(takedownId?: string): Promise<{ invoice_it
     body: JSON.stringify({ takedown_id: takedownId ?? null }),
   });
 }
+
+// ── Brands (server-persisted monitored brands, with plan-limit enforcement) ───
+
+export interface BrandRecord {
+  id: string;
+  organization_id: string;
+  client_id: string | null;
+  brand_name: string;
+  website: string | null;
+  registration_number: string | null;
+  platforms: string[];
+  target_regions: string[];
+  logo_color: string | null;
+  status: "active" | "locked" | "on_hold";
+  last_scan_at: string | null;
+  created_at: string;
+}
+
+export interface BrandsResponse {
+  brands: BrandRecord[];
+  usage: { used: number; limit: number | null };
+}
+
+export function getBrands(): Promise<BrandsResponse> {
+  return apiFetch<BrandsResponse>("/brands");
+}
+
+/** Create a server brand. Throws (402) with an upsell message when the plan's
+ * brand limit is reached — surface the error to the user. */
+export function createBrand(payload: {
+  brand_name: string;
+  website?: string | null;
+  registration_number?: string | null;
+  platforms?: string[];
+  target_regions?: string[];
+  logo_color?: string | null;
+  client_id?: string | null;
+}): Promise<BrandRecord> {
+  return apiFetch<BrandRecord>("/brands", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateBrand(
+  id: string,
+  updates: Partial<{
+    brand_name: string;
+    website: string | null;
+    registration_number: string | null;
+    platforms: string[];
+    target_regions: string[];
+    logo_color: string | null;
+    status: "active" | "locked" | "on_hold";
+  }>,
+): Promise<BrandRecord> {
+  return apiFetch<BrandRecord>(`/brands/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  });
+}
+
+export function deleteBrand(id: string): Promise<{ deleted: boolean; id: string }> {
+  return apiFetch(`/brands/${id}`, { method: "DELETE" });
+}

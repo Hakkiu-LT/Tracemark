@@ -3,8 +3,9 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useStore, type Platform } from "@/lib/store";
 import { PLATFORMS, PLATFORM_GROUPS } from "@/lib/platforms";
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { checkBrandFullPipeline } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { checkBrandFullPipeline, getSubscription, getBrands, createBrand } from "@/lib/api";
+import { computeEntitlements, limitReached, formatLimit } from "@/lib/entitlements";
 import { toast } from "sonner";
 import {
   Info,
@@ -108,11 +109,30 @@ function ScanningModal({ brandName, step, steps }: { brandName: string; step: nu
 
 function NewAssetPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const addMark = useStore((s) => s.addMark);
   const setScanResult = useStore((s) => s.setScanResult);
   const clients = useStore((s) => s.clients);
   const persona = useStore((s) => s.persona);
   const activeClientId = useStore((s) => s.activeClientId);
+
+  // Plan entitlements + current brand usage drive the limits on this page.
+  const { data: subscription } = useQuery({
+    queryKey: ["billing_subscription"],
+    queryFn: getSubscription,
+    staleTime: 60_000,
+  });
+  const { data: brandsData } = useQuery({
+    queryKey: ["brands"],
+    queryFn: getBrands,
+    staleTime: 30_000,
+  });
+  const ent = computeEntitlements(subscription);
+  const brandLimit = brandsData?.usage.limit ?? ent.brands;
+  const brandsUsed = brandsData?.usage.used ?? 0;
+  const atBrandLimit = limitReached(brandLimit, brandsUsed);
+  const platformCap = ent.platforms; // null = unlimited
+  const regionCap = ent.regions; // null = unlimited
 
   const [brandName, setBrandName] = useState("");
   const [regNum, setRegNum] = useState("");
@@ -128,7 +148,17 @@ function NewAssetPage() {
 
   function toggle(p: Platform) {
     const next = new Set(selected);
-    next.has(p) ? next.delete(p) : next.add(p);
+    if (next.has(p)) {
+      next.delete(p);
+    } else {
+      if (platformCap !== null && next.size >= platformCap) {
+        toast.error(`Your plan can scan ${platformCap} platform${platformCap === 1 ? "" : "s"} per check.`, {
+          description: "Upgrade to Growth or higher to scan all platforms.",
+        });
+        return;
+      }
+      next.add(p);
+    }
     setSelected(next);
   }
 
@@ -140,7 +170,17 @@ function NewAssetPage() {
 
   function toggleCountry(code: string) {
     const next = new Set(selectedRegions);
-    next.has(code) ? next.delete(code) : next.add(code);
+    if (next.has(code)) {
+      next.delete(code);
+    } else {
+      if (regionCap !== null && next.size >= regionCap) {
+        toast.error(`Your plan includes ${regionCap} scan region${regionCap === 1 ? "" : "s"}.`, {
+          description: "Add the 'Additional regions' add-on to scan more markets.",
+        });
+        return;
+      }
+      next.add(code);
+    }
     setSelectedRegions(next);
   }
 
@@ -150,7 +190,15 @@ function NewAssetPage() {
     if (allSelected) {
       countryCodes.forEach((c) => next.delete(c));
     } else {
-      countryCodes.forEach((c) => next.add(c));
+      for (const c of countryCodes) {
+        if (regionCap !== null && next.size >= regionCap) {
+          toast.error(`Your plan includes ${regionCap} scan region${regionCap === 1 ? "" : "s"}.`, {
+            description: "Add the 'Additional regions' add-on to scan more markets.",
+          });
+          break;
+        }
+        next.add(c);
+      }
     }
     setSelectedRegions(next);
   }
@@ -160,13 +208,29 @@ function NewAssetPage() {
     .filter((p): p is string => Boolean(p));
 
   const { mutate: runScan, isPending } = useMutation({
-    mutationFn: () =>
-      checkBrandFullPipeline({
+    // First reserve a server-side brand slot (this is where the plan's brand
+    // limit is enforced — a 402 here means "at limit"). Only then run the scan.
+    mutationFn: async () => {
+      let cleanWebsite = website.trim();
+      if (cleanWebsite && !/^https?:\/\//.test(cleanWebsite)) {
+        cleanWebsite = `https://${cleanWebsite}`;
+      }
+      await createBrand({
+        brand_name: brandName,
+        website: cleanWebsite || null,
+        registration_number: regNum || null,
+        platforms: apiPlatforms,
+        target_regions: Array.from(selectedRegions),
+        logo_color: "oklch(0.58 0.18 255)",
+        client_id: persona === "law_firm" ? clientId : null,
+      });
+      return checkBrandFullPipeline({
         brand_name: brandName,
         platforms: apiPlatforms.length > 0 ? apiPlatforms : ["amazon", "google_ads", "domains"],
         target_regions: Array.from(selectedRegions),
         client_id: persona === "law_firm" ? clientId : undefined,
-      }),
+      });
+    },
     onSuccess: (data) => {
       let cleanWebsite = website.trim();
       if (!cleanWebsite.startsWith("http://") && !cleanWebsite.startsWith("https://")) {
@@ -182,11 +246,13 @@ function NewAssetPage() {
         targetRegions: Array.from(selectedRegions),
       });
       setScanResult(data.case_id, data);
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
       toast.success("Scan completed successfully");
       navigate({ to: "/monitoring/$caseId", params: { caseId: data.case_id } });
     },
     onError: (err: Error) => {
-      toast.error("Scan failed", { description: err.message });
+      // createBrand's 402 (brand limit) and scan errors both land here.
+      toast.error("Couldn't start monitoring", { description: err.message });
     },
   });
 
@@ -201,6 +267,12 @@ function NewAssetPage() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!brandName) { toast.error("Brand name is required."); return; }
+    if (atBrandLimit) {
+      toast.error(`You've reached your plan's brand limit (${formatLimit(brandLimit)}).`, {
+        description: "Add the 'Extra brands' add-on or upgrade to monitor more.",
+      });
+      return;
+    }
     runScan();
   }
 
@@ -222,6 +294,25 @@ function NewAssetPage() {
           <p className="text-base text-muted-foreground mt-1">
             Configure details to track unauthorized usage across digital platforms.
           </p>
+        </div>
+
+        {/* Brand usage vs. plan limit */}
+        <div
+          className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${
+            atBrandLimit
+              ? "border-red-500/40 bg-red-500/5 text-red-400"
+              : "border-border bg-card text-muted-foreground"
+          }`}
+        >
+          <span>
+            <span className="font-semibold text-foreground">{brandsUsed}</span> of{" "}
+            <span className="font-semibold text-foreground">{formatLimit(brandLimit)}</span> brands used
+          </span>
+          {atBrandLimit && (
+            <Link to="/plans" className="font-semibold text-accent hover:underline">
+              Upgrade plan →
+            </Link>
+          )}
         </div>
 
         <form onSubmit={onSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -421,11 +512,12 @@ function NewAssetPage() {
               <div className="flex flex-col gap-3">
                 <button
                   type="submit"
-                  disabled={isPending}
+                  disabled={isPending || atBrandLimit}
+                  title={atBrandLimit ? "You've reached your plan's brand limit" : undefined}
                   className="w-full py-3 px-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-md transition-colors shadow-sm flex justify-center items-center gap-2 cursor-pointer text-sm font-sans disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Radar className="h-4 w-4" />
-                  Start Monitoring
+                  {atBrandLimit ? "Brand limit reached" : "Start Monitoring"}
                 </button>
                 <button
                   type="button"

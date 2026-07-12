@@ -122,6 +122,13 @@ This document outlines the priority ordering for backend services, engines, data
 | Migration `20260707000001_billing.sql` | ✅ Done | `subscriptions`, `subscription_addons`, `invoices` + `org_settings.stripe_customer_id`, RLS |
 | Migration `20260707000002_billing_hardening.sql` | ✅ Done | `user_id` columns + tightened RLS, `stripe_events` idempotency table |
 | Managed-takedown charge trigger | ✅ Done | Manual "Let us handle it — $500" button on the takedown page (Pro/Agency), idempotent per report id |
+| Plan entitlements service | ✅ Done | `services/entitlements.py` — `PLAN_ENTITLEMENTS` + `compute_entitlements(plan, addons)` (base + add-on quantities); single authority for limits |
+| `get_current_profile` dependency | ✅ Done | `dependencies.py` — resolves org, plan, effective entitlements for limit checks |
+| Brands persisted server-side | ✅ Done | `20260712000001_brands.sql` + `routes/brands.py` (CRUD); `POST /brands` enforces brand limit (402 + upsell) |
+| Scan limit enforcement | ✅ Done | `check-brand` rejects over-limit platforms/regions, gates `domains` on `domain_tracking`, blocks `locked` brands |
+| Managed-takedown plan gate (server) | ✅ Done | `charge-managed-takedown` requires `entitlements.managed_takedown` (was UI-only) |
+| Downgrade/upgrade reconciliation | ✅ Done | `reconcile_brand_locks()` in `_sync_subscription_to_db` — locks oldest excess on downgrade, unlocks on upgrade |
+| Unit tests `test_entitlements.py` / `test_brands.py` | ✅ Done | 15 tests (entitlement math, reconcile lock/unlock, brand-limit 402, managed-takedown 403) |
 
 ---
 
