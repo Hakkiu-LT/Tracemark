@@ -50,6 +50,28 @@ def _get_user_organization_id(user_id: str) -> str | None:
         return None
 
 
+
+def _verify_infringement_access(infringement_id: str, user_id: str) -> None:
+    """Verify that the user has access to the given infringement via their organization or user id."""
+    sb = get_supabase()
+    res = (
+        sb.table("infringements")
+        .select("cases!inner(organization_id, user_id)")
+        .eq("id", infringement_id)
+        .maybe_single().execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
+    case_info = res.data.get("cases") or {}
+    org_id = _get_user_organization_id(user_id)
+
+    if org_id:
+        if case_info.get("organization_id") != org_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+    elif case_info.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
 def _get_user_persona(user_id: str, organization_id: str | None) -> str:
     if not organization_id:
         return "brand_owner"
@@ -127,6 +149,7 @@ def get_infringement(
     current_user=Depends(get_current_user),
 ) -> InfringementItem:
     """Return a single infringement by id."""
+    _verify_infringement_access(infringement_id, current_user.id)
     sb = get_supabase()
     result = (
         sb.table("infringements")
@@ -151,6 +174,7 @@ def get_evidence(
     current_user=Depends(get_current_user),
 ) -> list[EvidenceItem]:
     """Return all evidence snapshots for an infringement, newest first."""
+    _verify_infringement_access(infringement_id, current_user.id)
     sb = get_supabase()
     result = (
         sb.table("evidence")
@@ -172,6 +196,7 @@ def update_infringement_status(
     current_user=Depends(get_current_user),
 ) -> InfringementItem:
     """Update the status of an infringement."""
+    _verify_infringement_access(infringement_id, current_user.id)
     sb = get_supabase()
     
     # Verify it exists
