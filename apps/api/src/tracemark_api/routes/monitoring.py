@@ -8,7 +8,7 @@ from tracemark_api.services.marketplace import gather_evidence as scrape_evidenc
 from tracemark_api.services.database import get_supabase, create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
 from tracemark_api.services.persistence import persist_all_infringements
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -152,24 +152,78 @@ class CheckBrandRequest(BaseModel):
     client_id: str | None = None
 
 
+def _enforce_scan_entitlements(profile: CurrentProfile, payload: CheckBrandRequest) -> None:
+    """Reject a scan that asks for more than the caller's plan allows, with a
+    clear upsell message. The frontend gates the same limits in the UI; this is
+    the authoritative server-side check (and guards direct API callers)."""
+    ent = profile.entitlements
+
+    platforms = payload.platforms or []
+    if ent.exceeds_platforms(len(platforms)):
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                f"Your {profile.plan} plan can scan {ent.platforms} platform"
+                f"{'s' if (ent.platforms or 0) != 1 else ''} per check. "
+                "Upgrade to Growth or higher to scan all platforms."
+            ),
+        )
+
+    if "domains" in platforms and not ent.domain_tracking:
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                "Domain tracking isn't included in your plan. Add the 'Domain "
+                "tracking' add-on or upgrade to Pro to monitor look-alike domains."
+            ),
+        )
+
+    regions = payload.target_regions or []
+    if ent.exceeds_regions(len(regions)):
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                f"Your {profile.plan} plan includes {ent.regions} scan region"
+                f"{'s' if (ent.regions or 0) != 1 else ''}. "
+                "Add the 'Additional regions' add-on to scan more markets."
+            ),
+        )
+
+
+def _reject_if_brand_locked(org_id: str, brand_name: str) -> None:
+    """Frozen (downgrade-excess) brands can't be scanned until re-activated."""
+    sb = get_supabase()
+    res = (
+        sb.table("brands")
+        .select("status")
+        .eq("organization_id", org_id)
+        .eq("brand_name", brand_name)
+        .execute()
+    )
+    rows = res.data or []
+    if rows and all(r.get("status") == "locked" for r in rows):
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                "This brand is locked on your current plan. Upgrade or free up a "
+                "brand slot to resume monitoring it."
+            ),
+        )
+
+
 @router.post("/check-brand")
 async def check_brand(
     payload: CheckBrandRequest,
-    current_user = Depends(get_current_user)
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """Full pipeline: scrape evidence → AI decision → DMCA reports → persist to Supabase."""
-    caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
-    
-    # Try resolving organization_id from user profile
-    organization_id = None
-    if current_user and getattr(current_user, "id", None):
-        try:
-            sb = get_supabase()
-            profile_res = sb.table("profiles").select("organization_id").eq("id", current_user.id).maybe_single().execute()
-            if profile_res.data:
-                organization_id = profile_res.data.get("organization_id")
-        except Exception as e:
-            print(f"[warn] Failed to fetch organization_id for user {current_user.id}: {e}")
+    caller_id = profile.email or profile.id or "system"
+
+    # Enforce plan entitlements before spending any scraping budget.
+    _enforce_scan_entitlements(profile, payload)
+    _reject_if_brand_locked(profile.organization_id, payload.brand_name)
+
+    organization_id = profile.organization_id
 
     # Use the first target region as the detection region if available, otherwise default to US
     detection_region = payload.target_regions[0] if payload.target_regions else "US"
@@ -179,7 +233,7 @@ async def check_brand(
         detection_region=detection_region,
         target_regions=payload.target_regions,
         client_id=payload.client_id,
-        user_id=getattr(current_user, "id", None),
+        user_id=profile.id,
     )
 
     try:

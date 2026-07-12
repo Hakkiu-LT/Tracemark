@@ -37,12 +37,14 @@ import { ClientsPage } from "./clients";
 import {
   getSubscription,
   getInvoices,
+  getBrands,
   cancelSubscription,
   updateSubscription,
   createPortalSession,
   type AddonSelection,
 } from "@/lib/api";
 import { getPlan, ADDONS, effectiveMonthly } from "@/lib/billing";
+import { computeEntitlements, formatLimit } from "@/lib/entitlements";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — Tracemark" }] }),
@@ -72,6 +74,15 @@ export function SettingsPage() {
     queryKey: ["billing_invoices"],
     queryFn: getInvoices,
   });
+  const { data: brandsData } = useQuery({
+    queryKey: ["brands"],
+    queryFn: getBrands,
+  });
+
+  // Effective plan entitlements (base + add-ons) for the "Plan includes" card.
+  const entitlements = computeEntitlements(subscription);
+  const brandsUsed = brandsData?.usage.used ?? 0;
+  const brandLimit = brandsData?.usage.limit ?? entitlements.brands;
 
   const [fullName, setFullName] = useState("");
   const [emailVal, setEmailVal] = useState("");
@@ -534,6 +545,44 @@ export function SettingsPage() {
                     )}
                 </CardFooter>
               )}
+            </Card>
+
+            {/* Plan Includes / Entitlements Card */}
+            <Card className="border-border/60">
+              <CardHeader>
+                <CardTitle className="text-base">Plan Includes</CardTitle>
+                <CardDescription>What your current plan and add-ons unlock.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Monitored brands</span>
+                  <span className="font-medium text-foreground">
+                    {brandsUsed} / {formatLimit(brandLimit)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Platforms per scan</span>
+                  <span className="font-medium text-foreground">{formatLimit(entitlements.platforms)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Scan regions</span>
+                  <span className="font-medium text-foreground">{formatLimit(entitlements.regions)}</span>
+                </div>
+                {[
+                  ["Domain tracking", entitlements.domainTracking],
+                  ["Managed takedown", entitlements.managedTakedown],
+                  ["Advanced reports", entitlements.advancedReports],
+                  ["API access", entitlements.apiAccess],
+                  ["Real-time monitoring", entitlements.realTimeScans],
+                ].map(([label, on]) => (
+                  <div key={String(label)} className="flex justify-between">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className={`font-medium ${on ? "text-emerald-500" : "text-muted-foreground/60"}`}>
+                      {on ? "Included" : "—"}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
             </Card>
 
             {/* Payment Method Card */}

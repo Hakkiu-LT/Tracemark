@@ -19,8 +19,9 @@ import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.entitlements import reconcile_brand_locks
 from tracemark_api.services.billing_config import (
     SELF_SERVE_PLANS,
     SUBSCRIPTION_ADDONS,
@@ -484,13 +485,24 @@ def create_portal_session(current_user=Depends(get_current_user)):
 
 @router.post("/charge-managed-takedown")
 def charge_managed_takedown(
-    body: ManagedTakedownRequest, current_user=Depends(get_current_user)
+    body: ManagedTakedownRequest, profile: CurrentProfile = Depends(get_current_profile)
 ):
     """Phase F usage add-on: bill a one-off $500 fee for a successful managed
     takedown. Creates a pending invoice item that rolls onto the customer's next
     invoice — not part of the recurring subscription."""
+    # Managed takedown is a Pro/Agency/Enterprise capability — enforce it here,
+    # not just in the UI, so the charge can't be triggered from a lower tier.
+    if not profile.entitlements.managed_takedown:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Managed takedown is available on Pro and above. "
+                "Upgrade your plan to have our team handle takedowns for you."
+            ),
+        )
+
     sb = get_supabase()
-    org_id = _billing_org_id(current_user.id)
+    org_id = profile.organization_id
     row = (
         sb.table("org_settings")
         .select("stripe_customer_id")
@@ -671,6 +683,15 @@ def _sync_subscription_to_db(sub, org_id: str) -> None:
         ).execute()
         # Fallback anchor: org_id may equal the user's own id.
         sb.table("profiles").update({"plan": effective_plan}).eq("id", org_id).execute()
+
+    # Now that the plan + add-ons are persisted, bring the org's brands in line
+    # with the new brand entitlement: lock excess on downgrade, unlock on upgrade.
+    # Runs for both the checkout-update path and inbound webhooks. Never let a
+    # reconcile failure break subscription syncing.
+    try:
+        reconcile_brand_locks(org_id)
+    except Exception as ex:
+        print(f"[billing] brand reconcile failed for {org_id}: {ex}")
 
 
 def event_status_is_canceled(status: str | None) -> bool:
