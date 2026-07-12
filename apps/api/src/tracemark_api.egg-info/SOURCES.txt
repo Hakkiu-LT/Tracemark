@@ -9,6 +9,7 @@ src/tracemark_api.egg-info/dependency_links.txt
 src/tracemark_api.egg-info/requires.txt
 src/tracemark_api.egg-info/top_level.txt
 src/tracemark_api/routes/__init__.py
+src/tracemark_api/routes/admin.py
 src/tracemark_api/routes/auth.py
 src/tracemark_api/routes/billing.py
 src/tracemark_api/routes/check_brand.py
