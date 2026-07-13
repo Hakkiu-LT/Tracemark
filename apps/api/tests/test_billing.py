@@ -6,6 +6,7 @@ Tests for Stripe billing.
 - endpoint validation: create-subscription rejects unknown plans/intervals
 - get-subscription: returns the free plan when nothing is stored
 """
+
 import os
 from unittest.mock import MagicMock, patch
 
@@ -37,6 +38,7 @@ def _override_auth():
 # ──────────────────────────────────────────────────────────────────────────────
 # billing_config
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def test_get_plan_price_id_reads_env():
     with patch.dict(os.environ, {"STRIPE_PRICE_GROWTH_MONTH": "price_growth_m"}):
@@ -88,6 +90,7 @@ def test_price_id_reverse_lookup():
 # Webhook
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def test_webhook_missing_secret_returns_503():
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("STRIPE_WEBHOOK_SECRET", None)
@@ -113,6 +116,7 @@ def test_webhook_invalid_signature_returns_400():
 # create-subscription validation
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def test_create_subscription_rejects_non_self_serve_plan():
     resp = client.post(
         "/api/v1/billing/create-subscription",
@@ -132,6 +136,7 @@ def test_create_subscription_rejects_bad_interval():
 # ──────────────────────────────────────────────────────────────────────────────
 # get-subscription
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def test_get_subscription_returns_free_when_empty():
     mock_sb = MagicMock()
@@ -154,6 +159,7 @@ def test_get_subscription_returns_free_when_empty():
 # ──────────────────────────────────────────────────────────────────────────────
 # Phase F: managed takedown one-off charge
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _override_profile(plan: str):
     """Force a specific plan's entitlements for the duration of a test."""

@@ -10,13 +10,13 @@ def test_make_decision_with_dummy_evidence(monkeypatch):
                 platform="amazon",
                 seller_name="FakeBrandCo",
                 listing_url="https://amazon.com/dp/FAKE123",
-                price="$14.99"
+                price="$14.99",
             )
         ],
         ads=[],
         domains=[],
         social=[],
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
     decision = make_decision(dummy_evidence)

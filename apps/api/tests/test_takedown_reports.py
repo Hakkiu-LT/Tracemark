@@ -2,8 +2,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from tracemark_api.main import app
-from tracemark_api.services.ai import Decision, Evidence, MarketplaceEvidence, DomainEvidence, AdEvidence, SocialEvidence
-from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
+from tracemark_api.services.ai import (
+    Decision,
+    Evidence,
+    MarketplaceEvidence,
+    DomainEvidence,
+    AdEvidence,
+    SocialEvidence,
+)
+from tracemark_api.services.takedown import generate_takedown_reports
 
 client = TestClient(app)
 
@@ -11,13 +18,18 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def override_auth():
     from tracemark_api.dependencies import get_current_user, AuthUser
-    app.dependency_overrides[get_current_user] = lambda: AuthUser(id="fake-id", email="fake@tracemark.io")
+
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
+        id="fake-id", email="fake@tracemark.io"
+    )
     yield
     app.dependency_overrides.clear()
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Unit Tests for generate_takedown_reports
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def test_generate_takedown_no_takedown_recommended():
     decision = Decision(
@@ -26,10 +38,10 @@ def test_generate_takedown_no_takedown_recommended():
         case_summary="Unrelated text.",
         confidence_score=0.6,
         evidence_quality="MODERATE",
-        key_findings=["Some findings"]
+        key_findings=["Some findings"],
     )
     evidence = Evidence(marketplaces=[], ads=[], domains=[], social=[])
-    
+
     reports = generate_takedown_reports("case-123", "BrandX", decision, evidence)
     assert reports == []
 
@@ -41,25 +53,27 @@ def test_generate_takedown_no_takedown_recommended_forced():
         case_summary="Unrelated text.",
         confidence_score=0.6,
         evidence_quality="MODERATE",
-        key_findings=["Some findings"]
+        key_findings=["Some findings"],
     )
     listing = MarketplaceEvidence(
         platform="Amazon",
         seller_name="BadSeller",
         listing_url="https://amazon.com/dp/FAKE123",
         price="$10.00",
-        screenshot_url=None
+        screenshot_url=None,
     )
     evidence = Evidence(marketplaces=[listing], ads=[], domains=[], social=[])
-    
+
     mock_res = MagicMock()
     mock_res.data = [{"id": "takedown-uuid-123"}]
     mock_sb = MagicMock()
     mock_sb.table.return_value.insert.return_value.execute.return_value = mock_res
-    
+
     with patch("tracemark_api.services.takedown.get_supabase", return_value=mock_sb):
-        reports = generate_takedown_reports("case-123", "BrandX", decision, evidence, force=True)
-        
+        reports = generate_takedown_reports(
+            "case-123", "BrandX", decision, evidence, force=True
+        )
+
     assert len(reports) == 1
     assert reports[0].id == "takedown-uuid-123"
     assert reports[0].platform == "amazon"
@@ -75,25 +89,25 @@ def test_generate_takedown_marketplace_mappings():
         case_summary="Infringing listings found.",
         confidence_score=0.9,
         evidence_quality="STRONG",
-        key_findings=["Counterfeit BrandX logo on product"]
+        key_findings=["Counterfeit BrandX logo on product"],
     )
     listing = MarketplaceEvidence(
         platform="eBay",
         seller_name="ScamShop",
         listing_url="https://ebay.com/itm/123",
         price="$19.99",
-        screenshot_url=None
+        screenshot_url=None,
     )
     evidence = Evidence(marketplaces=[listing], ads=[], domains=[], social=[])
-    
+
     mock_res = MagicMock()
     mock_res.data = [{"id": "ebay-report-uuid"}]
     mock_sb = MagicMock()
     mock_sb.table.return_value.insert.return_value.execute.return_value = mock_res
-    
+
     with patch("tracemark_api.services.takedown.get_supabase", return_value=mock_sb):
         reports = generate_takedown_reports("case-123", "BrandX", decision, evidence)
-        
+
     assert len(reports) == 1
     assert reports[0].id == "ebay-report-uuid"
     assert reports[0].platform == "ebay"
@@ -109,7 +123,7 @@ def test_generate_takedown_domain_mappings():
         case_summary="Phishing domains.",
         confidence_score=0.95,
         evidence_quality="STRONG",
-        key_findings=["Identical clone of trademark owner website"]
+        key_findings=["Identical clone of trademark owner website"],
     )
     # GoDaddy registrar
     domain_godaddy = DomainEvidence(
@@ -117,7 +131,7 @@ def test_generate_takedown_domain_mappings():
         registrar="GoDaddy.com, LLC",
         is_clone=True,
         similarity_score=90,
-        screenshot_url=None
+        screenshot_url=None,
     )
     # Cloudflare fallback
     domain_unknown = DomainEvidence(
@@ -125,18 +139,20 @@ def test_generate_takedown_domain_mappings():
         registrar=None,
         is_clone=True,
         similarity_score=85,
-        screenshot_url=None
+        screenshot_url=None,
     )
-    evidence = Evidence(marketplaces=[], ads=[], domains=[domain_godaddy, domain_unknown], social=[])
-    
+    evidence = Evidence(
+        marketplaces=[], ads=[], domains=[domain_godaddy, domain_unknown], social=[]
+    )
+
     mock_res = MagicMock()
     mock_res.data = [{"id": "id-1"}, {"id": "id-2"}]
     mock_sb = MagicMock()
     mock_sb.table.return_value.insert.return_value.execute.return_value = mock_res
-    
+
     with patch("tracemark_api.services.takedown.get_supabase", return_value=mock_sb):
         reports = generate_takedown_reports("case-123", "BrandX", decision, evidence)
-        
+
     assert len(reports) == 2
     # GoDaddy mapping
     assert reports[0].id == "id-1"
@@ -153,37 +169,39 @@ def test_generate_takedown_social_and_ads():
         case_summary="Social media ads.",
         confidence_score=0.9,
         evidence_quality="STRONG",
-        key_findings=["Ad using BrandX trademark"]
+        key_findings=["Ad using BrandX trademark"],
     )
     social_insta = SocialEvidence(
         platform="Instagram",
         handle="brandx_deals",
         post_url="https://instagram.com/p/123",
-        follower_count=500
+        follower_count=500,
     )
     ad_google = AdEvidence(
         platform="Google Ads",
         ad_copy="Get cheap BrandX here!",
         destination_url="https://fakebrandx.com/promo",
-        screenshot_url=None
+        screenshot_url=None,
     )
-    evidence = Evidence(marketplaces=[], ads=[ad_google], domains=[], social=[social_insta])
-    
+    evidence = Evidence(
+        marketplaces=[], ads=[ad_google], domains=[], social=[social_insta]
+    )
+
     mock_res = MagicMock()
     mock_res.data = [{"id": "google-ad-id"}, {"id": "insta-social-id"}]
     mock_sb = MagicMock()
     mock_sb.table.return_value.insert.return_value.execute.return_value = mock_res
-    
+
     with patch("tracemark_api.services.takedown.get_supabase", return_value=mock_sb):
         reports = generate_takedown_reports("case-123", "BrandX", decision, evidence)
-        
+
     assert len(reports) == 2
-    
+
     # Ads mapping
     assert reports[0].id == "google-ad-id"
     assert reports[0].platform == "google_ads"
     assert reports[0].platform_category == "ad_platform"
-    
+
     # Social mapping
     assert reports[1].id == "insta-social-id"
     assert reports[1].platform == "instagram"
@@ -194,32 +212,35 @@ def test_generate_takedown_social_and_ads():
 # Integration Tests for PUT /api/v1/monitoring/takedowns/{id}
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def test_update_takedown_success():
     mock_result = MagicMock()
-    mock_result.data = [{
-        "id": "takedown-123",
-        "notice_text": "Updated notice text",
-        "status": "sent",
-        "submitted_at": "2026-06-24T18:00:00Z"
-    }]
-    
+    mock_result.data = [
+        {
+            "id": "takedown-123",
+            "notice_text": "Updated notice text",
+            "status": "sent",
+            "submitted_at": "2026-06-24T18:00:00Z",
+        }
+    ]
+
     mock_table = MagicMock()
     mock_table.update.return_value.eq.return_value.execute.return_value = mock_result
-    
+
     mock_sb = MagicMock()
     mock_sb.table.return_value = mock_table
-    
+
     with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
         response = client.put(
             "/api/v1/monitoring/takedowns/takedown-123",
-            json={"notice_text": "Updated notice text", "status": "sent"}
+            json={"notice_text": "Updated notice text", "status": "sent"},
         )
-        
+
     assert response.status_code == 200
     assert response.json()["id"] == "takedown-123"
     assert response.json()["status"] == "sent"
     assert response.json()["notice_text"] == "Updated notice text"
-    
+
     # Verify update arguments
     mock_table.update.assert_called_once()
     args, kwargs = mock_table.update.call_args
@@ -232,30 +253,29 @@ def test_update_takedown_success():
 def test_update_takedown_no_fields():
     # Sending empty body should fetch the report
     mock_result = MagicMock()
-    mock_result.data = [{
-        "id": "takedown-123",
-        "notice_text": "Existing notice text",
-        "status": "pending",
-        "submitted_at": None
-    }]
-    
+    mock_result.data = [
+        {
+            "id": "takedown-123",
+            "notice_text": "Existing notice text",
+            "status": "pending",
+            "submitted_at": None,
+        }
+    ]
+
     mock_table = MagicMock()
     mock_table.select.return_value.eq.return_value.execute.return_value = mock_result
-    
+
     mock_sb = MagicMock()
     mock_sb.table.return_value = mock_table
-    
+
     with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
-        response = client.put(
-            "/api/v1/monitoring/takedowns/takedown-123",
-            json={}
-        )
-        
+        response = client.put("/api/v1/monitoring/takedowns/takedown-123", json={})
+
     assert response.status_code == 200
     assert response.json()["id"] == "takedown-123"
     assert response.json()["status"] == "pending"
     assert response.json()["notice_text"] == "Existing notice text"
-    
+
     # Verify select was called, update was not called
     mock_table.select.assert_called_once_with("*")
     mock_table.update.assert_not_called()
@@ -263,20 +283,20 @@ def test_update_takedown_no_fields():
 
 def test_update_takedown_not_found():
     mock_result = MagicMock()
-    mock_result.data = [] # Empty means not found
-    
+    mock_result.data = []  # Empty means not found
+
     mock_table = MagicMock()
     mock_table.update.return_value.eq.return_value.execute.return_value = mock_result
-    
+
     mock_sb = MagicMock()
     mock_sb.table.return_value = mock_table
-    
+
     with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
         response = client.put(
             "/api/v1/monitoring/takedowns/non-existent-id",
-            json={"status": "acknowledged"}
+            json={"status": "acknowledged"},
         )
-        
+
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
 
@@ -284,7 +304,7 @@ def test_update_takedown_not_found():
 def test_update_takedown_invalid_status():
     response = client.put(
         "/api/v1/monitoring/takedowns/takedown-123",
-        json={"status": "invalid_status_value"}
+        json={"status": "invalid_status_value"},
     )
-    
+
     assert response.status_code == 422

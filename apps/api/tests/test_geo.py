@@ -1,4 +1,3 @@
-import pytest
 from tracemark_api.services.geo import (
     resolve_regions,
     firecrawl_location,
@@ -23,29 +22,24 @@ def test_resolve_regions_macro():
 
 def test_resolve_regions_mixed_dedup():
     res = resolve_regions(["US", "NA"])
-    assert res == ["US", "CA", "MX"]  # deduplicated, NA expands but US was already first
+    assert res == [
+        "US",
+        "CA",
+        "MX",
+    ]  # deduplicated, NA expands but US was already first
 
 
 def test_firecrawl_location():
     loc = firecrawl_location("DE")
-    assert loc == {
-        "country": "DE",
-        "languages": ["de-DE"]
-    }
-    
+    assert loc == {"country": "DE", "languages": ["de-DE"]}
+
     loc_us = firecrawl_location("US")
-    assert loc_us == {
-        "country": "US",
-        "languages": ["en-US"]
-    }
+    assert loc_us == {"country": "US", "languages": ["en-US"]}
 
 
 def test_serpapi_geo_params():
     params = serpapi_geo_params("DE")
-    assert params == {
-        "gl": "de",
-        "hl": "de"
-    }
+    assert params == {"gl": "de", "hl": "de"}
 
 
 def test_domains_mapping():

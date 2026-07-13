@@ -9,6 +9,7 @@ Slot accounting: ``active`` and ``on_hold`` brands consume a slot; ``locked``
 brands (the excess frozen by a downgrade) do not — see services/entitlements.py
 and the reconcile step in routes/billing.py.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -153,7 +154,9 @@ def update_brand(
 
     if body.status is not None:
         if body.status not in ("active", "locked", "on_hold"):
-            raise HTTPException(status_code=400, detail=f"Invalid status '{body.status}'")
+            raise HTTPException(
+                status_code=400, detail=f"Invalid status '{body.status}'"
+            )
         # Re-activating a locked brand must respect the current plan limit.
         if body.status == "active" and existing.get("status") == "locked":
             ent = profile.entitlements
@@ -183,9 +186,7 @@ def update_brand(
 
 
 @router.delete("/{brand_id}")
-def delete_brand(
-    brand_id: str, profile: CurrentProfile = Depends(get_current_profile)
-):
+def delete_brand(brand_id: str, profile: CurrentProfile = Depends(get_current_profile)):
     _brand_or_404(profile.organization_id, brand_id)
     sb = get_supabase()
     sb.table("brands").delete().eq("id", brand_id).eq(

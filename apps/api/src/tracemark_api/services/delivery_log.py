@@ -2,6 +2,7 @@
 Delivery log helpers — record every notification dispatch attempt in
 the `notification_deliveries` table for auditability.
 """
+
 from __future__ import annotations
 
 from tracemark_api.services.database import get_supabase
@@ -28,11 +29,17 @@ def log_delivery(
         The inserted row id.
     """
     sb = get_supabase()
-    result = sb.table("notification_deliveries").insert({
-        "event_type": event_type,
-        "infringement_id": infringement_id,
-        "payload": payload,
-        "status": "sent" if ok else "failed",
-        "error_message": error,
-    }).execute()
+    result = (
+        sb.table("notification_deliveries")
+        .insert(
+            {
+                "event_type": event_type,
+                "infringement_id": infringement_id,
+                "payload": payload,
+                "status": "sent" if ok else "failed",
+                "error_message": error,
+            }
+        )
+        .execute()
+    )
     return result.data[0]["id"]

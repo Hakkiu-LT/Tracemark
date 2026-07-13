@@ -4,6 +4,7 @@ Single source of truth mapping our canonical plan/add-on keys to Stripe Price
 IDs (read from environment variables). Keeping this in one place means the rest
 of the billing code never hard-codes a `price_...` string.
 """
+
 from __future__ import annotations
 
 import os

@@ -1,9 +1,13 @@
 """
 Tests for simplified notifications service (tracemark_api/services/notifications.py).
 """
+
 from __future__ import annotations
 
-from tracemark_api.services.notifications import dispatch_notifications, send_email_notification
+from tracemark_api.services.notifications import (
+    dispatch_notifications,
+    send_email_notification,
+)
 
 
 def test_send_email_notification_noop():

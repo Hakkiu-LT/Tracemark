@@ -1,6 +1,7 @@
 """
 Detection engine: keyword, image-hash, and OCR matching for brand infringement.
 """
+
 from __future__ import annotations
 
 import io
@@ -15,7 +16,7 @@ from rapidfuzz import fuzz
 
 class MatchResult(BaseModel):
     matched: bool
-    score: float        # 0.0 – 1.0
+    score: float  # 0.0 – 1.0
     match_type: Literal["keyword", "image_hash", "none"]
 
 
@@ -182,8 +183,11 @@ def ocr_extract_text(
         )
 
         from tracemark_api.services.api_usage_tracker import call_with_tracking
+
         response = call_with_tracking(
-            "gemini_flash", "system", "/ocr",
+            "gemini_flash",
+            "system",
+            "/ocr",
             lambda: model.invoke([message]),
         )
         return response.content.strip()

@@ -1,7 +1,5 @@
-import os
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from tracemark_api.services.api_usage_tracker import tracker
-from tracemark_api.dependencies import get_current_user
 from pydantic import BaseModel
 from datetime import datetime, timezone
 
@@ -9,10 +7,11 @@ router = APIRouter(prefix="/usage-stats", tags=["monitoring"])
 
 from tracemark_api.routes.admin import verify_admin
 
+
 class UsageStatsResponse(BaseModel):
-    summary: list[dict]        # serialized list[ApiUsageSummary]
-    by_developer: list[dict]   # serialized list[DeveloperUsageSummary]
-    hourly: list[dict]         # last 24h hourly buckets, all APIs combined
+    summary: list[dict]  # serialized list[ApiUsageSummary]
+    by_developer: list[dict]  # serialized list[DeveloperUsageSummary]
+    hourly: list[dict]  # last 24h hourly buckets, all APIs combined
     generated_at: str
 
 

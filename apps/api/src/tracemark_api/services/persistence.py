@@ -5,6 +5,7 @@ After the AI decision agent scores a whole case, these functions break that
 case down into individual flagged items (one per ad, listing, domain, or
 social profile) and upsert them into the `infringements` table.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -23,6 +24,7 @@ RiskLevel = Literal["HIGH", "MEDIUM", "LOW"]
 # ──────────────────────────────────────────────────────────────────────────────
 # Step 2: risk_scorer
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def risk_scorer(
     item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
@@ -67,7 +69,10 @@ def risk_scorer(
 # Step 3: persist_infringement
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _item_url(item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence) -> str:
+
+def _item_url(
+    item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
+) -> str:
     if isinstance(item, MarketplaceEvidence):
         return item.listing_url
     if isinstance(item, AdEvidence):
@@ -79,13 +84,17 @@ def _item_url(item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEv
     return ""
 
 
-def _item_platform(item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence) -> str:
+def _item_platform(
+    item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
+) -> str:
     if isinstance(item, DomainEvidence):
         return "domain"
     return item.platform
 
 
-def _match_type(item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence) -> str:
+def _match_type(
+    item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
+) -> str:
     """Rough heuristic: domains & social are keyword-matched; ads/marketplaces use both."""
     if isinstance(item, (DomainEvidence, SocialEvidence)):
         return "keyword"
@@ -113,7 +122,13 @@ def persist_infringement(
     sb = get_supabase()
     client_id = None
     try:
-        case_res = sb.table("cases").select("client_id").eq("id", case_id).maybe_single().execute()
+        case_res = (
+            sb.table("cases")
+            .select("client_id")
+            .eq("id", case_id)
+            .maybe_single()
+            .execute()
+        )
         if case_res.data:
             client_id = case_res.data.get("client_id")
     except Exception as e:
@@ -140,7 +155,9 @@ def persist_infringement(
     infringement_id = result.data[0]["id"]
 
     if risk_level == "HIGH":
-        _trigger_new_infringement_notification(infringement_id, case_id, source_url, _item_platform(item))
+        _trigger_new_infringement_notification(
+            infringement_id, case_id, source_url, _item_platform(item)
+        )
 
     return infringement_id
 
@@ -164,13 +181,21 @@ def _trigger_new_infringement_notification(
             "platform": platform,
         }
         dispatch_notifications(event)
-        log_delivery("new_infringement", ok=True, infringement_id=infringement_id, payload=event)
+        log_delivery(
+            "new_infringement", ok=True, infringement_id=infringement_id, payload=event
+        )
     except ImportError:
         pass
     except Exception as e:
         try:
             from tracemark_api.services.delivery_log import log_delivery
-            log_delivery("new_infringement", ok=False, infringement_id=infringement_id, error=str(e))
+
+            log_delivery(
+                "new_infringement",
+                ok=False,
+                infringement_id=infringement_id,
+                error=str(e),
+            )
         except Exception:
             print(f"[Persistence] Notification trigger failed: {e}")
 
@@ -178,6 +203,7 @@ def _trigger_new_infringement_notification(
 # ──────────────────────────────────────────────────────────────────────────────
 # Evidence persistence
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def persist_evidence(
     infringement_id: str,
@@ -201,6 +227,7 @@ def persist_evidence(
     if ai_analysis is None and brand_name and screenshot_url:
         try:
             from tracemark_api.services.ai import generate_evidence_analysis
+
             ai_analysis = generate_evidence_analysis(screenshot_url, brand_name)
         except Exception as e:
             print(f"[Persistence] AI analysis generation failed: {e}")

@@ -1,4 +1,5 @@
 """Tests for the brands CRUD endpoints and their plan-limit enforcement."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,9 +31,7 @@ def _cleanup():
 def _mock_sb_with_count(count: int):
     """get_supabase whose brands count(exact) select returns `count`."""
     sb = MagicMock()
-    exec_mock = (
-        sb.table.return_value.select.return_value.eq.return_value.in_.return_value.execute
-    )
+    exec_mock = sb.table.return_value.select.return_value.eq.return_value.in_.return_value.execute
     exec_mock.return_value.count = count
     exec_mock.return_value.data = [{"id": f"b{i}"} for i in range(count)]
     # insert path returns a created row

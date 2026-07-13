@@ -4,6 +4,7 @@ Tests for persistence.py — risk_scorer and persist_infringement.
 These tests do NOT hit Supabase. persist_infringement is tested by patching
 get_supabase() so no real DB connection is needed.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,6 +27,7 @@ from tracemark_api.services.persistence import (
 # Fixtures
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def listing():
     return MarketplaceEvidence(
@@ -47,7 +49,9 @@ def ad():
 
 @pytest.fixture
 def domain_high():
-    return DomainEvidence(domain_name="fakenike.shop", is_clone=True, similarity_score=92)
+    return DomainEvidence(
+        domain_name="fakenike.shop", is_clone=True, similarity_score=92
+    )
 
 
 @pytest.fixture
@@ -57,12 +61,16 @@ def domain_medium():
 
 @pytest.fixture
 def domain_low():
-    return DomainEvidence(domain_name="unrelated.com", is_clone=False, similarity_score=20)
+    return DomainEvidence(
+        domain_name="unrelated.com", is_clone=False, similarity_score=20
+    )
 
 
 @pytest.fixture
 def social_high():
-    return SocialEvidence(platform="Instagram", handle="fakenike_official", follower_count=50_000)
+    return SocialEvidence(
+        platform="Instagram", handle="fakenike_official", follower_count=50_000
+    )
 
 
 @pytest.fixture
@@ -79,6 +87,7 @@ def social_low():
 # risk_scorer — marketplace
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def test_marketplace_always_high(listing):
     level, score = risk_scorer(listing)
     assert level == "HIGH"
@@ -89,6 +98,7 @@ def test_marketplace_always_high(listing):
 # risk_scorer — ads
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def test_ad_always_high(ad):
     level, score = risk_scorer(ad)
     assert level == "HIGH"
@@ -98,6 +108,7 @@ def test_ad_always_high(ad):
 # ──────────────────────────────────────────────────────────────────────────────
 # risk_scorer — domains
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def test_domain_high(domain_high):
     level, score = risk_scorer(domain_high)
@@ -139,6 +150,7 @@ def test_domain_boundary_49():
 # risk_scorer — social
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def test_social_high(social_high):
     level, score = risk_scorer(social_high)
     assert level == "HIGH"
@@ -168,6 +180,7 @@ def test_social_no_follower_count():
 # persist_infringement — DB is mocked
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _mock_supabase(returned_id: str = "abc-123"):
     """Build a minimal Supabase client mock that returns a fixed id."""
     mock_result = MagicMock()
@@ -194,7 +207,7 @@ def test_persist_infringement_calls_upsert_with_correct_fields(ad):
         persist_infringement("case-002", ad)
 
     upsert_call = mock_sb.table.return_value.upsert.call_args
-    payload = upsert_call[0][0]   # first positional arg to upsert()
+    payload = upsert_call[0][0]  # first positional arg to upsert()
 
     assert payload["case_id"] == "case-002"
     assert payload["source_url"] == "https://fakebrand.shop"
