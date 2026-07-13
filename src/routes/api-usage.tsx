@@ -64,7 +64,7 @@ const categoryStyles: Record<string, string> = {
 };
 
 function shouldHideLimit(api: ApiUsageSummary): boolean {
-  return api.free_limit >= 999_999 || api.api_key === "whois";
+  return api.free_limit >= 999_999;
 }
 
 function ApiUsagePage() {

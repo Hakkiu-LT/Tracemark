@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ResourcesRouteImport } from './routes/resources'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as MonitoringRouteImport } from './routes/monitoring'
 import { Route as LandingRouteImport } from './routes/landing'
@@ -45,6 +46,11 @@ const UsersRoute = UsersRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResourcesRoute = ResourcesRouteImport.update({
+  id: '/resources',
+  path: '/resources',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlansRoute = PlansRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
+  '/resources': typeof ResourcesRoute
   '/settings': typeof SettingsRouteWithChildren
   '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -213,6 +220,7 @@ export interface FileRoutesByTo {
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
+  '/resources': typeof ResourcesRoute
   '/settings': typeof SettingsRouteWithChildren
   '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -243,6 +251,7 @@ export interface FileRoutesById {
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
+  '/resources': typeof ResourcesRoute
   '/settings': typeof SettingsRouteWithChildren
   '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
@@ -274,6 +283,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/monitoring'
     | '/plans'
+    | '/resources'
     | '/settings'
     | '/users'
     | '/auth/callback'
@@ -303,6 +313,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/monitoring'
     | '/plans'
+    | '/resources'
     | '/settings'
     | '/users'
     | '/auth/callback'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/monitoring'
     | '/plans'
+    | '/resources'
     | '/settings'
     | '/users'
     | '/auth/callback'
@@ -362,6 +374,7 @@ export interface RootRouteChildren {
   LandingRoute: typeof LandingRoute
   MonitoringRoute: typeof MonitoringRouteWithChildren
   PlansRoute: typeof PlansRoute
+  ResourcesRoute: typeof ResourcesRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   UsersRoute: typeof UsersRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -387,6 +400,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resources': {
+      id: '/resources'
+      path: '/resources'
+      fullPath: '/resources'
+      preLoaderRoute: typeof ResourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plans': {
@@ -642,6 +662,7 @@ const rootRouteChildren: RootRouteChildren = {
   LandingRoute: LandingRoute,
   MonitoringRoute: MonitoringRouteWithChildren,
   PlansRoute: PlansRoute,
+  ResourcesRoute: ResourcesRoute,
   SettingsRoute: SettingsRouteWithChildren,
   UsersRoute: UsersRoute,
   AuthCallbackRoute: AuthCallbackRoute,

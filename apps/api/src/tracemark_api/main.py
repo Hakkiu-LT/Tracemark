@@ -16,6 +16,7 @@ from tracemark_api.routes.clients import router as clients_router
 from tracemark_api.routes.billing import router as billing_router
 from tracemark_api.routes.brands import router as brands_router
 from tracemark_api.routes.admin import router as admin_router
+from tracemark_api.routes.admin_resources import router as admin_resources_router
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
@@ -44,6 +45,7 @@ app.include_router(clients_router, prefix="/api/v1")
 app.include_router(billing_router, prefix="/api/v1")
 app.include_router(brands_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
+app.include_router(admin_resources_router, prefix="/api/v1")
 
 _allowed_origins = [
     "http://localhost:8080",
@@ -78,7 +80,7 @@ def startup_event():
     import threading
     import time
     from tracemark_api.services.storage import cleanup_old_cases
-    
+
     def run_periodically():
         # Sleep for a minute to let the server start up smoothly
         time.sleep(60)
@@ -89,5 +91,5 @@ def startup_event():
                 print(f"[Cleanup Scheduler] Exception during run: {ex}")
             # Sleep for 24 hours (86400 seconds)
             time.sleep(24 * 3600)
-            
+
     threading.Thread(target=run_periodically, daemon=True).start()

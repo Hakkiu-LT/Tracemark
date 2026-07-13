@@ -31,7 +31,7 @@ import {
 } from "@/lib/store";
 import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil, Globe, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
-import { checkBrandFullPipeline } from "@/lib/api";
+import { checkBrandFullPipeline, apiFetch } from "@/lib/api";
 import { PLATFORMS } from "@/lib/platforms";
 import { REGIONS, COUNTRY_BY_CODE } from "@/lib/regions";
 
@@ -172,6 +172,8 @@ function MonitoringPage() {
         {
           brand_name: mark.brandName,
           platforms: apiPlatforms.length > 0 ? apiPlatforms : undefined,
+          target_regions: mark.targetRegions,
+          client_id: mark.clientId || undefined,
         },
         controller.signal,
       );
@@ -179,9 +181,11 @@ function MonitoringPage() {
       activeScansRef.current.delete(id);
 
       const hasRisk =
-        result.decision.risk_level === "HIGH" || result.decision.risk_level === "MEDIUM";
+        result.decision &&
+        (result.decision.risk_level === "HIGH" || result.decision.risk_level === "MEDIUM");
       if (
         hasRisk &&
+        result.decision &&
         (result.evidence.marketplaces.length > 0 ||
           result.evidence.domains.length > 0 ||
           result.evidence.ads.length > 0)
@@ -248,7 +252,9 @@ function MonitoringPage() {
           price,
         });
 
-        setScanResult(result.case_id, result);
+        if (result.case_id) {
+          setScanResult(result.case_id, result);
+        }
         toast.success(`Copycat found for ${mark.brandName}! New case created.`, {
           id: toastId,
           duration: 1000,
@@ -300,6 +306,14 @@ function MonitoringPage() {
 
     // Toggle first so UI reflects
     toggleMarkStatus(id);
+
+    // Signal resource monitor: start when first mark goes active, stop when last goes on_hold
+    const updatedMarks = useStore.getState().marks;
+    const activeCount = updatedMarks.filter((m) => m.status === "active").length;
+    apiFetch("/admin/resources/status", {
+      method: "POST",
+      body: JSON.stringify({ active: activeCount > 0 }),
+    }).catch(() => {}); // fire-and-forget, non-critical
 
     // If it was on_hold, it is now active -> trigger scan
     if (mark.status === "on_hold") {
