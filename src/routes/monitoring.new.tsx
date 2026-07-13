@@ -245,10 +245,16 @@ function NewAssetPage() {
         logoColor: "oklch(0.58 0.18 255)",
         targetRegions: Array.from(selectedRegions),
       });
-      setScanResult(data.case_id, data);
-      queryClient.invalidateQueries({ queryKey: ["brands"] });
-      toast.success("Scan completed successfully");
-      navigate({ to: "/monitoring/$caseId", params: { caseId: data.case_id } });
+      if (data.case_id) {
+        setScanResult(data.case_id, data);
+        queryClient.invalidateQueries({ queryKey: ["brands"] });
+        toast.success("Scan completed successfully");
+        navigate({ to: "/monitoring/$caseId", params: { caseId: data.case_id } });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["brands"] });
+        toast.info(`"${brandName}" scan complete: No copycats found.`);
+        navigate({ to: "/monitoring" });
+      }
     },
     onError: (err: Error) => {
       // createBrand's 402 (brand limit) and scan errors both land here.
