@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import os
@@ -20,9 +21,7 @@ from tracemark_api.routes.admin import router as admin_router
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
 _production_origins = [
-    o.strip()
-    for o in os.environ.get("ALLOWED_ORIGINS", "").split(",")
-    if o.strip()
+    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()
 ]
 
 app = FastAPI(
@@ -67,7 +66,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=63072000; includeSubDomains"
+    )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     return response
@@ -78,7 +79,7 @@ def startup_event():
     import threading
     import time
     from tracemark_api.services.storage import cleanup_old_cases
-    
+
     def run_periodically():
         # Sleep for a minute to let the server start up smoothly
         time.sleep(60)
@@ -89,5 +90,5 @@ def startup_event():
                 print(f"[Cleanup Scheduler] Exception during run: {ex}")
             # Sleep for 24 hours (86400 seconds)
             time.sleep(24 * 3600)
-            
+
     threading.Thread(target=run_periodically, daemon=True).start()

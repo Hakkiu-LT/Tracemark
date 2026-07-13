@@ -6,9 +6,21 @@ from tracemark_api.dependencies import get_current_user, AuthUser
 
 client = TestClient(app)
 
+
 @pytest.fixture(autouse=True)
-def mock_auth():
-    app.dependency_overrides[get_current_user] = lambda: AuthUser(id="550e8400-e29b-41d4-a716-446655440000", email="gabo.seqq@gmail.com")
+def override_auth():
+    from tracemark_api.dependencies import get_current_profile, CurrentProfile
+
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(
+        id="550e8400-e29b-41d4-a716-446655440000", email="gabo.seqq@gmail.com"
+    )
+    app.dependency_overrides[get_current_profile] = lambda: CurrentProfile(
+        id="550e8400-e29b-41d4-a716-446655440000",
+        email="gabo.seqq@gmail.com",
+        organization_id="test-org",
+        plan="free",
+        entitlements=None,
+    )
     yield
     app.dependency_overrides.clear()
 
@@ -17,12 +29,19 @@ def mock_auth():
 @patch("tracemark_api.routes.monitoring.get_full_case")
 @patch("tracemark_api.routes.monitoring.generate_takedown_reports")
 @patch("tracemark_api.routes.monitoring.update_decision_action")
+@patch("tracemark_api.routes.monitoring.get_supabase")
 def test_escalation_generates_reports_when_empty(
+    mock_get_supabase,
     mock_update_decision,
     mock_generate_reports,
     mock_get_case,
-    mock_update_status
+    mock_update_status,
 ):
+    mock_sb = MagicMock()
+    mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = {
+        "organization_id": "test-org"
+    }
+    mock_get_supabase.return_value = mock_sb
     # Setup mock data for case without takedown reports
     mock_get_case.return_value = {
         "id": "test-case-123",
@@ -35,7 +54,7 @@ def test_escalation_generates_reports_when_empty(
                 "case_summary": "Suspicious activity found.",
                 "confidence_score": 0.5,
                 "evidence_quality": "MODERATE",
-                "key_findings": ["1 suspicious domain"]
+                "key_findings": ["1 suspicious domain"],
             }
         ],
         "evidence": [
@@ -47,24 +66,28 @@ def test_escalation_generates_reports_when_empty(
                         "domain_name": "testbrand-fake.com",
                         "registrar": "registrar-123",
                         "is_clone": True,
-                        "similarity_score": 75
+                        "similarity_score": 75,
                     }
                 ],
-                "social": []
+                "social": [],
             }
         ],
-        "takedown_reports": []  # Empty
+        "takedown_reports": [],  # Empty
     }
 
     # Call endpoint to change status to "escalated"
-    response = client.post("/api/v1/monitoring/test-case-123/status", json={"status": "escalated"})
-    
+    response = client.post(
+        "/api/v1/monitoring/test-case-123/status", json={"status": "escalated"}
+    )
+
     assert response.status_code == 200
     assert response.json() == {"success": True}
 
     # Verify status was updated in database
-    mock_update_status.assert_called_once_with("test-case-123", "escalated", decline_reason=None)
-    
+    mock_update_status.assert_called_once_with(
+        "test-case-123", "escalated", decline_reason=None
+    )
+
     # Verify notice generation was triggered with force=True
     mock_generate_reports.assert_called_once()
     args, kwargs = mock_generate_reports.call_args
@@ -80,12 +103,19 @@ def test_escalation_generates_reports_when_empty(
 @patch("tracemark_api.routes.monitoring.get_full_case")
 @patch("tracemark_api.routes.monitoring.generate_takedown_reports")
 @patch("tracemark_api.routes.monitoring.update_decision_action")
+@patch("tracemark_api.routes.monitoring.get_supabase")
 def test_escalation_does_not_duplicate_reports_when_not_empty(
+    mock_get_supabase,
     mock_update_decision,
     mock_generate_reports,
     mock_get_case,
-    mock_update_status
+    mock_update_status,
 ):
+    mock_sb = MagicMock()
+    mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = {
+        "organization_id": "test-org"
+    }
+    mock_get_supabase.return_value = mock_sb
     # Setup mock data for case that already has takedown reports
     mock_get_case.return_value = {
         "id": "test-case-123",
@@ -98,7 +128,7 @@ def test_escalation_does_not_duplicate_reports_when_not_empty(
                 "case_summary": "Counterfeits found.",
                 "confidence_score": 0.9,
                 "evidence_quality": "STRONG",
-                "key_findings": ["1 counterfeit listing"]
+                "key_findings": ["1 counterfeit listing"],
             }
         ],
         "evidence": [
@@ -108,12 +138,12 @@ def test_escalation_does_not_duplicate_reports_when_not_empty(
                         "platform": "amazon",
                         "seller_name": "FakeSeller",
                         "listing_url": "https://amazon.com/dp/FAKE123",
-                        "price": "$9.99"
+                        "price": "$9.99",
                     }
                 ],
                 "ads": [],
                 "domains": [],
-                "social": []
+                "social": [],
             }
         ],
         "takedown_reports": [
@@ -122,20 +152,24 @@ def test_escalation_does_not_duplicate_reports_when_not_empty(
                 "platform_category": "marketplace",
                 "infringing_url": "https://amazon.com/dp/FAKE123",
                 "notice_text": "DMCA...",
-                "status": "pending"
+                "status": "pending",
             }
-        ]
+        ],
     }
 
     # Call endpoint to change status to "escalated"
-    response = client.post("/api/v1/monitoring/test-case-123/status", json={"status": "escalated"})
-    
+    response = client.post(
+        "/api/v1/monitoring/test-case-123/status", json={"status": "escalated"}
+    )
+
     assert response.status_code == 200
     assert response.json() == {"success": True}
 
     # Verify status was updated in database
-    mock_update_status.assert_called_once_with("test-case-123", "escalated", decline_reason=None)
-    
+    mock_update_status.assert_called_once_with(
+        "test-case-123", "escalated", decline_reason=None
+    )
+
     # Verify notice generation was NOT called again to avoid duplication
     mock_generate_reports.assert_not_called()
     mock_update_decision.assert_not_called()
@@ -145,21 +179,32 @@ def test_escalation_does_not_duplicate_reports_when_not_empty(
 @patch("tracemark_api.routes.monitoring.get_full_case")
 @patch("tracemark_api.routes.monitoring.generate_takedown_reports")
 @patch("tracemark_api.routes.monitoring.update_decision_action")
+@patch("tracemark_api.routes.monitoring.get_supabase")
 def test_other_status_updates_do_not_generate_reports(
+    mock_get_supabase,
     mock_update_decision,
     mock_generate_reports,
     mock_get_case,
-    mock_update_status
+    mock_update_status,
 ):
+    mock_sb = MagicMock()
+    mock_sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = {
+        "organization_id": "test-org"
+    }
+    mock_get_supabase.return_value = mock_sb
     # Call endpoint to change status to "safe"
-    response = client.post("/api/v1/monitoring/test-case-123/status", json={"status": "safe"})
-    
+    response = client.post(
+        "/api/v1/monitoring/test-case-123/status", json={"status": "safe"}
+    )
+
     assert response.status_code == 200
     assert response.json() == {"success": True}
 
     # Verify status was updated in database
-    mock_update_status.assert_called_once_with("test-case-123", "safe", decline_reason=None)
-    
+    mock_update_status.assert_called_once_with(
+        "test-case-123", "safe", decline_reason=None
+    )
+
     # Verify notice generation and decision updates were NOT called
     mock_get_case.assert_not_called()
     mock_generate_reports.assert_not_called()

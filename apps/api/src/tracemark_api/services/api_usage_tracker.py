@@ -1,8 +1,8 @@
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
-from typing import Callable, Awaitable, TypeVar, Any
+from typing import Callable, Awaitable, TypeVar
 
 T = TypeVar("T")
 
@@ -10,37 +10,82 @@ RESET_DAILY = "midnight_utc"
 RESET_MONTHLY = "monthly"
 RESET_6_MONTHS = "six_months"
 
+
 @dataclass
 class ApiDefinition:
     key: str
     label: str
     free_limit: int
-    reset_period: str           # "midnight_utc", "monthly", "six_months"
-    category: str               # "search" | "whois" | "ads" | "ai" | "scraper"
+    reset_period: str  # "midnight_utc", "monthly", "six_months"
+    category: str  # "search" | "whois" | "ads" | "ai" | "scraper"
     requires_env_var: str | None = None  # env var that must be set to use this API
 
+
 API_REGISTRY: list[ApiDefinition] = [
-    ApiDefinition("google_serp",     "Google SERP Scraper",              10,   RESET_DAILY,   "search", "GOOGLE_SERP_API"),
-    ApiDefinition("searchcans",      "SearchCans API",                   16,   RESET_MONTHLY, "search", "SEARCHCANS_API"),
-    ApiDefinition("whois",           "WHOIS Lookup",                     800,  RESET_DAILY,   "whois"),
-    ApiDefinition("google_ads",      "Google Ads Transparency",          100,  RESET_DAILY,   "ads"),
-    ApiDefinition("meta_ads",        "Meta Ad Library API",              200,  RESET_DAILY,   "ads",     "META_ADS_ACCESS_TOKEN"),
-    ApiDefinition("firecrawl",       "Firecrawl JS Scraper",             400,  RESET_MONTHLY, "scraper", "FIRECRAWL_API_KEY"),
-    ApiDefinition("gemini_flash",    "Gemini API 2.5 Flash (Parsing)",   1500, RESET_DAILY,   "ai",      "GEMINI_API_KEY"),
-    ApiDefinition("gemini_pro",      "Gemini API 2.5 Pro (Decision)",    50,   RESET_DAILY,   "ai",      "GEMINI_API_KEY"),
-    ApiDefinition("html_scraper",    "HTML Scraper (Local)",             999_999,  RESET_DAILY,   "scraper"),
-    ApiDefinition("image_hash",      "Perceptual Image Hash (Local)",    999_999,  RESET_DAILY,   "scraper"),
+    ApiDefinition(
+        "google_serp",
+        "Google SERP Scraper",
+        10,
+        RESET_DAILY,
+        "search",
+        "GOOGLE_SERP_API",
+    ),
+    ApiDefinition(
+        "searchcans", "SearchCans API", 16, RESET_MONTHLY, "search", "SEARCHCANS_API"
+    ),
+    ApiDefinition("whois", "WHOIS Lookup", 800, RESET_DAILY, "whois"),
+    ApiDefinition("google_ads", "Google Ads Transparency", 100, RESET_DAILY, "ads"),
+    ApiDefinition(
+        "meta_ads",
+        "Meta Ad Library API",
+        200,
+        RESET_DAILY,
+        "ads",
+        "META_ADS_ACCESS_TOKEN",
+    ),
+    ApiDefinition(
+        "firecrawl",
+        "Firecrawl JS Scraper",
+        400,
+        RESET_MONTHLY,
+        "scraper",
+        "FIRECRAWL_API_KEY",
+    ),
+    ApiDefinition(
+        "gemini_flash",
+        "Gemini API 2.5 Flash (Parsing)",
+        1500,
+        RESET_DAILY,
+        "ai",
+        "GEMINI_API_KEY",
+    ),
+    ApiDefinition(
+        "gemini_pro",
+        "Gemini API 2.5 Pro (Decision)",
+        50,
+        RESET_DAILY,
+        "ai",
+        "GEMINI_API_KEY",
+    ),
+    ApiDefinition(
+        "html_scraper", "HTML Scraper (Local)", 999_999, RESET_DAILY, "scraper"
+    ),
+    ApiDefinition(
+        "image_hash", "Perceptual Image Hash (Local)", 999_999, RESET_DAILY, "scraper"
+    ),
 ]
+
 
 @dataclass
 class UsageRecord:
     api_key: str
-    caller_id: str       # user email or user id from JWT; "system" if unauthenticated
-    called_at: str       # ISO 8601 timestamp
+    caller_id: str  # user email or user id from JWT; "system" if unauthenticated
+    called_at: str  # ISO 8601 timestamp
     success: bool
     latency_ms: int
-    endpoint: str        # which FastAPI endpoint triggered this call
+    endpoint: str  # which FastAPI endpoint triggered this call
     credits_used: int = 1  # for Firecrawl, pass actual credits; default 1 for others
+
 
 @dataclass
 class ApiUsageSummary:
@@ -49,23 +94,25 @@ class ApiUsageSummary:
     category: str
     free_limit: int
     reset_period: str
-    used_today: int           # for monthly APIs (firecrawl): used this month
+    used_today: int  # for monthly APIs (firecrawl): used this month
     remaining: int
-    percent_used: float       # 0.0 to 100.0
+    percent_used: float  # 0.0 to 100.0
     is_blocked: bool
     last_called_at: str | None
     requires_env_var: str | None
-    env_var_present: bool     # True if the required env var is set
+    env_var_present: bool  # True if the required env var is set
+
 
 @dataclass
 class DeveloperUsageSummary:
     caller_id: str
     total_calls_today: int
-    by_api: dict[str, int]    # api_key → call count
+    by_api: dict[str, int]  # api_key → call count
+
 
 @dataclass
 class HourlyBucket:
-    hour: str   # "HH:00" format, UTC
+    hour: str  # "HH:00" format, UTC
     count: int
 
 
@@ -92,18 +139,25 @@ class ApiUsageTracker:
             self._cache_counts[defn.key] = 0
 
         from tracemark_api.services.database import get_supabase
+
         try:
             sb = get_supabase()
             now_utc = datetime.now(timezone.utc)
-            daily_start = datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
-            monthly_start = datetime(now_utc.year, now_utc.month, 1, tzinfo=timezone.utc)
+            daily_start = datetime(
+                now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc
+            )
+            monthly_start = datetime(
+                now_utc.year, now_utc.month, 1, tzinfo=timezone.utc
+            )
             six_months_start = now_utc - timedelta(days=180)
 
             # Query records since the oldest start window (six_months_start)
-            res = sb.table("api_usage_records")\
-                .select("api_key, called_at, credits_used")\
-                .gte("called_at", six_months_start.isoformat())\
+            res = (
+                sb.table("api_usage_records")
+                .select("api_key, called_at, credits_used")
+                .gte("called_at", six_months_start.isoformat())
                 .execute()
+            )
 
             for r in res.data:
                 api_key = r["api_key"]
@@ -117,35 +171,48 @@ class ApiUsageTracker:
                 r_dt = parse_iso(called_at_str)
                 if defn.reset_period == RESET_DAILY:
                     if r_dt >= daily_start:
-                        self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
+                        self._cache_counts[api_key] = (
+                            self._cache_counts.get(api_key, 0) + credits_used
+                        )
                 elif defn.reset_period == RESET_MONTHLY:
                     if r_dt >= monthly_start:
-                        self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
-                else: # six_months
+                        self._cache_counts[api_key] = (
+                            self._cache_counts.get(api_key, 0) + credits_used
+                        )
+                else:  # six_months
                     if r_dt >= six_months_start:
-                        self._cache_counts[api_key] = self._cache_counts.get(api_key, 0) + credits_used
+                        self._cache_counts[api_key] = (
+                            self._cache_counts.get(api_key, 0) + credits_used
+                        )
 
             self._cache_initialized = True
         except Exception as e:
-            print(f"[ApiUsageTracker] Failed to initialize count cache from Supabase: {e}")
+            print(
+                f"[ApiUsageTracker] Failed to initialize count cache from Supabase: {e}"
+            )
 
     def record(self, entry: UsageRecord) -> None:
         """Append a usage record to Supabase and update the local cache."""
         self._ensure_cache()
-        self._cache_counts[entry.api_key] = self._cache_counts.get(entry.api_key, 0) + entry.credits_used
+        self._cache_counts[entry.api_key] = (
+            self._cache_counts.get(entry.api_key, 0) + entry.credits_used
+        )
 
         from tracemark_api.services.database import get_supabase
+
         try:
             sb = get_supabase()
-            sb.table("api_usage_records").insert({
-                "api_key": entry.api_key,
-                "caller_id": entry.caller_id,
-                "called_at": entry.called_at,
-                "success": entry.success,
-                "latency_ms": entry.latency_ms,
-                "endpoint": entry.endpoint,
-                "credits_used": entry.credits_used,
-            }).execute()
+            sb.table("api_usage_records").insert(
+                {
+                    "api_key": entry.api_key,
+                    "caller_id": entry.caller_id,
+                    "called_at": entry.called_at,
+                    "success": entry.success,
+                    "latency_ms": entry.latency_ms,
+                    "endpoint": entry.endpoint,
+                    "credits_used": entry.credits_used,
+                }
+            ).execute()
         except Exception as e:
             print(f"[ApiUsageTracker] Failed to persist usage record to Supabase: {e}")
 
@@ -165,16 +232,19 @@ class ApiUsageTracker:
         """Returns one ApiUsageSummary per entry in API_REGISTRY."""
         self._ensure_cache()
         from tracemark_api.services.database import get_supabase
+
         sb = get_supabase()
 
         last_called_map = {}
         try:
             # Fetch latest 200 records to quickly map last called times
-            res = sb.table("api_usage_records")\
-                .select("api_key, called_at")\
-                .order("called_at", desc=True)\
-                .limit(200)\
+            res = (
+                sb.table("api_usage_records")
+                .select("api_key, called_at")
+                .order("called_at", desc=True)
+                .limit(200)
                 .execute()
+            )
             for r in res.data:
                 api_key = r["api_key"]
                 if api_key not in last_called_map:
@@ -186,44 +256,59 @@ class ApiUsageTracker:
         for defn in API_REGISTRY:
             used_today = self.get_used_count(defn.key)
             remaining = max(0, defn.free_limit - used_today)
-            percent_used = min(100.0, (used_today / defn.free_limit) * 100.0) if defn.free_limit > 0 else 0.0
+            percent_used = (
+                min(100.0, (used_today / defn.free_limit) * 100.0)
+                if defn.free_limit > 0
+                else 0.0
+            )
             is_blocked = used_today >= defn.free_limit
 
             last_called_at = last_called_map.get(defn.key)
-            env_var_present = True if defn.requires_env_var is None else bool(os.environ.get(defn.requires_env_var))
+            env_var_present = (
+                True
+                if defn.requires_env_var is None
+                else bool(os.environ.get(defn.requires_env_var))
+            )
 
-            summaries.append(ApiUsageSummary(
-                api_key=defn.key,
-                label=defn.label,
-                category=defn.category,
-                free_limit=defn.free_limit,
-                reset_period=defn.reset_period,
-                used_today=used_today,
-                remaining=remaining,
-                percent_used=percent_used,
-                is_blocked=is_blocked,
-                last_called_at=last_called_at,
-                requires_env_var=defn.requires_env_var,
-                env_var_present=env_var_present
-            ))
+            summaries.append(
+                ApiUsageSummary(
+                    api_key=defn.key,
+                    label=defn.label,
+                    category=defn.category,
+                    free_limit=defn.free_limit,
+                    reset_period=defn.reset_period,
+                    used_today=used_today,
+                    remaining=remaining,
+                    percent_used=percent_used,
+                    is_blocked=is_blocked,
+                    last_called_at=last_called_at,
+                    requires_env_var=defn.requires_env_var,
+                    env_var_present=env_var_present,
+                )
+            )
         return summaries
 
     def get_by_developer(self) -> list[DeveloperUsageSummary]:
         """Groups today's records by caller_id."""
         from tracemark_api.services.database import get_supabase
+
         sb = get_supabase()
 
         now_utc = datetime.now(timezone.utc)
-        today_start = datetime(now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc)
+        today_start = datetime(
+            now_utc.year, now_utc.month, now_utc.day, tzinfo=timezone.utc
+        )
 
         by_caller: dict[str, dict[str, int]] = {}
         total_calls: dict[str, int] = {}
 
         try:
-            res = sb.table("api_usage_records")\
-                .select("caller_id, api_key")\
-                .gte("called_at", today_start.isoformat())\
+            res = (
+                sb.table("api_usage_records")
+                .select("caller_id, api_key")
+                .gte("called_at", today_start.isoformat())
                 .execute()
+            )
 
             for r in res.data:
                 caller_id = r["caller_id"]
@@ -237,11 +322,13 @@ class ApiUsageTracker:
 
         summaries = []
         for caller_id, api_counts in by_caller.items():
-            summaries.append(DeveloperUsageSummary(
-                caller_id=caller_id,
-                total_calls_today=total_calls.get(caller_id, 0),
-                by_api=api_counts
-            ))
+            summaries.append(
+                DeveloperUsageSummary(
+                    caller_id=caller_id,
+                    total_calls_today=total_calls.get(caller_id, 0),
+                    by_api=api_counts,
+                )
+            )
         return summaries
 
     def get_hourly_breakdown(self, api_key: str | None = None) -> list[HourlyBucket]:
@@ -250,6 +337,7 @@ class ApiUsageTracker:
         If api_key is None, aggregates all APIs.
         """
         from tracemark_api.services.database import get_supabase
+
         sb = get_supabase()
 
         now_utc = datetime.now(timezone.utc)
@@ -257,9 +345,11 @@ class ApiUsageTracker:
 
         records = []
         try:
-            query = sb.table("api_usage_records")\
-                .select("api_key, called_at")\
+            query = (
+                sb.table("api_usage_records")
+                .select("api_key, called_at")
                 .gte("called_at", start_24h.isoformat())
+            )
 
             if api_key is not None:
                 query = query.eq("api_key", api_key)
@@ -292,9 +382,12 @@ class ApiUsageTracker:
         self._cache_initialized = True
 
         from tracemark_api.services.database import get_supabase
+
         try:
             sb = get_supabase()
-            sb.table("api_usage_records").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            sb.table("api_usage_records").delete().neq(
+                "id", "00000000-0000-0000-0000-000000000000"
+            ).execute()
         except Exception as e:
             print(f"[ApiUsageTracker] Failed to clear database table: {e}")
 
@@ -342,27 +435,31 @@ def call_with_tracking(
     try:
         res = fn()
         latency_ms = int((time.time() - start_time) * 1000)
-        tracker.record(UsageRecord(
-            api_key=api_key,
-            caller_id=caller_id,
-            called_at=called_at,
-            success=True,
-            latency_ms=latency_ms,
-            endpoint=endpoint,
-            credits_used=credits_used
-        ))
+        tracker.record(
+            UsageRecord(
+                api_key=api_key,
+                caller_id=caller_id,
+                called_at=called_at,
+                success=True,
+                latency_ms=latency_ms,
+                endpoint=endpoint,
+                credits_used=credits_used,
+            )
+        )
         return res
     except Exception as e:
         latency_ms = int((time.time() - start_time) * 1000)
-        tracker.record(UsageRecord(
-            api_key=api_key,
-            caller_id=caller_id,
-            called_at=called_at,
-            success=False,
-            latency_ms=latency_ms,
-            endpoint=endpoint,
-            credits_used=credits_used
-        ))
+        tracker.record(
+            UsageRecord(
+                api_key=api_key,
+                caller_id=caller_id,
+                called_at=called_at,
+                success=False,
+                latency_ms=latency_ms,
+                endpoint=endpoint,
+                credits_used=credits_used,
+            )
+        )
         raise e
 
 
@@ -386,25 +483,29 @@ async def async_call_with_tracking(
     try:
         res = await fn()
         latency_ms = int((time.time() - start_time) * 1000)
-        tracker.record(UsageRecord(
-            api_key=api_key,
-            caller_id=caller_id,
-            called_at=called_at,
-            success=True,
-            latency_ms=latency_ms,
-            endpoint=endpoint,
-            credits_used=credits_used
-        ))
+        tracker.record(
+            UsageRecord(
+                api_key=api_key,
+                caller_id=caller_id,
+                called_at=called_at,
+                success=True,
+                latency_ms=latency_ms,
+                endpoint=endpoint,
+                credits_used=credits_used,
+            )
+        )
         return res
     except Exception as e:
         latency_ms = int((time.time() - start_time) * 1000)
-        tracker.record(UsageRecord(
-            api_key=api_key,
-            caller_id=caller_id,
-            called_at=called_at,
-            success=False,
-            latency_ms=latency_ms,
-            endpoint=endpoint,
-            credits_used=credits_used
-        ))
+        tracker.record(
+            UsageRecord(
+                api_key=api_key,
+                caller_id=caller_id,
+                called_at=called_at,
+                success=False,
+                latency_ms=latency_ms,
+                endpoint=endpoint,
+                credits_used=credits_used,
+            )
+        )
         raise e

@@ -4,17 +4,47 @@ from typing import Literal
 from urllib.parse import urlparse
 from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
-from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
-from tracemark_api.services.database import get_supabase, create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
+from tracemark_api.services.marketplace import (
+    gather_evidence as scrape_evidence,
+    check_ads_hijacking,
+    exchange_short_lived_meta_token,
+    update_env_meta_token,
+)
+from tracemark_api.services.database import (
+    get_supabase,
+    create_case,
+    save_evidence,
+    save_decision,
+    update_case_status,
+    get_full_case,
+    update_decision_action,
+)
 from tracemark_api.services.persistence import persist_all_infringements
-from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
-from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
+from tracemark_api.services.takedown import generate_takedown_reports
+from tracemark_api.dependencies import (
+    get_current_user,
+    get_current_profile,
+    CurrentProfile,
+)
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
 
-_PRIVATE_NETS = ("localhost", "127.", "10.", "172.16.", "172.17.", "172.18.",
-                  "172.19.", "172.2", "172.3", "192.168.", "0.0.0.0", "::1", "169.254.")
+_PRIVATE_NETS = (
+    "localhost",
+    "127.",
+    "10.",
+    "172.16.",
+    "172.17.",
+    "172.18.",
+    "172.19.",
+    "172.2",
+    "172.3",
+    "192.168.",
+    "0.0.0.0",
+    "::1",
+    "169.254.",
+)
 
 
 class MonitorRequest(BaseModel):
@@ -46,11 +76,15 @@ class MonitorResponse(BaseModel):
 
 
 @router.post("/analyze", response_model=MonitorResponse)
-def analyze_url(payload: MonitorRequest, current_user=Depends(get_current_user)) -> MonitorResponse:
+def analyze_url(
+    payload: MonitorRequest, current_user=Depends(get_current_user)
+) -> MonitorResponse:
     try:
         scrape_result = scrape_page(payload.url)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to trigger scraper: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to trigger scraper: {str(e)}"
+        )
 
     if not scrape_result.success:
         return MonitorResponse(
@@ -59,13 +93,13 @@ def analyze_url(payload: MonitorRequest, current_user=Depends(get_current_user))
             success=False,
             evidence=None,
             decision=None,
-            error_message=scrape_result.error_message
+            error_message=scrape_result.error_message,
         )
 
     try:
         analysis_payload = {
             "url": scrape_result.url,
-            "markdown": scrape_result.markdown
+            "markdown": scrape_result.markdown,
         }
         analysis = analyze_listing(analysis_payload)
 
@@ -74,7 +108,7 @@ def analyze_url(payload: MonitorRequest, current_user=Depends(get_current_user))
             title=scrape_result.title,
             success=True,
             evidence=analysis.evidence,
-            decision=analysis.decision
+            decision=analysis.decision,
         )
     except Exception as e:
         return MonitorResponse(
@@ -83,12 +117,14 @@ def analyze_url(payload: MonitorRequest, current_user=Depends(get_current_user))
             success=False,
             evidence=None,
             decision=None,
-            error_message=f"Analysis error: {str(e)}"
+            error_message=f"Analysis error: {str(e)}",
         )
 
 
 @router.post("/make-decision")
-def make_decision_endpoint(evidence: Evidence, current_user=Depends(get_current_user)) -> Decision:
+def make_decision_endpoint(
+    evidence: Evidence, current_user=Depends(get_current_user)
+) -> Decision:
     return make_decision(evidence)
 
 
@@ -101,10 +137,11 @@ class GatherEvidenceRequest(BaseModel):
 
 @router.post("/gather-evidence", response_model=Evidence)
 async def gather_evidence_endpoint(
-    payload: GatherEvidenceRequest,
-    current_user = Depends(get_current_user)
+    payload: GatherEvidenceRequest, current_user=Depends(get_current_user)
 ) -> Evidence:
-    caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
+    caller_id = getattr(current_user, "email", None) or getattr(
+        current_user, "id", "system"
+    )
     try:
         evidence = await scrape_evidence(
             payload.brand_name,
@@ -125,14 +162,15 @@ class CheckAdsRequest(BaseModel):
 
 @router.post("/check-ads")
 async def check_ads_endpoint(
-    payload: CheckAdsRequest,
-    current_user = Depends(get_current_user)
+    payload: CheckAdsRequest, current_user=Depends(get_current_user)
 ):
     """
     Detect ad hijacking: unauthorized Google/Meta ads using a brand name to steal traffic.
     Whitelist official page names via official_advertisers (e.g. ["Orbio World", "Orbio Official"]).
     """
-    caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
+    caller_id = getattr(current_user, "email", None) or getattr(
+        current_user, "id", "system"
+    )
     try:
         return await check_ads_hijacking(
             payload.brand_name,
@@ -152,7 +190,9 @@ class CheckBrandRequest(BaseModel):
     client_id: str | None = None
 
 
-def _enforce_scan_entitlements(profile: CurrentProfile, payload: CheckBrandRequest) -> None:
+def _enforce_scan_entitlements(
+    profile: CurrentProfile, payload: CheckBrandRequest
+) -> None:
     """Reject a scan that asks for more than the caller's plan allows, with a
     clear upsell message. The frontend gates the same limits in the UI; this is
     the authoritative server-side check (and guards direct API callers)."""
@@ -248,7 +288,9 @@ async def check_brand(
         try:
             persist_all_infringements(case_id, evidence)
         except Exception as persist_err:
-            print(f"[warn] persist_all_infringements failed for {case_id}: {persist_err}")
+            print(
+                f"[warn] persist_all_infringements failed for {case_id}: {persist_err}"
+            )
         decision = make_decision(evidence)
         save_decision(case_id, decision)
         reports = generate_takedown_reports(
@@ -275,8 +317,11 @@ class ExchangeMetaTokenRequest(BaseModel):
 
 from tracemark_api.routes.admin import verify_admin
 
+
 @router.post("/exchange-meta-token")
-def exchange_meta_token(payload: ExchangeMetaTokenRequest, admin_user=Depends(verify_admin)):
+def exchange_meta_token(
+    payload: ExchangeMetaTokenRequest, admin_user=Depends(verify_admin)
+):
     """
     Exchanges a short-lived user token for a long-lived one,
     updates the .env file locally, and returns the result.
@@ -286,14 +331,17 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest, admin_user=Depends(ve
         result = exchange_short_lived_meta_token(payload.short_lived_token)
         new_token = result.get("access_token")
         if not new_token:
-            raise HTTPException(status_code=400, detail="Meta API did not return an access token.")
-        
+            raise HTTPException(
+                status_code=400, detail="Meta API did not return an access token."
+            )
+
         expires_in = result.get("expires_in")
         expires_at_str = None
         if expires_in:
             from datetime import datetime, timedelta, timezone
+
             expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-            expires_at_str = expires_at.strftime('%Y-%m-%d %H:%M:%S UTC')
+            expires_at_str = expires_at.strftime("%Y-%m-%d %H:%M:%S UTC")
 
         update_env_meta_token(new_token)
         return {
@@ -301,7 +349,7 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest, admin_user=Depends(ve
             "message": "Meta Access Token successfully updated and written to .env.",
             "expires_in_seconds": expires_in,
             "expires_at": expires_at_str,
-            "token_type": result.get("token_type")
+            "token_type": result.get("token_type"),
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -315,10 +363,35 @@ class UpdateStatusRequest(BaseModel):
 
 
 @router.post("/{case_id}/status")
-def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_user=Depends(get_current_user)):
+def update_status_endpoint(
+    case_id: str,
+    payload: UpdateStatusRequest,
+    profile: CurrentProfile = Depends(get_current_profile),
+):
+    sb = get_supabase()
+
+    # IDOR Protection: Verify the case belongs to the user's organization
+    user_org = profile.organization_id
+
+    case_res = (
+        sb.table("cases")
+        .select("organization_id")
+        .eq("id", case_id)
+        .maybe_single()
+        .execute()
+    )
+    if not case_res.data:
+        raise HTTPException(status_code=404, detail="Case not found")
+    if case_res.data.get("organization_id") != user_org:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this case"
+        )
+
     try:
-        update_case_status(case_id, payload.status, decline_reason=payload.decline_reason)
-        
+        update_case_status(
+            case_id, payload.status, decline_reason=payload.decline_reason
+        )
+
         if payload.status == "escalated":
             case_data = get_full_case(case_id)
             reports = case_data.get("takedown_reports") or []
@@ -331,10 +404,11 @@ def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_u
                         recommended_action=decision_row["recommended_action"],
                         case_summary=decision_row["case_summary"],
                         confidence_score=decision_row["confidence_score"],
-                        evidence_quality=decision_row.get("evidence_quality") or "MODERATE",
+                        evidence_quality=decision_row.get("evidence_quality")
+                        or "MODERATE",
                         key_findings=decision_row.get("key_findings") or [],
                     )
-                    
+
                     evidences = case_data.get("evidence") or []
                     if evidences:
                         evidence_row = evidences[0]
@@ -344,21 +418,24 @@ def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_u
                             domains=evidence_row.get("domains") or [],
                             social=evidence_row.get("social") or [],
                         )
-                        
+
                         generate_takedown_reports(
                             case_id=case_id,
                             brand_name=case_data["brand_name"],
                             decision=decision,
                             evidence=evidence,
-                            force=True
+                            force=True,
                         )
                         update_decision_action(case_id, "TAKEDOWN")
-                        
+
         if payload.status in ("escalated", "dismissed"):
             try:
                 from tracemark_api.services.notifications import dispatch_notifications
                 from tracemark_api.services.delivery_log import log_delivery
-                event_type = f"case_{payload.status}"  # case_escalated or case_dismissed
+
+                event_type = (
+                    f"case_{payload.status}"  # case_escalated or case_dismissed
+                )
                 event = {
                     "type": event_type,
                     "case_id": case_id,
@@ -368,10 +445,11 @@ def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_u
             except Exception as e:
                 try:
                     from tracemark_api.services.delivery_log import log_delivery
+
                     log_delivery(f"case_{payload.status}", ok=False, error=str(e))
                 except Exception:
                     pass
-                        
+
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -384,16 +462,14 @@ class TakedownUpdateRequest(BaseModel):
 
 @router.put("/takedowns/{id}")
 def update_takedown_report_endpoint(
-    id: str,
-    payload: TakedownUpdateRequest,
-    current_user = Depends(get_current_user)
+    id: str, payload: TakedownUpdateRequest, current_user=Depends(get_current_user)
 ):
     """
     Update notice text and status of a takedown report in Supabase.
     If status transitions to 'sent', automatically record submitted_at time.
     """
     sb = get_supabase()
-    
+
     update_data = {}
     if payload.notice_text is not None:
         update_data["notice_text"] = payload.notice_text
@@ -401,23 +477,28 @@ def update_takedown_report_endpoint(
         update_data["status"] = payload.status
         if payload.status == "sent":
             from datetime import datetime, timezone
+
             update_data["submitted_at"] = datetime.now(timezone.utc).isoformat()
-            
+
     if not update_data:
         try:
             res = sb.table("takedown_reports").select("*").eq("id", id).execute()
             if not res.data:
-                raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
+                raise HTTPException(
+                    status_code=404, detail=f"Takedown report with ID {id} not found"
+                )
             return res.data[0]
         except Exception as e:
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(status_code=500, detail=str(e))
-            
+
     try:
         res = sb.table("takedown_reports").update(update_data).eq("id", id).execute()
         if not res.data:
-            raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Takedown report with ID {id} not found"
+            )
         return res.data[0]
     except Exception as e:
         if isinstance(e, HTTPException):
@@ -439,6 +520,7 @@ def test_email_notification_endpoint(
     """
     try:
         from tracemark_api.services.notifications import send_email_notification
+
         event = {
             "type": "test",
             "message": "This is a test notification from Tracemark to verify SMTP configuration.",
@@ -447,7 +529,9 @@ def test_email_notification_endpoint(
         send_email_notification(event, payload.email)
         return {"success": True, "message": f"Test email sent to {payload.email}"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to send test email: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to send test email: {str(e)}"
+        )
 
 
 @router.post("/takedowns/{id}/send-email")
@@ -467,7 +551,10 @@ def send_takedown_email_endpoint(
     report = res.data
     recipient = report.get("submission_email")
     if not recipient:
-        raise HTTPException(status_code=400, detail="Submission email is not configured for this platform")
+        raise HTTPException(
+            status_code=400,
+            detail="Submission email is not configured for this platform",
+        )
 
     notice_text = report.get("notice_text", "")
 
@@ -491,11 +578,14 @@ def send_takedown_email_endpoint(
 
         # Update status and submitted_at
         from datetime import datetime, timezone
+
         submitted_at = datetime.now(timezone.utc).isoformat()
-        sb.table("takedown_reports").update({
-            "status": "sent",
-            "submitted_at": submitted_at,
-        }).eq("id", id).execute()
+        sb.table("takedown_reports").update(
+            {
+                "status": "sent",
+                "submitted_at": submitted_at,
+            }
+        ).eq("id", id).execute()
 
         return {
             "success": True,
@@ -505,6 +595,7 @@ def send_takedown_email_endpoint(
     except Exception as e:
         try:
             from tracemark_api.services.delivery_log import log_delivery
+
             log_delivery(
                 event_type="takedown_submitted",
                 ok=False,
@@ -513,4 +604,6 @@ def send_takedown_email_endpoint(
             )
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=f"Failed to send takedown email: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to send takedown email: {str(e)}"
+        )

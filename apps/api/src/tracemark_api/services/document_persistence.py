@@ -5,6 +5,7 @@ Callers (e.g. the document generator service) pass raw file bytes;
 this module uploads them to the 'legal-documents' bucket and records
 metadata in the 'documents' table.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -61,13 +62,19 @@ def persist_document(
 
     file_url = sb.storage.from_(BUCKET).get_public_url(file_path)
 
-    result = sb.table("documents").insert({
-        "infringement_id": infringement_id,
-        "document_type": document_type,
-        "file_url": file_url,
-        "file_format": file_format,
-        "status": "draft",
-    }).execute()
+    result = (
+        sb.table("documents")
+        .insert(
+            {
+                "infringement_id": infringement_id,
+                "document_type": document_type,
+                "file_url": file_url,
+                "file_format": file_format,
+                "status": "draft",
+            }
+        )
+        .execute()
+    )
 
     doc = result.data[0]
 
@@ -93,7 +100,9 @@ def persist_document(
                 platform = inf_res.data.get("platform", "Unknown Platform")
                 infringing_url = inf_res.data.get("source_url", "")
         except Exception as inner_e:
-            print(f"[DocumentPersistence] Failed to fetch infringement details: {inner_e}")
+            print(
+                f"[DocumentPersistence] Failed to fetch infringement details: {inner_e}"
+            )
 
         event = {
             "type": "takedown_generated",
@@ -107,11 +116,22 @@ def persist_document(
             "infringing_url": infringing_url,
         }
         dispatch_notifications(event)
-        log_delivery("takedown_generated", ok=True, infringement_id=infringement_id, payload=event)
+        log_delivery(
+            "takedown_generated",
+            ok=True,
+            infringement_id=infringement_id,
+            payload=event,
+        )
     except Exception as e:
         try:
             from tracemark_api.services.delivery_log import log_delivery
-            log_delivery("takedown_generated", ok=False, infringement_id=infringement_id, error=str(e))
+
+            log_delivery(
+                "takedown_generated",
+                ok=False,
+                infringement_id=infringement_id,
+                error=str(e),
+            )
         except Exception:
             pass
 

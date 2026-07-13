@@ -33,7 +33,10 @@ def screenshot_page(url: str, location: dict | None = None) -> str | None:
         response = httpx.post(
             "https://api.firecrawl.dev/v1/scrape",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
             timeout=60.0,
         )
         if response.status_code != 200:
@@ -44,7 +47,9 @@ def screenshot_page(url: str, location: dict | None = None) -> str | None:
         return None
 
 
-def scrape_page(url: str, with_screenshot: bool = False, location: dict | None = None) -> ScrapeResult:
+def scrape_page(
+    url: str, with_screenshot: bool = False, location: dict | None = None
+) -> ScrapeResult:
     api_key = os.environ.get("FIRECRAWL_API_KEY")
     if not api_key:
         if "example.com" in url or "test" in url:
@@ -53,14 +58,14 @@ def scrape_page(url: str, with_screenshot: bool = False, location: dict | None =
                 title="Mock Test Page",
                 markdown="# Mock Page\nThis is a mock page because FIRECRAWL_API_KEY is not set. Please set the key to scrape real URLs.",
                 html="<h1>Mock Page</h1>",
-                success=True
+                success=True,
             )
         raise ValueError("FIRECRAWL_API_KEY environment variable is not set.")
 
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         formats = ["markdown", "html"]
         if with_screenshot:
@@ -71,23 +76,23 @@ def scrape_page(url: str, with_screenshot: bool = False, location: dict | None =
         }
         if location:
             payload["location"] = location
-        
+
         response = httpx.post(
             "https://api.firecrawl.dev/v1/scrape",
             json=payload,
             headers=headers,
-            timeout=30.0
+            timeout=30.0,
         )
-        
+
         if response.status_code != 200:
             return ScrapeResult(
                 url=url,
                 title=None,
                 markdown="",
                 success=False,
-                error_message=f"Firecrawl API returned status code {response.status_code}: {response.text}"
+                error_message=f"Firecrawl API returned status code {response.status_code}: {response.text}",
             )
-            
+
         data = response.json()
         if not data.get("success"):
             return ScrapeResult(
@@ -95,9 +100,9 @@ def scrape_page(url: str, with_screenshot: bool = False, location: dict | None =
                 title=None,
                 markdown="",
                 success=False,
-                error_message=data.get("error", "Unknown Firecrawl error")
+                error_message=data.get("error", "Unknown Firecrawl error"),
             )
-            
+
         scrape_data = data.get("data", {})
         metadata = scrape_data.get("metadata", {})
         title = metadata.get("title")
@@ -111,14 +116,10 @@ def scrape_page(url: str, with_screenshot: bool = False, location: dict | None =
             markdown=markdown,
             html=html,
             screenshot_url=screenshot_url,
-            success=True
+            success=True,
         )
-        
+
     except Exception as e:
         return ScrapeResult(
-            url=url,
-            title=None,
-            markdown="",
-            success=False,
-            error_message=str(e)
+            url=url, title=None, markdown="", success=False, error_message=str(e)
         )

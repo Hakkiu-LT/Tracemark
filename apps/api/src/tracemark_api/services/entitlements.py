@@ -11,6 +11,7 @@ Effective limits = plan base + purchased add-on quantities. For example a
 ``None`` for a numeric limit means *unlimited* (serialized as ``null`` for the
 frontend, which renders it as "Unlimited").
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
@@ -188,6 +189,7 @@ def compute_entitlements(
 # (from `subscription_addons`) for an org. Kept here — not in billing.py — so
 # both dependencies.py and billing.py can import them without a circular import.
 
+
 def resolve_org_id(user_id: str) -> str:
     """Billing anchor for a user: their organization, or their own id as a
     single-member fallback when no organization is configured."""
@@ -220,13 +222,7 @@ def _active_plan_for_org(org_id: str) -> str:
             return row["plan"]
 
     # No active subscription — fall back to the mirrored profiles.plan.
-    prof = (
-        sb.table("profiles")
-        .select("plan")
-        .eq("id", org_id)
-        .maybe_single()
-        .execute()
-    )
+    prof = sb.table("profiles").select("plan").eq("id", org_id).maybe_single().execute()
     plan = prof.data.get("plan") if prof and prof.data else None
     return plan or "free"
 
@@ -306,12 +302,16 @@ def reconcile_brand_locks(org_id: str) -> dict:
     elif locked and len(occupying) < limit:
         # Room freed up — unlock most-recently-created locked brands first.
         slots = limit - len(occupying)
-        newest_locked = sorted(locked, key=lambda b: b.get("created_at") or "", reverse=True)
+        newest_locked = sorted(
+            locked, key=lambda b: b.get("created_at") or "", reverse=True
+        )
         unlocked_ids = [b["id"] for b in newest_locked[:slots]]
 
     if locked_ids:
         sb.table("brands").update({"status": "locked"}).in_("id", locked_ids).execute()
     if unlocked_ids:
-        sb.table("brands").update({"status": "active"}).in_("id", unlocked_ids).execute()
+        sb.table("brands").update({"status": "active"}).in_(
+            "id", unlocked_ids
+        ).execute()
 
     return {"locked": locked_ids, "unlocked": unlocked_ids}

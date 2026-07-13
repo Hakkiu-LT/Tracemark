@@ -5,15 +5,17 @@ from tracemark_api.main import app
 
 client = TestClient(app)
 
+
 @pytest.fixture(autouse=True)
 def override_auth():
     from tracemark_api.dependencies import get_current_user, AuthUser
+
     app.dependency_overrides[get_current_user] = lambda: AuthUser(
-        id="550e8400-e29b-41d4-a716-446655440000",
-        email="gabo.seqq@gmail.com"
+        id="550e8400-e29b-41d4-a716-446655440000", email="gabo.seqq@gmail.com"
     )
     yield
     app.dependency_overrides.clear()
+
 
 def test_list_clients_empty():
     mock_sb = MagicMock()
@@ -40,6 +42,7 @@ def test_list_clients_empty():
     assert response.status_code == 200
     assert response.json() == []
 
+
 def test_create_client():
     mock_sb = MagicMock()
     # profiles query
@@ -47,15 +50,17 @@ def test_create_client():
     mock_profile_result.data = {"organization_id": "org-123"}
     # insert client
     mock_insert_result = MagicMock()
-    mock_insert_result.data = [{
-        "id": "client-999",
-        "name": "New Client",
-        "industry": "Tech",
-        "plan": "Pro",
-        "mrr": 500,
-        "contact": "test@client.com",
-        "organization_id": "org-123"
-    }]
+    mock_insert_result.data = [
+        {
+            "id": "client-999",
+            "name": "New Client",
+            "industry": "Tech",
+            "plan": "Pro",
+            "mrr": 500,
+            "contact": "test@client.com",
+            "organization_id": "org-123",
+        }
+    ]
 
     def mock_table(name):
         t = MagicMock()
@@ -68,19 +73,23 @@ def test_create_client():
     mock_sb.table.side_effect = mock_table
 
     with patch("tracemark_api.routes.clients.get_supabase", return_value=mock_sb):
-        response = client.post("/api/v1/clients", json={
-            "name": "New Client",
-            "industry": "Tech",
-            "plan": "Pro",
-            "mrr": 500,
-            "contact": "test@client.com"
-        })
+        response = client.post(
+            "/api/v1/clients",
+            json={
+                "name": "New Client",
+                "industry": "Tech",
+                "plan": "Pro",
+                "mrr": 500,
+                "contact": "test@client.com",
+            },
+        )
 
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "client-999"
     assert data["name"] == "New Client"
     assert data["organization_id"] == "org-123"
+
 
 def test_delete_client_not_found():
     mock_sb = MagicMock()
@@ -105,6 +114,7 @@ def test_delete_client_not_found():
         response = client.delete("/api/v1/clients/client-nonexistent")
 
     assert response.status_code == 404
+
 
 def test_get_client_billing():
     mock_sb = MagicMock()
@@ -137,9 +147,13 @@ def test_get_client_billing():
         elif name == "clients":
             t.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_client_result
         elif name == "cases":
-            t.select.return_value.eq.return_value.execute.return_value = mock_cases_result
+            t.select.return_value.eq.return_value.execute.return_value = (
+                mock_cases_result
+            )
         elif name == "takedown_reports":
-            t.select.return_value.in_.return_value.execute.return_value = mock_takedowns_result
+            t.select.return_value.in_.return_value.execute.return_value = (
+                mock_takedowns_result
+            )
         return t
 
     mock_sb.table.side_effect = mock_table

@@ -61,14 +61,21 @@ def send_document_email_endpoint(
             "infringing_url": infringing_url,
         }
         dispatch_notifications(event)
-        log_delivery("takedown_generated", ok=True, infringement_id=infringement_id, payload=event)
+        log_delivery(
+            "takedown_generated",
+            ok=True,
+            infringement_id=infringement_id,
+            payload=event,
+        )
 
         # Update document record
         sent_at = datetime.now(timezone.utc).isoformat()
-        sb.table("documents").update({
-            "status": "sent",
-            "sent_at": sent_at,
-        }).eq("id", id).execute()
+        sb.table("documents").update(
+            {
+                "status": "sent",
+                "sent_at": sent_at,
+            }
+        ).eq("id", id).execute()
 
         return {
             "success": True,
@@ -78,7 +85,15 @@ def send_document_email_endpoint(
     except Exception as e:
         try:
             from tracemark_api.services.delivery_log import log_delivery
-            log_delivery("takedown_generated", ok=False, infringement_id=infringement_id, error=str(e))
+
+            log_delivery(
+                "takedown_generated",
+                ok=False,
+                infringement_id=infringement_id,
+                error=str(e),
+            )
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=f"Failed to dispatch document email: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to dispatch document email: {str(e)}"
+        )

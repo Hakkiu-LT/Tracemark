@@ -13,12 +13,18 @@ from tracemark_api.services.database import get_supabase
 # Pydantic Model
 # ---------------------------------------------------------------------------
 
+
 class TakedownReport(BaseModel):
     id: Optional[str] = None
     platform: str
     platform_category: Literal[
-        "marketplace", "social_media", "search_engine",
-        "ad_platform", "domain_registrar", "app_store", "other",
+        "marketplace",
+        "social_media",
+        "search_engine",
+        "ad_platform",
+        "domain_registrar",
+        "app_store",
+        "other",
     ]
     infringing_url: str
     submission_url: Optional[str] = None
@@ -307,7 +313,7 @@ _REGISTRAR_KEY_MAP: dict[str, str] = {
     "cloudflare": "cloudflare",
     "dreamhost": "dreamhost",
     "bluehost": "bluehost",
-    "ovh": "cloudflare",       # fallback — no OVH entry, use Cloudflare abuse
+    "ovh": "cloudflare",  # fallback — no OVH entry, use Cloudflare abuse
     "squarespace": "godaddy",  # Google Domains migrated to Squarespace
 }
 
@@ -358,16 +364,20 @@ def _build_notice(
     firm_name: str | None = None,
     client_name: str | None = None,
 ) -> str:
-    bullets = "\n".join(f"  - {f}" for f in key_findings) if key_findings else "  - See attached evidence."
-    
+    bullets = (
+        "\n".join(f"  - {f}" for f in key_findings)
+        if key_findings
+        else "  - See attached evidence."
+    )
+
     if firm_name and client_name:
-        representative_statement = f"I am the authorized legal representative of \"{client_name}\", the owner of the brand \"{brand_name}\"."
+        representative_statement = f'I am the authorized legal representative of "{client_name}", the owner of the brand "{brand_name}".'
         signature_block = f"Signature: [AUTHORIZED SIGNATURE FOR {firm_name}]\nRepresented by: {firm_name}"
     elif firm_name:
-        representative_statement = f"I am the authorized legal representative of the owner of the brand \"{brand_name}\"."
+        representative_statement = f'I am the authorized legal representative of the owner of the brand "{brand_name}".'
         signature_block = f"Signature: [AUTHORIZED SIGNATURE FOR {firm_name}]\nRepresented by: {firm_name}"
     else:
-        representative_statement = f"I am the owner / authorized representative of the intellectual property rights\nfor the brand \"{brand_name}\"."
+        representative_statement = f'I am the owner / authorized representative of the intellectual property rights\nfor the brand "{brand_name}".'
         signature_block = "Signature: [RIGHTS OWNER NAME]"
 
     notice_template = """\
@@ -417,6 +427,7 @@ Contact:   [EMAIL ADDRESS]
 # Platform key helpers
 # ---------------------------------------------------------------------------
 
+
 def _normalize_platform_key(raw: str) -> str:
     """Map a Gemini-returned platform string to a PLATFORM_REGISTRY key."""
     return _PLATFORM_KEY_MAP.get(raw.lower().strip(), raw.lower().strip())
@@ -434,17 +445,21 @@ def _registrar_to_platform_key(registrar: str | None) -> str:
 
 
 def _lookup(platform_key: str) -> dict:
-    return PLATFORM_REGISTRY.get(platform_key, {
-        "category": "other",
-        "submission_url": None,
-        "submission_email": None,
-        "submission_method": "email",
-    })
+    return PLATFORM_REGISTRY.get(
+        platform_key,
+        {
+            "category": "other",
+            "submission_url": None,
+            "submission_email": None,
+            "submission_method": "email",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
 # Main public function
 # ---------------------------------------------------------------------------
+
 
 def generate_takedown_reports(
     case_id: str,
@@ -467,7 +482,13 @@ def generate_takedown_reports(
     org_id = None
     client_id = None
     try:
-        case_res = sb.table("cases").select("organization_id, client_id").eq("id", case_id).maybe_single().execute()
+        case_res = (
+            sb.table("cases")
+            .select("organization_id, client_id")
+            .eq("id", case_id)
+            .maybe_single()
+            .execute()
+        )
         if case_res.data:
             org_id = case_res.data.get("organization_id")
             client_id = case_res.data.get("client_id")
@@ -478,7 +499,13 @@ def generate_takedown_reports(
     client_name = None
     if org_id:
         try:
-            org_res = sb.table("org_settings").select("persona, firm_name").eq("organization_id", org_id).maybe_single().execute()
+            org_res = (
+                sb.table("org_settings")
+                .select("persona, firm_name")
+                .eq("organization_id", org_id)
+                .maybe_single()
+                .execute()
+            )
             if org_res.data and org_res.data.get("persona") == "law_firm":
                 firm_name = org_res.data.get("firm_name")
         except Exception as e:
@@ -486,7 +513,13 @@ def generate_takedown_reports(
 
     if client_id:
         try:
-            client_res = sb.table("clients").select("name").eq("id", client_id).maybe_single().execute()
+            client_res = (
+                sb.table("clients")
+                .select("name")
+                .eq("id", client_id)
+                .maybe_single()
+                .execute()
+            )
             if client_res.data:
                 client_name = client_res.data.get("name")
         except Exception as e:
@@ -522,7 +555,11 @@ def generate_takedown_reports(
     for ad in evidence.ads:
         platform_key = _normalize_platform_key(ad.platform)
         # Ads go to the ad_platform registry entry, not the social one
-        if not platform_key.endswith("_ads") and platform_key in ("facebook", "instagram", "meta"):
+        if not platform_key.endswith("_ads") and platform_key in (
+            "facebook",
+            "instagram",
+            "meta",
+        ):
             platform_key = "meta_ads"
         elif platform_key == "google":
             platform_key = "google_ads"

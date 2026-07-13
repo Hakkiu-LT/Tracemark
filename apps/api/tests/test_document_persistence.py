@@ -4,9 +4,9 @@ Tests for document_persistence.py — persist_document and get_documents_by_infr
 These tests do NOT hit Supabase. get_supabase() is patched so no real DB
 or Storage connection is needed.
 """
-from unittest.mock import MagicMock, patch, call
 
-import pytest
+from unittest.mock import MagicMock, patch
+
 
 from tracemark_api.services.document_persistence import (
     persist_document,
@@ -16,14 +16,19 @@ from tracemark_api.services.document_persistence import (
 )
 
 FAKE_INFRINGEMENT_ID = "00000000-0000-0000-0000-000000000001"
-FAKE_FILE_URL = "https://example.supabase.co/storage/v1/object/public/legal-documents/doc.pdf"
+FAKE_FILE_URL = (
+    "https://example.supabase.co/storage/v1/object/public/legal-documents/doc.pdf"
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _make_mock_supabase(bucket_names: list[str] | None = None, inserted_row: dict | None = None):
+
+def _make_mock_supabase(
+    bucket_names: list[str] | None = None, inserted_row: dict | None = None
+):
     """Build a MagicMock Supabase client pre-configured for common operations."""
     sb = MagicMock()
 
@@ -58,6 +63,7 @@ def _make_mock_supabase(bucket_names: list[str] | None = None, inserted_row: dic
 # _ensure_bucket
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def test_ensure_bucket_creates_when_missing():
     with patch("tracemark_api.services.document_persistence.get_supabase") as mock_get:
         sb = _make_mock_supabase(bucket_names=[])
@@ -65,7 +71,9 @@ def test_ensure_bucket_creates_when_missing():
 
         _ensure_bucket()
 
-        sb.storage.create_bucket.assert_called_once_with(BUCKET, options={"public": False})
+        sb.storage.create_bucket.assert_called_once_with(
+            BUCKET, options={"public": False}
+        )
 
 
 def test_ensure_bucket_skips_when_exists():
@@ -81,6 +89,7 @@ def test_ensure_bucket_skips_when_exists():
 # ──────────────────────────────────────────────────────────────────────────────
 # persist_document
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def test_persist_document_returns_record():
     fake_buffer = b"%PDF-1.4 fake pdf content"
@@ -158,10 +167,21 @@ def test_persist_document_inserts_db_row():
 # get_documents_by_infringement
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def test_get_documents_by_infringement():
     fake_rows = [
-        {"id": "doc-1", "document_type": "dmca", "file_format": "pdf", "status": "draft"},
-        {"id": "doc-2", "document_type": "cease-desist", "file_format": "docx", "status": "sent"},
+        {
+            "id": "doc-1",
+            "document_type": "dmca",
+            "file_format": "pdf",
+            "status": "draft",
+        },
+        {
+            "id": "doc-2",
+            "document_type": "cease-desist",
+            "file_format": "docx",
+            "status": "sent",
+        },
     ]
 
     with patch("tracemark_api.services.document_persistence.get_supabase") as mock_get:
@@ -169,12 +189,7 @@ def test_get_documents_by_infringement():
         mock_get.return_value = sb
 
         (
-            sb.table.return_value
-            .select.return_value
-            .eq.return_value
-            .order.return_value
-            .execute.return_value
-            .data
+            sb.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value.data
         ) = fake_rows
 
         results = get_documents_by_infringement(FAKE_INFRINGEMENT_ID)
@@ -190,12 +205,7 @@ def test_get_documents_by_infringement_empty():
         mock_get.return_value = sb
 
         (
-            sb.table.return_value
-            .select.return_value
-            .eq.return_value
-            .order.return_value
-            .execute.return_value
-            .data
+            sb.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value.data
         ) = []
 
         results = get_documents_by_infringement(FAKE_INFRINGEMENT_ID)

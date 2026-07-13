@@ -3,6 +3,7 @@ Tests for the brand-relevance domain pre-filter and evidence scorer
 clone-only counting, both introduced to fix false positives like
 njctl.org being flagged when monitoring 'derila'.
 """
+
 import pytest
 from tracemark_api.services.marketplace import GoogleSERPAPI
 from tracemark_api.services.evidence_scorer import score_evidence
@@ -11,6 +12,7 @@ from tracemark_api.services.evidence_scorer import score_evidence
 # ---------------------------------------------------------------------------
 # 1. _add_link_to_domains brand-relevance pre-filter
 # ---------------------------------------------------------------------------
+
 
 class TestBrandRelevancePreFilter:
     """Verify _add_link_to_domains rejects unrelated domains and keeps brand-similar ones."""
@@ -28,7 +30,9 @@ class TestBrandRelevancePreFilter:
 
     def test_rejects_njctl_org(self):
         result = self._collect("https://njctl.org/some-page")
-        assert result == set(), "njctl.org should be rejected — no similarity to 'derila'"
+        assert result == set(), (
+            "njctl.org should be rejected — no similarity to 'derila'"
+        )
 
     def test_rejects_stackoverflow(self):
         result = self._collect("https://stackoverflow.com/questions/12345")
@@ -84,12 +88,15 @@ class TestBrandRelevancePreFilter:
             domains,
             brand_name=None,
         )
-        assert "njctl.org" in domains, "Without brand_name, all non-whitelisted domains should pass"
+        assert "njctl.org" in domains, (
+            "Without brand_name, all non-whitelisted domains should pass"
+        )
 
 
 # ---------------------------------------------------------------------------
 # 2. Evidence scorer counts only is_clone=True domains
 # ---------------------------------------------------------------------------
+
 
 class TestEvidenceScorerCloneFilter:
     """Verify that domains_score only counts confirmed clones."""
@@ -115,29 +122,39 @@ class TestEvidenceScorerCloneFilter:
         )
 
     def test_non_clone_domains_not_counted(self):
-        evidence = self._make_evidence([
-            {"name": "njctl.org", "is_clone": False, "score": 10},
-            {"name": "healthtips.net", "is_clone": False, "score": 5},
-        ])
+        evidence = self._make_evidence(
+            [
+                {"name": "njctl.org", "is_clone": False, "score": 10},
+                {"name": "healthtips.net", "is_clone": False, "score": 5},
+            ]
+        )
         result = score_evidence(evidence)
-        assert result.domains_score == 0.0, "Non-clone domains should contribute zero to domain score"
+        assert result.domains_score == 0.0, (
+            "Non-clone domains should contribute zero to domain score"
+        )
         assert result.is_empty is True, "All non-clone = effectively empty evidence"
 
     def test_clone_domains_counted(self):
-        evidence = self._make_evidence([
-            {"name": "buy-derila.com", "is_clone": True, "score": 90},
-            {"name": "derila-shop.store", "is_clone": True, "score": 85},
-        ])
+        evidence = self._make_evidence(
+            [
+                {"name": "buy-derila.com", "is_clone": True, "score": 90},
+                {"name": "derila-shop.store", "is_clone": True, "score": 85},
+            ]
+        )
         result = score_evidence(evidence)
-        assert result.domains_score > 0.0, "Clone domains should contribute to domain score"
+        assert result.domains_score > 0.0, (
+            "Clone domains should contribute to domain score"
+        )
         assert result.is_empty is False
 
     def test_mixed_domains_only_counts_clones(self):
-        evidence = self._make_evidence([
-            {"name": "buy-derila.com", "is_clone": True, "score": 90},
-            {"name": "njctl.org", "is_clone": False, "score": 10},
-            {"name": "healthtips.net", "is_clone": False, "score": 5},
-        ])
+        evidence = self._make_evidence(
+            [
+                {"name": "buy-derila.com", "is_clone": True, "score": 90},
+                {"name": "njctl.org", "is_clone": False, "score": 10},
+                {"name": "healthtips.net", "is_clone": False, "score": 5},
+            ]
+        )
         result = score_evidence(evidence)
         # Only 1 clone domain: 1/5 = 0.2, but domains_score is weighted at 20%
         assert result.domains_score == pytest.approx(0.2, abs=0.01)

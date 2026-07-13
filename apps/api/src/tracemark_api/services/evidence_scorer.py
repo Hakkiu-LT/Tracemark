@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 @dataclass
 class EvidenceScore:
     total_score: float
-    quality_label: str           # "STRONG" | "MODERATE" | "WEAK"
+    quality_label: str  # "STRONG" | "MODERATE" | "WEAK"
     marketplace_score: float
     ads_score: float
     domains_score: float
@@ -58,8 +58,15 @@ def score_evidence(evidence: "Evidence") -> EvidenceScore:
         for p in scanned:
             p_lower = p.lower()
             if p_lower in {
-                "amazon", "ebay", "alibaba", "etsy", "google_shopping",
-                "aliexpress", "shopify", "facebook_marketplace", "marketplace"
+                "amazon",
+                "ebay",
+                "alibaba",
+                "etsy",
+                "google_shopping",
+                "aliexpress",
+                "shopify",
+                "facebook_marketplace",
+                "marketplace",
             }:
                 categories_scanned.add("marketplaces")
             elif p_lower in {"google_ads", "meta_ads", "ads"}:
@@ -117,7 +124,9 @@ def score_evidence(evidence: "Evidence") -> EvidenceScore:
     else:
         label = "WEAK"
 
-    findings = _build_findings(evidence, mp_count, ads_count, domains_count, social_count)
+    findings = _build_findings(
+        evidence, mp_count, ads_count, domains_count, social_count
+    )
 
     return EvidenceScore(
         total_score=round(total, 3),
@@ -140,13 +149,17 @@ def _build_findings(
 ) -> list[str]:
     findings = []
     if mp_count > 0:
-        sellers = list({m.seller_name for m in evidence.marketplaces if m.seller_name})[:3]
+        sellers = list({m.seller_name for m in evidence.marketplaces if m.seller_name})[
+            :3
+        ]
         findings.append(
             f"{mp_count} suspicious marketplace listing(s) found"
             + (f" — sellers: {', '.join(sellers)}" if sellers else "")
         )
     if ads_count > 0:
-        findings.append(f"{ads_count} potentially infringing ad(s) detected on Google/Meta")
+        findings.append(
+            f"{ads_count} potentially infringing ad(s) detected on Google/Meta"
+        )
     if domains_count > 0:
         domains = [d.domain_name for d in evidence.domains[:3]]
         findings.append(

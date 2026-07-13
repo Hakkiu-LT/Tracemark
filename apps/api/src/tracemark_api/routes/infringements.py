@@ -44,7 +44,13 @@ def _get_user_organization_id(user_id: str) -> str | None:
     """Fetch the organization_id for a given user from the profiles table."""
     sb = get_supabase()
     try:
-        res = sb.table("profiles").select("organization_id").eq("id", user_id).maybe_single().execute()
+        res = (
+            sb.table("profiles")
+            .select("organization_id")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         return res.data.get("organization_id") if res.data else None
     except Exception:
         return None
@@ -55,7 +61,13 @@ def _get_user_persona(user_id: str, organization_id: str | None) -> str:
         return "brand_owner"
     sb = get_supabase()
     try:
-        res = sb.table("org_settings").select("persona").eq("organization_id", organization_id).maybe_single().execute()
+        res = (
+            sb.table("org_settings")
+            .select("persona")
+            .eq("organization_id", organization_id)
+            .maybe_single()
+            .execute()
+        )
         return res.data.get("persona", "brand_owner") if res.data else "brand_owner"
     except Exception:
         return "brand_owner"
@@ -78,7 +90,10 @@ def list_infringements(
 
     query = (
         sb.table("infringements")
-        .select("*, cases!inner(organization_id, user_id, status, updated_at)", count="exact")
+        .select(
+            "*, cases!inner(organization_id, user_id, status, updated_at)",
+            count="exact",
+        )
         .order("flagged_at", desc=True)
         .limit(limit)
         .offset(offset)
@@ -109,7 +124,7 @@ def list_infringements(
 
     # Flatten cases status and updated_at
     items = []
-    for row in (result.data or []):
+    for row in result.data or []:
         case_info = row.get("cases") or {}
         row["status"] = case_info.get("status") or row.get("status")
         row["case_updated_at"] = case_info.get("updated_at")
@@ -132,11 +147,12 @@ def get_infringement(
         sb.table("infringements")
         .select("*, cases(detection_region, status, updated_at)")
         .eq("id", infringement_id)
-        .maybe_single().execute()
+        .maybe_single()
+        .execute()
     )
     if not result.data:
         raise HTTPException(status_code=404, detail="Infringement not found")
-        
+
     data = result.data
     cases_data = data.get("cases") or {}
     data["detection_region"] = cases_data.get("detection_region")
@@ -161,9 +177,11 @@ def get_evidence(
     )
     return result.data or []
 
+
 class UpdateStatusRequest(BaseModel):
     status: str
     decline_reason: str | None = None
+
 
 @router.patch("/{infringement_id}/status", response_model=InfringementItem)
 def update_infringement_status(
@@ -173,12 +191,18 @@ def update_infringement_status(
 ) -> InfringementItem:
     """Update the status of an infringement."""
     sb = get_supabase()
-    
+
     # Verify it exists
-    existing = sb.table("infringements").select("id").eq("id", infringement_id).maybe_single().execute()
+    existing = (
+        sb.table("infringements")
+        .select("id")
+        .eq("id", infringement_id)
+        .maybe_single()
+        .execute()
+    )
     if not existing.data:
         raise HTTPException(status_code=404, detail="Infringement not found")
-        
+
     updates = {"status": payload.status}
     if payload.decline_reason is not None:
         updates["decline_reason"] = payload.decline_reason
@@ -201,12 +225,12 @@ def update_infringement_status(
             print(f"[Infringements] Decline reason fallback: {payload.decline_reason}")
         else:
             raise e
-    
+
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to update status")
-        
+
     updated_inf = result.data[0]
-    
+
     # Cascade status update to the linked case (trigger will set updated_at to now)
     case_id = updated_inf.get("case_id")
     if case_id:
@@ -222,9 +246,11 @@ def update_infringement_status(
                 .execute()
             )
             if case_res.data:
-                updated_inf["status"] = case_res.data[0].get("status") or updated_inf["status"]
+                updated_inf["status"] = (
+                    case_res.data[0].get("status") or updated_inf["status"]
+                )
                 updated_inf["case_updated_at"] = case_res.data[0].get("updated_at")
         except Exception as e_case:
             print(f"[Infringements] Failed to sync case status: {e_case}")
-            
+
     return updated_inf
