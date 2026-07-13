@@ -71,7 +71,6 @@ def save_decision(case_id: str, decision: Decision, score: EvidenceScore | None 
             "domains_score": score.domains_score,
         })
     result = sb.table("decisions").insert(payload).execute()
-    sb.table("cases").update({"status": "complete"}).eq("id", case_id).execute()
     return result.data[0]["id"]
 
 

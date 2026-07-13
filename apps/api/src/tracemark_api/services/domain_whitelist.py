@@ -11,7 +11,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 # Cache file local path inside the services directory
-CACHE_FILE = os.path.join(os.path.dirname(__file__), "tranco_top_100k.txt")
+CACHE_FILE = "/tmp/tranco_top_100k.txt"
 TRANCO_URL = "https://tranco-list.eu/top-1m.csv.zip"
 DEFAULT_LIMIT = 100000  # Whitelist the top 100,000 domains
 

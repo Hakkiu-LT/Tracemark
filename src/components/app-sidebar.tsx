@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard, Activity, Users as UsersIcon } from "lucide-react";
+import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard, Activity, Users as UsersIcon, HardDrive } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -33,6 +33,7 @@ export function AppSidebar() {
     ...(isAdmin ? [
       { title: "API Usage", url: "/api-usage", icon: Activity },
       { title: "Users", url: "/users", icon: UsersIcon },
+      { title: "Resource Usage", url: "/resources", icon: HardDrive },
     ] : []),
   ];
 

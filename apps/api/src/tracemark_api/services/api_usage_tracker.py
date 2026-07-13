@@ -18,16 +18,18 @@ class ApiDefinition:
     reset_period: str           # "midnight_utc", "monthly", "six_months"
     category: str               # "search" | "whois" | "ads" | "ai" | "scraper"
     requires_env_var: str | None = None  # env var that must be set to use this API
+    rpm_limit: int | None = None
+    tpm_limit: int | None = None
 
 API_REGISTRY: list[ApiDefinition] = [
-    ApiDefinition("google_serp",     "Google SERP Scraper",              10,   RESET_DAILY,   "search", "GOOGLE_SERP_API"),
+    ApiDefinition("google_serp",     "Google SERP Scraper",              250,  RESET_MONTHLY, "search", "GOOGLE_SERP_API"),
     ApiDefinition("searchcans",      "SearchCans API",                   16,   RESET_MONTHLY, "search", "SEARCHCANS_API"),
     ApiDefinition("whois",           "WHOIS Lookup",                     800,  RESET_DAILY,   "whois"),
     ApiDefinition("google_ads",      "Google Ads Transparency",          100,  RESET_DAILY,   "ads"),
     ApiDefinition("meta_ads",        "Meta Ad Library API",              200,  RESET_DAILY,   "ads",     "META_ADS_ACCESS_TOKEN"),
     ApiDefinition("firecrawl",       "Firecrawl JS Scraper",             400,  RESET_MONTHLY, "scraper", "FIRECRAWL_API_KEY"),
-    ApiDefinition("gemini_flash",    "Gemini API 2.5 Flash (Parsing)",   1500, RESET_DAILY,   "ai",      "GEMINI_API_KEY"),
-    ApiDefinition("gemini_pro",      "Gemini API 2.5 Pro (Decision)",    50,   RESET_DAILY,   "ai",      "GEMINI_API_KEY"),
+    ApiDefinition("gemini_flash",    "Gemini API 2.5 Flash (Parsing)",   20,   RESET_DAILY,   "ai",      "GEMINI_API_KEY", rpm_limit=5, tpm_limit=250000),
+    ApiDefinition("gemini_pro",      "Gemini API 2.5 Pro (Decision)",    20,   RESET_DAILY,   "ai",      "GEMINI_API_KEY", rpm_limit=5, tpm_limit=250000),
     ApiDefinition("html_scraper",    "HTML Scraper (Local)",             999_999,  RESET_DAILY,   "scraper"),
     ApiDefinition("image_hash",      "Perceptual Image Hash (Local)",    999_999,  RESET_DAILY,   "scraper"),
 ]
@@ -82,6 +84,7 @@ def parse_iso(iso_str: str) -> datetime:
 class ApiUsageTracker:
     def __init__(self):
         self._cache_counts: dict[str, int] = {}
+        self._recent_calls: dict[str, list[tuple[float, int]]] = {}
         self._cache_initialized = False
 
     def _ensure_cache(self) -> None:
@@ -154,12 +157,52 @@ class ApiUsageTracker:
         self._ensure_cache()
         return self._cache_counts.get(api_key, 0)
 
+    def _add_recent_call(self, api_key: str, tokens: int) -> None:
+        if api_key not in self._recent_calls:
+            self._recent_calls[api_key] = []
+        self._recent_calls[api_key].append((time.time(), tokens))
+        self._clean_recent_calls(api_key)
+
+    def _clean_recent_calls(self, api_key: str) -> None:
+        now = time.time()
+        if api_key in self._recent_calls:
+            self._recent_calls[api_key] = [
+                (t, tok) for t, tok in self._recent_calls[api_key]
+                if now - t < 60
+            ]
+
+    def check_rate_limits(self, api_key: str) -> tuple[bool, str | None, int | None]:
+        """
+        Checks RPM and TPM rate limits for a given api_key.
+        Returns (is_blocked, limit_type, limit_value).
+        """
+        defn = next((d for d in API_REGISTRY if d.key == api_key), None)
+        if not defn:
+            return False, None, None
+
+        self._clean_recent_calls(api_key)
+        recent = self._recent_calls.get(api_key, [])
+
+        if defn.rpm_limit is not None:
+            if len(recent) >= defn.rpm_limit:
+                return True, "rpm", defn.rpm_limit
+
+        if defn.tpm_limit is not None:
+            total_tokens = sum(tok for _, tok in recent)
+            if total_tokens >= defn.tpm_limit:
+                return True, "tpm", defn.tpm_limit
+
+        return False, None, None
+
     def is_blocked(self, api_key: str) -> bool:
         """True if used_count >= free_limit for this api_key."""
         defn = next((d for d in API_REGISTRY if d.key == api_key), None)
         if not defn:
             return False
-        return self.get_used_count(api_key) >= defn.free_limit
+        if self.get_used_count(api_key) >= defn.free_limit:
+            return True
+        blocked, _, _ = self.check_rate_limits(api_key)
+        return blocked
 
     def get_usage_summary(self) -> list[ApiUsageSummary]:
         """Returns one ApiUsageSummary per entry in API_REGISTRY."""
@@ -289,6 +332,7 @@ class ApiUsageTracker:
     def reset_all(self) -> None:
         """Clears all records. For testing/manual reset only."""
         self._cache_counts = {defn.key: 0 for defn in API_REGISTRY}
+        self._recent_calls = {}
         self._cache_initialized = True
 
         from tracemark_api.services.database import get_supabase
@@ -304,15 +348,41 @@ tracker = ApiUsageTracker()
 
 
 class ApiLimitError(Exception):
-    def __init__(self, api_key: str, label: str, limit: int, reset_period: str):
-        super().__init__(
-            f"Daily free limit reached for {label} ({limit} calls/{reset_period}). "
-            f"Blocking further calls until the next reset window."
-        )
+    def __init__(self, api_key: str, label: str, limit: int, reset_period: str, limit_type: str = "daily"):
+        if limit_type == "rpm":
+            msg = f"Rate limit reached for {label} ({limit} requests/minute). Please wait before trying again."
+        elif limit_type == "tpm":
+            msg = f"Token limit reached for {label} ({limit} tokens/minute). Please wait before trying again."
+        else:
+            msg = (
+                f"Daily free limit reached for {label} ({limit} calls/{reset_period}). "
+                f"Blocking further calls until the next reset window."
+            )
+        super().__init__(msg)
         self.api_key = api_key
         self.label = label
         self.limit = limit
         self.reset_period = reset_period
+        self.limit_type = limit_type
+
+
+def estimate_tokens_from_closure(fn: Callable) -> int:
+    try:
+        if hasattr(fn, "__closure__") and fn.__closure__:
+            max_len = 0
+            for cell in fn.__closure__:
+                try:
+                    val = cell.cell_contents
+                    if isinstance(val, str):
+                        max_len = max(max_len, len(val))
+                except Exception:
+                    continue
+            if max_len > 0:
+                # 4 characters per token + 500 token completion budget
+                return int(max_len / 4) + 500
+    except Exception:
+        pass
+    return 1000  # Default fallback
 
 
 def call_with_tracking(
@@ -324,24 +394,35 @@ def call_with_tracking(
 ) -> T:
     """
     Synchronous wrapper. Steps:
-    1. Check tracker.is_blocked(api_key) → raise ApiLimitError if blocked.
-    2. Record start time.
-    3. Call fn() inside try/except.
-    4. Record result via tracker.record(...) regardless of success/failure.
-    5. Re-raise original exception if fn() failed.
+    1. Estimate tokens.
+    2. Check tracker.is_blocked(api_key) → raise ApiLimitError if blocked.
+    3. Record start time.
+    4. Call fn() inside try/except.
+    5. Record result via tracker.record(...) regardless of success/failure.
+    6. Re-raise original exception if fn() failed.
     """
+    tokens = estimate_tokens_from_closure(fn)
+
     if tracker.is_blocked(api_key):
         defn = next((d for d in API_REGISTRY if d.key == api_key), None)
         label = defn.label if defn else api_key
         limit = defn.free_limit if defn else 0
         reset_period = defn.reset_period if defn else "midnight_utc"
-        raise ApiLimitError(api_key, label, limit, reset_period)
+        raise ApiLimitError(api_key, label, limit, reset_period, "daily")
+
+    blocked, limit_type, limit_val = tracker.check_rate_limits(api_key)
+    if blocked:
+        defn = next((d for d in API_REGISTRY if d.key == api_key), None)
+        label = defn.label if defn else api_key
+        reset_period = defn.reset_period if defn else "midnight_utc"
+        raise ApiLimitError(api_key, label, limit_val or 0, reset_period, limit_type)
 
     start_time = time.time()
     called_at = datetime.now(timezone.utc).isoformat()
     try:
         res = fn()
         latency_ms = int((time.time() - start_time) * 1000)
+        tracker._add_recent_call(api_key, tokens)
         tracker.record(UsageRecord(
             api_key=api_key,
             caller_id=caller_id,
@@ -374,18 +455,28 @@ async def async_call_with_tracking(
     credits_used: int = 1,
 ) -> T:
     """Async variant of call_with_tracking for use with async FastAPI routes."""
+    tokens = estimate_tokens_from_closure(fn)
+
     if tracker.is_blocked(api_key):
         defn = next((d for d in API_REGISTRY if d.key == api_key), None)
         label = defn.label if defn else api_key
         limit = defn.free_limit if defn else 0
         reset_period = defn.reset_period if defn else "midnight_utc"
-        raise ApiLimitError(api_key, label, limit, reset_period)
+        raise ApiLimitError(api_key, label, limit, reset_period, "daily")
+
+    blocked, limit_type, limit_val = tracker.check_rate_limits(api_key)
+    if blocked:
+        defn = next((d for d in API_REGISTRY if d.key == api_key), None)
+        label = defn.label if defn else api_key
+        reset_period = defn.reset_period if defn else "midnight_utc"
+        raise ApiLimitError(api_key, label, limit_val or 0, reset_period, limit_type)
 
     start_time = time.time()
     called_at = datetime.now(timezone.utc).isoformat()
     try:
         res = await fn()
         latency_ms = int((time.time() - start_time) * 1000)
+        tracker._add_recent_call(api_key, tokens)
         tracker.record(UsageRecord(
             api_key=api_key,
             caller_id=caller_id,

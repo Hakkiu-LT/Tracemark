@@ -31,7 +31,7 @@ import {
 } from "@/lib/store";
 import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil, Globe, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
-import { checkBrandFullPipeline } from "@/lib/api";
+import { checkBrandFullPipeline, apiFetch } from "@/lib/api";
 import { PLATFORMS } from "@/lib/platforms";
 import { REGIONS, COUNTRY_BY_CODE } from "@/lib/regions";
 
@@ -300,6 +300,14 @@ function MonitoringPage() {
 
     // Toggle first so UI reflects
     toggleMarkStatus(id);
+
+    // Signal resource monitor: start when first mark goes active, stop when last goes on_hold
+    const updatedMarks = useStore.getState().marks;
+    const activeCount = updatedMarks.filter((m) => m.status === "active").length;
+    apiFetch("/admin/resources/status", {
+      method: "POST",
+      body: JSON.stringify({ active: activeCount > 0 }),
+    }).catch(() => {}); // fire-and-forget, non-critical
 
     // If it was on_hold, it is now active -> trigger scan
     if (mark.status === "on_hold") {
