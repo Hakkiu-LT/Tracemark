@@ -216,7 +216,8 @@ async def check_brand(
     payload: CheckBrandRequest,
     profile: CurrentProfile = Depends(get_current_profile),
 ):
-    """Full pipeline: scrape evidence → AI decision → DMCA reports → persist to Supabase."""
+    """Full pipeline: scrape evidence → AI decision → DMCA reports → persist to Supabase.
+    A case is only created in the database if copycats are actually found."""
     caller_id = profile.email or profile.id or "system"
 
     # Enforce plan entitlements before spending any scraping budget.
@@ -224,31 +225,51 @@ async def check_brand(
     _reject_if_brand_locked(profile.organization_id, payload.brand_name)
 
     organization_id = profile.organization_id
-
-    # Use the first target region as the detection region if available, otherwise default to US
     detection_region = payload.target_regions[0] if payload.target_regions else "US"
-    case_id = create_case(
-        brand_name=payload.brand_name,
-        organization_id=organization_id,
-        detection_region=detection_region,
-        target_regions=payload.target_regions,
-        client_id=payload.client_id,
-        user_id=profile.id,
-    )
 
     try:
-        update_case_status(case_id, "analyzing")
+        # --- Step 1: scrape first, before touching the database ---
         evidence = await scrape_evidence(
             payload.brand_name,
             payload.platforms,
             payload.official_advertisers or None,
             caller_id=caller_id,
         )
+
+        has_evidence = (
+            len(evidence.marketplaces) > 0
+            or len(evidence.ads) > 0
+            or len(evidence.domains) > 0
+            or len(evidence.social) > 0
+        )
+
+        # --- Step 2: if nothing found, return early — no DB writes ---
+        if not has_evidence:
+            return {
+                "case_id": None,
+                "no_findings": True,
+                "decision": None,
+                "evidence": evidence.model_dump(),
+                "takedown_reports": [],
+                "detection_region": detection_region,
+            }
+
+        # --- Step 3: copycats found → create the case now ---
+        case_id = create_case(
+            brand_name=payload.brand_name,
+            organization_id=organization_id,
+            detection_region=detection_region,
+            target_regions=payload.target_regions,
+            client_id=payload.client_id,
+            user_id=profile.id,
+        )
+
         save_evidence(case_id, evidence)
         try:
             persist_all_infringements(case_id, evidence)
         except Exception as persist_err:
             print(f"[warn] persist_all_infringements failed for {case_id}: {persist_err}")
+
         decision = make_decision(evidence)
         save_decision(case_id, decision)
         reports = generate_takedown_reports(
@@ -259,13 +280,13 @@ async def check_brand(
         )
         return {
             "case_id": case_id,
+            "no_findings": False,
             "decision": decision.model_dump(),
             "evidence": evidence.model_dump(),
             "takedown_reports": [r.model_dump() for r in reports],
             "detection_region": detection_region,
         }
     except Exception as e:
-        update_case_status(case_id, "error")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -273,15 +294,22 @@ class ExchangeMetaTokenRequest(BaseModel):
     short_lived_token: str
 
 
-from tracemark_api.routes.admin import verify_admin
-
 @router.post("/exchange-meta-token")
-def exchange_meta_token(payload: ExchangeMetaTokenRequest, admin_user=Depends(verify_admin)):
+def exchange_meta_token(payload: ExchangeMetaTokenRequest, current_user=Depends(get_current_user)):
     """
     Exchanges a short-lived user token for a long-lived one,
     updates the .env file locally, and returns the result.
     Restricted to admin users only.
     """
+    import os
+    admin_emails = {
+        e.strip().lower()
+        for e in os.environ.get("ADMIN_EMAILS", "").split(",")
+        if e.strip()
+    }
+    if admin_emails and (current_user.email or "").lower() not in admin_emails:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin access required.")
     try:
         result = exchange_short_lived_meta_token(payload.short_lived_token)
         new_token = result.get("access_token")

@@ -121,7 +121,7 @@ export const useStore = create<State>()(
         set((s) => ({
           marks: [
             ...s.marks,
-            { ...m, id: `m${Date.now()}`, createdAt: new Date().toISOString().slice(0, 10), lastScan: "just now", status: "active" },
+            { ...m, id: `m${Date.now()}`, createdAt: new Date().toISOString().slice(0, 10), lastScan: "never" },
           ],
         })),
       toggleMarkStatus: (id) =>

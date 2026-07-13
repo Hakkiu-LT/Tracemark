@@ -19,9 +19,15 @@ COPY src/ ./src/
 # Run a quick final install to map the actual source code
 RUN uv pip install --system --no-cache .
 
+# Install system dependencies for Playwright (must run as root)
+RUN python -m playwright install-deps chromium
+
 # Run as non-root user to reduce blast radius if the container is compromised
 RUN adduser --disabled-password --gecos "" appuser
 USER appuser
+
+# Install Playwright browser binaries under appuser's home directory
+RUN python -m playwright install chromium
 
 EXPOSE 8000
 

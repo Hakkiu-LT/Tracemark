@@ -1128,7 +1128,7 @@ class GoogleSERPAPI:
 
     def check_serp_domains(self, brand_name: str, caller_id: str = "system", country: str = "US") -> list[dict]:
         import whois
-        domains = self.search(brand_name, caller_id=caller_id, country=country)
+        domains = self.search(brand_name, max_pages=5, caller_id=caller_id, country=country)
         
         # Fallback if Google blocked us and we got no domains:
         if not domains:
@@ -1139,7 +1139,7 @@ class GoogleSERPAPI:
             domains = []
             
         results = []
-        for domain in list(domains)[:5]:
+        for domain in list(domains):
             try:
                 w = call_with_tracking(
                     "whois", caller_id, "/check-brand",
