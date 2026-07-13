@@ -275,7 +275,7 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
         </div>
 
         {/* Feed List Container */}
-        <div className="rounded-lg border bg-card text-card-foreground">
+        <div className="rounded-lg border bg-card text-card-foreground max-h-[520px] overflow-y-auto">
           {isLoading ? (
             <div className="divide-y">
               {[1, 2, 3, 4].map((i) => (

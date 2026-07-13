@@ -254,7 +254,7 @@ function MonitoringScanResultPage() {
       {/* Content */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className={`xl:col-span-3 ${ANIM}`} style={animStyle(160)}>
-          <DecisionCard decision={result.decision} />
+          <DecisionCard decision={result.decision!} />
         </div>
         <div className={`xl:col-span-2 ${ANIM}`} style={animStyle(260)}>
           <EvidenceSection
@@ -263,7 +263,7 @@ function MonitoringScanResultPage() {
           />
         </div>
         <div className={ANIM} style={animStyle(320)}>
-          <KeyFindings decision={result.decision} />
+          <KeyFindings decision={result.decision!} />
         </div>
       </div>
 

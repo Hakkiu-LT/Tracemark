@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useStore } from "@/lib/store";
 
 // Lucide Icons
-import { Users as UsersIcon, Search, CheckCircle2, User, Loader2, ArrowUpRight, ShieldAlert, AlertCircle } from "lucide-react";
+import { Users as UsersIcon, User, Loader2, ShieldAlert, AlertCircle, Building2, Scale } from "lucide-react";
 
 // Shadcn/UI Components
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -33,16 +34,19 @@ export interface UserProfile {
   organization_id: string | null;
   plan: string;
   is_admin: boolean;
+  persona: string | null;
 }
 
 export function UsersPage() {
   const { user, profile } = useAuth();
+  const setPersona = useStore((s) => s.setPersona);
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<"all" | "paying" | "free">("all");
   
   // Dialog state
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>("");
+  const [selectedWorkspace, setSelectedWorkspace] = useState<string>("brand_owner");
 
   const isAdmin = !!profile?.is_admin;
 
@@ -61,6 +65,21 @@ export function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       setEditingUser(null);
+    },
+  });
+
+  const updateWorkspaceMutation = useMutation({
+    mutationFn: ({ userId, persona }: { userId: string; persona: string }) =>
+      apiFetch<{ success: boolean; persona: string }>(`/admin/users/${userId}/workspace`, {
+        method: "PUT",
+        body: JSON.stringify({ persona }),
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      // If the admin changed their own workspace, update the store immediately
+      if (variables.userId === user?.id) {
+        setPersona(variables.persona as any);
+      }
     },
   });
 
@@ -86,11 +105,16 @@ export function UsersPage() {
   const handleEditClick = (u: UserProfile) => {
     setEditingUser(u);
     setSelectedPlan(u.plan);
+    setSelectedWorkspace(u.persona ?? "brand_owner");
   };
 
   const handleSavePlan = () => {
     if (!editingUser || !selectedPlan) return;
     updatePlanMutation.mutate({ userId: editingUser.id, plan: selectedPlan });
+    // Save workspace if org exists and changed
+    if (editingUser.organization_id && selectedWorkspace !== (editingUser.persona ?? "brand_owner")) {
+      updateWorkspaceMutation.mutate({ userId: editingUser.id, persona: selectedWorkspace });
+    }
   };
 
   return (
@@ -103,7 +127,7 @@ export function UsersPage() {
             User Management
           </h1>
           <p className="text-muted-foreground">
-            View registered users, filter paying customers, and modify subscription plans.
+            View registered users, manage subscription plans and workspace types.
           </p>
         </div>
       </div>
@@ -165,6 +189,7 @@ export function UsersPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Plan</TableHead>
+                    <TableHead>Workspace</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -195,6 +220,17 @@ export function UsersPage() {
                         {u.is_admin && (
                           <Badge variant="outline" className="ml-2 border-accent/30 text-accent bg-accent/5">
                             Admin
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {u.persona === "law_firm" ? (
+                          <Badge variant="outline" className="gap-1 border-indigo-500/30 text-indigo-400 bg-indigo-500/5">
+                            <Scale className="h-3 w-3" /> Law Firm
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 border-teal-500/30 text-teal-400 bg-teal-500/5">
+                            <Building2 className="h-3 w-3" /> Brand Owner
                           </Badge>
                         )}
                       </TableCell>
@@ -242,6 +278,29 @@ export function UsersPage() {
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="workspace" className="text-sm font-medium">Workspace Type</label>
+              <Select value={selectedWorkspace} onValueChange={setSelectedWorkspace} disabled={!editingUser?.organization_id}>
+                <SelectTrigger id="workspace" className="w-full">
+                  <SelectValue placeholder="Select workspace" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="brand_owner">
+                    <span className="flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5" /> Brand Owner
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="law_firm">
+                    <span className="flex items-center gap-2">
+                      <Scale className="h-3.5 w-3.5" /> Law Firm
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {!editingUser?.organization_id && (
+                <p className="text-xs text-muted-foreground">User has no organization assigned — workspace cannot be changed.</p>
+              )}
             </div>
           </div>
           <DialogFooter>

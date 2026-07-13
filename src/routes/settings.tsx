@@ -221,7 +221,7 @@ export function SettingsPage() {
     if (path.endsWith("/notifications")) return "notifications";
     if (path.endsWith("/billing")) return "billing";
     if (path.endsWith("/clients")) return "clients";
-    return "persona";
+    return "profile";
   };
 
   const [activeTab, setActiveTab] = useState(() => getActiveTab(location.pathname));
@@ -231,9 +231,7 @@ export function SettingsPage() {
   }, [location.pathname]);
 
   function handleTabChange(value: string) {
-    if (value === "persona") {
-      navigate({ to: "/settings" });
-    } else if (value === "profile") {
+    if (value === "profile") {
       navigate({ to: "/settings/profile" });
     } else if (value === "notifications") {
       navigate({ to: "/settings/notifications" });
@@ -345,40 +343,12 @@ export function SettingsPage() {
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
-          <TabsTrigger value="persona">Workspace</TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           {persona === "law_firm" && <TabsTrigger value="clients">Clients</TabsTrigger>}
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="api">API & Webhooks</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="persona" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Workspace mode</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Tailors navigation, dashboards, and case workflows to your role.
-              </p>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <PersonaCard
-                active={persona === "brand_owner"}
-                onClick={() => switchPersona("brand_owner")}
-                icon={Building2}
-                title="Brand Owner"
-                desc="Single-brand workspace for e-commerce and SaaS teams protecting their own marks."
-              />
-              <PersonaCard
-                active={persona === "law_firm"}
-                onClick={() => switchPersona("law_firm")}
-                icon={Scale}
-                title="Law Firm"
-                desc="Multi-tenant workspace for managing many client brands with per-client billing."
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="profile" className="mt-4">
           <Card className="border-border/40 bg-card/60 backdrop-blur-md">
