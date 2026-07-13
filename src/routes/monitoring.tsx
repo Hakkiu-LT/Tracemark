@@ -172,6 +172,8 @@ function MonitoringPage() {
         {
           brand_name: mark.brandName,
           platforms: apiPlatforms.length > 0 ? apiPlatforms : undefined,
+          target_regions: mark.targetRegions,
+          client_id: mark.clientId || undefined,
         },
         controller.signal,
       );
@@ -179,9 +181,11 @@ function MonitoringPage() {
       activeScansRef.current.delete(id);
 
       const hasRisk =
-        result.decision.risk_level === "HIGH" || result.decision.risk_level === "MEDIUM";
+        result.decision &&
+        (result.decision.risk_level === "HIGH" || result.decision.risk_level === "MEDIUM");
       if (
         hasRisk &&
+        result.decision &&
         (result.evidence.marketplaces.length > 0 ||
           result.evidence.domains.length > 0 ||
           result.evidence.ads.length > 0)
@@ -248,7 +252,9 @@ function MonitoringPage() {
           price,
         });
 
-        setScanResult(result.case_id, result);
+        if (result.case_id) {
+          setScanResult(result.case_id, result);
+        }
         toast.success(`Copycat found for ${mark.brandName}! New case created.`, {
           id: toastId,
           duration: 1000,

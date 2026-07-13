@@ -68,8 +68,9 @@ export interface TakedownReport {
 }
 
 export interface CheckBrandResponse {
-  case_id: string;
-  decision: DecisionResponse;
+  case_id: string | null;
+  no_findings?: boolean;
+  decision: DecisionResponse | null;
   evidence: EvidenceResponse;
   takedown_reports: TakedownReport[];
   detection_region?: string | null;
