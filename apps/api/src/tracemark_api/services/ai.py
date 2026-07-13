@@ -33,44 +33,95 @@ def _sanitize_brand_name(name: str) -> str:
 # Pydantic Models
 # ---------------------------------------------------------------------------
 
+
 class MarketplaceEvidence(BaseModel):
-    platform: str = PydanticField(description="The marketplace name (e.g. Amazon, eBay, AliExpress).")
+    platform: str = PydanticField(
+        description="The marketplace name (e.g. Amazon, eBay, AliExpress)."
+    )
     seller_name: str = PydanticField(description="The name of the merchant/seller.")
     listing_url: str = PydanticField(description="Direct URL to the listing.")
-    price: str | None = PydanticField(default=None, description="The listed price of the product.")
-    screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL if available.")
-    detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
+    price: str | None = PydanticField(
+        default=None, description="The listed price of the product."
+    )
+    screenshot_url: str | None = PydanticField(
+        default=None, description="Screenshot URL if available."
+    )
+    detection_region: str | None = PydanticField(
+        default=None,
+        description="The 2-letter ISO country code where this evidence was detected.",
+    )
 
 
 class AdEvidence(BaseModel):
-    platform: str = PydanticField(description="The advertising platform (e.g. Google Ads, Facebook Ads).")
+    platform: str = PydanticField(
+        description="The advertising platform (e.g. Google Ads, Facebook Ads)."
+    )
     ad_copy: str = PydanticField(description="The text content or headline of the ad.")
-    destination_url: str = PydanticField(description="The destination URL the ad directs to.")
-    screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL of the ad.")
-    detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
+    destination_url: str = PydanticField(
+        description="The destination URL the ad directs to."
+    )
+    screenshot_url: str | None = PydanticField(
+        default=None, description="Screenshot URL of the ad."
+    )
+    detection_region: str | None = PydanticField(
+        default=None,
+        description="The 2-letter ISO country code where this evidence was detected.",
+    )
 
 
 class DomainEvidence(BaseModel):
     domain_name: str = PydanticField(description="The registered domain name.")
-    registrar: str | None = PydanticField(default=None, description="The registrar of the domain.")
-    is_clone: bool = PydanticField(description="Whether the site appears to be a clone/impersonator of the brand.")
-    similarity_score: int = PydanticField(description="Visual/content similarity percentage from 0 to 100.")
-    screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL of the clone domain.")
-    creation_date: str | None = PydanticField(default=None, description="Domain registration creation date.")
-    expiry_date: str | None = PydanticField(default=None, description="Domain registration expiration date.")
-    name_servers: list[str] | None = PydanticField(default=None, description="Active name servers routing the domain.")
-    registrant_organization: str | None = PydanticField(default=None, description="Registrant organization name if available.")
-    registrant_country: str | None = PydanticField(default=None, description="Registrant organization or contact country.")
-    registrant_email: str | None = PydanticField(default=None, description="Registrant or registrar abuse email address.")
-    detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
+    registrar: str | None = PydanticField(
+        default=None, description="The registrar of the domain."
+    )
+    is_clone: bool = PydanticField(
+        description="Whether the site appears to be a clone/impersonator of the brand."
+    )
+    similarity_score: int = PydanticField(
+        description="Visual/content similarity percentage from 0 to 100."
+    )
+    screenshot_url: str | None = PydanticField(
+        default=None, description="Screenshot URL of the clone domain."
+    )
+    creation_date: str | None = PydanticField(
+        default=None, description="Domain registration creation date."
+    )
+    expiry_date: str | None = PydanticField(
+        default=None, description="Domain registration expiration date."
+    )
+    name_servers: list[str] | None = PydanticField(
+        default=None, description="Active name servers routing the domain."
+    )
+    registrant_organization: str | None = PydanticField(
+        default=None, description="Registrant organization name if available."
+    )
+    registrant_country: str | None = PydanticField(
+        default=None, description="Registrant organization or contact country."
+    )
+    registrant_email: str | None = PydanticField(
+        default=None, description="Registrant or registrar abuse email address."
+    )
+    detection_region: str | None = PydanticField(
+        default=None,
+        description="The 2-letter ISO country code where this evidence was detected.",
+    )
 
 
 class SocialEvidence(BaseModel):
-    platform: str = PydanticField(description="The social media platform (e.g. Instagram, TikTok, Facebook).")
+    platform: str = PydanticField(
+        description="The social media platform (e.g. Instagram, TikTok, Facebook)."
+    )
     handle: str = PydanticField(description="The social account handle.")
-    post_url: str | None = PydanticField(default=None, description="Direct URL to a specific infringing post.")
-    follower_count: int | None = PydanticField(default=None, description="Follower count of the account.")
-    detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
+    post_url: str | None = PydanticField(
+        default=None, description="Direct URL to a specific infringing post."
+    )
+    follower_count: int | None = PydanticField(
+        default=None, description="Follower count of the account."
+    )
+    detection_region: str | None = PydanticField(
+        default=None,
+        description="The 2-letter ISO country code where this evidence was detected.",
+    )
 
 
 class Evidence(BaseModel):
@@ -79,21 +130,37 @@ class Evidence(BaseModel):
     domains: list[DomainEvidence] = PydanticField(default_factory=list)
     social: list[SocialEvidence] = PydanticField(default_factory=list)
     blocked_apis: list[str] = PydanticField(default_factory=list)
-    scanned_platforms: list[str] = PydanticField(default_factory=list, description="List of platform names that were actually scanned/monitored.")
+    scanned_platforms: list[str] = PydanticField(
+        default_factory=list,
+        description="List of platform names that were actually scanned/monitored.",
+    )
     timestamp: datetime = PydanticField(default_factory=datetime.now)
 
 
 class Decision(BaseModel):
-    risk_level: Literal["HIGH", "MEDIUM", "LOW"] = PydanticField(description="Risk level of the infringement.")
-    recommended_action: Literal["TAKEDOWN", "MONITOR", "DISMISS"] = PydanticField(description="Recommended enforcement action.")
-    case_summary: str = PydanticField(description="2-3 sentence AI-generated summary of findings.")
-    confidence_score: float = PydanticField(ge=0.0, le=1.0, description="Agent confidence in this decision.")
-    evidence_quality: Literal["STRONG", "MODERATE", "WEAK"] = PydanticField(default="MODERATE")
-    key_findings: list[str] = PydanticField(default_factory=list, description="Bullet list of key evidence points.")
+    risk_level: Literal["HIGH", "MEDIUM", "LOW"] = PydanticField(
+        description="Risk level of the infringement."
+    )
+    recommended_action: Literal["TAKEDOWN", "MONITOR", "DISMISS"] = PydanticField(
+        description="Recommended enforcement action."
+    )
+    case_summary: str = PydanticField(
+        description="2-3 sentence AI-generated summary of findings."
+    )
+    confidence_score: float = PydanticField(
+        ge=0.0, le=1.0, description="Agent confidence in this decision."
+    )
+    evidence_quality: Literal["STRONG", "MODERATE", "WEAK"] = PydanticField(
+        default="MODERATE"
+    )
+    key_findings: list[str] = PydanticField(
+        default_factory=list, description="Bullet list of key evidence points."
+    )
 
 
 class AIAnalysis(BaseModel):
     """Structured AI analysis of a single evidence screenshot."""
+
     brand_match_detected: bool = PydanticField(
         description="Whether the brand name or logo was detected in the image."
     )
@@ -106,7 +173,8 @@ class AIAnalysis(BaseModel):
         description="Specific indicators of counterfeiting (e.g., price anomaly, poor packaging).",
     )
     visual_similarity_score: float = PydanticField(
-        ge=0.0, le=1.0,
+        ge=0.0,
+        le=1.0,
         default=0.0,
         description="How visually similar the product looks to the authentic brand (0.0–1.0).",
     )
@@ -130,6 +198,7 @@ class AnalysisResult:
 # Graph 1: URL analysis (used by /analyze endpoint)
 # ---------------------------------------------------------------------------
 
+
 class AnalysisAgentState(TypedDict):
     url: str
     scraped_content: str
@@ -143,7 +212,10 @@ def build_agent_graph():
 
     def gather_evidence(state: AnalysisAgentState) -> dict:
         if not api_key:
-            is_mock_threat = "threat" in state["scraped_content"].lower() or "suspicious" in state["scraped_content"].lower()
+            is_mock_threat = (
+                "threat" in state["scraped_content"].lower()
+                or "suspicious" in state["scraped_content"].lower()
+            )
             mock_evidence = Evidence(
                 marketplaces=[
                     MarketplaceEvidence(
@@ -152,11 +224,22 @@ def build_agent_graph():
                         listing_url=state["url"],
                         price="$22.40",
                     )
-                ] if is_mock_threat else [],
+                ]
+                if is_mock_threat
+                else [],
                 ads=[],
                 domains=[],
                 social=[],
-                scanned_platforms=["amazon", "ebay", "aliexpress", "google_ads", "meta_ads", "domains", "tiktok", "instagram"],
+                scanned_platforms=[
+                    "amazon",
+                    "ebay",
+                    "aliexpress",
+                    "google_ads",
+                    "meta_ads",
+                    "domains",
+                    "tiktok",
+                    "instagram",
+                ],
             )
             return {"evidence": mock_evidence}
 
@@ -174,19 +257,30 @@ def build_agent_graph():
             "Extract the evidence and output the structured result."
         )
         from tracemark_api.services.api_usage_tracker import call_with_tracking
-        return {"evidence": call_with_tracking("gemini_flash", "system", "/analyze", lambda: model.invoke(prompt))}
+
+        return {
+            "evidence": call_with_tracking(
+                "gemini_flash", "system", "/analyze", lambda: model.invoke(prompt)
+            )
+        }
 
     def make_decision_node(state: AnalysisAgentState) -> dict:
         if not api_key:
             has_evidence = bool(state["evidence"] and state["evidence"].marketplaces)
-            return {"decision": Decision(
-                risk_level="HIGH" if has_evidence else "LOW",
-                recommended_action="TAKEDOWN" if has_evidence else "DISMISS",
-                case_summary=f"Cloned listing found for URL: {state['url']}" if has_evidence else "No threats found.",
-                confidence_score=0.9 if has_evidence else 0.1,
-                evidence_quality="STRONG" if has_evidence else "WEAK",
-                key_findings=[f"Found listing at {state['url']}"] if has_evidence else [],
-            )}
+            return {
+                "decision": Decision(
+                    risk_level="HIGH" if has_evidence else "LOW",
+                    recommended_action="TAKEDOWN" if has_evidence else "DISMISS",
+                    case_summary=f"Cloned listing found for URL: {state['url']}"
+                    if has_evidence
+                    else "No threats found.",
+                    confidence_score=0.9 if has_evidence else 0.1,
+                    evidence_quality="STRONG" if has_evidence else "WEAK",
+                    key_findings=[f"Found listing at {state['url']}"]
+                    if has_evidence
+                    else [],
+                )
+            }
 
         prompt = (
             "You are a senior brand safety lawyer. Review the evidence to make a final enforcement decision.\n\n"
@@ -196,22 +290,32 @@ def build_agent_graph():
             "Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings."
         )
         from tracemark_api.services.api_usage_tracker import call_with_tracking
+
         try:
             model = ChatGoogleGenerativeAI(
                 model="gemini-2.5-pro",
                 temperature=0.0,
                 google_api_key=api_key,
             ).with_structured_output(Decision)
-            decision = call_with_tracking("gemini_pro", "system", "/analyze", lambda: model.invoke(prompt))
+            decision = call_with_tracking(
+                "gemini_pro", "system", "/analyze", lambda: model.invoke(prompt)
+            )
         except Exception as e:
-            print(f"[AI Agent] gemini-2.5-pro decision failed or limit reached: {e}. Falling back to gemini-2.5-flash.")
+            print(
+                f"[AI Agent] gemini-2.5-pro decision failed or limit reached: {e}. Falling back to gemini-2.5-flash."
+            )
             try:
                 model_flash = ChatGoogleGenerativeAI(
                     model="gemini-2.5-flash",
                     temperature=0.0,
                     google_api_key=api_key,
                 ).with_structured_output(Decision)
-                decision = call_with_tracking("gemini_flash", "system", "/analyze", lambda: model_flash.invoke(prompt))
+                decision = call_with_tracking(
+                    "gemini_flash",
+                    "system",
+                    "/analyze",
+                    lambda: model_flash.invoke(prompt),
+                )
             except Exception as flash_e:
                 print(f"[AI Agent] Fallback to gemini-2.5-flash also failed: {flash_e}")
                 raise flash_e
@@ -227,12 +331,14 @@ def build_agent_graph():
 
 def analyze_listing(payload: dict) -> AnalysisResult:
     graph = build_agent_graph()
-    final_state = graph.invoke({
-        "url": payload.get("url", ""),
-        "scraped_content": payload.get("markdown", ""),
-        "evidence": None,
-        "decision": None,
-    })
+    final_state = graph.invoke(
+        {
+            "url": payload.get("url", ""),
+            "scraped_content": payload.get("markdown", ""),
+            "evidence": None,
+            "decision": None,
+        }
+    )
     return AnalysisResult(
         evidence=final_state.get("evidence"),
         decision=final_state.get("decision"),
@@ -242,6 +348,7 @@ def analyze_listing(payload: dict) -> AnalysisResult:
 # ---------------------------------------------------------------------------
 # Graph 2: Standalone decision agent (used by /make-decision and /check-brand)
 # ---------------------------------------------------------------------------
+
 
 class DecisionAgentState(TypedDict):
     evidence: Evidence
@@ -262,7 +369,9 @@ def _analyze_evidence_node(state: DecisionAgentState) -> DecisionAgentState:
     api_key = os.environ.get("GEMINI_API_KEY")
 
     if not api_key:
-        state["analysis_summary"] = f"Mock analysis: {len(evidence.marketplaces)} marketplace listing(s) found."
+        state["analysis_summary"] = (
+            f"Mock analysis: {len(evidence.marketplaces)} marketplace listing(s) found."
+        )
         return state
 
     model = ChatGoogleGenerativeAI(
@@ -284,7 +393,10 @@ Evidence:
 Return a concise factual summary (3-5 sentences) of what was found.
 """
     from tracemark_api.services.api_usage_tracker import call_with_tracking
-    response = call_with_tracking("gemini_flash", "system", "/check-brand", lambda: model.invoke(prompt))
+
+    response = call_with_tracking(
+        "gemini_flash", "system", "/check-brand", lambda: model.invoke(prompt)
+    )
     state["analysis_summary"] = response.content
     return state
 
@@ -340,7 +452,7 @@ PRE-COMPUTED EVIDENCE QUALITY SCORE: {score.total_score:.2f}/1.0 ({score.quality
 - Social media score: {score.social_score:.2f}
 
 KEY FINDINGS (pre-extracted):
-{chr(10).join(f'• {f}' for f in score.top_findings)}
+{chr(10).join(f"• {f}" for f in score.top_findings)}
 
 RAW COUNTS:
 - Marketplace listings: {len(evidence.marketplaces)}
@@ -361,23 +473,36 @@ DECISION GUIDELINES:
 
 Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings.
 """
-    from tracemark_api.services.api_usage_tracker import call_with_tracking, ApiLimitError
+    from tracemark_api.services.api_usage_tracker import (
+        call_with_tracking,
+        ApiLimitError,
+    )
+
     try:
         model = ChatGoogleGenerativeAI(
             model="gemini-2.5-pro",
             temperature=0.0,
             google_api_key=api_key,
         ).with_structured_output(Decision)
-        state["decision"] = call_with_tracking("gemini_pro", "system", "/check-brand", lambda: model.invoke(prompt))
+        state["decision"] = call_with_tracking(
+            "gemini_pro", "system", "/check-brand", lambda: model.invoke(prompt)
+        )
     except Exception as e:
-        print(f"[AI Decision Node] gemini-2.5-pro failed or limit reached: {e}. Falling back to gemini-2.5-flash.")
+        print(
+            f"[AI Decision Node] gemini-2.5-pro failed or limit reached: {e}. Falling back to gemini-2.5-flash."
+        )
         try:
             model_flash = ChatGoogleGenerativeAI(
                 model="gemini-2.5-flash",
                 temperature=0.0,
                 google_api_key=api_key,
             ).with_structured_output(Decision)
-            state["decision"] = call_with_tracking("gemini_flash", "system", "/check-brand", lambda: model_flash.invoke(prompt))
+            state["decision"] = call_with_tracking(
+                "gemini_flash",
+                "system",
+                "/check-brand",
+                lambda: model_flash.invoke(prompt),
+            )
         except ApiLimitError as e_limit:
             state["error"] = str(e_limit)
             state["decision"] = Decision(
@@ -390,6 +515,7 @@ Return risk_level, recommended_action, case_summary, confidence_score, evidence_
             )
         except Exception as e_flash:
             import traceback
+
             traceback.print_exc()
             state["error"] = str(e_flash)
             state["decision"] = Decision(
@@ -415,18 +541,21 @@ def build_decision_graph():
 
 def make_decision(evidence: Evidence) -> Decision:
     graph = build_decision_graph()
-    final_state = graph.invoke({
-        "evidence": evidence,
-        "decision": None,
-        "error": None,
-        "analysis_summary": "",
-    })
+    final_state = graph.invoke(
+        {
+            "evidence": evidence,
+            "decision": None,
+            "error": None,
+            "analysis_summary": "",
+        }
+    )
     return final_state["decision"]
 
 
 # ---------------------------------------------------------------------------
 # Per-evidence AI analysis (populates evidence.ai_analysis jsonb)
 # ---------------------------------------------------------------------------
+
 
 def generate_evidence_analysis(
     screenshot_url: str,
@@ -465,7 +594,9 @@ def generate_evidence_analysis(
         b64_image = base64.b64encode(resp.content).decode("utf-8")
 
         # Determine MIME type from content-type header, default to png
-        content_type = resp.headers.get("content-type", "image/png").split(";")[0].strip()
+        content_type = (
+            resp.headers.get("content-type", "image/png").split(";")[0].strip()
+        )
 
         message = HumanMessage(
             content=[
@@ -473,7 +604,7 @@ def generate_evidence_analysis(
                     "type": "text",
                     "text": (
                         f"You are a brand protection analyst. Analyse this product screenshot "
-                        f"for potential infringement of the brand \"{_sanitize_brand_name(brand_name)}\".\n\n"
+                        f'for potential infringement of the brand "{_sanitize_brand_name(brand_name)}".\n\n'
                         f"Return a structured analysis with:\n"
                         f"- brand_match_detected: true/false\n"
                         f"- brand_names_found: list of brand names visible\n"
@@ -497,8 +628,11 @@ def generate_evidence_analysis(
         ).with_structured_output(AIAnalysis)
 
         from tracemark_api.services.api_usage_tracker import call_with_tracking
+
         result: AIAnalysis = call_with_tracking(
-            "gemini_flash", "system", "/evidence-analysis",
+            "gemini_flash",
+            "system",
+            "/evidence-analysis",
             lambda: model.invoke([message]),
         )
         return result.model_dump()

@@ -15,6 +15,7 @@ class CheckBrandRequest(BaseModel):
 
 # --- Response models ---
 
+
 class MarketplaceEvidenceResponse(BaseModel):
     platform: str
     seller_name: str
@@ -71,8 +72,13 @@ class DecisionResponse(BaseModel):
 class TakedownReport(BaseModel):
     platform: str
     platform_category: Literal[
-        "marketplace", "social_media", "search_engine",
-        "ad_platform", "domain_registrar", "app_store", "other",
+        "marketplace",
+        "social_media",
+        "search_engine",
+        "ad_platform",
+        "domain_registrar",
+        "app_store",
+        "other",
     ]
     infringing_url: str
     submission_url: Optional[str] = None
@@ -153,12 +159,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: amazon\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Derila\".\n\n"
+                    'for the brand "Derila".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: https://amazon.com/dp/B0CXY9921\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Derila\" covering goods and\n"
+                    '  Registered trademark / copyright for "Derila" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - 2 counterfeit listings found on Amazon from unauthorized seller 'FitGearDirect'\n"
@@ -186,12 +192,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: ebay\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Derila\".\n\n"
+                    'for the brand "Derila".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: https://ebay.com/itm/2848822991\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Derila\" covering goods and\n"
+                    '  Registered trademark / copyright for "Derila" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - 1 counterfeit listing found on eBay from seller 'sleepwell_outlet'\n"
@@ -219,12 +225,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: namecheap\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Derila\".\n\n"
+                    'for the brand "Derila".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: http://buy-derila-pillow-cheap.store\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Derila\" covering goods and\n"
+                    '  Registered trademark / copyright for "Derila" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - Domain 'buy-derila-pillow-cheap.store' mimics brand design and registered trademark\n\n"
@@ -239,7 +245,6 @@ MOCK_DB: dict[str, dict] = {
             },
         ],
     },
-
     "matsato": {
         "case_id": "9da35f64-5717-4562-b3fc-2c963f66afc8",
         "decision": {
@@ -302,12 +307,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: ebay\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Matsato\".\n\n"
+                    'for the brand "Matsato".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: https://ebay.com/itm/3348822992\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Matsato\" covering goods and\n"
+                    '  Registered trademark / copyright for "Matsato" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - 1 counterfeit listing on eBay from seller 'sharp_knives_outlet' using the Matsato wordmark\n\n"
@@ -334,12 +339,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: amazon\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Matsato\".\n\n"
+                    'for the brand "Matsato".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: https://amazon.com/dp/B0D123456\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Matsato\" covering goods and\n"
+                    '  Registered trademark / copyright for "Matsato" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - 1 listing on Amazon from seller 'KitchenProUS' displaying replica knives in product photos\n\n"
@@ -366,12 +371,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: godaddy\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Matsato\".\n\n"
+                    'for the brand "Matsato".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: http://matsato-knives-deal.com\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Matsato\" covering goods and\n"
+                    '  Registered trademark / copyright for "Matsato" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - Domain 'matsato-knives-deal.com' registered recently, potential phishing/scam risk\n\n"
@@ -386,7 +391,6 @@ MOCK_DB: dict[str, dict] = {
             },
         ],
     },
-
     "nike": {
         "case_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
         "decision": {
@@ -411,13 +415,55 @@ MOCK_DB: dict[str, dict] = {
         },
         "evidence": {
             "marketplaces": [
-                {"platform": "amazon", "seller_name": "ShenzhenSportsMax", "listing_url": "https://amazon.com/dp/B0NIKE001", "price": "$22.40", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "ShenzhenSportsMax", "listing_url": "https://amazon.com/dp/B0NIKE002", "price": "$18.99", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "TopGearHK", "listing_url": "https://amazon.com/dp/B0NIKE003", "price": "$34.00", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "TopGearHK", "listing_url": "https://amazon.com/dp/B0NIKE004", "price": "$29.50", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "TopGearHK", "listing_url": "https://amazon.com/dp/B0NIKE005", "price": "$31.00", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "GuangzhouBestShoes", "listing_url": "https://amazon.com/dp/B0NIKE006", "price": "$24.99", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "FastDeals_SZ", "listing_url": "https://amazon.com/dp/B0NIKE007", "price": "$19.00", "screenshot_url": None},
+                {
+                    "platform": "amazon",
+                    "seller_name": "ShenzhenSportsMax",
+                    "listing_url": "https://amazon.com/dp/B0NIKE001",
+                    "price": "$22.40",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "ShenzhenSportsMax",
+                    "listing_url": "https://amazon.com/dp/B0NIKE002",
+                    "price": "$18.99",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "TopGearHK",
+                    "listing_url": "https://amazon.com/dp/B0NIKE003",
+                    "price": "$34.00",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "TopGearHK",
+                    "listing_url": "https://amazon.com/dp/B0NIKE004",
+                    "price": "$29.50",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "TopGearHK",
+                    "listing_url": "https://amazon.com/dp/B0NIKE005",
+                    "price": "$31.00",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "GuangzhouBestShoes",
+                    "listing_url": "https://amazon.com/dp/B0NIKE006",
+                    "price": "$24.99",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "FastDeals_SZ",
+                    "listing_url": "https://amazon.com/dp/B0NIKE007",
+                    "price": "$19.00",
+                    "screenshot_url": None,
+                },
             ],
             "ads": [
                 {
@@ -428,10 +474,30 @@ MOCK_DB: dict[str, dict] = {
                 },
             ],
             "domains": [
-                {"domain_name": "nike-outlet-official.shop", "registrar": "Namecheap Inc.", "is_clone": True, "similarity_score": 90},
-                {"domain_name": "buynike-cheap.store", "registrar": "GoDaddy LLC", "is_clone": True, "similarity_score": 90},
-                {"domain_name": "official-nike.net", "registrar": "unknown", "is_clone": True, "similarity_score": 90},
-                {"domain_name": "nikesale.org", "registrar": "Tucows Domains Inc.", "is_clone": True, "similarity_score": 90},
+                {
+                    "domain_name": "nike-outlet-official.shop",
+                    "registrar": "Namecheap Inc.",
+                    "is_clone": True,
+                    "similarity_score": 90,
+                },
+                {
+                    "domain_name": "buynike-cheap.store",
+                    "registrar": "GoDaddy LLC",
+                    "is_clone": True,
+                    "similarity_score": 90,
+                },
+                {
+                    "domain_name": "official-nike.net",
+                    "registrar": "unknown",
+                    "is_clone": True,
+                    "similarity_score": 90,
+                },
+                {
+                    "domain_name": "nikesale.org",
+                    "registrar": "Tucows Domains Inc.",
+                    "is_clone": True,
+                    "similarity_score": 90,
+                },
             ],
             "social": [],
         },
@@ -450,7 +516,7 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: amazon\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Nike\".\n\n"
+                    'for the brand "Nike".\n\n'
                     "I have a good faith belief that the content at the URLs below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URLs:\n"
@@ -462,7 +528,7 @@ MOCK_DB: dict[str, dict] = {
                     "    - https://amazon.com/dp/B0NIKE006 (seller: GuangzhouBestShoes)\n"
                     "    - https://amazon.com/dp/B0NIKE007 (seller: FastDeals_SZ)\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Nike\" covering goods and\n"
+                    '  Registered trademark / copyright for "Nike" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - 7 counterfeit listings found on Amazon from 4 distinct sellers\n"
@@ -490,12 +556,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: namecheap\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Nike\".\n\n"
+                    'for the brand "Nike".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: http://nike-outlet-official.shop\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Nike\" covering goods and\n"
+                    '  Registered trademark / copyright for "Nike" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - Domain 'nike-outlet-official.shop' registered 2026-01-14, active redirect\n\n"
@@ -522,12 +588,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: godaddy\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Nike\".\n\n"
+                    'for the brand "Nike".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: http://buynike-cheap.store\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Nike\" covering goods and\n"
+                    '  Registered trademark / copyright for "Nike" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - Domain 'buynike-cheap.store' mimics Nike's visual identity (score: 90%)\n\n"
@@ -608,13 +674,13 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: meta_ads\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Nike\".\n\n"
+                    'for the brand "Nike".\n\n'
                     "I have a good faith belief that the advertisement below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
-                    "  Ad copy: \"Official Nike clearance — up to 80% off\"\n"
+                    '  Ad copy: "Official Nike clearance — up to 80% off"\n'
                     "  Destination URL: https://fake-nike-store.com\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Nike\" covering goods and\n"
+                    '  Registered trademark / copyright for "Nike" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - Meta ad impersonates Nike brand to redirect users to unauthorized storefront\n\n"
@@ -628,7 +694,6 @@ MOCK_DB: dict[str, dict] = {
             },
         ],
     },
-
     "rolex": {
         "case_id": "7cb12a91-3f28-4d7e-a501-9e4b2f77cd12",
         "decision": {
@@ -652,14 +717,42 @@ MOCK_DB: dict[str, dict] = {
         },
         "evidence": {
             "marketplaces": [
-                {"platform": "amazon", "seller_name": "LuxuryTimeHK", "listing_url": "https://amazon.com/dp/B0ROLEX01", "price": "$89.00", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "LuxuryTimeHK", "listing_url": "https://amazon.com/dp/B0ROLEX02", "price": "$120.00", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "WatchDealsPro", "listing_url": "https://amazon.com/dp/B0ROLEX03", "price": "$45.00", "screenshot_url": None},
+                {
+                    "platform": "amazon",
+                    "seller_name": "LuxuryTimeHK",
+                    "listing_url": "https://amazon.com/dp/B0ROLEX01",
+                    "price": "$89.00",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "LuxuryTimeHK",
+                    "listing_url": "https://amazon.com/dp/B0ROLEX02",
+                    "price": "$120.00",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "WatchDealsPro",
+                    "listing_url": "https://amazon.com/dp/B0ROLEX03",
+                    "price": "$45.00",
+                    "screenshot_url": None,
+                },
             ],
             "ads": [],
             "domains": [
-                {"domain_name": "rolex-official-store.shop", "registrar": "Namecheap Inc.", "is_clone": True, "similarity_score": 90},
-                {"domain_name": "buyrolex-authentic.co", "registrar": "unknown", "is_clone": True, "similarity_score": 90},
+                {
+                    "domain_name": "rolex-official-store.shop",
+                    "registrar": "Namecheap Inc.",
+                    "is_clone": True,
+                    "similarity_score": 90,
+                },
+                {
+                    "domain_name": "buyrolex-authentic.co",
+                    "registrar": "unknown",
+                    "is_clone": True,
+                    "similarity_score": 90,
+                },
             ],
             "social": [],
         },
@@ -678,7 +771,7 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: amazon\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Rolex\".\n\n"
+                    'for the brand "Rolex".\n\n'
                     "I have a good faith belief that the content at the URLs below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URLs:\n"
@@ -686,7 +779,7 @@ MOCK_DB: dict[str, dict] = {
                     "    - https://amazon.com/dp/B0ROLEX02 (seller: LuxuryTimeHK, $120.00)\n"
                     "    - https://amazon.com/dp/B0ROLEX03 (seller: WatchDealsPro, $45.00)\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Rolex\" covering goods and\n"
+                    '  Registered trademark / copyright for "Rolex" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - 3 counterfeit listings on Amazon, prices 98% below authentic retail\n"
@@ -715,12 +808,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: namecheap\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Rolex\".\n\n"
+                    'for the brand "Rolex".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: http://rolex-official-store.shop\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Rolex\" covering goods and\n"
+                    '  Registered trademark / copyright for "Rolex" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - Domain 'rolex-official-store.shop' registered 2025-11-03, clones brand site\n\n"
@@ -747,12 +840,12 @@ MOCK_DB: dict[str, dict] = {
                     "Platform: cloudflare\n\n"
                     "To Whom It May Concern,\n\n"
                     "I am the owner / authorized representative of the intellectual property rights\n"
-                    "for the brand \"Rolex\".\n\n"
+                    'for the brand "Rolex".\n\n'
                     "I have a good faith belief that the content at the URL below infringes upon\n"
                     "my intellectual property rights without authorization:\n\n"
                     "  Infringing URL: http://buyrolex-authentic.co\n\n"
                     "My rights:\n"
-                    "  Registered trademark / copyright for \"Rolex\" covering goods and\n"
+                    '  Registered trademark / copyright for "Rolex" covering goods and\n'
                     "  services in relevant classes.\n\n"
                     "Key evidence:\n"
                     "  - Domain 'buyrolex-authentic.co' redirects to grey-market storefront\n\n"
@@ -767,7 +860,6 @@ MOCK_DB: dict[str, dict] = {
             },
         ],
     },
-
     "apple": {
         "case_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
         "decision": {
@@ -790,12 +882,29 @@ MOCK_DB: dict[str, dict] = {
         },
         "evidence": {
             "marketplaces": [
-                {"platform": "amazon", "seller_name": "TechAccessoriesGZ", "listing_url": "https://amazon.com/dp/B0APPLE01", "price": "$8.99", "screenshot_url": None},
-                {"platform": "amazon", "seller_name": "iGadgetDeals", "listing_url": "https://amazon.com/dp/B0APPLE02", "price": "$11.49", "screenshot_url": None},
+                {
+                    "platform": "amazon",
+                    "seller_name": "TechAccessoriesGZ",
+                    "listing_url": "https://amazon.com/dp/B0APPLE01",
+                    "price": "$8.99",
+                    "screenshot_url": None,
+                },
+                {
+                    "platform": "amazon",
+                    "seller_name": "iGadgetDeals",
+                    "listing_url": "https://amazon.com/dp/B0APPLE02",
+                    "price": "$11.49",
+                    "screenshot_url": None,
+                },
             ],
             "ads": [],
             "domains": [
-                {"domain_name": "apple-support-help.store", "registrar": "GoDaddy LLC", "is_clone": True, "similarity_score": 90},
+                {
+                    "domain_name": "apple-support-help.store",
+                    "registrar": "GoDaddy LLC",
+                    "is_clone": True,
+                    "similarity_score": 90,
+                },
             ],
             "social": [],
         },
@@ -830,7 +939,9 @@ _FALLBACK_MOCK = {
 
 
 @router.post("", response_model=CheckBrandResponse)
-def check_brand_mock(payload: CheckBrandRequest, current_user=Depends(get_current_user)) -> CheckBrandResponse:
+def check_brand_mock(
+    payload: CheckBrandRequest, current_user=Depends(get_current_user)
+) -> CheckBrandResponse:
     """
     Run a full brand protection check and return an enforcement decision.
 
@@ -842,12 +953,13 @@ def check_brand_mock(payload: CheckBrandRequest, current_user=Depends(get_curren
 
     ---
 
-   """
+    """
     if payload.brand_name == "error":
         raise Exception("Check for error handling")
 
     import uuid
     import time
+
     time.sleep(10)
     key = payload.brand_name.strip().lower()
     mock = MOCK_DB.get(key, _FALLBACK_MOCK)

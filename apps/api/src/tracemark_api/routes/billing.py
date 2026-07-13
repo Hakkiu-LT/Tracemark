@@ -10,6 +10,7 @@ Flow (Stripe Elements / embedded card form):
      handle in POST /billing/webhook to sync our DB — the single source of truth
      for subscription state.
 """
+
 from __future__ import annotations
 
 import os
@@ -19,7 +20,11 @@ import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
+from tracemark_api.dependencies import (
+    get_current_user,
+    get_current_profile,
+    CurrentProfile,
+)
 from tracemark_api.services.database import get_supabase
 from tracemark_api.services.entitlements import reconcile_brand_locks
 from tracemark_api.services.billing_config import (
@@ -58,9 +63,13 @@ def _do_stripe(fn, *args, **kwargs):
     try:
         return fn(*args, **kwargs)
     except stripe.CardError as exc:  # card declined etc.
-        raise HTTPException(status_code=402, detail=getattr(exc, "user_message", None) or str(exc))
+        raise HTTPException(
+            status_code=402, detail=getattr(exc, "user_message", None) or str(exc)
+        )
     except stripe.StripeError as exc:
-        raise HTTPException(status_code=502, detail=getattr(exc, "user_message", None) or str(exc))
+        raise HTTPException(
+            status_code=502, detail=getattr(exc, "user_message", None) or str(exc)
+        )
 
 
 # ── Request models ───────────────────────────────────────────────────────────
@@ -178,13 +187,17 @@ def _get_or_create_customer(org_id: str, email: str) -> str:
         return existing["stripe_customer_id"]
 
     customer = _do_stripe(
-        _stripe().Customer.create, email=email or None, metadata={"organization_id": org_id}
+        _stripe().Customer.create,
+        email=email or None,
+        metadata={"organization_id": org_id},
     )
     # Upsert so two concurrent checkouts can't both INSERT and hit the PK.
     sb.table("org_settings").upsert(
         {
             "organization_id": org_id,
-            "notification_email": (existing or {}).get("notification_email") or email or "",
+            "notification_email": (existing or {}).get("notification_email")
+            or email
+            or "",
             "stripe_customer_id": customer.id,
         },
         on_conflict="organization_id",
@@ -243,9 +256,13 @@ def create_subscription(
     body: CreateSubscriptionRequest, current_user=Depends(get_current_user)
 ):
     if body.plan not in SELF_SERVE_PLANS:
-        raise HTTPException(status_code=400, detail=f"Plan '{body.plan}' is not self-serve")
+        raise HTTPException(
+            status_code=400, detail=f"Plan '{body.plan}' is not self-serve"
+        )
     if body.interval not in _VALID_INTERVALS:
-        raise HTTPException(status_code=400, detail="interval must be 'month' or 'year'")
+        raise HTTPException(
+            status_code=400, detail="interval must be 'month' or 'year'"
+        )
 
     sb = get_supabase()
     org_id = _billing_org_id(current_user.id)
@@ -262,7 +279,9 @@ def create_subscription(
         items = [{"price": get_plan_price_id(body.plan, body.interval)}]
         for addon in body.addons:
             if addon.key not in SUBSCRIPTION_ADDONS:
-                raise HTTPException(status_code=400, detail=f"Unknown add-on '{addon.key}'")
+                raise HTTPException(
+                    status_code=400, detail=f"Unknown add-on '{addon.key}'"
+                )
             items.append(
                 {
                     "price": get_addon_price_id(addon.key),
@@ -314,7 +333,9 @@ def create_subscription(
     confirmation = invoice.get("confirmation_secret") or {}
     client_secret = confirmation.get("client_secret")
     if not client_secret:
-        raise HTTPException(status_code=500, detail="Stripe did not return a client secret")
+        raise HTTPException(
+            status_code=500, detail="Stripe did not return a client secret"
+        )
 
     return {
         "subscription_id": sub.get("id"),
@@ -328,11 +349,17 @@ def update_subscription(
 ):
     org_id = _billing_org_id(current_user.id)
     row = _current_subscription_row(org_id)
-    if not row or row.get("status") not in _ACTIVE_STATUSES or not row.get("stripe_subscription_id"):
+    if (
+        not row
+        or row.get("status") not in _ACTIVE_STATUSES
+        or not row.get("stripe_subscription_id")
+    ):
         raise HTTPException(status_code=404, detail="No active subscription to update")
 
     stripe_sub_id = row["stripe_subscription_id"]
-    sub = _as_dict(_do_stripe(_stripe().Subscription.retrieve, stripe_sub_id, expand=["items"]))
+    sub = _as_dict(
+        _do_stripe(_stripe().Subscription.retrieve, stripe_sub_id, expand=["items"])
+    )
 
     # Index current items by price id.
     current_items = {
@@ -344,7 +371,9 @@ def update_subscription(
     if plan not in SELF_SERVE_PLANS:
         raise HTTPException(status_code=400, detail=f"Plan '{plan}' is not self-serve")
     if interval not in _VALID_INTERVALS:
-        raise HTTPException(status_code=400, detail="interval must be 'month' or 'year'")
+        raise HTTPException(
+            status_code=400, detail="interval must be 'month' or 'year'"
+        )
 
     try:
         desired_plan_price = get_plan_price_id(plan, interval)
@@ -356,7 +385,11 @@ def update_subscription(
     # Plan item: swap the existing plan item's price, or add the new one and
     # delete the old plan item.
     old_plan_item = next(
-        (item for pid, item in current_items.items() if price_id_to_plan(pid) is not None),
+        (
+            item
+            for pid, item in current_items.items()
+            if price_id_to_plan(pid) is not None
+        ),
         None,
     )
     if old_plan_item and old_plan_item["price"]["id"] == desired_plan_price:
@@ -371,7 +404,9 @@ def update_subscription(
         desired = {}
         for addon in body.addons:
             if addon.key not in SUBSCRIPTION_ADDONS:
-                raise HTTPException(status_code=400, detail=f"Unknown add-on '{addon.key}'")
+                raise HTTPException(
+                    status_code=400, detail=f"Unknown add-on '{addon.key}'"
+                )
             try:
                 desired[get_addon_price_id(addon.key)] = normalize_addon_quantity(
                     addon.key, addon.quantity
@@ -400,7 +435,11 @@ def update_subscription(
     updated = _do_stripe(_stripe().Subscription.modify, stripe_sub_id, **modify_kwargs)
 
     _sync_subscription_to_db(updated, org_id)
-    return {"status": _as_dict(updated).get("status"), "plan": plan, "interval": interval}
+    return {
+        "status": _as_dict(updated).get("status"),
+        "plan": plan,
+        "interval": interval,
+    }
 
 
 @router.post("/cancel-subscription")
@@ -408,14 +447,22 @@ def cancel_subscription(body: CancelRequest, current_user=Depends(get_current_us
     sb = get_supabase()
     org_id = _billing_org_id(current_user.id)
     row = _current_subscription_row(org_id)
-    if not row or row.get("status") not in _ACTIVE_STATUSES or not row.get("stripe_subscription_id"):
+    if (
+        not row
+        or row.get("status") not in _ACTIVE_STATUSES
+        or not row.get("stripe_subscription_id")
+    ):
         raise HTTPException(status_code=404, detail="No active subscription")
 
     stripe_sub_id = row["stripe_subscription_id"]
-    _do_stripe(_stripe().Subscription.modify, stripe_sub_id, cancel_at_period_end=body.cancel)
+    _do_stripe(
+        _stripe().Subscription.modify, stripe_sub_id, cancel_at_period_end=body.cancel
+    )
     sb.table("subscriptions").update(
         {"cancel_at_period_end": body.cancel, "updated_at": _ts_to_iso(int_now())}
-    ).eq("organization_id", org_id).eq("stripe_subscription_id", stripe_sub_id).execute()
+    ).eq("organization_id", org_id).eq(
+        "stripe_subscription_id", stripe_sub_id
+    ).execute()
     return {"cancel_at_period_end": body.cancel}
 
 
@@ -471,7 +518,9 @@ def create_portal_session(current_user=Depends(get_current_user)):
     )
     customer_id = row.data.get("stripe_customer_id") if row and row.data else None
     if not customer_id:
-        raise HTTPException(status_code=404, detail="No Stripe customer for this account")
+        raise HTTPException(
+            status_code=404, detail="No Stripe customer for this account"
+        )
 
     session = _do_stripe(
         _stripe().billing_portal.Session.create,
@@ -512,7 +561,9 @@ def charge_managed_takedown(
     )
     customer_id = row.data.get("stripe_customer_id") if row and row.data else None
     if not customer_id:
-        raise HTTPException(status_code=404, detail="No Stripe customer for this account")
+        raise HTTPException(
+            status_code=404, detail="No Stripe customer for this account"
+        )
 
     try:
         price_id = get_addon_price_id("addon_managed_takedown")
@@ -563,11 +614,17 @@ async def stripe_webhook(request: Request):
         sb = get_supabase()
         try:
             seen = (
-                sb.table("stripe_events").select("id").eq("id", event_id).maybe_single().execute()
+                sb.table("stripe_events")
+                .select("id")
+                .eq("id", event_id)
+                .maybe_single()
+                .execute()
             )
             if seen and seen.data:
                 return {"received": True, "duplicate": True}
-            sb.table("stripe_events").insert({"id": event_id, "type": event_type}).execute()
+            sb.table("stripe_events").insert(
+                {"id": event_id, "type": event_type}
+            ).execute()
         except Exception as ex:  # unique-violation race or transient error
             print(f"[billing webhook] dedup check failed (continuing): {ex}")
 
@@ -578,14 +635,16 @@ async def stripe_webhook(request: Request):
         "customer.subscription.updated",
         "customer.subscription.deleted",
     ):
-        org_id = (obj.get("metadata") or {}).get("organization_id") or _org_from_customer(
-            obj.get("customer")
-        )
+        org_id = (obj.get("metadata") or {}).get(
+            "organization_id"
+        ) or _org_from_customer(obj.get("customer"))
         if org_id:
             _sync_subscription_to_db(obj, org_id)
         else:
-            print(f"[billing webhook] {event_type}: could not resolve org for customer "
-                  f"{obj.get('customer')}")
+            print(
+                f"[billing webhook] {event_type}: could not resolve org for customer "
+                f"{obj.get('customer')}"
+            )
     elif event_type in ("invoice.paid", "invoice.payment_failed"):
         org_id = _org_from_customer(obj.get("customer"))
         if org_id:

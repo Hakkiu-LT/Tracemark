@@ -17,11 +17,11 @@ Usage
     # result.markdown contains the page content
     # result.scraper_used is "static" or "js"
 """
+
 from __future__ import annotations
 
-import re
 import urllib.parse
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import requests
@@ -60,6 +60,7 @@ _MIN_CONTENT_LENGTH = 200
 # DomainRegistry — classifies URLs into routing tiers
 # ---------------------------------------------------------------------------
 
+
 class DomainRegistry:
     """
     Maps known domains to their rendering requirements.
@@ -72,38 +73,42 @@ class DomainRegistry:
       "unknown"  — Not in either list; run the heuristic probe at runtime.
     """
 
-    STATIC_DOMAINS: frozenset[str] = frozenset([
-        # Marketplaces
-        "amazon.com",
-        "ebay.com",
-        "alibaba.com",
-        "walmart.com",
-        "etsy.com",
-        "craigslist.org",
-        # Brand-monitoring targets
-        "google.com",
-        "adstransparency.google.com",
-        "wikipedia.org",
-        # Retail / wholesale
-        "dhgate.com",
-        "made-in-china.com",
-        "tradekey.com",
-    ])
+    STATIC_DOMAINS: frozenset[str] = frozenset(
+        [
+            # Marketplaces
+            "amazon.com",
+            "ebay.com",
+            "alibaba.com",
+            "walmart.com",
+            "etsy.com",
+            "craigslist.org",
+            # Brand-monitoring targets
+            "google.com",
+            "adstransparency.google.com",
+            "wikipedia.org",
+            # Retail / wholesale
+            "dhgate.com",
+            "made-in-china.com",
+            "tradekey.com",
+        ]
+    )
 
-    JS_HEAVY_DOMAINS: frozenset[str] = frozenset([
-        # Require JS rendering
-        "aliexpress.com",
-        "tiktok.com",
-        "instagram.com",
-        "facebook.com",
-        "twitter.com",
-        "x.com",
-        "pinterest.com",
-        "shopify.com",
-        "taobao.com",
-        "jd.com",
-        "rakuten.com",
-    ])
+    JS_HEAVY_DOMAINS: frozenset[str] = frozenset(
+        [
+            # Require JS rendering
+            "aliexpress.com",
+            "tiktok.com",
+            "instagram.com",
+            "facebook.com",
+            "twitter.com",
+            "x.com",
+            "pinterest.com",
+            "shopify.com",
+            "taobao.com",
+            "jd.com",
+            "rakuten.com",
+        ]
+    )
 
     @classmethod
     def classify(cls, url: str) -> str:
@@ -202,7 +207,9 @@ def detect_requires_javascript(url: str, timeout: float = 5.0) -> bool:
     6. Low text-to-HTML ratio (< 10 %)
     """
     try:
-        resp = requests.get(url, headers=_HEADERS, timeout=timeout, allow_redirects=True)
+        resp = requests.get(
+            url, headers=_HEADERS, timeout=timeout, allow_redirects=True
+        )
         if resp.status_code in (403, 429, 503) or resp.status_code != 200:
             # Non-200 often means bot detection / JS challenge
             return True
@@ -219,12 +226,10 @@ def detect_requires_javascript(url: str, timeout: float = 5.0) -> bool:
 
         # 2. Heavy SPA script bundle presence
         script_srcs = [
-            (s.get("src") or "").lower()
-            for s in soup.find_all("script", src=True)
+            (s.get("src") or "").lower() for s in soup.find_all("script", src=True)
         ]
         spa_script_count = sum(
-            1 for src in script_srcs
-            if any(pat in src for pat in _SPA_SCRIPT_PATTERNS)
+            1 for src in script_srcs if any(pat in src for pat in _SPA_SCRIPT_PATTERNS)
         )
         if spa_script_count >= 3:
             return True
@@ -252,6 +257,7 @@ def detect_requires_javascript(url: str, timeout: float = 5.0) -> bool:
 # HTML → Markdown conversion (lightweight, no external deps)
 # ---------------------------------------------------------------------------
 
+
 def _html_to_markdown(html: str, url: str) -> tuple[str, str | None]:
     """
     Convert raw HTML to a clean markdown-like string suitable for AI processing.
@@ -266,7 +272,9 @@ def _html_to_markdown(html: str, url: str) -> tuple[str, str | None]:
     title = title_tag.get_text(strip=True) if title_tag else None
 
     # Remove script/style/nav noise
-    for tag in soup(["script", "style", "noscript", "nav", "footer", "aside", "header"]):
+    for tag in soup(
+        ["script", "style", "noscript", "nav", "footer", "aside", "header"]
+    ):
         tag.decompose()
 
     # Convert headings → Markdown heading syntax
@@ -319,16 +327,18 @@ _JS_CACHE_TTL = timedelta(hours=24)
 # UnifiedScraper — main entry point
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class UnifiedScrapeResult:
     """Extended ScrapeResult that records which scraping method was used."""
+
     url: str
     title: str | None
     markdown: str
     html: str | None = None
     success: bool = True
     error_message: str | None = None
-    scraper_used: str = SCRAPE_STATIC   # "static" or "js"
+    scraper_used: str = SCRAPE_STATIC  # "static" or "js"
 
 
 class UnifiedScraper:
@@ -425,7 +435,9 @@ class UnifiedScraper:
                 "html_scraper",
                 caller_id,
                 "/unified-scrape",
-                lambda: requests.get(url, headers=_HEADERS, timeout=10, allow_redirects=True),
+                lambda: requests.get(
+                    url, headers=_HEADERS, timeout=10, allow_redirects=True
+                ),
             )
 
             if resp.status_code != 200 or contains_antibot(resp.text):
@@ -519,7 +531,9 @@ class UnifiedScraper:
                 title=None,
                 markdown="",
                 success=False,
-                error_message=fc_result.error_message if fc_result else "Firecrawl returned no result",
+                error_message=fc_result.error_message
+                if fc_result
+                else "Firecrawl returned no result",
                 scraper_used=SCRAPE_JS,
             )
 

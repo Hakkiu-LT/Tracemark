@@ -9,6 +9,7 @@ Tests verify:
   - JS-heavy scrapers delegate to UnifiedScraper correctly
   - MarketplaceScraper.scrape_all_sources() routes all platforms
 """
+
 import json
 import pytest
 from unittest.mock import patch, MagicMock
@@ -32,11 +33,17 @@ from tracemark_api.services.marketplace import (
 from tracemark_api.services.unified_scraper import UnifiedScrapeResult
 
 
-
 @pytest.fixture(autouse=True)
 def mock_tracker_not_blocked():
-    with patch("tracemark_api.services.api_usage_tracker.tracker.is_blocked", return_value=False), \
-         patch("tracemark_api.services.api_usage_tracker.tracker.record", return_value=None):
+    with (
+        patch(
+            "tracemark_api.services.api_usage_tracker.tracker.is_blocked",
+            return_value=False,
+        ),
+        patch(
+            "tracemark_api.services.api_usage_tracker.tracker.record", return_value=None
+        ),
+    ):
         yield
 
 
@@ -174,7 +181,10 @@ ALIBABA_HTML = """
 # Helper: create a mocked UnifiedScrapeResult
 # ---------------------------------------------------------------------------
 
-def _mock_scrape_result(html: str = "", markdown: str = "", success: bool = True) -> UnifiedScrapeResult:
+
+def _mock_scrape_result(
+    html: str = "", markdown: str = "", success: bool = True
+) -> UnifiedScrapeResult:
     return UnifiedScrapeResult(
         url="https://test.example.com",
         title="Test",
@@ -187,6 +197,7 @@ def _mock_scrape_result(html: str = "", markdown: str = "", success: bool = True
 # ---------------------------------------------------------------------------
 # eBay Scraper Tests
 # ---------------------------------------------------------------------------
+
 
 class TestEbayScraper:
     def test_parses_ebay_listings(self):
@@ -214,22 +225,30 @@ class TestEbayScraper:
     @patch("tracemark_api.services.marketplace.call_with_tracking")
     def test_ebay_search_via_api(self, mock_call):
         scraper = EbayScraper()
-        
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
-            "findItemsByKeywordsResponse": [{
-                "ack": ["Success"],
-                "searchResult": [{
-                    "item": [{
-                        "title": ["API Brand Item"],
-                        "viewItemURL": ["https://ebay.com/itm/999"],
-                        "sellingStatus": [{"currentPrice": [{"__value__": "29.99"}]}],
-                        "galleryURL": ["https://img.ebay.com/999.jpg"],
-                        "sellerInfo": [{"sellerUserName": ["api_seller"]}]
-                    }]
-                }]
-            }]
+            "findItemsByKeywordsResponse": [
+                {
+                    "ack": ["Success"],
+                    "searchResult": [
+                        {
+                            "item": [
+                                {
+                                    "title": ["API Brand Item"],
+                                    "viewItemURL": ["https://ebay.com/itm/999"],
+                                    "sellingStatus": [
+                                        {"currentPrice": [{"__value__": "29.99"}]}
+                                    ],
+                                    "galleryURL": ["https://img.ebay.com/999.jpg"],
+                                    "sellerInfo": [{"sellerUserName": ["api_seller"]}],
+                                }
+                            ]
+                        }
+                    ],
+                }
+            ]
         }
         mock_call.return_value = mock_resp
 
@@ -247,6 +266,7 @@ class TestEbayScraper:
 # ---------------------------------------------------------------------------
 # Etsy Scraper Tests
 # ---------------------------------------------------------------------------
+
 
 class TestEtsyScraper:
     def test_parses_etsy_listings(self):
@@ -266,6 +286,7 @@ class TestEtsyScraper:
 # Google Shopping Scraper Tests
 # ---------------------------------------------------------------------------
 
+
 class TestGoogleShoppingScraper:
     def test_parses_shopping_cards(self):
         scraper = GoogleShoppingScraper()
@@ -283,6 +304,7 @@ class TestGoogleShoppingScraper:
 # ---------------------------------------------------------------------------
 # Shopify Scraper Tests
 # ---------------------------------------------------------------------------
+
 
 class TestShopifyScraper:
     def test_parses_products_json(self):
@@ -305,7 +327,10 @@ class TestShopifyScraper:
         mock_response.json.return_value = SHOPIFY_PRODUCTS_JSON
 
         with patch.object(scraper._scraper, "scrape", return_value=mock_serp_result):
-            with patch("tracemark_api.services.marketplace.call_with_tracking", return_value=mock_response):
+            with patch(
+                "tracemark_api.services.marketplace.call_with_tracking",
+                return_value=mock_response,
+            ):
                 results = scraper.search("TestBrand", caller_id="test")
 
         assert len(results) == 2
@@ -318,11 +343,14 @@ class TestShopifyScraper:
 # JS-heavy Scraper Tests (AliExpress, TikTok, Instagram, Facebook Marketplace)
 # ---------------------------------------------------------------------------
 
+
 class TestJsHeavyScrapers:
     def test_aliexpress_returns_markdown(self):
         scraper = AliExpressScraper()
         with patch.object(scraper._scraper, "scrape") as mock_scrape:
-            mock_scrape.return_value = _mock_scrape_result(markdown="AliExpress product listings...")
+            mock_scrape.return_value = _mock_scrape_result(
+                markdown="AliExpress product listings..."
+            )
             result = scraper.search("TestBrand", caller_id="test")
         assert isinstance(result, str)
         assert "AliExpress" in result
@@ -330,7 +358,7 @@ class TestJsHeavyScrapers:
     @patch("tracemark_api.services.marketplace.call_with_tracking")
     def test_aliexpress_search_via_api(self, mock_call):
         scraper = AliExpressScraper()
-        
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
@@ -338,12 +366,14 @@ class TestJsHeavyScrapers:
                 "resp_result": {
                     "result": {
                         "products": {
-                            "product": [{
-                                "product_title": "API AliExpress Item",
-                                "product_detail_url": "https://aliexpress.com/item/111.html",
-                                "target_original_price": "15.99",
-                                "shop_info": {"shop_name": "API Shop"}
-                            }]
+                            "product": [
+                                {
+                                    "product_title": "API AliExpress Item",
+                                    "product_detail_url": "https://aliexpress.com/item/111.html",
+                                    "target_original_price": "15.99",
+                                    "shop_info": {"shop_name": "API Shop"},
+                                }
+                            ]
                         }
                     }
                 }
@@ -351,7 +381,10 @@ class TestJsHeavyScrapers:
         }
         mock_call.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ALIEXPRESS_APP_KEY": "key", "ALIEXPRESS_APP_SECRET": "secret"}):
+        with patch.dict(
+            "os.environ",
+            {"ALIEXPRESS_APP_KEY": "key", "ALIEXPRESS_APP_SECRET": "secret"},
+        ):
             result = scraper.search("TestBrand", caller_id="test")
 
         assert isinstance(result, str)
@@ -365,7 +398,9 @@ class TestJsHeavyScrapers:
     def test_tiktok_returns_markdown(self):
         scraper = TikTokScraper()
         with patch.object(scraper._scraper, "scrape") as mock_scrape:
-            mock_scrape.return_value = _mock_scrape_result(markdown="TikTok videos about brand...")
+            mock_scrape.return_value = _mock_scrape_result(
+                markdown="TikTok videos about brand..."
+            )
             result = scraper.search("TestBrand", caller_id="test")
         assert isinstance(result, str)
         assert "TikTok" in result
@@ -373,7 +408,9 @@ class TestJsHeavyScrapers:
     def test_instagram_returns_markdown(self):
         scraper = InstagramScraper()
         with patch.object(scraper._scraper, "scrape") as mock_scrape:
-            mock_scrape.return_value = _mock_scrape_result(markdown="Instagram posts tagged #testbrand...")
+            mock_scrape.return_value = _mock_scrape_result(
+                markdown="Instagram posts tagged #testbrand..."
+            )
             result = scraper.search("TestBrand", caller_id="test")
         assert isinstance(result, str)
 
@@ -398,26 +435,51 @@ class TestJsHeavyScrapers:
 # MarketplaceScraper Integration Tests
 # ---------------------------------------------------------------------------
 
+
 class TestMarketplaceScraperIntegration:
     @patch.dict("os.environ", {}, clear=True)
     def test_scrape_all_sources_routes_all_platforms(self):
         """Verify all platforms route correctly and don't raise."""
         all_platforms = [
-            "amazon", "ebay", "alibaba", "etsy", "google_shopping",
-            "aliexpress", "shopify", "facebook_marketplace",
-            "tiktok", "instagram",
-            "google_ads", "meta_ads", "domains",
+            "amazon",
+            "ebay",
+            "alibaba",
+            "etsy",
+            "google_shopping",
+            "aliexpress",
+            "shopify",
+            "facebook_marketplace",
+            "tiktok",
+            "instagram",
+            "google_ads",
+            "meta_ads",
+            "domains",
         ]
         scraper = MarketplaceScraper()
 
         # Mock all internal scrapers to return empty
         for attr in [
-            "amazon", "ebay", "alibaba", "etsy", "google_shopping",
-            "aliexpress", "shopify", "facebook_marketplace",
-            "tiktok", "instagram", "google_ads", "meta_ads", "serp",
+            "amazon",
+            "ebay",
+            "alibaba",
+            "etsy",
+            "google_shopping",
+            "aliexpress",
+            "shopify",
+            "facebook_marketplace",
+            "tiktok",
+            "instagram",
+            "google_ads",
+            "meta_ads",
+            "serp",
         ]:
             mock = MagicMock()
-            mock.search.return_value = [] if attr not in ("aliexpress", "facebook_marketplace", "tiktok", "instagram") else ""
+            mock.search.return_value = (
+                []
+                if attr
+                not in ("aliexpress", "facebook_marketplace", "tiktok", "instagram")
+                else ""
+            )
             setattr(scraper, attr, mock)
 
         # Also mock serp's check_serp_domains
@@ -436,6 +498,7 @@ class TestMarketplaceScraperIntegration:
 # ---------------------------------------------------------------------------
 # Amazon Scraper Tests
 # ---------------------------------------------------------------------------
+
 
 class TestAmazonScraper:
     def test_parses_amazon_listings(self):
@@ -469,6 +532,7 @@ class TestAmazonScraper:
 # Alibaba Scraper Tests
 # ---------------------------------------------------------------------------
 
+
 class TestAlibabaScraper:
     def test_parses_alibaba_listings(self):
         scraper = AlibabaScraper()
@@ -484,23 +548,27 @@ class TestAlibabaScraper:
     @patch("tracemark_api.services.marketplace.call_with_tracking")
     def test_alibaba_search_via_api(self, mock_call):
         scraper = AlibabaScraper()
-        
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "alibaba_icbu_product_search_response": {
                 "products": {
-                    "product": [{
-                        "subject": "API Wholesale Widget",
-                        "product_id": "456",
-                        "price": "US $1.50"
-                    }]
+                    "product": [
+                        {
+                            "subject": "API Wholesale Widget",
+                            "product_id": "456",
+                            "price": "US $1.50",
+                        }
+                    ]
                 }
             }
         }
         mock_call.return_value = mock_resp
 
-        with patch.dict("os.environ", {"ALIBABA_APP_KEY": "key", "ALIBABA_APP_SECRET": "secret"}):
+        with patch.dict(
+            "os.environ", {"ALIBABA_APP_KEY": "key", "ALIBABA_APP_SECRET": "secret"}
+        ):
             results = scraper.search("TestBrand", max_pages=1, caller_id="test")
 
         assert len(results) == 1
@@ -513,12 +581,13 @@ class TestAlibabaScraper:
 # Google SERP API Tests
 # ---------------------------------------------------------------------------
 
+
 class TestGoogleSERPAPI:
     @patch("tracemark_api.services.marketplace.requests.get")
     @patch("whois.whois")
     def test_check_serp_domains(self, mock_whois, mock_get):
         serp = GoogleSERPAPI()
-        
+
         # Mock Google search HTTP response
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -544,13 +613,18 @@ class TestGoogleSERPAPI:
         mock_whois.return_value = mock_w
 
         # Mock domain whitelist behavior to not filter testbrand-infringing-store-xyz.com
-        with patch("tracemark_api.services.marketplace.whitelist_service.is_whitelisted", return_value=False):
+        with patch(
+            "tracemark_api.services.marketplace.whitelist_service.is_whitelisted",
+            return_value=False,
+        ):
             with patch.dict("os.environ", {}, clear=True):
                 results = serp.check_serp_domains("TestBrand", caller_id="test")
 
         assert len(results) >= 1
         assert any(r["domain"] == "testbrand-infringing-store-xyz.com" for r in results)
-        target = next(r for r in results if r["domain"] == "testbrand-infringing-store-xyz.com")
+        target = next(
+            r for r in results if r["domain"] == "testbrand-infringing-store-xyz.com"
+        )
         assert target["registrant"] == "GoDaddy.com, LLC"
         assert target["name_servers"] == ["ns1.godaddy.com", "ns2.godaddy.com"]
         assert target["registrant_organization"] == "Fake Corp LLC"
@@ -559,38 +633,47 @@ class TestGoogleSERPAPI:
 
     @patch("tracemark_api.services.marketplace.requests.post")
     @patch("tracemark_api.services.marketplace.requests.get")
-    def test_search_falls_back_to_searchcans_when_google_serp_blocked(self, mock_get, mock_post):
+    def test_search_falls_back_to_searchcans_when_google_serp_blocked(
+        self, mock_get, mock_post
+    ):
         serp = GoogleSERPAPI()
-        
+
         # SearchCans response mock
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "data": {
                 "organic": [
-                    {"title": "Fake Watch", "link": "https://testbrand-suspicious-watch-shop.com/item1"},
-                    {"title": "Legit Site", "link": "https://testbrand-legit-site.com/home"}
+                    {
+                        "title": "Fake Watch",
+                        "link": "https://testbrand-suspicious-watch-shop.com/item1",
+                    },
+                    {
+                        "title": "Legit Site",
+                        "link": "https://testbrand-legit-site.com/home",
+                    },
                 ]
             }
         }
         mock_post.return_value = mock_resp
-        
-        env_vars = {
-            "GOOGLE_SERP_API": "serp_key",
-            "SEARCHCANS_API": "searchcans_key"
-        }
-        
+
+        env_vars = {"GOOGLE_SERP_API": "serp_key", "SEARCHCANS_API": "searchcans_key"}
+
         from tracemark_api.services.api_usage_tracker import tracker
+
         def side_effect_is_blocked(api_key):
             if api_key == "google_serp":
                 return True
             return False
-            
+
         with patch.object(tracker, "is_blocked", side_effect=side_effect_is_blocked):
             with patch.dict("os.environ", env_vars, clear=True):
-                with patch("tracemark_api.services.marketplace.whitelist_service.is_whitelisted", return_value=False):
+                with patch(
+                    "tracemark_api.services.marketplace.whitelist_service.is_whitelisted",
+                    return_value=False,
+                ):
                     results = serp.search("TestBrand", max_pages=1, caller_id="test")
-        
+
         mock_post.assert_called_once()
         mock_get.assert_not_called()
         assert "testbrand-suspicious-watch-shop.com" in results
@@ -599,38 +682,49 @@ class TestGoogleSERPAPI:
     @patch("tracemark_api.services.marketplace.requests.post")
     def test_searchcans_yield_measurement(self, mock_post):
         serp = GoogleSERPAPI()
-        
+
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "data": {
                 "organic": [
-                    {"title": "Watch Shop 1", "link": "https://testbrand-shop1.com/item1"},
-                    {"title": "Watch Shop 2", "link": "https://testbrand-shop2.com/item2"},
-                    {"title": "Duplicate Shop 1", "link": "https://testbrand-shop1.com/item3"},
+                    {
+                        "title": "Watch Shop 1",
+                        "link": "https://testbrand-shop1.com/item1",
+                    },
+                    {
+                        "title": "Watch Shop 2",
+                        "link": "https://testbrand-shop2.com/item2",
+                    },
+                    {
+                        "title": "Duplicate Shop 1",
+                        "link": "https://testbrand-shop1.com/item3",
+                    },
                     {"title": "Official Shop", "link": "https://testbrand.com/home"},
-                    {"title": "Whitelisted Shop", "link": "https://google.com/search"}
+                    {"title": "Whitelisted Shop", "link": "https://google.com/search"},
                 ]
             }
         }
         mock_post.return_value = mock_resp
-        
-        env_vars = {
-            "SEARCHCANS_API": "searchcans_key"
-        }
-        
+
+        env_vars = {"SEARCHCANS_API": "searchcans_key"}
+
         with patch.dict("os.environ", env_vars, clear=True):
-            with patch("tracemark_api.services.marketplace.whitelist_service.is_whitelisted") as mock_whitelist:
+            with patch(
+                "tracemark_api.services.marketplace.whitelist_service.is_whitelisted"
+            ) as mock_whitelist:
                 mock_whitelist.side_effect = lambda d: d == "google.com"
                 results = serp.search("TestBrand", max_pages=1, caller_id="test")
-                
+
         assert len(results) == 2
         assert "testbrand-shop1.com" in results
         assert "testbrand-shop2.com" in results
-        
+
         credits_used = 1
         yield_per_credit = len(results) / credits_used
-        print(f"\n[Yield Monitor] SearchCans achieved {yield_per_credit} unique domain detections per credit used.")
+        print(
+            f"\n[Yield Monitor] SearchCans achieved {yield_per_credit} unique domain detections per credit used."
+        )
         assert yield_per_credit == 2.0
 
 
@@ -638,11 +732,12 @@ class TestGoogleSERPAPI:
 # Google Ads API Tests
 # ---------------------------------------------------------------------------
 
+
 class TestGoogleAdsAPI:
     @patch("tracemark_api.services.marketplace.requests.get")
     def test_search_json_success(self, mock_get):
         ads_api = GoogleAdsAPI()
-        
+
         # Setup mock response for public ads JSON API
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -653,7 +748,7 @@ class TestGoogleAdsAPI:
                     "ad_text": "Cheap TestBrand items 50% off",
                     "destination_url": "https://fake-testbrand.com",
                     "impressions_range": "10k-50k",
-                    "first_shown_date": "2026-06-20"
+                    "first_shown_date": "2026-06-20",
                 }
             ]
         }
@@ -668,11 +763,11 @@ class TestGoogleAdsAPI:
     @patch("tracemark_api.services.marketplace.requests.get")
     def test_search_json_fails_falls_back_to_html(self, mock_get):
         ads_api = GoogleAdsAPI()
-        
+
         # JSON returns 500, but fallback HTML scrape succeeds
         mock_json_resp = MagicMock()
         mock_json_resp.status_code = 500
-        
+
         mock_html_resp = MagicMock()
         mock_html_resp.status_code = 200
         mock_html_resp.text = """
@@ -696,12 +791,16 @@ class TestGoogleAdsAPI:
 # Meta Ads API Tests
 # ---------------------------------------------------------------------------
 
+
 class TestMetaAdsAPI:
     @patch("tracemark_api.services.marketplace.requests.get")
-    @patch("tracemark_api.services.marketplace._meta_screenshot", return_value="https://supabase.co/shot.png")
+    @patch(
+        "tracemark_api.services.marketplace._meta_screenshot",
+        return_value="https://supabase.co/shot.png",
+    )
     def test_search_meta_success(self, mock_screenshot, mock_get):
         ads_api = MetaAdsAPI()
-        
+
         # Setup mock response for Meta Ads Graph API
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -712,7 +811,7 @@ class TestMetaAdsAPI:
                     "page_name": "MetaImposter",
                     "ad_creative_bodies": ["Authentic TestBrand on sale now"],
                     "ad_snapshot_url": "https://facebook.com/ads/snapshot/1",
-                    "impressions": {"lower_bound": 5000}
+                    "impressions": {"lower_bound": 5000},
                 }
             ]
         }
@@ -724,7 +823,10 @@ class TestMetaAdsAPI:
         assert len(results) == 1
         assert results[0]["advertiser"] == "MetaImposter"
         assert "Authentic" in results[0]["ad_text"]
-        assert results[0]["destination_url"] == "https://www.facebook.com/ads/library/?id=11223344"
+        assert (
+            results[0]["destination_url"]
+            == "https://www.facebook.com/ads/library/?id=11223344"
+        )
         assert results[0]["screenshot_url"] == "https://supabase.co/shot.png"
 
     def test_search_skips_when_no_token(self):
@@ -738,9 +840,11 @@ class TestMetaAdsAPI:
 # Playwright Client Tests
 # ---------------------------------------------------------------------------
 
+
 class TestPlaywrightClient:
     def test_local_screenshot_takes_bytes(self):
         from tracemark_api.services.playwright_client import take_local_screenshot
+
         with patch("playwright.sync_api.sync_playwright") as mock_sync:
             mock_browser = MagicMock()
             mock_page = MagicMock()
@@ -758,17 +862,20 @@ class TestCachedScreenshotRouting:
     @patch("tracemark_api.services.firecrawl_client.screenshot_page")
     @patch("tracemark_api.services.storage.upload_screenshot_bytes")
     @patch("tracemark_api.services.storage.upload_screenshot")
-    def test_routes_static_domain_to_playwright(self, mock_upload_fc, mock_upload_pw, mock_fc_screenshot, mock_pw_screenshot):
+    def test_routes_static_domain_to_playwright(
+        self, mock_upload_fc, mock_upload_pw, mock_fc_screenshot, mock_pw_screenshot
+    ):
         from tracemark_api.services.marketplace import _cached_screenshot
+
         mock_pw_screenshot.return_value = b"png_data"
         mock_upload_pw.return_value = "https://supabase.co/pw_shot.png"
-        
+
         # Disable database call inside _cached_screenshot
         with patch("tracemark_api.services.database.get_supabase") as mock_db:
             mock_db.side_effect = Exception("No DB in test")
             url = "https://ebay.com/itm/12345"
             res = _cached_screenshot(url, prefix="test")
-            
+
             assert res == "https://supabase.co/pw_shot.png"
             mock_pw_screenshot.assert_called_once_with(url)
             mock_fc_screenshot.assert_not_called()
@@ -778,16 +885,19 @@ class TestCachedScreenshotRouting:
     @patch("tracemark_api.services.firecrawl_client.screenshot_page")
     @patch("tracemark_api.services.storage.upload_screenshot_bytes")
     @patch("tracemark_api.services.storage.upload_screenshot")
-    def test_routes_js_domain_to_firecrawl(self, mock_upload_fc, mock_upload_pw, mock_fc_screenshot, mock_pw_screenshot):
+    def test_routes_js_domain_to_firecrawl(
+        self, mock_upload_fc, mock_upload_pw, mock_fc_screenshot, mock_pw_screenshot
+    ):
         from tracemark_api.services.marketplace import _cached_screenshot
+
         mock_fc_screenshot.return_value = "https://firecrawl.dev/temp.png"
         mock_upload_fc.return_value = "https://supabase.co/fc_shot.png"
-        
+
         with patch("tracemark_api.services.database.get_supabase") as mock_db:
             mock_db.side_effect = Exception("No DB in test")
             url = "https://tiktok.com/@infringer/video/1"
             res = _cached_screenshot(url, prefix="test")
-            
+
             assert res == "https://supabase.co/fc_shot.png"
             mock_fc_screenshot.assert_called_once_with(url)
             mock_pw_screenshot.assert_not_called()
@@ -796,38 +906,42 @@ class TestCachedScreenshotRouting:
 class TestAIDomainEvaluation:
     @patch("tracemark_api.services.marketplace.ChatGoogleGenerativeAI")
     def test_extract_domain_evaluations_with_ai(self, mock_llm_class):
-        from tracemark_api.services.marketplace import extract_domain_evaluations_with_ai, DomainEvaluation, DomainEvaluationList
-        
+        from tracemark_api.services.marketplace import (
+            extract_domain_evaluations_with_ai,
+            DomainEvaluation,
+            DomainEvaluationList,
+        )
+
         mock_llm = MagicMock()
         mock_llm_class.return_value = mock_llm
-        
+
         mock_structured = MagicMock()
         mock_llm.with_structured_output.return_value = mock_structured
-        
+
         mock_structured.invoke.return_value = DomainEvaluationList(
             items=[
                 DomainEvaluation(
                     domain_name="njctl.org",
                     is_clone=False,
                     similarity_score=15,
-                    reasoning="Unrelated generic teaching organization."
+                    reasoning="Unrelated generic teaching organization.",
                 ),
                 DomainEvaluation(
                     domain_name="buyderila.com",
                     is_clone=True,
                     similarity_score=92,
-                    reasoning="Impersonating store using brand name."
-                )
+                    reasoning="Impersonating store using brand name.",
+                ),
             ]
         )
-        
+
         with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
             results = extract_domain_evaluations_with_ai(
                 brand_name="derila",
                 domains_data=[{"domain": "njctl.org"}, {"domain": "buyderila.com"}],
-                caller_id="test"
+                caller_id="test",
             )
-            
+
         assert len(results) == 2
         assert results[0].domain_name == "njctl.org"
         assert results[0].is_clone is False

@@ -1,6 +1,7 @@
 """
 Unit tests for the detection engine: keyword_matcher, hash_matcher, and ocr_extract_text.
 """
+
 import pytest
 from PIL import Image, ImageDraw
 
@@ -15,6 +16,7 @@ from tracemark_api.services.detection import (
 # ──────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def sample_images():
@@ -36,6 +38,7 @@ def sample_images():
 # ──────────────────────────────────────────────────────────────────────────────
 # keyword_matcher tests
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestKeywordMatcher:
     def test_exact_match(self):
@@ -108,6 +111,7 @@ class TestKeywordMatcher:
 # hash_matcher tests
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestHashMatcher:
     def test_identical_images(self, sample_images):
         """Same image compared to itself → exact match."""
@@ -179,6 +183,7 @@ class TestHashMatcher:
     def test_hash_matcher_records_api_usage(self, sample_images):
         """Calling hash_matcher should increment the usage count in the api tracker."""
         from tracemark_api.services.api_usage_tracker import tracker
+
         img_a, _, _ = sample_images
 
         # Reset counts for testing
@@ -194,6 +199,7 @@ class TestHashMatcher:
 # ──────────────────────────────────────────────────────────────────────────────
 # ocr_extract_text tests
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestOcrExtractText:
     def test_no_api_key_returns_empty(self, monkeypatch):
@@ -220,6 +226,7 @@ class TestOcrExtractText:
 # ──────────────────────────────────────────────────────────────────────────────
 # MatchResult model tests
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestMatchResultModel:
     def test_keyword_type(self):

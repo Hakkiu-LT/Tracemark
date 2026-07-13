@@ -90,7 +90,7 @@ def resolve_regions(regions: list[str] | None) -> list[str]:
     """
     if not regions:
         return ["US"]
-    
+
     resolved = []
     for r in regions:
         r_upper = r.upper().strip()
@@ -98,13 +98,13 @@ def resolve_regions(regions: list[str] | None) -> list[str]:
             resolved.extend(MACRO_REGIONS[r_upper])
         else:
             resolved.append(r_upper)
-            
+
     # Deduplicate while preserving order roughly
     deduped = []
     for code in resolved:
         if code not in deduped:
             deduped.append(code)
-            
+
     return deduped if deduped else ["US"]
 
 
@@ -116,7 +116,7 @@ def firecrawl_location(country: str) -> dict:
     # Return standard Firecrawl structure
     return {
         "country": country.upper(),
-        "languages": [f"{lang}-{country.upper()}" if lang != "en" else "en-US"]
+        "languages": [f"{lang}-{country.upper()}" if lang != "en" else "en-US"],
     }
 
 
@@ -125,7 +125,4 @@ def serpapi_geo_params(country: str) -> dict:
     Constructs geoloc parameters for SerpApi / SearchCans.
     """
     c_upper = country.upper()
-    return {
-        "gl": c_upper.lower(),
-        "hl": COUNTRY_LANGUAGES.get(c_upper, "en")
-    }
+    return {"gl": c_upper.lower(), "hl": COUNTRY_LANGUAGES.get(c_upper, "en")}

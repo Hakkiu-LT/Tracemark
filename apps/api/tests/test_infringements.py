@@ -1,6 +1,7 @@
 """
 Tests for GET /api/v1/infringements and related endpoints.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -51,7 +52,7 @@ def _make_sb(data, count=None):
     result_inf.data = data
     result_inf.count = count
     q_infringements.execute.return_value = result_inf
-    
+
     sb.table.return_value = q_infringements
 
     def get_query(name):

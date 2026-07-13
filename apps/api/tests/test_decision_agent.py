@@ -3,7 +3,6 @@ import pytest
 
 from tracemark_api.services.ai import (
     Evidence,
-    Decision,
     make_decision,
     MarketplaceEvidence,
     AdEvidence,
@@ -16,7 +15,10 @@ from tracemark_api.services.evidence_scorer import score_evidence
 # Helpers
 # ---------------------------------------------------------------------------
 
-def make_listing(seller: str = "FakeSeller", platform: str = "amazon", price: str = "$9.99") -> MarketplaceEvidence:
+
+def make_listing(
+    seller: str = "FakeSeller", platform: str = "amazon", price: str = "$9.99"
+) -> MarketplaceEvidence:
     return MarketplaceEvidence(
         seller_name=seller,
         platform=platform,
@@ -43,12 +45,15 @@ def make_domain(name: str = "fakenike.shop") -> DomainEvidence:
 
 
 def empty_evidence() -> Evidence:
-    return Evidence(marketplaces=[], ads=[], domains=[], social=[], timestamp=datetime.now())
+    return Evidence(
+        marketplaces=[], ads=[], domains=[], social=[], timestamp=datetime.now()
+    )
 
 
 # ---------------------------------------------------------------------------
 # EvidenceScore tests
 # ---------------------------------------------------------------------------
+
 
 class TestEvidenceScorer:
     def test_empty_evidence_scores_zero(self):
@@ -59,7 +64,13 @@ class TestEvidenceScorer:
         assert score.top_findings == []
 
     def test_single_listing_scores_low(self):
-        evidence = Evidence(marketplaces=[make_listing()], ads=[], domains=[], social=[], timestamp=datetime.now())
+        evidence = Evidence(
+            marketplaces=[make_listing()],
+            ads=[],
+            domains=[],
+            social=[],
+            timestamp=datetime.now(),
+        )
         score = score_evidence(evidence)
         assert score.total_score > 0.0
         assert score.is_empty is False
@@ -69,34 +80,64 @@ class TestEvidenceScorer:
         listings = [make_listing(f"Seller{i}") for i in range(12)]
         ads = [make_ad() for _ in range(5)]
         domains = [make_domain(f"fakedomain{i}.shop") for i in range(3)]
-        evidence = Evidence(marketplaces=listings, ads=ads, domains=domains, social=[], timestamp=datetime.now())
+        evidence = Evidence(
+            marketplaces=listings,
+            ads=ads,
+            domains=domains,
+            social=[],
+            timestamp=datetime.now(),
+        )
         score = score_evidence(evidence)
         assert score.total_score >= 0.65
         assert score.quality_label == "STRONG"
 
     def test_moderate_evidence_label(self):
         listings = [make_listing(f"Seller{i}") for i in range(4)]
-        evidence = Evidence(marketplaces=listings, ads=[], domains=[], social=[], timestamp=datetime.now())
+        evidence = Evidence(
+            marketplaces=listings,
+            ads=[],
+            domains=[],
+            social=[],
+            timestamp=datetime.now(),
+        )
         score = score_evidence(evidence)
         # 4 listings → mp_score = 0.4 → total = 0.4 * 0.40 = 0.16 → WEAK
         # Need ads or domains to reach MODERATE
         assert score.quality_label in ("WEAK", "MODERATE")
 
     def test_findings_populated_for_listings(self):
-        evidence = Evidence(marketplaces=[make_listing()], ads=[], domains=[], social=[], timestamp=datetime.now())
+        evidence = Evidence(
+            marketplaces=[make_listing()],
+            ads=[],
+            domains=[],
+            social=[],
+            timestamp=datetime.now(),
+        )
         score = score_evidence(evidence)
         assert len(score.top_findings) >= 1
         assert "marketplace" in score.top_findings[0].lower()
 
     def test_findings_populated_for_domains(self):
-        evidence = Evidence(marketplaces=[], ads=[], domains=[make_domain()], social=[], timestamp=datetime.now())
+        evidence = Evidence(
+            marketplaces=[],
+            ads=[],
+            domains=[make_domain()],
+            social=[],
+            timestamp=datetime.now(),
+        )
         score = score_evidence(evidence)
         assert len(score.top_findings) >= 1
         assert "domain" in score.top_findings[0].lower()
 
     def test_scores_capped_at_1(self):
         listings = [make_listing(f"Seller{i}") for i in range(100)]
-        evidence = Evidence(marketplaces=listings, ads=[], domains=[], social=[], timestamp=datetime.now())
+        evidence = Evidence(
+            marketplaces=listings,
+            ads=[],
+            domains=[],
+            social=[],
+            timestamp=datetime.now(),
+        )
         score = score_evidence(evidence)
         assert score.marketplace_score == 1.0
         assert score.total_score <= 1.0
@@ -149,6 +190,7 @@ class TestEvidenceScorer:
 # DecisionAgent tests (mock mode — no GEMINI_API_KEY required)
 # ---------------------------------------------------------------------------
 
+
 class TestDecisionAgent:
     @pytest.fixture(autouse=True)
     def remove_gemini_key(self, monkeypatch):
@@ -181,7 +223,9 @@ class TestDecisionAgent:
         decision = make_decision(evidence)
         assert decision.risk_level in ("HIGH", "MEDIUM", "LOW")
         assert decision.recommended_action in ("TAKEDOWN", "MONITOR", "DISMISS")
-        assert isinstance(decision.case_summary, str) and len(decision.case_summary) > 10
+        assert (
+            isinstance(decision.case_summary, str) and len(decision.case_summary) > 10
+        )
         assert 0.0 <= decision.confidence_score <= 1.0
         assert decision.evidence_quality in ("STRONG", "MODERATE", "WEAK")
         assert isinstance(decision.key_findings, list)
@@ -205,8 +249,20 @@ class TestDecisionAgent:
         """make_decision should not raise regardless of evidence content."""
         cases = [
             empty_evidence(),
-            Evidence(marketplaces=[make_listing()], ads=[], domains=[], social=[], timestamp=datetime.now()),
-            Evidence(marketplaces=[], ads=[make_ad()], domains=[make_domain()], social=[], timestamp=datetime.now()),
+            Evidence(
+                marketplaces=[make_listing()],
+                ads=[],
+                domains=[],
+                social=[],
+                timestamp=datetime.now(),
+            ),
+            Evidence(
+                marketplaces=[],
+                ads=[make_ad()],
+                domains=[make_domain()],
+                social=[],
+                timestamp=datetime.now(),
+            ),
         ]
         for evidence in cases:
             decision = make_decision(evidence)

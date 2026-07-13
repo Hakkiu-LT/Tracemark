@@ -1,5 +1,6 @@
 """Tests for plan entitlements: the math (base + add-ons) and the
 downgrade/upgrade brand reconciliation."""
+
 from unittest.mock import MagicMock, patch
 
 from tracemark_api.services import entitlements as ent_mod
@@ -11,6 +12,7 @@ from tracemark_api.services.entitlements import (
 
 
 # ── compute_entitlements ──────────────────────────────────────────────────────
+
 
 def test_base_plans_match_expected_brand_limits():
     assert PLAN_ENTITLEMENTS["free"].brands == 1
@@ -60,6 +62,7 @@ def test_managed_takedown_gating_by_plan():
 
 # ── Entitlement helpers ───────────────────────────────────────────────────────
 
+
 def test_limit_helpers():
     starter = PLAN_ENTITLEMENTS["starter"]
     assert starter.brand_limit_reached(1) is True
@@ -71,15 +74,14 @@ def test_limit_helpers():
 
 # ── reconcile_brand_locks ─────────────────────────────────────────────────────
 
+
 def _mock_brands(rows):
     """Build a MagicMock get_supabase whose brands SELECT returns `rows` and
     whose UPDATE().in_() records the ids it was asked to change."""
     sb = MagicMock()
     recorded = {"locked": None, "unlocked": None, "status": []}
 
-    select_exec = (
-        sb.table.return_value.select.return_value.eq.return_value.order.return_value.execute
-    )
+    select_exec = sb.table.return_value.select.return_value.eq.return_value.order.return_value.execute
     select_exec.return_value.data = rows
 
     def _update(payload):
@@ -115,8 +117,9 @@ def test_reconcile_locks_oldest_excess_on_downgrade():
         {"id": "b3", "status": "active", "created_at": "2026-03-01"},
     ]
     sb, rec = _mock_brands(rows)
-    with _patch_ent(PLAN_ENTITLEMENTS["starter"]), patch.object(
-        ent_mod, "get_supabase", return_value=sb
+    with (
+        _patch_ent(PLAN_ENTITLEMENTS["starter"]),
+        patch.object(ent_mod, "get_supabase", return_value=sb),
     ):
         out = reconcile_brand_locks("org-1")
     assert set(out["locked"]) == {"b1", "b2"}
@@ -131,8 +134,9 @@ def test_reconcile_unlocks_newest_on_upgrade():
         {"id": "b3", "status": "locked", "created_at": "2026-03-01"},
     ]
     sb, rec = _mock_brands(rows)
-    with _patch_ent(PLAN_ENTITLEMENTS["pro"]), patch.object(
-        ent_mod, "get_supabase", return_value=sb
+    with (
+        _patch_ent(PLAN_ENTITLEMENTS["pro"]),
+        patch.object(ent_mod, "get_supabase", return_value=sb),
     ):
         out = reconcile_brand_locks("org-1")
     assert set(out["unlocked"]) == {"b2", "b3"}
@@ -144,8 +148,9 @@ def test_reconcile_unlimited_unlocks_everything():
         {"id": "b2", "status": "active", "created_at": "2026-02-01"},
     ]
     sb, rec = _mock_brands(rows)
-    with _patch_ent(PLAN_ENTITLEMENTS["agency"]), patch.object(
-        ent_mod, "get_supabase", return_value=sb
+    with (
+        _patch_ent(PLAN_ENTITLEMENTS["agency"]),
+        patch.object(ent_mod, "get_supabase", return_value=sb),
     ):
         out = reconcile_brand_locks("org-1")
     assert out["unlocked"] == ["b1"]
@@ -158,8 +163,9 @@ def test_reconcile_noop_when_within_limit():
         {"id": "b2", "status": "active", "created_at": "2026-02-01"},
     ]
     sb, rec = _mock_brands(rows)
-    with _patch_ent(PLAN_ENTITLEMENTS["growth"]), patch.object(
-        ent_mod, "get_supabase", return_value=sb
+    with (
+        _patch_ent(PLAN_ENTITLEMENTS["growth"]),
+        patch.object(ent_mod, "get_supabase", return_value=sb),
     ):
         out = reconcile_brand_locks("org-1")
     assert out == {"locked": [], "unlocked": []}

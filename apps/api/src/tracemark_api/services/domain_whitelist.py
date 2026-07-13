@@ -1,9 +1,7 @@
 import io
 import os
-import re
 import csv
 import zipfile
-import urllib.parse
 import logging
 from datetime import datetime, timedelta
 import requests
@@ -17,14 +15,46 @@ DEFAULT_LIMIT = 100000  # Whitelist the top 100,000 domains
 
 # Hardcoded fallback list in case download fails entirely
 FALLBACK_WHITELIST = {
-    "google.com", "google.co.uk", "google.com.br", "youtube.com", "wikipedia.org",
-    "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com",
-    "pinterest.com", "reddit.com", "amazon.com", "ebay.com", "aliexpress.com",
-    "alibaba.com", "walmart.com", "target.com", "etsy.com", "tiktok.com",
-    "medium.com", "github.com", "quora.com", "glassdoor.com", "indeed.com",
-    "nytimes.com", "cnn.com", "forbes.com", "bloomberg.com", "reuters.com",
-    "yahoo.com", "bing.com", "duckduckgo.com", "apple.com", "microsoft.com",
-    "netflix.com", "zoom.us", "spotify.com", "salesforce.com", "cloudflare.com"
+    "google.com",
+    "google.co.uk",
+    "google.com.br",
+    "youtube.com",
+    "wikipedia.org",
+    "facebook.com",
+    "instagram.com",
+    "twitter.com",
+    "x.com",
+    "linkedin.com",
+    "pinterest.com",
+    "reddit.com",
+    "amazon.com",
+    "ebay.com",
+    "aliexpress.com",
+    "alibaba.com",
+    "walmart.com",
+    "target.com",
+    "etsy.com",
+    "tiktok.com",
+    "medium.com",
+    "github.com",
+    "quora.com",
+    "glassdoor.com",
+    "indeed.com",
+    "nytimes.com",
+    "cnn.com",
+    "forbes.com",
+    "bloomberg.com",
+    "reuters.com",
+    "yahoo.com",
+    "bing.com",
+    "duckduckgo.com",
+    "apple.com",
+    "microsoft.com",
+    "netflix.com",
+    "zoom.us",
+    "spotify.com",
+    "salesforce.com",
+    "cloudflare.com",
 }
 
 
@@ -38,7 +68,7 @@ def get_registered_domain(domain: str) -> str:
     parts = domain.split(".")
     if len(parts) <= 2:
         return domain
-    
+
     # Heuristic check for common multi-part public suffixes (e.g. .co.uk, .com.br, .org.nz)
     tld = parts[-1]
     sld = parts[-2]
@@ -67,11 +97,15 @@ class DomainWhitelist:
             if datetime.now() - mtime < timedelta(days=1):
                 try:
                     self._load_from_cache()
-                    logger.info(f"Loaded {len(self._whitelist)} domains from cache: {CACHE_FILE}")
+                    logger.info(
+                        f"Loaded {len(self._whitelist)} domains from cache: {CACHE_FILE}"
+                    )
                     self._loaded = True
                     return
                 except Exception as e:
-                    logger.warning(f"Failed to read from cache file: {e}. Attempting download.")
+                    logger.warning(
+                        f"Failed to read from cache file: {e}. Attempting download."
+                    )
 
         # 2. Try downloading and caching from Tranco
         try:
@@ -82,9 +116,9 @@ class DomainWhitelist:
                     # Tranco ZIP contains a single CSV file, e.g. top-1m.csv
                     csv_filename = zip_ref.namelist()[0]
                     with zip_ref.open(csv_filename) as csv_file:
-                        text_file = io.TextIOWrapper(csv_file, encoding='utf-8')
+                        text_file = io.TextIOWrapper(csv_file, encoding="utf-8")
                         reader = csv.reader(text_file)
-                        
+
                         domains = []
                         for row in reader:
                             if len(row) >= 2:
@@ -93,18 +127,22 @@ class DomainWhitelist:
                                 domains.append(domain)
                                 if len(domains) >= self.limit:
                                     break
-                                    
+
                         # Save domains to the local cache file
                         with open(CACHE_FILE, "w", encoding="utf-8") as f:
                             for d in domains:
                                 f.write(d + "\n")
-                                
+
                         self._whitelist = set(domains)
                         self._loaded = True
-                        logger.info(f"Successfully downloaded and cached {len(self._whitelist)} domains from Tranco")
+                        logger.info(
+                            f"Successfully downloaded and cached {len(self._whitelist)} domains from Tranco"
+                        )
                         return
             else:
-                logger.warning(f"Failed to download Tranco list (HTTP status {resp.status_code})")
+                logger.warning(
+                    f"Failed to download Tranco list (HTTP status {resp.status_code})"
+                )
         except Exception as e:
             logger.warning(f"Error downloading or processing Tranco list: {e}")
 
@@ -113,7 +151,9 @@ class DomainWhitelist:
             # Try to load whatever stale cache is present as fallback
             try:
                 self._load_from_cache()
-                logger.info(f"Loaded stale cache fallback containing {len(self._whitelist)} domains")
+                logger.info(
+                    f"Loaded stale cache fallback containing {len(self._whitelist)} domains"
+                )
                 self._loaded = True
                 return
             except Exception:
@@ -122,12 +162,14 @@ class DomainWhitelist:
         # Complete fallback
         self._whitelist = set(FALLBACK_WHITELIST)
         self._loaded = True
-        logger.warning(f"Failed all cache/download attempts. Loaded fallback list of {len(self._whitelist)} domains")
+        logger.warning(
+            f"Failed all cache/download attempts. Loaded fallback list of {len(self._whitelist)} domains"
+        )
 
     def _load_from_cache(self) -> None:
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             domains = [line.strip().lower() for line in f if line.strip()]
-        self._whitelist = set(domains[:self.limit])
+        self._whitelist = set(domains[: self.limit])
 
     def is_whitelisted(self, domain: str) -> bool:
         """
