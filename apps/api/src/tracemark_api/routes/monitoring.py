@@ -337,13 +337,40 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest, current_user=Depends(
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
+def _verify_case_ownership(sb, case_id: str, profile: CurrentProfile) -> None:
+    res = sb.table("cases").select("organization_id, user_id").eq("id", case_id).maybe_single().execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Case not found")
+    case_org = res.data.get("organization_id")
+    case_user = res.data.get("user_id")
+
+    if profile.organization_id:
+        if case_org != profile.organization_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        if case_user != profile.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+def _verify_takedown_ownership(sb, takedown_id: str, profile: CurrentProfile) -> None:
+    res = sb.table("takedown_reports").select("case_id").eq("id", takedown_id).maybe_single().execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Takedown report not found")
+    case_id = res.data.get("case_id")
+    if not case_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    _verify_case_ownership(sb, case_id, profile)
+
+
 class UpdateStatusRequest(BaseModel):
     status: str
     decline_reason: str | None = None
 
 
 @router.post("/{case_id}/status")
-def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_user=Depends(get_current_user)):
+def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, profile: CurrentProfile = Depends(get_current_profile)):
+    sb = get_supabase()
+    _verify_case_ownership(sb, case_id, profile)
+
     try:
         update_case_status(case_id, payload.status, decline_reason=payload.decline_reason)
         
@@ -414,13 +441,14 @@ class TakedownUpdateRequest(BaseModel):
 def update_takedown_report_endpoint(
     id: str,
     payload: TakedownUpdateRequest,
-    current_user = Depends(get_current_user)
+    profile: CurrentProfile = Depends(get_current_profile)
 ):
     """
     Update notice text and status of a takedown report in Supabase.
     If status transitions to 'sent', automatically record submitted_at time.
     """
     sb = get_supabase()
+    _verify_takedown_ownership(sb, id, profile)
     
     update_data = {}
     if payload.notice_text is not None:
@@ -481,13 +509,14 @@ def test_email_notification_endpoint(
 @router.post("/takedowns/{id}/send-email")
 def send_takedown_email_endpoint(
     id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Send the notice text of the takedown report to its submission_email via SMTP,
     update status to 'sent', and set submitted_at to now.
     """
     sb = get_supabase()
+    _verify_takedown_ownership(sb, id, profile)
     res = sb.table("takedown_reports").select("*").eq("id", id).maybe_single().execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Takedown report not found")
