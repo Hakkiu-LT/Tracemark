@@ -39,6 +39,8 @@ dist-ssr
 apps/api/.venv/
 **/__pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
 
 # Skills
 .agents/skills.json

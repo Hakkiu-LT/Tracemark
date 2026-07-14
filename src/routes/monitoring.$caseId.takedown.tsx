@@ -271,15 +271,45 @@ function TakedownNoticesPage() {
       doc.text(lines, 56, 72);
       const pdfBlob = doc.output("blob");
 
+      if (!supabase) {
+        throw new Error("Supabase client is not initialized.");
+      }
+
+      // documents.infringement_id is a NOT-NULL FK to infringements(id). A takedown
+      // report is keyed by case_id, not infringement_id, so resolve the real
+      // infringement for this case (match the infringing URL, then fall back to
+      // platform). Never write the caseId into the infringement_id column.
+      let infringementId: string | undefined;
+      const { data: byUrl } = await supabase
+        .from("infringements")
+        .select("id")
+        .eq("case_id", caseId)
+        .eq("source_url", selected.infringing_url)
+        .limit(1)
+        .maybeSingle();
+      infringementId = byUrl?.id;
+      if (!infringementId) {
+        const { data: byPlatform } = await supabase
+          .from("infringements")
+          .select("id")
+          .eq("case_id", caseId)
+          .ilike("platform", selected.platform)
+          .limit(1)
+          .maybeSingle();
+        infringementId = byPlatform?.id;
+      }
+      if (!infringementId) {
+        toast.error("Could not save document", {
+          description: "No matching infringement was found for this takedown report.",
+        });
+        return;
+      }
+
       const timestamp = new Date()
         .toISOString()
         .replace(/[-:T.]/g, "")
         .slice(0, 14);
-      const fileName = `${caseId}/${selected.submission_method}-${timestamp}.pdf`;
-
-      if (!supabase) {
-        throw new Error("Supabase client is not initialized.");
-      }
+      const fileName = `${infringementId}/${selected.submission_method}-${timestamp}.pdf`;
 
       const { error: uploadError } = await supabase.storage
         .from("legal-documents")
@@ -290,14 +320,12 @@ function TakedownNoticesPage() {
 
       if (uploadError) throw uploadError;
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("legal-documents").getPublicUrl(fileName);
-
+      // Private bucket: store the storage path, not a (non-resolving) public URL.
+      // Open later via a short-lived signed URL (createSignedUrl(file_url, ttl)).
       const { error: dbError } = await supabase.from("documents").insert({
-        infringement_id: caseId,
+        infringement_id: infringementId,
         document_type: selected.submission_method === "email" ? "cease-desist" : "dmca",
-        file_url: publicUrl,
+        file_url: fileName,
         file_format: "pdf",
         status: "draft",
       });

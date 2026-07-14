@@ -59,7 +59,10 @@ def persist_document(
         {"content-type": content_type, "upsert": "true"},
     )
 
-    file_url = sb.storage.from_(BUCKET).get_public_url(file_path)
+    # The bucket is private, so a public URL would not resolve. Persist the
+    # storage path and mint a short-lived signed URL on demand via
+    # create_signed_url() when the document needs to be served/opened.
+    file_url = file_path
 
     result = sb.table("documents").insert({
         "infringement_id": infringement_id,
@@ -116,6 +119,22 @@ def persist_document(
             pass
 
     return doc
+
+
+def create_signed_url(file_path: str, expires_in: int = 3600) -> str | None:
+    """Return a short-lived signed URL for a private legal-documents object.
+
+    ``file_path`` is the value stored in ``documents.file_url`` (a storage path,
+    not a public URL). Returns None on failure.
+    """
+    try:
+        sb = get_supabase()
+        res = sb.storage.from_(BUCKET).create_signed_url(file_path, expires_in)
+        # supabase-py returns {"signedURL"/"signedUrl": "..."} depending on version.
+        return res.get("signedURL") or res.get("signedUrl") if isinstance(res, dict) else None
+    except Exception as e:
+        print(f"[DocumentPersistence] Failed to create signed URL: {e}")
+        return None
 
 
 def get_documents_by_infringement(infringement_id: str) -> list[dict]:

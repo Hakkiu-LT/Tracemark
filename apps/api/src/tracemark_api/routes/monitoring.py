@@ -1,20 +1,17 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, field_validator
 from typing import Literal
-from urllib.parse import urlparse
 from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
 from tracemark_api.services.database import get_supabase, create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
 from tracemark_api.services.persistence import persist_all_infringements
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
+from tracemark_api.services.authz import user_can_access_case
+from tracemark_api.services.url_guard import validate_public_http_url
 from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
-
-
-_PRIVATE_NETS = ("localhost", "127.", "10.", "172.16.", "172.17.", "172.18.",
-                  "172.19.", "172.2", "172.3", "192.168.", "0.0.0.0", "::1", "169.254.")
 
 
 class MonitorRequest(BaseModel):
@@ -23,17 +20,9 @@ class MonitorRequest(BaseModel):
     @field_validator("url")
     @classmethod
     def validate_url(cls, v: str) -> str:
-        try:
-            parsed = urlparse(v)
-        except Exception:
-            raise ValueError("Invalid URL")
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError("Only http/https URLs are allowed")
-        host = (parsed.hostname or "").lower()
-        for private in _PRIVATE_NETS:
-            if host.startswith(private) or host == private.rstrip("."):
-                raise ValueError("Internal/private URLs are not allowed")
-        return v
+        # Resolves the host and blocks internal/private targets (SSRF). See
+        # services.url_guard for why the old prefix check was insufficient.
+        return validate_public_http_url(v)
 
 
 class MonitorResponse(BaseModel):
@@ -287,7 +276,8 @@ async def check_brand(
             "detection_region": detection_region,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[Monitoring] Unhandled error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class ExchangeMetaTokenRequest(BaseModel):
@@ -307,8 +297,10 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest, current_user=Depends(
         for e in os.environ.get("ADMIN_EMAILS", "").split(",")
         if e.strip()
     }
-    if admin_emails and (current_user.email or "").lower() not in admin_emails:
-        from fastapi import HTTPException
+    # Fail CLOSED: this endpoint rewrites the server's .env, so if no admin list
+    # is configured, nobody may call it (previously an empty ADMIN_EMAILS let
+    # every authenticated user through).
+    if not admin_emails or (current_user.email or "").lower() not in admin_emails:
         raise HTTPException(status_code=403, detail="Admin access required.")
     try:
         result = exchange_short_lived_meta_token(payload.short_lived_token)
@@ -334,7 +326,8 @@ def exchange_meta_token(payload: ExchangeMetaTokenRequest, current_user=Depends(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+        print(f"[Monitoring] exchange-meta-token unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class UpdateStatusRequest(BaseModel):
@@ -344,6 +337,11 @@ class UpdateStatusRequest(BaseModel):
 
 @router.post("/{case_id}/status")
 def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_user=Depends(get_current_user)):
+    # Ownership check runs BEFORE the try so its 404 is not swallowed into a 500.
+    # Service-role bypasses RLS, so without this any user could escalate/dismiss
+    # (and trigger takedown generation on) another tenant's case by id.
+    if not user_can_access_case(get_supabase(), current_user.id, case_id):
+        raise HTTPException(status_code=404, detail="Case not found")
     try:
         update_case_status(case_id, payload.status, decline_reason=payload.decline_reason)
         
@@ -402,7 +400,8 @@ def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_u
                         
         return {"success": True}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[Monitoring] Unhandled error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class TakedownUpdateRequest(BaseModel):
@@ -421,7 +420,18 @@ def update_takedown_report_endpoint(
     If status transitions to 'sent', automatically record submitted_at time.
     """
     sb = get_supabase()
-    
+
+    # Fetch first and verify the report's case belongs to the caller. Service-role
+    # bypasses RLS, so without this any user could rewrite another tenant's legal
+    # notice text or mark it "sent" by id.
+    existing = sb.table("takedown_reports").select("*").eq("id", id).execute()
+    rows = existing.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
+    report = rows[0]
+    if not user_can_access_case(sb, current_user.id, report.get("case_id")):
+        raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
+
     update_data = {}
     if payload.notice_text is not None:
         update_data["notice_text"] = payload.notice_text
@@ -430,27 +440,20 @@ def update_takedown_report_endpoint(
         if payload.status == "sent":
             from datetime import datetime, timezone
             update_data["submitted_at"] = datetime.now(timezone.utc).isoformat()
-            
+
     if not update_data:
-        try:
-            res = sb.table("takedown_reports").select("*").eq("id", id).execute()
-            if not res.data:
-                raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
-            return res.data[0]
-        except Exception as e:
-            if isinstance(e, HTTPException):
-                raise e
-            raise HTTPException(status_code=500, detail=str(e))
-            
+        return report
+
     try:
         res = sb.table("takedown_reports").update(update_data).eq("id", id).execute()
         if not res.data:
             raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
         return res.data[0]
+    except HTTPException:
+        raise
     except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[Monitoring] Unhandled error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class TestEmailRequest(BaseModel):
@@ -493,6 +496,9 @@ def send_takedown_email_endpoint(
         raise HTTPException(status_code=404, detail="Takedown report not found")
 
     report = res.data
+    if not user_can_access_case(sb, current_user.id, report.get("case_id")):
+        raise HTTPException(status_code=404, detail="Takedown report not found")
+
     recipient = report.get("submission_email")
     if not recipient:
         raise HTTPException(status_code=400, detail="Submission email is not configured for this platform")
@@ -541,4 +547,5 @@ def send_takedown_email_endpoint(
             )
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=f"Failed to send takedown email: {str(e)}")
+        print(f"[Monitoring] Failed to send takedown email: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send takedown email")

@@ -95,7 +95,7 @@ def _match_type(item: MarketplaceEvidence | AdEvidence | DomainEvidence | Social
 def persist_infringement(
     case_id: str,
     item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
-) -> str:
+) -> str | None:
     """
     Upsert one infringement record into the `infringements` table.
 
@@ -137,7 +137,23 @@ def persist_infringement(
         )
         .execute()
     )
-    infringement_id = result.data[0]["id"]
+    rows = result.data or []
+    if not rows:
+        # An upsert that hits the on-conflict target can return no representation
+        # depending on PostgREST's Prefer settings; fetch the row so we still get
+        # its id instead of crashing with IndexError mid-persistence.
+        existing = (
+            sb.table("infringements")
+            .select("id")
+            .eq("case_id", case_id)
+            .eq("source_url", source_url)
+            .limit(1)
+            .execute()
+        )
+        rows = existing.data or []
+    if not rows:
+        return None
+    infringement_id = rows[0]["id"]
 
     if risk_level == "HIGH":
         _trigger_new_infringement_notification(infringement_id, case_id, source_url, _item_platform(item))
@@ -232,5 +248,7 @@ def persist_all_infringements(case_id: str, evidence: Evidence) -> list[str]:
         + list(evidence.domains)
         + list(evidence.social)
     ):
-        ids.append(persist_infringement(case_id, item))
+        inf_id = persist_infringement(case_id, item)
+        if inf_id is not None:
+            ids.append(inf_id)
     return ids

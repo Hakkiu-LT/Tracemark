@@ -234,6 +234,7 @@ def test_update_takedown_no_fields():
     mock_result = MagicMock()
     mock_result.data = [{
         "id": "takedown-123",
+        "case_id": "case-abc",
         "notice_text": "Existing notice text",
         "status": "pending",
         "submitted_at": None
@@ -256,8 +257,9 @@ def test_update_takedown_no_fields():
     assert response.json()["status"] == "pending"
     assert response.json()["notice_text"] == "Existing notice text"
     
-    # Verify select was called, update was not called
-    mock_table.select.assert_called_once_with("*")
+    # Verify the report was fetched and no update was performed for an empty body.
+    # (select is also used by the ownership check, so assert_any_call, not once.)
+    mock_table.select.assert_any_call("*")
     mock_table.update.assert_not_called()
 
 

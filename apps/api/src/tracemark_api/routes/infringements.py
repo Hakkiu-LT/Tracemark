@@ -6,6 +6,7 @@ from typing import Literal
 
 from tracemark_api.dependencies import get_current_user
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.authz import user_can_access_infringement
 
 router = APIRouter(prefix="/infringements", tags=["infringements"])
 
@@ -126,14 +127,21 @@ def get_infringement(
     infringement_id: str,
     current_user=Depends(get_current_user),
 ) -> InfringementItem:
-    """Return a single infringement by id."""
+    """Return a single infringement by id, scoped to the caller's organization."""
     sb = get_supabase()
-    result = (
+    organization_id = _get_user_organization_id(current_user.id)
+    # Scope through the parent case: the service-role client bypasses RLS, so we
+    # must filter by org/user here or any user could read any infringement by id.
+    query = (
         sb.table("infringements")
-        .select("*, cases(detection_region, status, updated_at)")
+        .select("*, cases!inner(detection_region, status, updated_at, organization_id, user_id)")
         .eq("id", infringement_id)
-        .maybe_single().execute()
     )
+    if organization_id:
+        query = query.eq("cases.organization_id", organization_id)
+    else:
+        query = query.eq("cases.user_id", current_user.id)
+    result = query.maybe_single().execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Infringement not found")
         
@@ -150,8 +158,14 @@ def get_evidence(
     infringement_id: str,
     current_user=Depends(get_current_user),
 ) -> list[EvidenceItem]:
-    """Return all evidence snapshots for an infringement, newest first."""
+    """Return all evidence snapshots for an infringement, newest first.
+
+    Scoped: the caller must own the parent infringement's case, otherwise this
+    would leak another tenant's evidence by infringement id.
+    """
     sb = get_supabase()
+    if not user_can_access_infringement(sb, current_user.id, infringement_id):
+        raise HTTPException(status_code=404, detail="Infringement not found")
     result = (
         sb.table("evidence")
         .select("*")
@@ -173,9 +187,20 @@ def update_infringement_status(
 ) -> InfringementItem:
     """Update the status of an infringement."""
     sb = get_supabase()
-    
-    # Verify it exists
-    existing = sb.table("infringements").select("id").eq("id", infringement_id).maybe_single().execute()
+
+    # Verify it exists AND belongs to the caller (service-role bypasses RLS, so
+    # ownership must be enforced here before any mutation).
+    organization_id = _get_user_organization_id(current_user.id)
+    existing_q = (
+        sb.table("infringements")
+        .select("id, cases!inner(organization_id, user_id)")
+        .eq("id", infringement_id)
+    )
+    if organization_id:
+        existing_q = existing_q.eq("cases.organization_id", organization_id)
+    else:
+        existing_q = existing_q.eq("cases.user_id", current_user.id)
+    existing = existing_q.maybe_single().execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Infringement not found")
         

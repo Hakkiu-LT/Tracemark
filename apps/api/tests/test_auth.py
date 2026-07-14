@@ -88,15 +88,21 @@ def test_get_me_returns_401_with_empty_bearer():
 # GET /api/v1/usage-stats — admin restriction
 # ──────────────────────────────────────────────────────────────────────────────
 
-def test_usage_stats_allows_admin_email(monkeypatch):
-    monkeypatch.setenv("ADMIN_EMAILS", "gabo.seqq@gmail.com,marcius.pask@gmail.com")
+def _make_admin_mock(is_admin: bool):
+    """Supabase mock for verify_admin's ``profiles.is_admin`` lookup."""
+    sb = MagicMock()
+    sb.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+        {"is_admin": is_admin}
+    ]
+    return sb
 
-    with patch("tracemark_api.dependencies.get_supabase", return_value=_make_supabase_mock(email="gabo.seqq@gmail.com")):
-        # Reload the module so ADMIN_EMAILS env var is re-read
-        import importlib
-        import tracemark_api.routes.usage as usage_mod
-        importlib.reload(usage_mod)
 
+def test_usage_stats_allows_admin_email():
+    # Admin access is gated on profiles.is_admin (verify_admin), not ADMIN_EMAILS.
+    with (
+        patch("tracemark_api.dependencies.get_supabase", return_value=_make_supabase_mock()),
+        patch("tracemark_api.routes.admin.get_supabase", return_value=_make_admin_mock(True)),
+    ):
         response = client.get(
             "/api/v1/usage-stats",
             headers={"Authorization": f"Bearer {VALID_TOKEN}"},
@@ -104,14 +110,11 @@ def test_usage_stats_allows_admin_email(monkeypatch):
     assert response.status_code == 200
 
 
-def test_usage_stats_blocks_non_admin_email(monkeypatch):
-    monkeypatch.setenv("ADMIN_EMAILS", "gabo.seqq@gmail.com,marcius.pask@gmail.com")
-
-    with patch("tracemark_api.dependencies.get_supabase", return_value=_make_supabase_mock(email="random@example.com")):
-        import importlib
-        import tracemark_api.routes.usage as usage_mod
-        importlib.reload(usage_mod)
-
+def test_usage_stats_blocks_non_admin_email():
+    with (
+        patch("tracemark_api.dependencies.get_supabase", return_value=_make_supabase_mock()),
+        patch("tracemark_api.routes.admin.get_supabase", return_value=_make_admin_mock(False)),
+    ):
         response = client.get(
             "/api/v1/usage-stats",
             headers={"Authorization": f"Bearer {VALID_TOKEN}"},

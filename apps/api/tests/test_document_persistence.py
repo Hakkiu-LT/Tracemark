@@ -151,7 +151,10 @@ def test_persist_document_inserts_db_row():
         assert payload["document_type"] == "dmca"
         assert payload["file_format"] == "pdf"
         assert payload["status"] == "draft"
-        assert payload["file_url"] == FAKE_FILE_URL
+        # Private bucket: file_url now stores the storage PATH (not a public URL),
+        # so a short-lived signed URL can be minted on demand.
+        assert payload["file_url"].startswith(f"{FAKE_INFRINGEMENT_ID}/")
+        assert payload["file_url"].endswith(".pdf")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

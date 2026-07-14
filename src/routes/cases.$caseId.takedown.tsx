@@ -138,16 +138,15 @@ function TakedownPage() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("legal-documents")
-        .getPublicUrl(fileName);
-
+      // The bucket is private, so a public URL would not resolve. Store the
+      // storage path; open the document later via a short-lived signed URL
+      // (supabase.storage.from("legal-documents").createSignedUrl(file_url, ttl)).
       const { error: dbError } = await supabase
         .from("documents")
         .insert({
           infringement_id: i.id,
           document_type: template === "dmca" ? "dmca" : "cease-desist",
-          file_url: publicUrl,
+          file_url: fileName,
           file_format: "pdf",
           status: "draft",
         });

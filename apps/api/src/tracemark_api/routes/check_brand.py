@@ -847,8 +847,6 @@ def check_brand_mock(payload: CheckBrandRequest, current_user=Depends(get_curren
         raise Exception("Check for error handling")
 
     import uuid
-    import time
-    time.sleep(10)
     key = payload.brand_name.strip().lower()
     mock = MOCK_DB.get(key, _FALLBACK_MOCK)
 

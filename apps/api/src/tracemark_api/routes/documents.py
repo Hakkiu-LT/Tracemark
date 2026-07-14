@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from tracemark_api.dependencies import get_current_user
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.authz import user_can_access_infringement
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -25,6 +26,12 @@ def send_document_email_endpoint(
 
     doc = res.data
     infringement_id = doc.get("infringement_id")
+
+    # Ownership: the document's infringement must belong to the caller's org.
+    # Without this, any user could send/mutate another tenant's legal document
+    # by id (service-role bypasses RLS).
+    if not user_can_access_infringement(sb, current_user.id, infringement_id):
+        raise HTTPException(status_code=404, detail="Document not found")
 
     try:
         from tracemark_api.services.delivery_log import log_delivery
@@ -81,4 +88,5 @@ def send_document_email_endpoint(
             log_delivery("takedown_generated", ok=False, infringement_id=infringement_id, error=str(e))
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail=f"Failed to dispatch document email: {str(e)}")
+        print(f"[DocumentsRoute] Failed to dispatch document email: {e}")
+        raise HTTPException(status_code=500, detail="Failed to dispatch document email")

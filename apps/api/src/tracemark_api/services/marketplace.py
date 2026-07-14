@@ -7,7 +7,6 @@ import requests
 import urllib.parse
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-from itertools import product as iterproduct
 from pydantic import BaseModel, Field
 from langchain_google_genai import ChatGoogleGenerativeAI
 from tracemark_api.services.firecrawl_client import scrape_page, ScrapeResult

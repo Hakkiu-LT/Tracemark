@@ -37,6 +37,8 @@ def create_case(
     if user_id:
         payload["user_id"] = user_id
     result = sb.table("cases").insert(payload).execute()
+    if not result.data:
+        raise RuntimeError("Failed to create case: insert returned no rows")
     return result.data[0]["id"]
 
 
@@ -49,6 +51,8 @@ def save_evidence(case_id: str, evidence: Evidence) -> str:
         "domains": [d.model_dump() for d in evidence.domains],
         "social": [s.model_dump() for s in evidence.social],
     }).execute()
+    if not result.data:
+        raise RuntimeError("Failed to save evidence: insert returned no rows")
     return result.data[0]["id"]
 
 
@@ -71,6 +75,8 @@ def save_decision(case_id: str, decision: Decision, score: EvidenceScore | None 
             "domains_score": score.domains_score,
         })
     result = sb.table("decisions").insert(payload).execute()
+    if not result.data:
+        raise RuntimeError("Failed to save decision: insert returned no rows")
     return result.data[0]["id"]
 
 

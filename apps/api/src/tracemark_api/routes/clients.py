@@ -103,10 +103,12 @@ def update_client(client_id: str, payload: ClientUpdate, current_user=Depends(ge
 
     if not update_data:
         # Fetch current record if nothing is updated
-        res = sb.table("clients").select("*").eq("id", client_id).maybe_single().execute()
+        res = sb.table("clients").select("*").eq("id", client_id).eq("organization_id", org_id).maybe_single().execute()
         return res.data
 
-    res = sb.table("clients").update(update_data).eq("id", client_id).execute()
+    # Scope the write to the caller's org too (not just the existence check) —
+    # service-role bypasses RLS, so defense in depth against a TOCTOU.
+    res = sb.table("clients").update(update_data).eq("id", client_id).eq("organization_id", org_id).execute()
     return res.data[0]
 
 @router.delete("/{client_id}")
@@ -118,7 +120,7 @@ def delete_client(client_id: str, current_user=Depends(get_current_user)):
     if not existing.data:
         raise HTTPException(status_code=404, detail="Client not found")
         
-    sb.table("clients").delete().eq("id", client_id).execute()
+    sb.table("clients").delete().eq("id", client_id).eq("organization_id", org_id).execute()
     return {"success": True}
 
 @router.get("/{client_id}/billing", response_model=ClientBillingResponse)

@@ -9,7 +9,10 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def mock_auth():
     app.dependency_overrides[get_current_user] = lambda: AuthUser(id="550e8400-e29b-41d4-a716-446655440000", email="gabo.seqq@gmail.com")
-    yield
+    # The status endpoint now verifies case ownership via get_supabase(); a plain
+    # MagicMock grants access so these escalation-behaviour tests stay focused.
+    with patch("tracemark_api.routes.monitoring.get_supabase", return_value=MagicMock()):
+        yield
     app.dependency_overrides.clear()
 
 

@@ -47,12 +47,16 @@ app.include_router(brands_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(admin_resources_router, prefix="/api/v1")
 
-_allowed_origins = [
+# In production, only the explicitly configured origins are allowed. The
+# localhost dev origins are added ONLY outside production — combined with
+# allow_credentials=True they should never be trusted on a live host.
+_dev_origins = [
     "http://localhost:8080",
     "http://localhost:8082",
     "http://localhost:5173",
     "http://localhost:3000",
-] + _production_origins
+]
+_allowed_origins = _production_origins if _is_production else _dev_origins + _production_origins
 
 app.add_middleware(
     CORSMiddleware,

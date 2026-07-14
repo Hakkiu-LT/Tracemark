@@ -2,3 +2,14 @@ node_modules/
 dist/
 .git/
 apps/
+
+# Secrets & local-only files — must never be copied into an image layer
+.env
+.env.*
+!.env.example
+.dev.vars
+.wrangler/
+.lovable/
+supabase/.temp/
+*.log
+.DS_Store

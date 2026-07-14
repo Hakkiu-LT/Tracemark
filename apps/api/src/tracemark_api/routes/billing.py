@@ -270,7 +270,8 @@ def create_subscription(
                 }
             )
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        print(f"[Billing] Configuration/value error: {exc}")
+        raise HTTPException(status_code=500, detail="Billing configuration error")
 
     customer_id = _get_or_create_customer(org_id, current_user.email)
 
@@ -349,7 +350,8 @@ def update_subscription(
     try:
         desired_plan_price = get_plan_price_id(plan, interval)
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        print(f"[Billing] Configuration/value error: {exc}")
+        raise HTTPException(status_code=500, detail="Billing configuration error")
 
     modifications: list[dict] = []
 
@@ -377,7 +379,8 @@ def update_subscription(
                     addon.key, addon.quantity
                 )
             except ValueError as exc:
-                raise HTTPException(status_code=500, detail=str(exc))
+                print(f"[Billing] Configuration/value error: {exc}")
+                raise HTTPException(status_code=500, detail="Billing configuration error")
 
         for pid, item in current_items.items():
             if price_id_to_addon(pid) is None:
@@ -517,7 +520,8 @@ def charge_managed_takedown(
     try:
         price_id = get_addon_price_id("addon_managed_takedown")
     except ValueError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        print(f"[Billing] Configuration/value error: {exc}")
+        raise HTTPException(status_code=500, detail="Billing configuration error")
 
     # Idempotency: a given takedown must only ever be billed once, even if the
     # caller retries. Falls back to no key when takedown_id is absent.
