@@ -39,6 +39,7 @@ dist-ssr
 apps/api/.venv/
 **/__pycache__/
 *.pyc
+apps/api/tests/artifacts
 
 # Skills
 .agents/skills.json
