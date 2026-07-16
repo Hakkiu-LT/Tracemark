@@ -27,10 +27,23 @@ SAMPLE_INFRINGEMENT = {
 
 SAMPLE_EVIDENCE = {
     "id": "ev-001",
+    "case_id": "case-001",
     "infringement_id": "inf-001",
+    "source_url": "https://example.com/suspicious",
+    "platform": "amazon",
     "screenshot_url": "https://example.com/shot.webp",
-    "ai_analysis": None,
-    "captured_at": "2026-06-25T10:00:00+00:00",
+    "content_hash": "abc123",
+    "tier0_score": 0.85,
+    "tier1_score": None,
+    "tier2_score": None,
+    "overall_score": 0.85,
+    "verdict": "obvious_copycat",
+    "category": ["marketplace_listing"],
+    "criteria": [],
+    "confidence": "high",
+    "first_seen_at": "2026-06-25T10:00:00+00:00",
+    "scraped_at": "2026-06-25T10:00:00+00:00",
+    "status": "new",
     "created_at": "2026-06-25T10:00:00+00:00",
 }
 

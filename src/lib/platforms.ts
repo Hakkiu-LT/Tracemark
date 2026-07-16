@@ -67,14 +67,6 @@ export const PLATFORMS: {
     apiKey: "etsy"       
   },
   { 
-    id: "Google Shopping",
-    label: "Google Shopping",
-    icon: Search,
-    category: "shops",
-    stepLabel: "Scanning Google Shopping",
-    apiKey: "google_shopping"
-  },
-  { 
     id: "Facebook Marketplace",
     label: "FB Marketplace",
     icon: Store,

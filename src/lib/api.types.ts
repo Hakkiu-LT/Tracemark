@@ -80,6 +80,7 @@ export interface CheckBrandRequest {
   brand_name: string;
   platforms?: string[];
   official_advertisers?: string[];
+  official_domains?: string[];
   target_regions?: string[];
   client_id?: string;
 }

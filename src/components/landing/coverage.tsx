@@ -35,7 +35,7 @@ const LANE_TOP: Channel[] = [
   { name: "Amazon", icon: ShoppingCart },
   { name: "eBay", icon: Tag },
   { name: "Shopify", icon: ShoppingBag },
-  { name: "Google Shopping", icon: Chrome },
+  { name: "Alibaba", icon: Store },
   { name: "Web domains", icon: Globe },
   { name: "Facebook Marketplace", icon: Facebook },
   { name: "Etsy", icon: Store },

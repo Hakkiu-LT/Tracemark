@@ -422,6 +422,24 @@ def cancel_subscription(body: CancelRequest, current_user=Depends(get_current_us
 @router.get("/subscription")
 def get_subscription(current_user=Depends(get_current_user)):
     sb = get_supabase()
+    
+    # Check if the user is an admin
+    try:
+        profile_res = sb.table("profiles").select("is_admin").eq("id", current_user.id).maybe_single().execute()
+        is_admin = profile_res.data.get("is_admin", False) if (profile_res and profile_res.data) else False
+    except Exception:
+        is_admin = False
+
+    if is_admin:
+        return {
+            "plan": "enterprise",
+            "status": "active",
+            "interval": "month",
+            "current_period_end": None,
+            "cancel_at_period_end": False,
+            "addons": [],
+        }
+
     org_id = _billing_org_id(current_user.id)
     sub = _current_subscription_row(org_id)
     if not sub:

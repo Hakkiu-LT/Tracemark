@@ -189,10 +189,11 @@ This document outlines the priority ordering for backend services, engines, data
 
 | Task | Status | Notes |
 |---|---|---|
-| **1. Scraping Module (`scraper.py`)** | ❌ Missing | Extract candidate logos from favicon, `<meta og:image>`, and header/nav elements (using "logo" class/id/alt heuristics). Download local copies, track source URLs, and handle failures gracefully. |
-| **2. CLIP Embedding & Similarity (`embedder.py`)** | ❌ Missing | Generate 512-dimensional visual embeddings for both reference and scraped logos using `open_clip` or Hugging Face `transformers` CLIP model. Calculate and sort by cosine similarity. |
-| **3. Filtering Logic** | ❌ Missing | Filter scraped logos based on configurable similarity threshold (default `0.75`) and top-N limits (default `20`). |
-| **4. Gemini Visual Verification (`gemini_check.py`)** | ❌ Missing | Pass candidate + reference images to `gemini-3.5-flash` (`thinking_level=high`) to obtain structured verdicts (`yes`/`no`/`maybe`), confidence scores, and visual match justifications. |
-| **5. End-to-End Orchestrator (`pipeline.py`)** | ❌ Missing | Wire modules together with logging, environment variable configuration (e.g. `GEMINI_API_KEY`), and output reports in CSV/JSON format sorted by Gemini confidence. |
+| **1. Scraping Module (`scraper.py`)** | ⚠️ Partial | Approach A implemented in `embedding_helper.py:extract_logo_phash_from_url` — parses HTML for `<img>` with "logo" in class/alt/src. Falls back to whole-screenshot pHash when no logo found. |
+| **2. CLIP Embedding & Similarity (`embedder.py`)** | ❌ Missing | TODO: Upgrade from pHash to CLIP/open_clip embeddings for robust logo matching that survives color changes, crops, and partial overlays. |
+| **3. Filtering Logic** | ⚠️ Partial | pHash-based filtering with configurable Hamming distance threshold implemented in `detection_funnel.py:run_tier1`. |
+| **4. Gemini Visual Verification (`gemini_check.py`)** | ❌ Missing | TODO: Wire `generate_evidence_analysis` (`ai.py:431`) into Tier 2 for Gemini Vision adjudication on ambiguous visual cases. Schema `AIAnalysis` already exists. |
+| **5. End-to-End Orchestrator (`pipeline.py`)** | ✅ Done | Integrated into `detection_funnel.py:run_tier1` — logo extraction → pHash → reference comparison → classification, all wired into the tiered funnel. |
+| **6. Approach B/C — CV-based logo cropping** | ❌ Missing | TODO: Improve logo detection beyond HTML parsing. Approach B: send screenshots to Gemini Vision for logo region identification. Approach C: use OpenCV/YOLO object detection to crop logo regions from screenshots automatically. |
 
 *Note for future database integration: Keep pgvector migration schema ready to store image vectors in Supabase table columns (`logo_embedding` and `image_embedding` as `vector(512)`) and optimize queries using HNSW cosine indexes.*

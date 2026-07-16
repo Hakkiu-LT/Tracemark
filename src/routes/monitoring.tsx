@@ -29,9 +29,9 @@ import {
   type Platform,
   type RiskLevel,
 } from "@/lib/store";
-import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil, Globe, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil, Globe, Info, ChevronDown, ChevronUp, X, Upload, Image as ImageIcon, FileText, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { checkBrandFullPipeline, apiFetch } from "@/lib/api";
+import { checkBrandFullPipeline, apiFetch, updateBrand, uploadBrandAsset, listBrandAssets, deleteBrandAsset, getBrands, createBrand, refreshReferenceContent, type BrandAsset } from "@/lib/api";
 import { PLATFORMS } from "@/lib/platforms";
 import { REGIONS, COUNTRY_BY_CODE } from "@/lib/regions";
 
@@ -55,7 +55,6 @@ const ALL_PLATFORMS: { id: Platform; label: string }[] = [
   { id: "AliExpress", label: "AliExpress" },
   { id: "Alibaba", label: "Alibaba" },
   { id: "Etsy", label: "Etsy" },
-  { id: "Google Shopping", label: "Google Shopping" },
   { id: "Facebook Marketplace", label: "FB Marketplace" },
   { id: "Web Domain", label: "Web Domain" },
   { id: "Instagram", label: "Instagram" },
@@ -99,6 +98,15 @@ function MonitoringPage() {
   const [editPlatforms, setEditPlatforms] = useState<Set<Platform>>(new Set());
   const [editRepeatCycle, setEditRepeatCycle] = useState("");
   const [editSelectedRegions, setEditSelectedRegions] = useState<Set<string>>(new Set());
+  const [editOfficialDomains, setEditOfficialDomains] = useState<string[]>([""]);
+  const [editOfficialAdvertisers, setEditOfficialAdvertisers] = useState<string[]>([""]);
+  const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
+  const [editExistingLogos, setEditExistingLogos] = useState<BrandAsset[]>([]);
+  const [editAutoRef, setEditAutoRef] = useState<BrandAsset | null>(null);
+  const [refRefreshing, setRefRefreshing] = useState(false);
+  const [editExistingProducts, setEditExistingProducts] = useState<BrandAsset[]>([]);
+  const [editProductFile, setEditProductFile] = useState<File | null>(null);
+  const [editRealBrandId, setEditRealBrandId] = useState<string | null>(null);
   const [editExpandedRegions, setEditExpandedRegions] = useState<Set<string>>(new Set(["NA", "EMEA"]));
 
   const isRepeatCycleInvalid = editRepeatCycle !== "" && !/^\d+$/.test(editRepeatCycle);
@@ -109,13 +117,68 @@ function MonitoringPage() {
       setEditRegNum(editingMark.registrationNumber);
       setEditWebsite(editingMark.website);
       setEditClientId(editingMark.clientId);
-      setEditPlatforms(new Set(editingMark.platforms));
+      setEditPlatforms(
+        new Set(
+          editingMark.platforms.filter((p) =>
+            ALL_PLATFORMS.some((ap) => ap.id === p),
+          ),
+        ),
+      );
       setEditRepeatCycle(
         editingMark.repeatCycle !== undefined && editingMark.repeatCycle !== null
           ? String(editingMark.repeatCycle)
           : "",
       );
       setEditSelectedRegions(new Set(editingMark.targetRegions || ["US"]));
+      setEditOfficialDomains(
+        editingMark.officialDomains && editingMark.officialDomains.length > 0
+          ? [...editingMark.officialDomains, ""]
+          : [""],
+      );
+      setEditOfficialAdvertisers(
+        editingMark.officialAdvertisers && editingMark.officialAdvertisers.length > 0
+          ? [...editingMark.officialAdvertisers, ""]
+          : [""],
+      );
+      setEditLogoFile(null);
+      setEditProductFile(null);
+      setEditRealBrandId(null);
+      setEditAutoRef(null);
+
+      // The Zustand `Mark` uses a local-generated id ("m1234567890") that does
+      // not exist in the backend `brands` table. Look up the real DB record
+      // by brand name before loading assets or making any backend calls.
+      getBrands()
+        .then((res) => {
+          const realBrand = res.brands.find(
+            (b) => b.brand_name === editingMark.brandName,
+          );
+          if (!realBrand) {
+            setEditExistingLogos([]);
+            setEditAutoRef(null);
+            setEditExistingProducts([]);
+            return null;
+          }
+          setEditRealBrandId(realBrand.id);
+          return listBrandAssets(realBrand.id);
+        })
+        .then((assets) => {
+          if (!assets) return;
+          setEditExistingLogos(assets.filter((a) => a.asset_type === "logo"));
+          const autoRefs = assets.filter(
+            (a) => a.asset_type === "reference_content"
+              && (a.metadata as { auto_generated?: boolean } | null)?.auto_generated === true,
+          );
+          setEditAutoRef(autoRefs.sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          )[0] || null);
+          setEditExistingProducts(assets.filter((a) => a.asset_type === "product_image"));
+        })
+        .catch(() => {
+          setEditExistingLogos([]);
+          setEditAutoRef(null);
+          setEditExistingProducts([]);
+        });
     }
   }, [editingMark]);
 
@@ -313,7 +376,7 @@ function MonitoringPage() {
     apiFetch("/admin/resources/status", {
       method: "POST",
       body: JSON.stringify({ active: activeCount > 0 }),
-    }).catch(() => {}); // fire-and-forget, non-critical
+    }).catch(() => { }); // fire-and-forget, non-critical
 
     // If it was on_hold, it is now active -> trigger scan
     if (mark.status === "on_hold") {
@@ -340,7 +403,46 @@ function MonitoringPage() {
     }
   };
 
-  const handleSave = () => {
+  const handleDeleteAsset = async (asset: BrandAsset) => {
+    if (!editingMark || !editRealBrandId) return;
+    try {
+      await deleteBrandAsset(editRealBrandId, asset.id);
+      setEditExistingLogos((prev) => prev.filter((a) => a.id !== asset.id));
+      setEditExistingProducts((prev) => prev.filter((a) => a.id !== asset.id));
+      toast.success("Asset removed.");
+    } catch (err) {
+      toast.error("Failed to remove asset", { description: (err as Error).message });
+    }
+  };
+
+  const handleRefreshRef = async () => {
+    if (!editRealBrandId) return;
+    setRefRefreshing(true);
+    try {
+      const res = await refreshReferenceContent(editRealBrandId);
+      if (res.refreshed) {
+        toast.success("Reference content refreshed.");
+        const assets = await listBrandAssets(editRealBrandId);
+        const autoRefs = (assets || []).filter(
+          (a) => a.asset_type === "reference_content"
+            && (a.metadata as { auto_generated?: boolean } | null)?.auto_generated === true,
+        );
+        setEditAutoRef(
+          autoRefs.sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          )[0] || null,
+        );
+      } else {
+        toast.info(res.message || "No official website configured yet.");
+      }
+    } catch (err) {
+      toast.error("Failed to refresh reference content", { description: (err as Error).message });
+    } finally {
+      setRefRefreshing(false);
+    }
+  };
+
+  const handleSave = async () => {
     if (!editingMark) return;
     if (!editBrandName.trim()) {
       toast.error("Brand name is required.");
@@ -354,6 +456,67 @@ function MonitoringPage() {
       ? parseInt(editRepeatCycle.trim(), 10)
       : undefined;
 
+    const cleanOfficialDomains = editOfficialDomains.filter((d) => d.trim());
+    const cleanOfficialAdvertisers = editOfficialAdvertisers.filter((a) => a.trim());
+
+    let realBrandId = editRealBrandId;
+    if (!realBrandId) {
+      try {
+        const brandsRes = await getBrands();
+        const existing = brandsRes.brands.find(
+          (b) => b.brand_name === editingMark.brandName,
+        );
+        if (existing) {
+          realBrandId = existing.id;
+          setEditRealBrandId(existing.id);
+        } else {
+          const cleanWebsite = editWebsite.trim()
+            ? (editWebsite.startsWith("http") ? editWebsite : `https://${editWebsite}`)
+            : null;
+          const created = await createBrand({
+            brand_name: editBrandName.trim(),
+            website: cleanWebsite,
+            registration_number: editRegNum.trim() || null,
+            platforms: Array.from(editPlatforms),
+            target_regions: Array.from(editSelectedRegions),
+            logo_color: "oklch(0.58 0.18 255)",
+            client_id: persona === "law_firm" ? editClientId : null,
+            official_domains: cleanOfficialDomains,
+            official_advertisers: cleanOfficialAdvertisers,
+          });
+          realBrandId = created.id;
+          setEditRealBrandId(created.id);
+        }
+      } catch (err) {
+        toast.error("Could not resolve brand — try again.", {
+          description: (err as Error).message,
+        });
+        return;
+      }
+    }
+
+    try {
+      await updateBrand(realBrandId, {
+        brand_name: editBrandName.trim(),
+        registration_number: editRegNum.trim() || null,
+        website: editWebsite.trim() || null,
+        platforms: Array.from(editPlatforms),
+        target_regions: Array.from(editSelectedRegions),
+        official_domains: cleanOfficialDomains,
+        official_advertisers: cleanOfficialAdvertisers,
+      });
+
+      if (editLogoFile) {
+        await uploadBrandAsset(realBrandId, "logo", editLogoFile);
+      }
+      if (editProductFile) {
+        await uploadBrandAsset(realBrandId, "product_image", editProductFile);
+      }
+    } catch (err) {
+      toast.error("Failed to update brand", { description: (err as Error).message });
+      return;
+    }
+
     updateMark(editingMark.id, {
       brandName: editBrandName.trim(),
       registrationNumber: editRegNum.trim(),
@@ -362,6 +525,8 @@ function MonitoringPage() {
       platforms: Array.from(editPlatforms),
       repeatCycle: repeatCycleNum,
       targetRegions: Array.from(editSelectedRegions),
+      officialDomains: cleanOfficialDomains,
+      officialAdvertisers: cleanOfficialAdvertisers,
     });
     setEditingMark(null);
     toast.success("Monitored asset updated successfully.");
@@ -550,6 +715,279 @@ function MonitoringPage() {
               )}
             </div>
 
+            {/* Logo Upload */}
+            <div className="space-y-2">
+              <Label>Brand Logo</Label>
+              <p className="text-xs text-muted-foreground">
+                Upload your brand logo for visual similarity comparison. Compressed automatically.
+              </p>
+              {editExistingLogos.length > 0 && (
+                <div className="space-y-1.5">
+                  {editExistingLogos.map((asset) => {
+                    const filename =
+                      (asset.metadata as { filename?: string } | null)?.filename ??
+                      asset.id.slice(0, 8);
+                    return (
+                      <div
+                        key={asset.id}
+                        className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/30 text-xs"
+                      >
+                        <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="flex-1 truncate text-foreground">{filename}</span>
+                        <span className="text-muted-foreground font-mono">
+                          {new Date(asset.created_at).toLocaleDateString()}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAsset(asset)}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-0.5"
+                          title="Remove this logo"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <label
+                  htmlFor="edit-logoUpload"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-dashed border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer text-sm text-muted-foreground"
+                >
+                  {editLogoFile ? (
+                    <>
+                      <ImageIcon className="h-4 w-4 text-accent" />
+                      <span className="text-foreground font-medium truncate max-w-[180px]">{editLogoFile.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      <span>{editExistingLogos.length > 0 ? "Replace or add..." : "Choose file..."}</span>
+                    </>
+                  )}
+                </label>
+                <input
+                  type="file"
+                  id="edit-logoUpload"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setEditLogoFile(file);
+                  }}
+                />
+                {editLogoFile && (
+                  <button
+                    type="button"
+                    onClick={() => setEditLogoFile(null)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Auto-fetched Reference Content (read-only) */}
+            <div className="space-y-2">
+              <Label>Reference Content</Label>
+              <p className="text-xs text-muted-foreground">
+                Auto-fetched from your official websites. Cached for 30 days.
+              </p>
+              {editAutoRef ? (
+                <div className="px-3 py-2.5 rounded-md border border-border bg-muted/30 text-xs space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="flex-1 truncate text-foreground font-mono">
+                      {((editAutoRef.metadata as { source_urls?: string[] } | null)?.source_urls || [editAutoRef.file_url])
+                        .filter(Boolean)
+                        .join(", ")}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span>
+                      Last fetched: {new Date(editAutoRef.created_at).toLocaleString()}
+                    </span>
+                    <span>•</span>
+                    <span>
+                      {((editAutoRef.metadata as { text_length?: number } | null)?.text_length ?? 0).toLocaleString()} chars
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRefreshRef}
+                    disabled={refRefreshing}
+                    className="flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {refRefreshing ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Refreshing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Refresh now
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic px-3 py-2 rounded-md border border-dashed border-border">
+                  No auto-generated reference content yet. It will be fetched on the first scan, or you can click "Refresh now" once an official website is configured.
+                </p>
+              )}
+            </div>
+
+            {/* Product Image Upload */}
+            <div className="space-y-2">
+              <Label>Product Images (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Upload your product photos. Used to compare against scraped images.
+              </p>
+              {editExistingProducts.length > 0 && (
+                <div className="space-y-1.5">
+                  {editExistingProducts.map((asset) => {
+                    const filename =
+                      (asset.metadata as { filename?: string } | null)?.filename ??
+                      asset.id.slice(0, 8);
+                    return (
+                      <div
+                        key={asset.id}
+                        className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/30 text-xs"
+                      >
+                        <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="flex-1 truncate text-foreground">{filename}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAsset(asset)}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-0.5"
+                          title="Remove this product image"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <label
+                  htmlFor="edit-productUpload"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-dashed border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer text-sm text-muted-foreground"
+                >
+                  {editProductFile ? (
+                    <span className="text-foreground font-medium truncate max-w-[180px]">{editProductFile.name}</span>
+                  ) : (
+                    <span>{editExistingProducts.length > 0 ? "Add more..." : "Choose file..."}</span>
+                  )}
+                </label>
+                <input
+                  type="file"
+                  id="edit-productUpload"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => setEditProductFile(e.target.files?.[0] ?? null)}
+                />
+                {editProductFile && (
+                  <button
+                    type="button"
+                    onClick={() => setEditProductFile(null)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Official Domains Whitelist */}
+            <div className="space-y-2">
+              <Label>Official Domains</Label>
+              <p className="text-xs text-muted-foreground">
+                Whitelist brand domains so their listings and ads are not flagged.
+              </p>
+              <div className="space-y-2">
+                {editOfficialDomains.map((domain, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={domain}
+                      onChange={(e) => {
+                        const next = [...editOfficialDomains];
+                        next[i] = e.target.value;
+                        setEditOfficialDomains(next);
+                      }}
+                      placeholder="e.g., derila.com"
+                    />
+                    {editOfficialDomains.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditOfficialDomains(editOfficialDomains.filter((_, idx) => idx !== i))
+                        }
+                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setEditOfficialDomains([...editOfficialDomains, ""])}
+                  className="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add another domain
+                </button>
+              </div>
+            </div>
+
+            {/* Official Advertisers Whitelist */}
+            <div className="space-y-2">
+              <Label>Official Advertisers</Label>
+              <p className="text-xs text-muted-foreground">
+                Whitelist official advertiser names so their ads are not flagged as hijacking.
+              </p>
+              <div className="space-y-2">
+                {editOfficialAdvertisers.map((advertiser, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={advertiser}
+                      onChange={(e) => {
+                        const next = [...editOfficialAdvertisers];
+                        next[i] = e.target.value;
+                        setEditOfficialAdvertisers(next);
+                      }}
+                      placeholder="e.g., Derila Official"
+                    />
+                    {editOfficialAdvertisers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditOfficialAdvertisers(
+                            editOfficialAdvertisers.filter((_, idx) => idx !== i),
+                          )
+                        }
+                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setEditOfficialAdvertisers([...editOfficialAdvertisers, ""])}
+                  className="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add another advertiser
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Target Platforms</Label>
               <div className="grid grid-cols-3 gap-2 pt-1">
@@ -568,11 +1006,10 @@ function MonitoringPage() {
                         }
                         setEditPlatforms(next);
                       }}
-                      className={`flex items-center justify-between p-2 rounded-md border text-left cursor-pointer transition-colors text-xs select-none ${
-                        active
+                      className={`flex items-center justify-between p-2 rounded-md border text-left cursor-pointer transition-colors text-xs select-none ${active
                           ? "border-accent bg-accent/10 text-accent font-medium"
                           : "border-border hover:bg-muted/50 text-muted-foreground"
-                      }`}
+                        }`}
                     >
                       <span>{label}</span>
                       {active && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
@@ -637,11 +1074,10 @@ function MonitoringPage() {
                             return (
                               <label
                                 key={c.code}
-                                className={`flex items-center gap-2 p-1.5 rounded border transition-colors cursor-pointer text-[10px] ${
-                                  active
+                                className={`flex items-center gap-2 p-1.5 rounded border transition-colors cursor-pointer text-[10px] ${active
                                     ? "border-accent/60 bg-accent/5 text-foreground"
                                     : "border-border/40 hover:bg-muted/30 text-muted-foreground"
-                                }`}
+                                  }`}
                               >
                                 <input
                                   type="checkbox"
@@ -761,11 +1197,13 @@ function MarksTable({
               <TableCell className="font-mono text-xs">{m.registrationNumber}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
-                  {m.platforms.map((p) => (
-                    <Badge key={p} variant="secondary" className="text-[10px]">
-                      {p}
-                    </Badge>
-                  ))}
+                  {m.platforms
+                    .filter((p) => ALL_PLATFORMS.some((ap) => ap.id === p))
+                    .map((p) => (
+                      <Badge key={p} variant="secondary" className="text-[10px]">
+                        {p}
+                      </Badge>
+                    ))}
                 </div>
               </TableCell>
               <TableCell className="text-center text-xs text-muted-foreground">

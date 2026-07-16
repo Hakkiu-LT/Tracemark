@@ -5,7 +5,7 @@ import type { CheckBrandResponse } from "./api.types";
 
 export type Persona = "brand_owner" | "law_firm";
 export type RiskLevel = "high" | "medium" | "low";
-export type Platform = "Amazon" | "Shopify" | "eBay" | "AliExpress" | "Alibaba" | "Etsy" | "Web Domain" | "Instagram" | "TikTok" | "Google" | "Meta" | "Facebook Marketplace" | "Google Shopping";
+export type Platform = "Amazon" | "Shopify" | "eBay" | "AliExpress" | "Alibaba" | "Etsy" | "Web Domain" | "Instagram" | "TikTok" | "Google" | "Meta" | "Facebook Marketplace";
 export type CaseStatus = "active" | "takedown_sent" | "resolved" | "escalated" | "safe" | "analyzing";
 
 export interface Client {
@@ -30,6 +30,8 @@ export interface Mark {
   status?: "active" | "on_hold";
   repeatCycle?: number;
   targetRegions?: string[];
+  officialDomains?: string[];
+  officialAdvertisers?: string[];
 }
 
 export interface Infringement {

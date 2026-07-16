@@ -1,5 +1,12 @@
 """
-Detection engine: keyword, image-hash, and OCR matching for brand infringement.
+Detection engine: keyword, image-hash, OCR, and typosquat matching for brand
+infringement.
+
+These matchers are the canonical implementations for the tiered detection
+funnel:
+  Tier 0 (deterministic, no AI):  keyword_matcher, typosquat_distance
+  Tier 1 (similarity, no LLM):    hash_matcher
+  Tier 2 (LLM adjudication):      ocr_extract_text (Gemini Vision)
 """
 from __future__ import annotations
 
@@ -11,6 +18,7 @@ import imagehash
 from PIL import Image
 from pydantic import BaseModel
 from rapidfuzz import fuzz
+from rapidfuzz.distance import Levenshtein
 
 
 class MatchResult(BaseModel):
@@ -176,7 +184,7 @@ def ocr_extract_text(
         )
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             temperature=0.0,
             google_api_key=api_key,
         )
@@ -191,3 +199,33 @@ def ocr_extract_text(
     except Exception as e:
         print(f"[Detection] OCR extraction failed: {e}")
         return ""
+
+
+def typosquat_distance(brand_name: str, domain_name: str) -> int:
+    """
+    Compute the Levenshtein edit distance between a brand name and the
+    registrable part of a domain (the label before the TLD).
+
+    A distance of 0 means the domain contains the exact brand name.
+    A distance of 1-2 typically indicates a typosquat (e.g. "nike" vs "n1ke").
+    Distances >= 5 are almost certainly unrelated.
+
+    Args:
+        brand_name:  The protected brand (e.g. "Derila").
+        domain_name: The full domain (e.g. "deri1a.com") or just the label.
+
+    Returns:
+        The Levenshtein distance (int). Lower = more similar.
+    """
+    if not brand_name or not domain_name:
+        return 999
+
+    brand = brand_name.lower().strip()
+
+    domain = domain_name.lower().strip()
+    if "." in domain:
+        parts = domain.split(".")
+        if len(parts) >= 2:
+            domain = parts[0]
+
+    return Levenshtein.distance(brand, domain)

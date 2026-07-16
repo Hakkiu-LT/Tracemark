@@ -69,6 +69,7 @@ class SocialEvidence(BaseModel):
     platform: str = PydanticField(description="The social media platform (e.g. Instagram, TikTok, Facebook).")
     handle: str = PydanticField(description="The social account handle.")
     post_url: str | None = PydanticField(default=None, description="Direct URL to a specific infringing post.")
+    screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL of the social profile or post.")
     follower_count: int | None = PydanticField(default=None, description="Follower count of the account.")
     detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
 
@@ -120,6 +121,55 @@ class AIAnalysis(BaseModel):
     )
 
 
+class CriterionScore(BaseModel):
+    name: str = PydanticField(description="Criterion identifier (e.g. brand_name_match, visual_similarity).")
+    score: float = PydanticField(ge=0.0, le=1.0, description="Score for this criterion (0.0-1.0).")
+    evidence: str = PydanticField(default="", description="Human-readable evidence or reference for this score.")
+
+
+class Tier0Signals(BaseModel):
+    """Deterministic signals computed without any LLM call (Tier 0)."""
+    typosquat_distance: int | None = PydanticField(default=None, description="Levenshtein distance between domain and brand (None if not a domain).")
+    brand_name_match_score: float = PydanticField(ge=0.0, le=1.0, default=0.0, description="Fuzzy match score of brand name in title/meta/URL.")
+    domain_age_days: int | None = PydanticField(default=None, description="Domain age in days (None if not applicable).")
+    registrar_reputation: Literal["trusted", "neutral", "suspicious", "unknown"] = PydanticField(default="unknown")
+    ssl_issuer: str | None = PydanticField(default=None, description="SSL certificate issuer organization.")
+    ssl_suspicious: bool = PydanticField(default=False, description="Whether SSL cert has suspicious characteristics.")
+    ad_hijack_score: int | None = PydanticField(default=None, ge=0, le=100, description="Ad hijacking heuristic score 0-100 (None if not an ad).")
+    overall_score: float = PydanticField(ge=0.0, le=1.0, default=0.0, description="Aggregate Tier 0 score.")
+    classification: Literal["obvious_copycat", "obvious_non_match", "ambiguous"] = PydanticField(default="ambiguous")
+
+
+class Tier1Signals(BaseModel):
+    """Similarity scores computed without LLM (Tier 1), using embeddings and pHash."""
+    text_similarity: float | None = PydanticField(default=None, ge=0.0, le=1.0, description="Cosine similarity of page content embedding vs reference content.")
+    visual_similarity: float | None = PydanticField(default=None, ge=0.0, le=1.0, description="pHash-based visual similarity of screenshot vs reference.")
+    logo_similarity: float | None = PydanticField(default=None, ge=0.0, le=1.0, description="pHash similarity of detected logo vs reference logo.")
+    product_similarity: float | None = PydanticField(default=None, ge=0.0, le=1.0, description="pHash similarity of product image vs reference product image.")
+    content_hash: str | None = PydanticField(default=None, description="SHA-256 hash of page content for dedup/caching.")
+    overall_score: float = PydanticField(ge=0.0, le=1.0, default=0.0, description="Aggregate Tier 1 score.")
+    classification: Literal["obvious_copycat", "obvious_non_match", "ambiguous"] = PydanticField(default="ambiguous")
+
+
+class ScoredEvidenceItem(BaseModel):
+    """Unified per-detection record with tiered scoring and evidence trail."""
+    source_url: str
+    platform: str
+    screenshot_url: str | None = None
+    content_hash: str | None = None
+    tier0: Tier0Signals | None = None
+    tier1: Tier1Signals | None = None
+    tier2_score: float | None = PydanticField(default=None, ge=0.0, le=1.0)
+    overall_score: float = PydanticField(ge=0.0, le=1.0, default=0.0)
+    verdict: Literal["obvious_copycat", "likely_copycat", "ambiguous", "obvious_non_match"] = "ambiguous"
+    category: list[str] = PydanticField(default_factory=list)
+    criteria: list[CriterionScore] = PydanticField(default_factory=list)
+    confidence: Literal["high", "medium", "low"] = "low"
+    scraped_at: datetime = PydanticField(default_factory=datetime.now)
+    first_seen_at: datetime = PydanticField(default_factory=datetime.now)
+    status: Literal["new", "reviewed", "actioned"] = "new"
+
+
 @dataclass(slots=True)
 class AnalysisResult:
     evidence: Evidence | None
@@ -161,7 +211,7 @@ def build_agent_graph():
             return {"evidence": mock_evidence}
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             temperature=0.0,
             google_api_key=api_key,
         ).with_structured_output(Evidence)
@@ -204,16 +254,16 @@ def build_agent_graph():
             ).with_structured_output(Decision)
             decision = call_with_tracking("gemini_pro", "system", "/analyze", lambda: model.invoke(prompt))
         except Exception as e:
-            print(f"[AI Agent] gemini-2.5-pro decision failed or limit reached: {e}. Falling back to gemini-2.5-flash.")
+            print(f"[AI Agent] gemini-2.5-pro decision failed or limit reached: {e}. Falling back to gemini-3.5-flash.")
             try:
                 model_flash = ChatGoogleGenerativeAI(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.5-flash",
                     temperature=0.0,
                     google_api_key=api_key,
                 ).with_structured_output(Decision)
                 decision = call_with_tracking("gemini_flash", "system", "/analyze", lambda: model_flash.invoke(prompt))
             except Exception as flash_e:
-                print(f"[AI Agent] Fallback to gemini-2.5-flash also failed: {flash_e}")
+                print(f"[AI Agent] Fallback to gemini-3.5-flash also failed: {flash_e}")
                 raise flash_e
         return {"decision": decision}
 
@@ -247,57 +297,25 @@ class DecisionAgentState(TypedDict):
     evidence: Evidence
     decision: Decision | None
     error: str | None
-    analysis_summary: str
+    scored_items: list[ScoredEvidenceItem] | None
 
 
-def _analyze_evidence_node(state: DecisionAgentState) -> DecisionAgentState:
+def _evaluate_and_decide_node(state: DecisionAgentState) -> DecisionAgentState:
+    """Single-node decision graph: summarize + decide in one Gemini Flash call.
+
+    Replaces the previous two-node design (separate summarization + decision
+    calls).  The tiered funnel already provides structured per-item scores,
+    so a separate summarization pass adds cost without improving the decision.
+    """
     from tracemark_api.services.evidence_scorer import score_evidence
+    from tracemark_api.services.api_usage_tracker import call_with_tracking, ApiLimitError
 
     evidence = state["evidence"]
-    score = score_evidence(evidence)
-    if score.is_empty:
-        state["analysis_summary"] = "No evidence collected."
-        return state
-
-    api_key = os.environ.get("GEMINI_API_KEY")
-
-    if not api_key:
-        state["analysis_summary"] = f"Mock analysis: {len(evidence.marketplaces)} marketplace listing(s) found."
-        return state
-
-    model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0.0,
-        google_api_key=api_key,
-    )
-    prompt = f"""
-Analyze the following brand protection evidence and summarize the findings.
-Focus on: ad hijacking (unauthorized paid ads using the brand), suspicious marketplace listings,
-and typosquatting domains that steal traffic from established brands.
-
-Evidence:
-- Marketplace listings: {len(evidence.marketplaces)} found
-- Listings detail: {[m.model_dump() for m in evidence.marketplaces[:5]]}
-- Ads detected: {[a.model_dump() for a in evidence.ads[:5]]}
-- Suspicious domains: {[d.model_dump() for d in evidence.domains[:10]]}
-
-Return a concise factual summary (3-5 sentences) of what was found.
-"""
-    from tracemark_api.services.api_usage_tracker import call_with_tracking
-    response = call_with_tracking("gemini_flash", "system", "/check-brand", lambda: model.invoke(prompt))
-    state["analysis_summary"] = response.content
-    return state
-
-
-def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
-    from tracemark_api.services.evidence_scorer import score_evidence
-
-    evidence = state["evidence"]
-    summary = state.get("analysis_summary", "")
+    scored_items = state.get("scored_items") or []
     api_key = os.environ.get("GEMINI_API_KEY")
     score = score_evidence(evidence)
 
-    # Short-circuit: if no evidence at all, dismiss without calling Gemini
+    # Short-circuit: no evidence → dismiss without calling Gemini
     if score.is_empty:
         state["decision"] = Decision(
             risk_level="LOW",
@@ -312,6 +330,7 @@ def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
         )
         return state
 
+    # No API key → mock decision
     if not api_key:
         has_listings = len(evidence.marketplaces) > 0
         state["decision"] = Decision(
@@ -327,9 +346,27 @@ def _make_decision_node(state: DecisionAgentState) -> DecisionAgentState:
         )
         return state
 
-    prompt = f"""
-You are a brand protection legal analyst. Based on the structured evidence below,
-make an enforcement decision.
+    # Build tiered funnel context
+    tiered_context = ""
+    if scored_items:
+        auto_flagged = [s for s in scored_items if s.verdict == "obvious_copycat"]
+        likely = [s for s in scored_items if s.verdict == "likely_copycat"]
+        ambiguous = [s for s in scored_items if s.verdict == "ambiguous"]
+
+        tiered_context = f"""
+TIERED FUNNEL RESULTS:
+- Auto-flagged as obvious copycat (Tier 0/1): {len(auto_flagged)} items
+- Likely copycat (Tier 1): {len(likely)} items
+- Ambiguous (require your adjudication): {len(ambiguous)} items
+
+PER-ITEM SCORES (ambiguous items only — focus your analysis here):
+{chr(10).join(f'• {s.source_url} | score={s.overall_score:.2f} | criteria: {", ".join(c.name + "=" + str(c.score) for c in s.criteria[:3])}' for s in ambiguous[:10])}
+
+AUTO-FLAGGED ITEMS (confirmed by deterministic signals — no adjudication needed):
+{chr(10).join(f'• {s.source_url} | score={s.overall_score:.2f}' for s in (auto_flagged + likely)[:10])}
+"""
+
+    prompt = f"""You are a brand protection legal analyst. Analyze the evidence below and produce both a factual summary AND an enforcement decision in a single response.
 
 SCANNED PLATFORMS: {evidence.scanned_platforms}
 
@@ -338,7 +375,7 @@ PRE-COMPUTED EVIDENCE QUALITY SCORE: {score.total_score:.2f}/1.0 ({score.quality
 - Ads score: {score.ads_score:.2f}
 - Domain surveillance score: {score.domains_score:.2f}
 - Social media score: {score.social_score:.2f}
-
+{tiered_context}
 KEY FINDINGS (pre-extracted):
 {chr(10).join(f'• {f}' for f in score.top_findings)}
 
@@ -347,79 +384,76 @@ RAW COUNTS:
 - Suspicious ads: {len(evidence.ads)}
 - Suspicious domains: {len(evidence.domains)}
 
-EVIDENCE SUMMARY: {summary}
-
 SAMPLE LISTINGS (up to 5):
 {[m.model_dump() for m in evidence.marketplaces[:5]]}
 
+SAMPLE ADS (up to 5):
+{[a.model_dump() for a in evidence.ads[:5]]}
+
+SAMPLE DOMAINS (up to 10):
+{[d.model_dump() for d in evidence.domains[:10]]}
+
 DECISION GUIDELINES:
-- Anchor your confidence_score to the pre-computed evidence score relative to the scope of what was scanned (represented by the normalized PRE-COMPUTED EVIDENCE QUALITY SCORE).
-- If ONLY domains were scanned, evaluate the risk level, confidence, and recommended action based solely on the domain threat (e.g. a highly similar clone domain should warrant HIGH/MEDIUM risk and TAKEDOWN/MONITOR with high confidence).
-- HIGH + TAKEDOWN: evidence_score >= 0.65 OR ad hijacking detected OR 5+ marketplace listings OR a highly similar clone domain (similarity >= 85%) when domains were scanned.
+- Write a 2-3 sentence factual case_summary of what was found.
+- Anchor your confidence_score to the pre-computed evidence score relative to the scope of what was scanned.
+- If ONLY domains were scanned, evaluate based solely on the domain threat.
+- HIGH + TAKEDOWN: evidence_score >= 0.65 OR ad hijacking detected OR 5+ marketplace listings OR a highly similar clone domain.
 - MEDIUM + MONITOR: evidence_score 0.30-0.64 OR 1-4 listings OR suspicious domains.
 - LOW + DISMISS: evidence_score < 0.30 AND no marketplace listings and no suspicious domains.
+- Items auto-flagged by the tiered funnel have high-confidence deterministic scores — rely on those without re-evaluating.
+- Focus your analysis on the ambiguous items that lack a clear deterministic signal.
 
 Return risk_level, recommended_action, case_summary, confidence_score, evidence_quality, key_findings.
 """
-    from tracemark_api.services.api_usage_tracker import call_with_tracking, ApiLimitError
     try:
         model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro",
+            model="gemini-3.5-flash",
             temperature=0.0,
             google_api_key=api_key,
         ).with_structured_output(Decision)
-        state["decision"] = call_with_tracking("gemini_pro", "system", "/check-brand", lambda: model.invoke(prompt))
+        state["decision"] = call_with_tracking(
+            "gemini_flash", "system", "/check-brand", lambda: model.invoke(prompt),
+        )
+    except ApiLimitError as e_limit:
+        state["error"] = str(e_limit)
+        state["decision"] = Decision(
+            risk_level="LOW",
+            recommended_action="DISMISS",
+            case_summary=f"Gemini Flash limit reached: {e_limit}",
+            confidence_score=0.0,
+            evidence_quality="WEAK",
+            key_findings=[],
+        )
     except Exception as e:
-        print(f"[AI Decision Node] gemini-2.5-pro failed or limit reached: {e}. Falling back to gemini-2.5-flash.")
-        try:
-            model_flash = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash",
-                temperature=0.0,
-                google_api_key=api_key,
-            ).with_structured_output(Decision)
-            state["decision"] = call_with_tracking("gemini_flash", "system", "/check-brand", lambda: model_flash.invoke(prompt))
-        except ApiLimitError as e_limit:
-            state["error"] = str(e_limit)
-            state["decision"] = Decision(
-                risk_level="LOW",
-                recommended_action="DISMISS",
-                case_summary=f"Gemini Flash limit reached during fallback: {e_limit}",
-                confidence_score=0.0,
-                evidence_quality="WEAK",
-                key_findings=[],
-            )
-        except Exception as e_flash:
-            import traceback
-            traceback.print_exc()
-            state["error"] = str(e_flash)
-            state["decision"] = Decision(
-                risk_level="LOW",
-                recommended_action="DISMISS",
-                case_summary="Agent error — could not complete analysis with fallback model.",
-                confidence_score=0.0,
-                evidence_quality="WEAK",
-                key_findings=[],
-            )
+        import traceback
+        traceback.print_exc()
+        state["error"] = str(e)
+        state["decision"] = Decision(
+            risk_level="LOW",
+            recommended_action="DISMISS",
+            case_summary=f"Agent error — could not complete analysis: {e}",
+            confidence_score=0.0,
+            evidence_quality="WEAK",
+            key_findings=[],
+        )
     return state
 
 
 def build_decision_graph():
     graph = StateGraph(DecisionAgentState)
-    graph.add_node("analyze_evidence", _analyze_evidence_node)
-    graph.add_node("make_decision", _make_decision_node)
-    graph.set_entry_point("analyze_evidence")
-    graph.add_edge("analyze_evidence", "make_decision")
-    graph.add_edge("make_decision", END)
+    graph.add_node("evaluate_and_decide", _evaluate_and_decide_node)
+    graph.set_entry_point("evaluate_and_decide")
+    graph.add_edge("evaluate_and_decide", END)
     return graph.compile()
 
 
-def make_decision(evidence: Evidence) -> Decision:
+def make_decision(evidence: Evidence, scored_items: list[ScoredEvidenceItem] | None = None) -> Decision:
     graph = build_decision_graph()
     final_state = graph.invoke({
         "evidence": evidence,
         "decision": None,
         "error": None,
-        "analysis_summary": "",
+        "scored_items": scored_items,
     })
     return final_state["decision"]
 
@@ -491,7 +525,7 @@ def generate_evidence_analysis(
         )
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             temperature=0.0,
             google_api_key=api_key,
         ).with_structured_output(AIAnalysis)
