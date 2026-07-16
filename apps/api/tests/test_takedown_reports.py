@@ -10,8 +10,26 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def override_auth():
-    from tracemark_api.dependencies import get_current_user, AuthUser
+    from tracemark_api.dependencies import get_current_user, get_current_profile, AuthUser, CurrentProfile
+    from tracemark_api.services.entitlements import Entitlement
     app.dependency_overrides[get_current_user] = lambda: AuthUser(id="fake-id", email="fake@tracemark.io")
+    app.dependency_overrides[get_current_profile] = lambda: CurrentProfile(
+        id="fake-id",
+        email="fake@tracemark.io",
+        organization_id="org-123",
+        plan="pro",
+        entitlements=Entitlement(
+            plan="pro",
+            brands=5,
+            platforms=3,
+            regions=2,
+            domain_tracking=True,
+            managed_takedown=True,
+            api_access=True,
+            advanced_reports=True,
+            real_time_scans=True
+        )
+    )
     yield
     app.dependency_overrides.clear()
 
@@ -200,10 +218,12 @@ def test_update_takedown_success():
         "id": "takedown-123",
         "notice_text": "Updated notice text",
         "status": "sent",
-        "submitted_at": "2026-06-24T18:00:00Z"
+        "submitted_at": "2026-06-24T18:00:00Z",
+        "cases": {"organization_id": "org-123"}
     }]
     
     mock_table = MagicMock()
+    mock_table.select.return_value.eq.return_value.execute.return_value = mock_result
     mock_table.update.return_value.eq.return_value.execute.return_value = mock_result
     
     mock_sb = MagicMock()
@@ -236,7 +256,8 @@ def test_update_takedown_no_fields():
         "id": "takedown-123",
         "notice_text": "Existing notice text",
         "status": "pending",
-        "submitted_at": None
+        "submitted_at": None,
+        "cases": {"organization_id": "org-123"}
     }]
     
     mock_table = MagicMock()
@@ -257,7 +278,7 @@ def test_update_takedown_no_fields():
     assert response.json()["notice_text"] == "Existing notice text"
     
     # Verify select was called, update was not called
-    mock_table.select.assert_called_once_with("*")
+    mock_table.select.assert_called_once_with("*, cases(organization_id)")
     mock_table.update.assert_not_called()
 
 
@@ -266,6 +287,7 @@ def test_update_takedown_not_found():
     mock_result.data = [] # Empty means not found
     
     mock_table = MagicMock()
+    mock_table.select.return_value.eq.return_value.execute.return_value = mock_result
     mock_table.update.return_value.eq.return_value.execute.return_value = mock_result
     
     mock_sb = MagicMock()

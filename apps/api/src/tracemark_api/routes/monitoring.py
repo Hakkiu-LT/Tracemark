@@ -414,7 +414,7 @@ class TakedownUpdateRequest(BaseModel):
 def update_takedown_report_endpoint(
     id: str,
     payload: TakedownUpdateRequest,
-    current_user = Depends(get_current_user)
+    profile: CurrentProfile = Depends(get_current_profile)
 ):
     """
     Update notice text and status of a takedown report in Supabase.
@@ -431,12 +431,18 @@ def update_takedown_report_endpoint(
             from datetime import datetime, timezone
             update_data["submitted_at"] = datetime.now(timezone.utc).isoformat()
             
-    if not update_data:
+    if True: # Always fetch first to check auth
         try:
-            res = sb.table("takedown_reports").select("*").eq("id", id).execute()
+            res = sb.table("takedown_reports").select("*, cases(organization_id)").eq("id", id).execute()
             if not res.data:
                 raise HTTPException(status_code=404, detail=f"Takedown report with ID {id} not found")
-            return res.data[0]
+            report = res.data[0]
+            if not report.get("cases") or report["cases"].get("organization_id") != profile.organization_id:
+                raise HTTPException(status_code=403, detail="Not authorized")
+            if not update_data:
+                # Remove cases from response to match original shape
+                report.pop("cases", None)
+                return report
         except Exception as e:
             if isinstance(e, HTTPException):
                 raise e
@@ -481,18 +487,21 @@ def test_email_notification_endpoint(
 @router.post("/takedowns/{id}/send-email")
 def send_takedown_email_endpoint(
     id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Send the notice text of the takedown report to its submission_email via SMTP,
     update status to 'sent', and set submitted_at to now.
     """
     sb = get_supabase()
-    res = sb.table("takedown_reports").select("*").eq("id", id).maybe_single().execute()
+    res = sb.table("takedown_reports").select("*, cases(organization_id)").eq("id", id).maybe_single().execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Takedown report not found")
 
     report = res.data
+    if not report.get("cases") or report["cases"].get("organization_id") != profile.organization_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
     recipient = report.get("submission_email")
     if not recipient:
         raise HTTPException(status_code=400, detail="Submission email is not configured for this platform")
