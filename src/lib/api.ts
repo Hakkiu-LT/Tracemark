@@ -10,13 +10,19 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   const session = await supabase?.auth.getSession();
   const token = session?.data?.session?.access_token;
 
+  const isFormData = init.body instanceof FormData;
+  const headers: Record<string, string> = {};
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  Object.assign(headers, (init.headers as Record<string, string>) || {});
+
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init.headers,
-    },
+    headers,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
@@ -251,8 +257,21 @@ export interface BrandRecord {
   platforms: string[];
   target_regions: string[];
   logo_color: string | null;
+  official_domains: string[] | null;
+  official_advertisers: string[] | null;
   status: "active" | "locked" | "on_hold";
   last_scan_at: string | null;
+  created_at: string;
+}
+
+export interface BrandAsset {
+  id: string;
+  brand_id: string;
+  asset_type: "logo" | "reference_content" | "product_image";
+  file_url: string | null;
+  content_hash: string | null;
+  phash: number | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -275,6 +294,8 @@ export function createBrand(payload: {
   target_regions?: string[];
   logo_color?: string | null;
   client_id?: string | null;
+  official_domains?: string[];
+  official_advertisers?: string[];
 }): Promise<BrandRecord> {
   return apiFetch<BrandRecord>("/brands", {
     method: "POST",
@@ -292,6 +313,8 @@ export function updateBrand(
     target_regions: string[];
     logo_color: string | null;
     status: "active" | "locked" | "on_hold";
+    official_domains: string[];
+    official_advertisers: string[];
   }>,
 ): Promise<BrandRecord> {
   return apiFetch<BrandRecord>(`/brands/${id}`, {
@@ -302,4 +325,36 @@ export function updateBrand(
 
 export function deleteBrand(id: string): Promise<{ deleted: boolean; id: string }> {
   return apiFetch(`/brands/${id}`, { method: "DELETE" });
+}
+
+export function listBrandAssets(brandId: string): Promise<BrandAsset[]> {
+  return apiFetch<BrandAsset[]>(`/brands/${brandId}/assets`);
+}
+
+export async function uploadBrandAsset(
+  brandId: string,
+  assetType: "logo" | "reference_content" | "product_image",
+  file: File,
+): Promise<BrandAsset> {
+  const formData = new FormData();
+  formData.append("asset_type", assetType);
+  formData.append("file", file);
+  const res = await apiFetch<BrandAsset>(`/brands/${brandId}/assets`, {
+    method: "POST",
+    body: formData,
+  });
+  return res;
+}
+
+export function deleteBrandAsset(
+  brandId: string,
+  assetId: string,
+): Promise<{ deleted: boolean; id: string }> {
+  return apiFetch(`/brands/${brandId}/assets/${assetId}`, { method: "DELETE" });
+}
+
+export function refreshReferenceContent(
+  brandId: string,
+): Promise<{ refreshed: boolean; source_urls?: string[]; last_fetched?: string; text_length?: number; message?: string }> {
+  return apiFetch(`/brands/${brandId}/reference-content/refresh`, { method: "POST" });
 }

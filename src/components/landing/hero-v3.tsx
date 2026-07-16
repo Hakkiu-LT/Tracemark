@@ -38,9 +38,7 @@ const PHASE_COUNT = 4;
 
 const stats = [
   { value: "24/7", label: "Always on" },
-  { value: "<5 min", label: "To first alert" },
-  { value: "87%", label: "Infringements found" },
-  { value: "12+", label: "Markets watched" },
+  { value: "12", label: "Markets watched" },
   { value: "99.8%", label: "Uptime" },
 ];
 

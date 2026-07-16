@@ -33,10 +33,23 @@ class InfringementsResponse(BaseModel):
 
 class EvidenceItem(BaseModel):
     id: str
-    infringement_id: str
+    case_id: str | None
+    infringement_id: str | None
+    source_url: str
+    platform: str
     screenshot_url: str | None
-    ai_analysis: dict | None
-    captured_at: str
+    content_hash: str | None
+    tier0_score: float | None
+    tier1_score: float | None
+    tier2_score: float | None
+    overall_score: float | None
+    verdict: str | None
+    category: list | None
+    criteria: list | None
+    confidence: str | None
+    first_seen_at: str | None
+    scraped_at: str | None
+    status: str
     created_at: str
 
 
@@ -153,10 +166,10 @@ def get_evidence(
     """Return all evidence snapshots for an infringement, newest first."""
     sb = get_supabase()
     result = (
-        sb.table("evidence")
+        sb.table("evidence_items")
         .select("*")
         .eq("infringement_id", infringement_id)
-        .order("captured_at", desc=True)
+        .order("created_at", desc=True)
         .execute()
     )
     return result.data or []

@@ -163,3 +163,54 @@ def test_reconcile_noop_when_within_limit():
     ):
         out = reconcile_brand_locks("org-1")
     assert out == {"locked": [], "unlocked": []}
+
+
+# ── resolve_entitlements_for_user ─────────────────────────────────────────────
+
+def test_resolve_entitlements_for_user_admin():
+    sb = MagicMock()
+    res = MagicMock()
+    res.data = {"organization_id": "org-123", "is_admin": True}
+    sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = res
+
+    with patch.object(ent_mod, "get_supabase", return_value=sb):
+        org_id, plan, ent = ent_mod.resolve_entitlements_for_user("user-1")
+    
+    assert org_id == "org-123"
+    assert plan == "enterprise"
+    assert ent == PLAN_ENTITLEMENTS["enterprise"]
+
+
+def test_resolve_entitlements_for_user_regular():
+    sb = MagicMock()
+    res_prof = MagicMock()
+    res_prof.data = {"organization_id": "org-123", "is_admin": False}
+    
+    res_sub = MagicMock()
+    res_sub.data = [{"plan": "growth", "status": "active", "created_at": "2026-01-01"}]
+    
+    res_addons = MagicMock()
+    res_addons.data = []
+
+    def table_mock(name):
+        t = MagicMock()
+        if name == "profiles":
+            # select().eq().maybe_single().execute()
+            t.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = res_prof
+        elif name == "subscriptions":
+            # select().eq().order().execute()
+            t.select.return_value.eq.return_value.order.return_value.execute.return_value = res_sub
+        elif name == "subscription_addons":
+            # select().eq().execute()
+            t.select.return_value.eq.return_value.execute.return_value = res_addons
+        return t
+
+    sb.table.side_effect = table_mock
+
+    with patch.object(ent_mod, "get_supabase", return_value=sb):
+        org_id, plan, ent = ent_mod.resolve_entitlements_for_user("user-1")
+    
+    assert org_id == "org-123"
+    assert plan == "growth"
+    assert ent == PLAN_ENTITLEMENTS["growth"]
+

@@ -45,7 +45,7 @@ export const PLAN_ENTITLEMENTS: Record<string, Entitlement> = {
   },
   growth: {
     brands: 5,
-    platforms: 13,
+    platforms: 12,
     regions: 3,
     domainTracking: false,
     managedTakedown: false,
@@ -55,7 +55,7 @@ export const PLAN_ENTITLEMENTS: Record<string, Entitlement> = {
   },
   pro: {
     brands: 20,
-    platforms: 13,
+    platforms: 12,
     regions: 10,
     domainTracking: true,
     managedTakedown: true,
@@ -65,7 +65,7 @@ export const PLAN_ENTITLEMENTS: Record<string, Entitlement> = {
   },
   agency: {
     brands: null,
-    platforms: 13,
+    platforms: 12,
     regions: null,
     domainTracking: true,
     managedTakedown: true,
@@ -75,7 +75,7 @@ export const PLAN_ENTITLEMENTS: Record<string, Entitlement> = {
   },
   enterprise: {
     brands: null,
-    platforms: 13,
+    platforms: 12,
     regions: null,
     domainTracking: true,
     managedTakedown: true,

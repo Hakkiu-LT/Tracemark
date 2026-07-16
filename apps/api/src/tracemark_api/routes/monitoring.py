@@ -6,7 +6,10 @@ from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
 from tracemark_api.services.database import get_supabase, create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
-from tracemark_api.services.persistence import persist_all_infringements
+from tracemark_api.services.evidence_scorer import score_evidence
+from tracemark_api.services.entitlements import resolve_detection_depth, DetectionDepth
+from tracemark_api.services.persistence import persist_all_infringements, persist_scored_evidence_item
+from tracemark_api.services.detection_funnel import run_tier0_and_filter, run_tier1, filter_evidence_by_scored
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
 from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
 
@@ -148,6 +151,7 @@ class CheckBrandRequest(BaseModel):
     brand_name: str
     platforms: list[str] = ["amazon", "google_ads", "meta_ads", "domains"]
     official_advertisers: list[str] = []
+    official_domains: list[str] = []
     target_regions: list[str] = ["US"]
     client_id: str | None = None
 
@@ -224,6 +228,7 @@ async def check_brand(
     _enforce_scan_entitlements(profile, payload)
     _reject_if_brand_locked(profile.organization_id, payload.brand_name)
 
+    detection_depth: DetectionDepth = resolve_detection_depth(profile.entitlements)
     organization_id = profile.organization_id
     detection_region = payload.target_regions[0] if payload.target_regions else "US"
 
@@ -234,7 +239,54 @@ async def check_brand(
             payload.platforms,
             payload.official_advertisers or None,
             caller_id=caller_id,
+            official_domains=payload.official_domains or None,
         )
+
+        # --- Step 1b: run Tier 0 deterministic funnel ---
+        # Filters out obvious_non_match items and produces structured
+        # per-item scores without any LLM call.
+        if detection_depth in ("tier0", "tier1", "tier2"):
+            evidence, scored_items = run_tier0_and_filter(
+                evidence, payload.brand_name,
+            )
+        else:
+            scored_items = []
+
+        # --- Step 1c: run Tier 1 similarity scoring (no LLM) ---
+        # Computes text/visual/logo/product similarity against brand
+        # reference assets. Only runs on ambiguous items from Tier 0.
+        if detection_depth in ("tier1", "tier2") and scored_items:
+            sb = get_supabase()
+            brand_id = None
+            try:
+                brand_res = (
+                    sb.table("brands")
+                    .select("id")
+                    .eq("organization_id", organization_id)
+                    .eq("brand_name", payload.brand_name)
+                    .maybe_single()
+                    .execute()
+                )
+                if brand_res and brand_res.data:
+                    brand_id = brand_res.data.get("id")
+            except Exception:
+                pass
+
+            if brand_id:
+                import asyncio
+                scored_items = await asyncio.to_thread(
+                    run_tier1, evidence, scored_items, brand_id,
+                )
+                evidence = filter_evidence_by_scored(evidence, scored_items)
+                scored_items = [s for s in scored_items if s.verdict != "obvious_non_match"]
+
+        # Sync calculated similarity scores back to the domain evidence items
+        if scored_items:
+            score_map = {item.source_url: item.overall_score for item in scored_items}
+            for d in evidence.domains:
+                target_url = f"https://{d.domain_name}"
+                if target_url in score_map:
+                    d.similarity_score = int(score_map[target_url] * 100)
 
         has_evidence = (
             len(evidence.marketplaces) > 0
@@ -252,6 +304,7 @@ async def check_brand(
                 "evidence": evidence.model_dump(),
                 "takedown_reports": [],
                 "detection_region": detection_region,
+                "detection_depth": detection_depth,
             }
 
         # --- Step 3: copycats found → create the case now ---
@@ -266,12 +319,21 @@ async def check_brand(
 
         save_evidence(case_id, evidence)
         try:
-            persist_all_infringements(case_id, evidence)
+            persist_all_infringements(case_id, evidence, scored_items=scored_items)
         except Exception as persist_err:
             print(f"[warn] persist_all_infringements failed for {case_id}: {persist_err}")
 
-        decision = make_decision(evidence)
-        save_decision(case_id, decision)
+        # Persist Tier 0 scored items to evidence_items table
+        if scored_items:
+            try:
+                for scored in scored_items:
+                    persist_scored_evidence_item(case_id, scored)
+            except Exception as scored_err:
+                print(f"[warn] persist_scored_evidence_item failed for {case_id}: {scored_err}")
+
+        decision = make_decision(evidence, scored_items=scored_items if scored_items else None)
+        score = score_evidence(evidence)
+        save_decision(case_id, decision, score=score)
         reports = generate_takedown_reports(
             case_id=case_id,
             brand_name=payload.brand_name,
@@ -285,6 +347,7 @@ async def check_brand(
             "evidence": evidence.model_dump(),
             "takedown_reports": [r.model_dump() for r in reports],
             "detection_region": detection_region,
+            "detection_depth": detection_depth,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

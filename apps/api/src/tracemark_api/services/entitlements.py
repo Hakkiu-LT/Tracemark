@@ -14,11 +14,14 @@ frontend, which renders it as "Unlimited").
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
+from typing import Literal
 
 from tracemark_api.services.database import get_supabase
 
 # Sentinel: a numeric limit of None means "no cap".
 UNLIMITED = None
+
+DetectionDepth = Literal["tier0", "tier1", "tier2"]
 
 # Subscription statuses that count as "the customer is entitled right now".
 # Mirrors billing.py's _ACTIVE_STATUSES (kept here to avoid a circular import).
@@ -90,7 +93,7 @@ PLAN_ENTITLEMENTS: dict[str, Entitlement] = {
     "growth": Entitlement(
         plan="growth",
         brands=5,
-        platforms=13,
+        platforms=12,
         regions=3,
         domain_tracking=False,
         managed_takedown=False,
@@ -101,7 +104,7 @@ PLAN_ENTITLEMENTS: dict[str, Entitlement] = {
     "pro": Entitlement(
         plan="pro",
         brands=20,
-        platforms=13,
+        platforms=12,
         regions=10,
         domain_tracking=True,
         managed_takedown=True,
@@ -112,7 +115,7 @@ PLAN_ENTITLEMENTS: dict[str, Entitlement] = {
     "agency": Entitlement(
         plan="agency",
         brands=UNLIMITED,
-        platforms=13,
+        platforms=12,
         regions=UNLIMITED,
         domain_tracking=True,
         managed_takedown=True,
@@ -123,7 +126,7 @@ PLAN_ENTITLEMENTS: dict[str, Entitlement] = {
     "enterprise": Entitlement(
         plan="enterprise",
         brands=UNLIMITED,
-        platforms=13,
+        platforms=12,
         regions=UNLIMITED,
         domain_tracking=True,
         managed_takedown=True,
@@ -249,10 +252,39 @@ def resolve_entitlements_for_org(org_id: str) -> tuple[str, Entitlement]:
 
 
 def resolve_entitlements_for_user(user_id: str) -> tuple[str, str, Entitlement]:
-    """Return (org_id, plan, effective Entitlement) for a user."""
-    org_id = resolve_org_id(user_id)
+    """Return (org_id, plan, effective Entitlement) for a user.
+    If the user has the is_admin flag set to True, they are granted Enterprise-level entitlements.
+    """
+    sb = get_supabase()
+    res = (
+        sb.table("profiles")
+        .select("organization_id, is_admin")
+        .eq("id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    profile_data = res.data if (res and res.data) else {}
+    org_id = profile_data.get("organization_id") or user_id
+    is_admin = profile_data.get("is_admin", False)
+
+    if is_admin:
+        return org_id, "enterprise", PLAN_ENTITLEMENTS["enterprise"]
+
     plan, ent = resolve_entitlements_for_org(org_id)
     return org_id, plan, ent
+
+
+def resolve_detection_depth(ent: Entitlement) -> DetectionDepth:
+    """Return the maximum detection tier the caller's plan allows.
+
+    Currently returns the full funnel ('tier2') for all plans. When
+    plan-gating is enabled, this becomes the single switch point:
+      free/starter -> 'tier0'
+      growth       -> 'tier1'
+      pro+         -> 'tier2'
+    No funnel rework is needed — callers already branch on this value.
+    """
+    return "tier2"
 
 
 # ── Downgrade/upgrade reconciliation ─────────────────────────────────────────

@@ -120,6 +120,32 @@ def firecrawl_location(country: str) -> dict:
     }
 
 
+COUNTRY_LOCATIONS = {
+    "US": "United States",
+    "GB": "United Kingdom",
+    "CA": "Canada",
+    "AU": "Australia",
+    "DE": "Germany",
+    "FR": "France",
+    "IT": "Italy",
+    "ES": "Spain",
+    "JP": "Japan",
+    "KR": "South Korea",
+    "CN": "China",
+    "BR": "Brazil",
+    "MX": "Mexico",
+    "IN": "India",
+    "SG": "Singapore",
+    "NL": "Netherlands",
+    "SE": "Sweden",
+    "AE": "United Arab Emirates",
+    "ZA": "South Africa",
+    "AR": "Argentina",
+    "CO": "Colombia",
+    "CL": "Chile",
+}
+
+
 def serpapi_geo_params(country: str) -> dict:
     """
     Constructs geoloc parameters for SerpApi / SearchCans.
@@ -127,5 +153,6 @@ def serpapi_geo_params(country: str) -> dict:
     c_upper = country.upper()
     return {
         "gl": c_upper.lower(),
-        "hl": COUNTRY_LANGUAGES.get(c_upper, "en")
+        "hl": COUNTRY_LANGUAGES.get(c_upper, "en"),
+        "location": COUNTRY_LOCATIONS.get(c_upper, "United States"),
     }

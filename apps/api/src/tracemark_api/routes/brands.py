@@ -13,11 +13,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
+from typing import Literal
 
 from tracemark_api.dependencies import CurrentProfile, get_current_profile
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.storage import (
+    upload_brand_asset,
+    compute_phash,
+    compute_content_hash,
+    get_brand_asset_url,
+)
 
 router = APIRouter(prefix="/brands", tags=["brands"])
 
@@ -33,6 +40,8 @@ class BrandCreate(BaseModel):
     target_regions: list[str] = []
     logo_color: str | None = None
     client_id: str | None = None
+    official_domains: list[str] = []
+    official_advertisers: list[str] = []
 
 
 class BrandUpdate(BaseModel):
@@ -43,6 +52,8 @@ class BrandUpdate(BaseModel):
     target_regions: list[str] | None = None
     logo_color: str | None = None
     status: str | None = None
+    official_domains: list[str] | None = None
+    official_advertisers: list[str] | None = None
 
 
 def _count_active_brands(org_id: str) -> int:
@@ -123,6 +134,8 @@ def create_brand(
         "platforms": body.platforms,
         "target_regions": body.target_regions,
         "logo_color": body.logo_color,
+        "official_domains": body.official_domains,
+        "official_advertisers": body.official_advertisers,
         "status": "active",
     }
     res = sb.table("brands").insert(payload).execute()
@@ -146,6 +159,8 @@ def update_brand(
         "platforms",
         "target_regions",
         "logo_color",
+        "official_domains",
+        "official_advertisers",
     ):
         val = getattr(body, field)
         if val is not None:
@@ -192,3 +207,170 @@ def delete_brand(
         "organization_id", profile.organization_id
     ).execute()
     return {"deleted": True, "id": brand_id}
+
+
+# ── Brand reference assets (logos, reference content, product images) ────────
+
+class BrandAssetResponse(BaseModel):
+    id: str
+    brand_id: str
+    asset_type: str
+    file_url: str | None
+    content_hash: str | None
+    phash: int | None
+    metadata: dict | None
+    created_at: str
+
+
+@router.get("/{brand_id}/assets", response_model=list[BrandAssetResponse])
+def list_brand_assets(
+    brand_id: str,
+    profile: CurrentProfile = Depends(get_current_profile),
+):
+    """List all reference assets for a brand."""
+    _brand_or_404(profile.organization_id, brand_id)
+    sb = get_supabase()
+    res = (
+        sb.table("brand_assets")
+        .select("*")
+        .eq("brand_id", brand_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return res.data or []
+
+
+@router.post("/{brand_id}/reference-content/refresh")
+def refresh_reference_content(
+    brand_id: str,
+    profile: CurrentProfile = Depends(get_current_profile),
+):
+    """
+    Force-refresh the auto-generated reference content for a brand.
+
+    Fetches the official websites (from ``brands.official_domains`` or
+    ``brands.website``), strips HTML, embeds the text with the Gemini
+    Embedding API, and stores the result. Bypasses the 30-day cache.
+    """
+    from tracemark_api.services.embedding_helper import ensure_official_site_reference
+    from tracemark_api.services.database import get_supabase
+    from datetime import datetime, timezone
+
+    _brand_or_404(profile.organization_id, brand_id)
+
+    sb = get_supabase()
+    try:
+        sb.table("brand_assets").delete().eq("brand_id", brand_id).eq("asset_type", "reference_content").execute()
+    except Exception as e:
+        print(f"[Brands] Failed to clear old auto-ref: {e}")
+
+    ensure_official_site_reference(brand_id)
+
+    res = (
+        sb.table("brand_assets")
+        .select("id, file_url, metadata, created_at")
+        .eq("brand_id", brand_id)
+        .eq("asset_type", "reference_content")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    latest = res.data[0] if res.data else None
+    if not latest:
+        return {"refreshed": False, "message": "No official website configured or fetch failed."}
+    meta = latest.get("metadata") or {}
+    return {
+        "refreshed": True,
+        "source_urls": meta.get("source_urls", []),
+        "last_fetched": meta.get("last_fetched"),
+        "text_length": meta.get("text_length", 0),
+    }
+
+
+@router.post("/{brand_id}/assets", response_model=BrandAssetResponse)
+def upload_brand_asset_endpoint(
+    brand_id: str,
+    asset_type: Literal["logo", "reference_content", "product_image"] = Form(...),
+    file: UploadFile = File(...),
+    profile: CurrentProfile = Depends(get_current_profile),
+):
+    """Upload a brand reference asset (logo, reference content, or product image).
+
+    For images (logo, product_image), a perceptual hash (pHash) is computed
+    at upload time for fast visual similarity comparison in Tier 1.
+    A SHA-256 content hash is always computed for dedup.
+    """
+    _brand_or_404(profile.organization_id, brand_id)
+
+    file_bytes = file.file.read()
+    content_type = file.content_type or "application/octet-stream"
+
+    storage_path = upload_brand_asset(file_bytes, content_type, brand_id, asset_type)
+    if not storage_path:
+        raise HTTPException(status_code=500, detail="Failed to upload asset to storage")
+
+    phash_val = None
+    if asset_type in ("logo", "product_image") and content_type.startswith("image/"):
+        phash_val = compute_phash(file_bytes)
+
+    chash = compute_content_hash(file_bytes)
+
+    embedding_val = None
+    if asset_type == "reference_content" and content_type.startswith("text/"):
+        try:
+            from tracemark_api.services.embedding_helper import embed_text
+            text_content = file_bytes.decode("utf-8", errors="replace")
+            embedding_val = embed_text(text_content)
+        except Exception as e:
+            print(f"[brands] Reference content embedding failed: {e}")
+
+    sb = get_supabase()
+    insert_payload: dict = {
+        "brand_id": brand_id,
+        "asset_type": asset_type,
+        "file_url": storage_path,
+        "content_hash": chash,
+        "phash": phash_val,
+        "metadata": {"filename": file.filename, "content_type": content_type},
+    }
+    if embedding_val is not None:
+        insert_payload["embedding"] = str(embedding_val)
+
+    res = (
+        sb.table("brand_assets")
+        .insert(insert_payload)
+        .execute()
+    )
+    return res.data[0]
+
+
+@router.delete("/{brand_id}/assets/{asset_id}")
+def delete_brand_asset(
+    brand_id: str,
+    asset_id: str,
+    profile: CurrentProfile = Depends(get_current_profile),
+):
+    """Delete a brand reference asset and its file from storage."""
+    _brand_or_404(profile.organization_id, brand_id)
+    sb = get_supabase()
+    res = (
+        sb.table("brand_assets")
+        .select("file_url")
+        .eq("id", asset_id)
+        .eq("brand_id", brand_id)
+        .maybe_single()
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    storage_path = res.data.get("file_url")
+    if storage_path:
+        try:
+            from tracemark_api.services.storage import BRAND_ASSETS_BUCKET
+            sb.storage.from_(BRAND_ASSETS_BUCKET).remove([storage_path])
+        except Exception as e:
+            print(f"[brands] Failed to delete asset from storage: {e}")
+
+    sb.table("brand_assets").delete().eq("id", asset_id).execute()
+    return {"deleted": True, "id": asset_id}
