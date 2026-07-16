@@ -105,7 +105,7 @@ const PLANS: Plan[] = [
     blurb: "For scaling e-commerce and SaaS teams.",
     features: [
       "5 brands",
-      "All 13 platforms",
+      "All 12 platforms",
       "Daily scans",
       "Auto takedown generation",
       "Priority support",

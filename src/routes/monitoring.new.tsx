@@ -4,7 +4,7 @@ import { useStore, type Platform } from "@/lib/store";
 import { PLATFORMS, PLATFORM_GROUPS } from "@/lib/platforms";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { checkBrandFullPipeline, getSubscription, getBrands, createBrand } from "@/lib/api";
+import { checkBrandFullPipeline, getSubscription, getBrands, createBrand, uploadBrandAsset } from "@/lib/api";
 import { computeEntitlements, limitReached, formatLimit } from "@/lib/entitlements";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,10 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Plus,
+  X,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 import { REGIONS } from "@/lib/regions";
 
@@ -143,6 +147,10 @@ function NewAssetPage() {
   const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set(["US"]));
   const [expandedRegions, setExpandedRegions] = useState<Set<string>>(new Set(["NA", "EMEA"]));
   const [scanStep, setScanStep] = useState(0);
+  const [officialDomains, setOfficialDomains] = useState<string[]>([""]);
+  const [officialAdvertisers, setOfficialAdvertisers] = useState<string[]>([""]);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [productFile, setProductFile] = useState<File | null>(null);
 
   const scanSteps = buildScanSteps(selected);
 
@@ -215,7 +223,7 @@ function NewAssetPage() {
       if (cleanWebsite && !/^https?:\/\//.test(cleanWebsite)) {
         cleanWebsite = `https://${cleanWebsite}`;
       }
-      await createBrand({
+      const brand = await createBrand({
         brand_name: brandName,
         website: cleanWebsite || null,
         registration_number: regNum || null,
@@ -223,12 +231,24 @@ function NewAssetPage() {
         target_regions: Array.from(selectedRegions),
         logo_color: "oklch(0.58 0.18 255)",
         client_id: persona === "law_firm" ? clientId : null,
+        official_domains: officialDomains.filter((d) => d.trim()),
+        official_advertisers: officialAdvertisers.filter((a) => a.trim()),
       });
+
+      if (logoFile) {
+        await uploadBrandAsset(brand.id, "logo", logoFile);
+      }
+      if (productFile) {
+        await uploadBrandAsset(brand.id, "product_image", productFile);
+      }
+
       return checkBrandFullPipeline({
         brand_name: brandName,
         platforms: apiPlatforms.length > 0 ? apiPlatforms : ["amazon", "google_ads", "domains"],
         target_regions: Array.from(selectedRegions),
         client_id: persona === "law_firm" ? clientId : undefined,
+        official_domains: officialDomains.filter((d) => d.trim()),
+        official_advertisers: officialAdvertisers.filter((a) => a.trim()),
       });
     },
     onSuccess: (data) => {
@@ -366,6 +386,188 @@ function NewAssetPage() {
                     className="w-full px-4 py-2.5 rounded-md border border-border focus:border-accent focus:ring-1 focus:ring-accent outline-none text-sm text-foreground bg-background transition-colors"
                     required
                   />
+                </div>
+              </div>
+
+              {/* Logo Upload */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Brand Logo
+                </label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Upload your brand logo for visual similarity comparison. Compressed automatically.
+                </p>
+                <div className="flex items-center gap-3">
+                  <label
+                    htmlFor="logoUpload"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-dashed border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer text-sm text-muted-foreground"
+                  >
+                    {logoFile ? (
+                      <>
+                        <ImageIcon className="h-4 w-4 text-accent" />
+                        <span className="text-foreground font-medium truncate max-w-[180px]">{logoFile.name}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" />
+                        <span>Choose file...</span>
+                      </>
+                    )}
+                  </label>
+                  <input
+                    type="file"
+                    id="logoUpload"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setLogoFile(file);
+                    }}
+                  />
+                  {logoFile && (
+                    <button
+                      type="button"
+                      onClick={() => setLogoFile(null)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Product Image Upload */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Product Image (optional)
+                </label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Upload your product photo. Used to compare against scraped images.
+                </p>
+                <div className="flex items-center gap-3">
+                  <label
+                    htmlFor="productUpload"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-dashed border-border hover:border-accent hover:bg-accent/5 transition-colors cursor-pointer text-sm text-muted-foreground"
+                  >
+                    {productFile ? (
+                      <>
+                        <ImageIcon className="h-4 w-4 text-accent" />
+                        <span className="text-foreground font-medium truncate max-w-[180px]">{productFile.name}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4" />
+                        <span>Choose file...</span>
+                      </>
+                    )}
+                  </label>
+                  <input
+                    type="file"
+                    id="productUpload"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setProductFile(file);
+                    }}
+                  />
+                  {productFile && (
+                    <button
+                      type="button"
+                      onClick={() => setProductFile(null)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Official Domains Whitelist */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Official Domains
+                </label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  List your brand's official domains. Listings, ads, or links pointing to these will be whitelisted.
+                </p>
+                <div className="space-y-2">
+                  {officialDomains.map((domain, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={domain}
+                        onChange={(e) => {
+                          const next = [...officialDomains];
+                          next[i] = e.target.value;
+                          setOfficialDomains(next);
+                        }}
+                        placeholder="e.g., derila.com"
+                        className="flex-1 px-3 py-2 rounded-md border border-border focus:border-accent focus:ring-1 focus:ring-accent outline-none text-sm text-foreground bg-background transition-colors"
+                      />
+                      {officialDomains.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setOfficialDomains(officialDomains.filter((_, idx) => idx !== i))}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setOfficialDomains([...officialDomains, ""])}
+                    className="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add another domain
+                  </button>
+                </div>
+              </div>
+
+              {/* Official Advertisers Whitelist */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Official Advertisers
+                </label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  List official advertiser names so their ads are not flagged as hijacking.
+                </p>
+                <div className="space-y-2">
+                  {officialAdvertisers.map((advertiser, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={advertiser}
+                        onChange={(e) => {
+                          const next = [...officialAdvertisers];
+                          next[i] = e.target.value;
+                          setOfficialAdvertisers(next);
+                        }}
+                        placeholder="e.g., Derila Official"
+                        className="flex-1 px-3 py-2 rounded-md border border-border focus:border-accent focus:ring-1 focus:ring-accent outline-none text-sm text-foreground bg-background transition-colors"
+                      />
+                      {officialAdvertisers.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setOfficialAdvertisers(officialAdvertisers.filter((_, idx) => idx !== i))}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setOfficialAdvertisers([...officialAdvertisers, ""])}
+                    className="flex items-center gap-1 text-xs font-medium text-accent hover:text-accent/80 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add another advertiser
+                  </button>
                 </div>
               </div>
             </section>

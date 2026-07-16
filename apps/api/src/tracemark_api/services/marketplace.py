@@ -713,7 +713,7 @@ class AliExpressScraper:
     def search(self, keyword: str, caller_id: str = "system", country: str = "US") -> str:
         """
         Scrape AliExpress search results via Firecrawl and return raw markdown.
-        Structured extraction is handled downstream by Gemini in extract_marketplace_evidence().
+        Structured extraction is handled downstream by _parse_marketplace_listings().
         """
         api_result = self._search_via_api(keyword, caller_id)
         if api_result is not None:
@@ -942,6 +942,156 @@ class GoogleSERPAPI:
     """
     def __init__(self):
         self._last_search_failed = False
+
+    def search_google_ads_page(
+        self,
+        brand_name: str,
+        caller_id: str = "system",
+        country: str = "US",
+    ) -> dict:
+        """
+        Single SerpApi call with ``engine=google_ads`` that returns BOTH paid
+        ads AND organic results in one response. Also captures shopping ads
+        and local ads as bonus signals.
+
+        Endpoint: ``https://serpapi.com/search.json?engine=google_ads&q=<brand>``
+
+        Returns a dict with keys:
+            ads        -> list[dict]  paid search ads
+            organic    -> list[str]   organic result domains (already filtered
+                                      through the brand-relevance pre-filter)
+            shopping   -> list[dict]  shopping/product ads
+            local_ads  -> list[dict]  local service ads
+        """
+        empty: dict = {"ads": [], "organic": [], "shopping": [], "local_ads": []}
+        api_key = os.environ.get("GOOGLE_SERP_API")
+        if not api_key:
+            return empty
+
+        from tracemark_api.services.api_usage_tracker import tracker
+        if tracker.is_blocked("google_serp"):
+            return empty
+
+        brand_domain = brand_name.lower().replace(" ", "")
+        official_domains = {
+            f"{brand_domain}.com",
+            f"{brand_domain}.net",
+            f"{brand_domain}.org",
+        }
+
+        try:
+            params = {
+                "q": brand_name,
+                "api_key": api_key,
+                "engine": "google_ads",
+            }
+            params.update(serpapi_geo_params(country))
+            resp = call_with_tracking(
+                "google_serp", caller_id, "/check-brand",
+                lambda: requests.get(
+                    "https://serpapi.com/search.json",
+                    params=params,
+                    headers=HEADERS,
+                    timeout=10,
+                ),
+            )
+            if resp.status_code != 200:
+                print(f"[GoogleSERPAPI] google_ads engine returned status {resp.status_code}")
+                return empty
+
+            data = resp.json()
+        except ApiLimitError:
+            raise
+        except Exception as e:
+            print(f"[GoogleSERPAPI] google_ads engine failed: {e}")
+            return empty
+
+        ads = self._parse_google_ads_response(data.get("ads", []) or [], brand_name)
+        organic_set: set[str] = set()
+        for item in data.get("organic_results", []) or []:
+            link = item.get("link")
+            if link:
+                self._add_link_to_domains(link, official_domains, organic_set, brand_name)
+        organic_domains = list(organic_set)
+
+        shopping = self._parse_shopping_results(
+            data.get("shopping_results", []) or [], brand_name,
+        )
+        local_ads = self._parse_local_ads(
+            data.get("local_ads", {}) or {}, brand_name,
+        )
+
+        return {
+            "ads": ads,
+            "organic": organic_domains,
+            "shopping": shopping,
+            "local_ads": local_ads,
+        }
+
+    @staticmethod
+    def _parse_google_ads_response(items: list[dict], brand_name: str) -> list[dict]:
+        """Parse the ``ads[]`` block from the SerpApi google_ads response into
+        the same ``{source, advertiser, ad_text, destination_url, ...}`` shape
+        the downstream pipeline expects."""
+        raw: list[dict] = []
+        for item in items:
+            link = item.get("link") or ""
+            source = item.get("source") or item.get("displayed_link") or ""
+            if not source and link:
+                try:
+                    source = urllib.parse.urlparse(link).netloc
+                except Exception:
+                    source = ""
+            raw.append({
+                "source": "google_ads",
+                "advertiser": source,
+                "ad_text": item.get("description") or item.get("title") or "",
+                "destination_url": link,
+                "impressions": "unknown",
+                "detected_date": "",
+                "title": item.get("title", ""),
+                "sitelinks": item.get("sitelinks", []),
+            })
+        return filter_hijacking_ads(raw, brand_name)
+
+    @staticmethod
+    def _parse_shopping_results(items: list[dict], brand_name: str) -> list[dict]:
+        """Parse the ``shopping_results[]`` block into ad records."""
+        raw: list[dict] = []
+        for item in items:
+            link = item.get("link") or ""
+            source = item.get("source") or ""
+            if not source and link:
+                try:
+                    source = urllib.parse.urlparse(link).netloc
+                except Exception:
+                    source = ""
+            raw.append({
+                "source": "google_shopping",
+                "advertiser": source,
+                "ad_text": item.get("title", ""),
+                "destination_url": link,
+                "impressions": "unknown",
+                "detected_date": "",
+                "price": item.get("extracted_price"),
+            })
+        return filter_hijacking_ads(raw, brand_name)
+
+    @staticmethod
+    def _parse_local_ads(block: dict, brand_name: str) -> list[dict]:
+        """Parse the ``local_ads`` block into ad records."""
+        results: list[dict] = []
+        for item in (block.get("results") or []):
+            link = item.get("link") or ""
+            results.append({
+                "source": "google_local",
+                "advertiser": item.get("title", ""),
+                "ad_text": item.get("description", ""),
+                "destination_url": link,
+                "impressions": "unknown",
+                "detected_date": "",
+            })
+        return filter_hijacking_ads(results, brand_name)
 
     def search(
         self, brand_name: str, max_pages: int = 2, caller_id: str = "system", country: str = "US"
@@ -1205,145 +1355,6 @@ class GoogleSERPAPI:
         return results
 
 
-class GoogleAdsAPI:
-    """
-    Tier 2 — Google Ads Transparency Center API.
-    Finds ads running for a brand keyword across Google Search + Display.
-    Cost: $0 (official API, no auth required for basic queries).
-    Falls back to BeautifulSoup scraping if the JSON API is unavailable.
-    """
-
-    BASE_URL = "https://adstransparency.google.com/api/public/ads"
-    FALLBACK_URL = "https://adstransparency.google.com"
-
-    def search(
-        self,
-        brand_keyword: str,
-        region: str = "US",
-        official_advertisers: list[str] | None = None,
-        caller_id: str = "system",
-        country: str = "US",
-    ) -> list[dict]:
-        """
-        Searches the Google Ads Transparency database for ads mentioning brand_keyword.
-        """
-        # Map region to country parameter if provided
-        reg = region if region != "US" else country
-        try:
-            params = {
-                "query": brand_keyword,
-                "region": reg,
-                "format": "json",
-            }
-            resp = call_with_tracking(
-                "google_ads", caller_id, "/check-ads",
-                lambda: requests.get(self.BASE_URL, params=params, headers=HEADERS, timeout=10)
-            )
-            if resp.status_code == 200:
-                try:
-                    data = resp.json()
-                    ads = self._parse_ads(data, brand_keyword, official_advertisers)
-                    if ads or "ads" in data:
-                        return ads
-                except Exception:
-                    pass
-            # Fallback: scrape the Transparency Center page with BeautifulSoup
-            print(f"[GoogleAdsAPI] JSON API unavailable (status {resp.status_code}), falling back to HTML scrape.")
-            return self._scrape_fallback(brand_keyword, official_advertisers, caller_id=caller_id, region=reg)
-        except ApiLimitError:
-            raise
-        except Exception as e:
-            print(f"[GoogleAdsAPI] Error: {e}")
-            return []
-
-    def _parse_ads(
-        self,
-        data: dict,
-        brand_keyword: str,
-        official_advertisers: list[str] | None = None,
-    ) -> list[dict]:
-        """Parse raw API response into standardized ad records."""
-        raw: list[dict] = []
-        for item in data.get("ads", []):
-            raw.append({
-                "source": "google_ads",
-                "advertiser": item.get("advertiser_name", ""),
-                "ad_text": item.get("ad_text", ""),
-                "destination_url": item.get("destination_url", ""),
-                "impressions": item.get("impressions_range", "unknown"),
-                "detected_date": item.get("first_shown_date", ""),
-            })
-        return filter_hijacking_ads(raw, brand_keyword, official_advertisers)
-
-    def _scrape_fallback(
-        self,
-        brand_keyword: str,
-        official_advertisers: list[str] | None = None,
-        caller_id: str = "system",
-        region: str = "US",
-    ) -> list[dict]:
-        """Fallback when the JSON API is unavailable."""
-        ads = self._scrape_html(brand_keyword, official_advertisers, caller_id=caller_id, region=region)
-        if ads:
-            return ads
-        if os.environ.get("FIRECRAWL_API_KEY") and os.environ.get("GEMINI_API_KEY"):
-            print("[GoogleAdsAPI] HTML scrape empty — trying Firecrawl + Gemini extraction.")
-            return self._firecrawl_extract(brand_keyword, official_advertisers, caller_id=caller_id, region=region)
-        return []
-
-    def _scrape_html(
-        self,
-        brand_keyword: str,
-        official_advertisers: list[str] | None = None,
-        caller_id: str = "system",
-        region: str = "US",
-    ) -> list[dict]:
-        """BS4 scrape of adstransparency.google.com search page."""
-        try:
-            url = f"{self.FALLBACK_URL}?query={brand_keyword.replace(' ', '+')}&region={region}"
-            resp = call_with_tracking(
-                "google_ads", caller_id, "/check-ads",
-                lambda: requests.get(url, headers=HEADERS, timeout=15)
-            )
-            soup = BeautifulSoup(resp.text, "html.parser")
-            raw: list[dict] = []
-            for card in soup.select("[data-advertiser-name]"):
-                advertiser = card.get("data-advertiser-name", "")
-                ad_text_el = card.select_one(".ad-text, .headline, h3")
-                dest_el = card.select_one("a[href]")
-                raw.append({
-                    "source": "google_ads",
-                    "advertiser": advertiser,
-                    "ad_text": ad_text_el.get_text(strip=True) if ad_text_el else "",
-                    "destination_url": dest_el["href"] if dest_el else "",
-                    "impressions": "unknown",
-                    "detected_date": "",
-                })
-            return filter_hijacking_ads(raw, brand_keyword, official_advertisers)
-        except ApiLimitError:
-            raise
-        except Exception as e:
-            print(f"[GoogleAdsAPI] HTML scrape failed: {e}")
-            return []
-
-    def _firecrawl_extract(
-        self,
-        brand_keyword: str,
-        official_advertisers: list[str] | None = None,
-        caller_id: str = "system",
-        region: str = "US",
-    ) -> list[dict]:
-        url = f"{self.FALLBACK_URL}?query={brand_keyword.replace(' ', '+')}&region={region}"
-        result = call_with_tracking(
-            "firecrawl", caller_id, "/google-ads-extract",
-            lambda: scrape_page(url),
-            credits_used=10
-        )
-        if not result or not result.success or not result.markdown:
-            return []
-        return extract_ads_from_content(brand_keyword, "google_ads", result.markdown, official_advertisers, caller_id=caller_id)
-
-
 class MetaAdsAPI:
     """
     Tier 2 — Meta Ad Library API (Facebook/Instagram).
@@ -1453,7 +1464,6 @@ class MarketplaceScraper:
         self.tiktok = TikTokScraper()
         self.instagram = InstagramScraper()
         self.google_shopping = GoogleShoppingScraper()
-        self.google_ads = GoogleAdsAPI()
         self.meta_ads = MetaAdsAPI()
         self.serp = GoogleSERPAPI()
         self.unified = UnifiedScraper()  # General-purpose scraper for all other URLs
@@ -1564,7 +1574,12 @@ class MarketplaceScraper:
         # --- Tier 3: Official APIs ---
         if "google_ads" in platforms:
             try:
-                results["ads"]["google"] = self.google_ads.search(brand_name, official_advertisers=official_advertisers, caller_id=caller_id)
+                serp_page = self.serp.search_google_ads_page(brand_name, caller_id=caller_id)
+                results["ads"]["google"] = serp_page.get("ads", [])
+                # Shopping + local ads from the same SerpApi call get merged
+                # into the google bucket so the downstream pipeline picks them up.
+                results["ads"]["google"].extend(serp_page.get("shopping", []))
+                results["ads"]["google"].extend(serp_page.get("local_ads", []))
             except ApiLimitError as e:
                 print(f"[MarketplaceScraper] Google Ads rate limit reached: {e}")
                 blocked_apis.append("google_ads")
@@ -1756,17 +1771,23 @@ class MarketplaceScraper:
                         print(f"[MarketplaceScraper] Instagram search failed for {c}: {e}")
                 tasks.append(wrap_instagram())
 
-        # Google Ads
+        # Google Ads (via SerpApi google_ads engine — returns ads + shopping + local_ads in one call)
         if "google_ads" in platforms:
             results["ads"]["google"] = {}
             for country in countries:
                 async def wrap_google_ads(c=country):
                     try:
-                        res = await asyncio.to_thread(self.google_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id, country=c)
-                        results["ads"]["google"][c] = res
+                        serp_page = await asyncio.to_thread(
+                            self.serp.search_google_ads_page,
+                            brand_name, caller_id=caller_id, country=c,
+                        )
+                        merged = list(serp_page.get("ads", []))
+                        merged.extend(serp_page.get("shopping", []))
+                        merged.extend(serp_page.get("local_ads", []))
+                        results["ads"]["google"][c] = merged
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] Google Ads rate limit reached for {c}: {e}")
-                        blocked_apis.append("google_ads")
+                        blocked_apis.append("google_serp")
                     except Exception as e:
                         print(f"[MarketplaceScraper] Google Ads search failed for {c}: {e}")
                 tasks.append(wrap_google_ads())
@@ -1810,57 +1831,180 @@ class ListingList(BaseModel):
     items: list[MarketplaceEvidence]
 
 
-class RawAdRecord(BaseModel):
-    advertiser: str = ""
-    ad_text: str = ""
-    destination_url: str = ""
-
-
-class RawAdList(BaseModel):
-    items: list[RawAdRecord] = Field(default_factory=list)
-
-
-def extract_ads_from_content(
+def _parse_marketplace_listings(
     brand_name: str,
-    source: str,
-    raw_content: str,
-    official_advertisers: list[str] | None = None,
-    caller_id: str = "system",
-) -> list[dict]:
-    """Use Gemini to extract ad records from scraped Google/Meta transparency pages."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key or not raw_content.strip():
+    platform: str,
+    content: list | str,
+) -> list[MarketplaceEvidence]:
+    """
+    Deterministic marketplace listing parser — no LLM.
+
+    Handles two input shapes:
+    - ``list[dict]`` from static scrapers (Amazon, eBay, Etsy, …) — converted
+      directly to ``MarketplaceEvidence`` objects.
+    - ``str`` markdown from Firecrawl-backed JS-heavy scrapers (AliExpress,
+      Facebook Marketplace, …) — parsed with regex to extract product links
+      and prices.
+    """
+    if not content:
         return []
 
-    model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0.0,
-        google_api_key=api_key,
-    )
-    prompt = f"""
-You are a brand protection analyst monitoring ad hijacking for brand "{brand_name}".
+    listings: list[MarketplaceEvidence] = []
 
-From the scraped ad transparency page content below, extract ads that appear to use the brand
-name to steal traffic (counterfeiters, impersonators, unauthorized resellers running paid ads).
+    if isinstance(content, list):
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            url = item.get("url") or item.get("listing_url") or ""
+            if not url:
+                continue
+            seller = item.get("seller") or item.get("seller_name") or ""
+            title = item.get("title") or ""
+            price = item.get("price")
+            listings.append(MarketplaceEvidence(
+                platform=platform,
+                seller_name=seller or title,
+                listing_url=url,
+                price=str(price) if price is not None else None,
+            ))
+        return listings
 
-For each suspicious ad return: advertiser, ad_text, destination_url.
-Skip ads clearly run by the official brand owner.
+    # ── Markdown parsing (JS-heavy scrapers via Firecrawl) ──────────────
+    text = content if isinstance(content, str) else str(content)
+    if not text.strip():
+        return []
 
-Content:
-{raw_content[:8000]}
+    # Find markdown links: [title](url) — product titles with links
+    link_pattern = re.compile(r"\[([^\]]{3,200})\]\((https?://[^)\s]+)\)")
+    price_pattern = re.compile(r"\$[\d,]+(?:\.\d{2})?")
 
-Return a JSON array. If nothing suspicious, return [].
-"""
-    structured_model = model.with_structured_output(RawAdList)
-    result = call_with_tracking(
-        "gemini_flash", caller_id, "/extract-ads",
-        lambda: structured_model.invoke(prompt)
-    )
-    raw = [
-        {"source": source, "advertiser": a.advertiser, "ad_text": a.ad_text, "destination_url": a.destination_url}
-        for a in result.items
-    ]
-    return filter_hijacking_ads(raw, brand_name, official_advertisers)
+    seen_urls: set[str] = set()
+    for match in link_pattern.finditer(text):
+        title, url = match.group(1), match.group(2)
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+
+        # Look for a price within 200 chars after the link
+        after_text = text[match.end():match.end() + 200]
+        price_match = price_pattern.search(after_text)
+        price = price_match.group(0) if price_match else None
+
+        # Extract seller from the URL domain
+        try:
+            seller = urllib.parse.urlparse(url).netloc.replace("www.", "")
+        except Exception:
+            seller = platform
+
+        listings.append(MarketplaceEvidence(
+            platform=platform,
+            seller_name=seller,
+            listing_url=url,
+            price=price,
+        ))
+
+    return listings
+
+
+def _parse_social_from_markdown(
+    brand_name: str,
+    platform: str,
+    content: str,
+) -> list[SocialEvidence]:
+    """
+    Deterministic social media evidence parser — no LLM.
+
+    Extracts handles (``@username``) and post/profile URLs from Firecrawl
+    markdown.  Tier 0 will classify each item via keyword matching.
+    """
+    if not content or not content.strip():
+        return []
+
+    text = content if isinstance(content, str) else str(content)
+    items: list[SocialEvidence] = []
+    seen_handles: set[str] = set()
+
+    # Find handles: @username
+    handle_pattern = re.compile(r"@([a-zA-Z0-9_.]{2,30})")
+    for match in handle_pattern.finditer(text):
+        handle = match.group(1)
+        if handle.lower() in seen_handles:
+            continue
+        seen_handles.add(handle.lower())
+
+        # Look for a nearby link for this handle
+        window = text[max(0, match.start() - 300):match.end() + 300]
+        link_pattern = re.compile(r"\[[^\]]*\]\((https?://[^)\s]+)\)")
+        post_url = None
+        link_match = link_pattern.search(window)
+        if link_match:
+            post_url = link_match.group(1)
+
+        items.append(SocialEvidence(
+            platform=platform,
+            handle=handle,
+            post_url=post_url,
+        ))
+
+    # Also find bare profile/post URLs if no handles were found
+    if not items:
+        url_pattern = re.compile(
+            r"https?://(?:www\.)?"
+            r"(?:tiktok|instagram)\.com/[@\w/.\?=&-]+",
+            re.IGNORECASE,
+        )
+        seen_urls: set[str] = set()
+        for match in url_pattern.finditer(text):
+            url = match.group(0)
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            # Extract handle from URL path
+            path = urllib.parse.urlparse(url).path
+            handle = path.strip("/").split("/")[0].lstrip("@") or "unknown"
+            items.append(SocialEvidence(
+                platform=platform,
+                handle=handle,
+                post_url=url,
+            ))
+
+    return items
+
+
+def _build_domain_evidence(
+    domains_data: list[dict],
+) -> list[DomainEvidence]:
+    """
+    Build ``DomainEvidence`` objects directly from WHOIS data — no LLM.
+
+    Previously ``extract_domain_evaluations_with_ai`` sent WHOIS data to
+    Gemini to classify domains as clones and assign similarity scores.
+    Now all domains that passed the rapidfuzz pre-filter in
+    ``_add_link_to_domains`` are kept as potential infringements, and
+    Tier 0 of the detection funnel classifies them deterministically using
+    typosquat distance, brand-name match, domain age, and registrar
+    reputation.
+    """
+    evidences: list[DomainEvidence] = []
+    for d in domains_data:
+        domain_name = d.get("domain", "")
+        if not domain_name:
+            continue
+        evidences.append(DomainEvidence(
+            domain_name=domain_name,
+            registrar=d.get("registrant") or "unknown",
+            is_clone=True,
+            similarity_score=0,
+            screenshot_url=None,
+            creation_date=d.get("created_date"),
+            expiry_date=d.get("expiry_date"),
+            name_servers=d.get("name_servers"),
+            registrant_organization=d.get("registrant_organization"),
+            registrant_country=d.get("registrant_country"),
+            registrant_email=d.get("registrant_email"),
+            detection_region=d.get("country", "US"),
+        ))
+    return evidences
 
 
 def _ad_dict_to_evidence(ad: dict) -> AdEvidence:
@@ -1880,172 +2024,20 @@ def _ad_dict_to_evidence(ad: dict) -> AdEvidence:
     )
 
 
-def extract_marketplace_evidence(
-    brand_name: str,
-    platform: str,
-    raw_content: str,  # Markdown (Tier 3) or pre-serialized listing JSON (Tier 1)
-    caller_id: str = "system",
-) -> list[MarketplaceEvidence]:
-    """
-    Uses Gemini to analyze raw scraped content and extract suspicious listings.
-    Returns an empty list if no API key is set or content is empty.
-    """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key or not raw_content.strip():
-        return []
-
-    model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0.0,
-        google_api_key=api_key,
-    )
-
-    prompt = f"""
-You are a brand protection analyst. Below is scraped content from a {platform} search for brand "{brand_name}".
-
-Identify every listing that appears to be counterfeit, unauthorized resale, or suspicious brand use.
-For each, return: platform, seller_name, listing_url, price.
-
-Content:
-{raw_content[:6000]}
-
-Return a JSON array. Fields: platform, seller_name, listing_url, price.
-If nothing suspicious, return [].
-"""
-    structured_model = model.with_structured_output(ListingList)
-    result = call_with_tracking(
-        "gemini_flash", caller_id, "/extract-marketplace-evidence",
-        lambda: structured_model.invoke(prompt)
-    )
-    return result.items
-
-
-class SocialEvidenceList(BaseModel):
-    items: list[SocialEvidence] = Field(default_factory=list)
-
-
-def extract_social_evidence(
-    brand_name: str,
-    platform: str,
-    raw_content: str,
-    caller_id: str = "system",
-) -> list[SocialEvidence]:
-    """
-    Uses Gemini to analyze scraped social media content (TikTok, Instagram)
-    and extract suspicious accounts/posts that may be infringing on the brand.
-    """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key or not raw_content.strip():
-        return []
-
-    model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0.0,
-        google_api_key=api_key,
-    )
-
-    prompt = f"""
-You are a brand protection analyst. Below is scraped content from {platform} for brand "{brand_name}".
-
-Identify social media accounts or posts that appear to be selling counterfeit products,
-impersonating the brand, or using the brand name without authorization.
-
-For each suspicious account/post, return:
-- platform: "{platform}"
-- handle: the account username/handle
-- post_url: direct URL to the post (if available, otherwise null)
-- follower_count: follower count (if visible, otherwise null)
-
-Content:
-{raw_content[:6000]}
-
-Return a JSON array. If nothing suspicious, return [].
-"""
-    structured_model = model.with_structured_output(SocialEvidenceList)
-    result = call_with_tracking(
-        "gemini_flash", caller_id, f"/extract-social-evidence-{platform}",
-        lambda: structured_model.invoke(prompt)
-    )
-    return result.items
-
-
-def extract_domain_evaluations_with_ai(
-    brand_name: str,
-    domains_data: list[dict],
-    caller_id: str = "system",
-) -> list[DomainEvaluation]:
-    """
-    Uses Gemini to analyze discovered domains and their WHOIS registration data
-    to determine if they are copycats, clones, or typosquats, and assigns similarity scores.
-    """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key or not domains_data:
-        return []
-
-    try:
-        model = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0.0,
-            google_api_key=api_key,
-        )
-
-        prompt = f"""
-You are a brand protection legal analyst. Below is a list of suspicious domains discovered in search results for the brand "{brand_name}", along with their WHOIS registration data.
-
-Evaluate each domain to determine if it is a brand copycat, clone, typosquat, or unauthorized store using the brand name.
-For each domain, return:
-- domain_name: the domain name evaluated
-- is_clone: boolean indicating if it is a clone/infringement
-- similarity_score: integer from 0 to 100 representing how close the domain name or branding is to "{brand_name}". Typosquats (e.g. drila.com for derila) or subdomains/variants (e.g. buyderila.com) should have high scores (80-100). Completely unrelated domains (e.g. njctl.org) should have low scores (<30) and is_clone=False.
-- reasoning: brief reason for your decision
-
-Suspicious Domains Data:
-{json.dumps(domains_data, indent=2)}
-
-Return a JSON array of items matching the requested structure.
-"""
-        structured_model = model.with_structured_output(DomainEvaluationList)
-        result = call_with_tracking(
-            "gemini_flash", caller_id, "/extract-domain-evaluation",
-            lambda: structured_model.invoke(prompt)
-        )
-        return result.items
-    except Exception as e:
-        print(f"[extract_domain_evaluations_with_ai] Gemini call failed: {e}. Falling back to default scoring.")
-        fallback = []
-        brand = brand_name.lower().strip()
-        for d in domains_data:
-            domain_name = d.get("domain", "")
-            parts = domain_name.lower().split('.')
-            domain_part = parts[-2] if len(parts) > 1 else parts[0]
-            if brand in domain_part:
-                similarity = 90
-                is_clone = True
-            else:
-                similarity = 30
-                is_clone = False
-            fallback.append(DomainEvaluation(
-                domain_name=domain_name,
-                is_clone=is_clone,
-                similarity_score=similarity,
-                reasoning=f"Fallback scoring due to AI failure: {e}"
-            ))
-        return fallback
-
-
 async def gather_evidence(
     brand_name: str,
     platforms: list[str],
     official_advertisers: list[str] | None = None,
     caller_id: str = "system",
     countries: list[str] = ["US"],
+    official_domains: list[str] | None = None,
 ) -> Evidence:
     """
     Main entrypoint. Runs the 3-tier scraping pipeline and returns
     a fully populated Evidence object.
     """
-    # --- Mock mode: no API keys set ---
-    if not os.environ.get("FIRECRAWL_API_KEY") and not os.environ.get("GEMINI_API_KEY"):
+    # --- Mock mode: no scraping API keys set ---
+    if not os.environ.get("FIRECRAWL_API_KEY") and not os.environ.get("GOOGLE_SERP_API"):
         return _mock_evidence(brand_name)
 
     scraper = MarketplaceScraper()
@@ -2053,52 +2045,34 @@ async def gather_evidence(
 
     all_marketplace_evidence = []
 
-    # Process Tier 1 + Tier 3 marketplace results through Gemini
+    # Process marketplace results with deterministic parser (no Gemini)
     for platform, country_dict in raw["marketplaces"].items():
         for country, content in country_dict.items():
-            if isinstance(content, list):
-                content_str = str(content)  # Tier 1 returns list of dicts
-            else:
-                content_str = content or ""  # Tier 3 returns markdown string
             try:
-                listings = extract_marketplace_evidence(brand_name, platform, content_str, caller_id)
+                listings = _parse_marketplace_listings(brand_name, platform, content)
                 for listing in listings:
                     listing.detection_region = country
                     if listing.listing_url and not listing.screenshot_url:
                         listing.screenshot_url = _screenshot_listing(listing.listing_url)
                 all_marketplace_evidence.extend(listings)
-            except ApiLimitError as e:
-                print(f"[gather_evidence] Gemini rate limit reached: {e}")
-                if "gemini_flash" not in blocked_apis:
-                    blocked_apis.append("gemini_flash")
             except Exception as e:
-                print(f"[gather_evidence] Gemini extraction failed for {platform} ({country}): {e}")
+                print(f"[gather_evidence] Marketplace parsing failed for {platform} ({country}): {e}")
 
-    # Convert WHOIS dicts to Pydantic DomainEvidence models
-    evaluations = extract_domain_evaluations_with_ai(brand_name, raw.get("domains", []), caller_id=caller_id)
-    eval_map = {e.domain_name.lower().strip(): e for e in evaluations}
-
+    # Build DomainEvidence directly from WHOIS data (no Gemini)
+    # All domains that passed the rapidfuzz pre-filter in _add_link_to_domains
+    # are kept; Tier 0 of the detection funnel classifies them deterministically.
     domain_evidences = []
     for d in raw.get("domains", []):
-        domain_name = d["domain"]
-        domain_url = f"https://{domain_name}"
-        
-        eval_item = eval_map.get(domain_name.lower().strip())
-        is_clone = eval_item.is_clone if eval_item else True
-        similarity_score = eval_item.similarity_score if eval_item else 90
-
-        # Post-filter: skip domains that the AI evaluator determined
-        # are NOT clones/infringements.  This prevents benign domains
-        # (e.g. njctl.org) from polluting the evidence output.
-        if not is_clone:
+        domain_name = d.get("domain", "")
+        if not domain_name:
             continue
-
+        domain_url = f"https://{domain_name}"
         domain_evidences.append(
             DomainEvidence(
                 domain_name=domain_name,
                 registrar=d.get("registrant") or "unknown",
-                is_clone=is_clone,
-                similarity_score=similarity_score,
+                is_clone=True,
+                similarity_score=0,
                 screenshot_url=_screenshot_listing(domain_url),
                 creation_date=d.get("created_date"),
                 expiry_date=d.get("expiry_date"),
@@ -2118,28 +2092,46 @@ async def gather_evidence(
             for ad in ads_list:
                 if isinstance(ad, AdEvidence):
                     ad.detection_region = country
+                    if not ad.screenshot_url and ad.destination_url:
+                        ad.screenshot_url = _screenshot_listing(ad.destination_url)
                     ad_evidences.append(ad)
                 elif isinstance(ad, dict):
                     evidence_item = _ad_dict_to_evidence(ad)
                     evidence_item.detection_region = country
+                    if not evidence_item.screenshot_url and evidence_item.destination_url:
+                        evidence_item.screenshot_url = _screenshot_listing(evidence_item.destination_url)
                     ad_evidences.append(evidence_item)
 
-    # Extract social media evidence from TikTok/Instagram raw content
+    # Parse social media evidence from Firecrawl markdown (no Gemini)
     social_evidences: list[SocialEvidence] = []
     for platform, country_dict in raw.get("social", {}).items():
         for country, content in country_dict.items():
             if isinstance(content, str) and content.strip():
                 try:
-                    social_items = extract_social_evidence(brand_name, platform, content, caller_id)
+                    social_items = _parse_social_from_markdown(brand_name, platform, content)
                     for item in social_items:
                         item.detection_region = country
+                        if item.post_url and not item.screenshot_url:
+                            item.screenshot_url = _screenshot_listing(item.post_url)
                     social_evidences.extend(social_items)
-                except ApiLimitError as e:
-                    print(f"[gather_evidence] Gemini rate limit reached for {platform} social: {e}")
-                    if "gemini_flash" not in blocked_apis:
-                        blocked_apis.append("gemini_flash")
                 except Exception as e:
-                    print(f"[gather_evidence] Gemini social extraction failed for {platform} ({country}): {e}")
+                    print(f"[gather_evidence] Social parsing failed for {platform} ({country}): {e}")
+
+    # Filter out evidence pointing to official domains (whitelist)
+    if official_domains:
+        official_set = {d.lower().lstrip("*.").strip() for d in official_domains if d.strip()}
+        def _is_official_url(url: str) -> bool:
+            if not url:
+                return False
+            try:
+                host = urllib.parse.urlparse(url).netloc.lower().replace("www.", "")
+            except Exception:
+                return False
+            return any(host == d or host.endswith("." + d) for d in official_set)
+
+        all_marketplace_evidence = [m for m in all_marketplace_evidence if not _is_official_url(m.listing_url)]
+        ad_evidences = [a for a in ad_evidences if not _is_official_url(a.destination_url)]
+        domain_evidences = [d for d in domain_evidences if d.domain_name.lower() not in official_set]
 
     return Evidence(
         marketplaces=all_marketplace_evidence,
