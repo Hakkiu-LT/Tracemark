@@ -13,6 +13,7 @@ src/tracemark_api/routes/admin.py
 src/tracemark_api/routes/admin_resources.py
 src/tracemark_api/routes/auth.py
 src/tracemark_api/routes/billing.py
+src/tracemark_api/routes/brands.py
 src/tracemark_api/routes/check_brand.py
 src/tracemark_api/routes/clients.py
 src/tracemark_api/routes/documents.py
@@ -30,6 +31,7 @@ src/tracemark_api/services/delivery_log.py
 src/tracemark_api/services/detection.py
 src/tracemark_api/services/document_persistence.py
 src/tracemark_api/services/domain_whitelist.py
+src/tracemark_api/services/entitlements.py
 src/tracemark_api/services/evidence_scorer.py
 src/tracemark_api/services/firecrawl_client.py
 src/tracemark_api/services/geo.py
@@ -43,6 +45,7 @@ src/tracemark_api/services/unified_scraper.py
 tests/test_api_usage_tracker.py
 tests/test_auth.py
 tests/test_billing.py
+tests/test_brands.py
 tests/test_clients.py
 tests/test_credentials.py
 tests/test_decision_agent.py
@@ -51,6 +54,7 @@ tests/test_delivery_log.py
 tests/test_document_persistence.py
 tests/test_domain_false_positives.py
 tests/test_domain_whitelist.py
+tests/test_entitlements.py
 tests/test_escalation.py
 tests/test_geo.py
 tests/test_infringements.py
