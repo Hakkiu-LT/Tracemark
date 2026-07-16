@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import io
 import uuid
+import hashlib
 import httpx
 from tracemark_api.services.database import get_supabase
 
 BUCKET = "evidence-screenshots"
+BRAND_ASSETS_BUCKET = "brand-assets"
 WEBP_QUALITY = 85
 
 
@@ -91,6 +93,76 @@ def upload_screenshot_bytes(image_bytes: bytes, prefix: str = "meta") -> str | N
         return None
 
 
+def _ensure_brand_assets_bucket() -> None:
+    sb = get_supabase()
+    existing = [b.name for b in sb.storage.list_buckets()]
+    if BRAND_ASSETS_BUCKET not in existing:
+        sb.storage.create_bucket(BRAND_ASSETS_BUCKET, options={"public": False})
+
+
+def upload_brand_asset(
+    file_bytes: bytes,
+    content_type: str,
+    brand_id: str,
+    asset_type: str,
+) -> str | None:
+    """
+    Upload a brand reference asset (logo, reference content, product image)
+    to the private brand-assets bucket.
+
+    Returns the Supabase storage path (not a public URL — the bucket is private).
+    """
+    try:
+        _ensure_brand_assets_bucket()
+        ext = "webp" if content_type.startswith("image/") else "txt"
+        if content_type == "application/pdf":
+            ext = "pdf"
+        path = f"{brand_id}/{asset_type}/{uuid.uuid4()}.{ext}"
+
+        sb = get_supabase()
+        sb.storage.from_(BRAND_ASSETS_BUCKET).upload(
+            path,
+            file_bytes,
+            {"content-type": content_type, "upsert": "true"},
+        )
+        return path
+    except Exception as e:
+        print(f"[Storage] Failed to upload brand asset: {e}")
+        return None
+
+
+def compute_phash(image_bytes: bytes) -> int | None:
+    """
+    Compute the 64-bit perceptual hash (pHash) of an image and return it
+    as a bigint suitable for storage in the ``brand_assets.phash`` column.
+
+    Returns None if the image cannot be parsed.
+    """
+    try:
+        from PIL import Image
+        import imagehash
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            h = imagehash.phash(img)
+            return int(h)
+    except Exception as e:
+        print(f"[Storage] pHash computation failed: {e}")
+        return None
+
+
+def compute_content_hash(content: bytes | str) -> str:
+    """Return the SHA-256 hex digest of the given content."""
+    if isinstance(content, str):
+        content = content.encode("utf-8")
+    return hashlib.sha256(content).hexdigest()
+
+
+def get_brand_asset_url(storage_path: str) -> str:
+    """Return a signed URL for a private brand-assets path."""
+    sb = get_supabase()
+    res = sb.storage.from_(BRAND_ASSETS_BUCKET).create_signed_url(storage_path, expires_in=3600)
+    return res.get("signedURL", "") if isinstance(res, dict) else ""
+
+
 def cleanup_old_cases() -> None:
     """
     Find completed cases older than 100 days, delete their evidence screenshots
@@ -100,11 +172,9 @@ def cleanup_old_cases() -> None:
         import datetime
         from tracemark_api.services.database import get_supabase
         sb = get_supabase()
-        
-        # 100 days ago
+
         cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=100)).isoformat()
-        
-        # Get cases that are completed (complete or resolved) and older than 100 days
+
         res = (
             sb.table("cases")
             .select("id")
@@ -112,16 +182,15 @@ def cleanup_old_cases() -> None:
             .lt("updated_at", cutoff)
             .execute()
         )
-        
+
         if not res.data:
             print("[Cleanup] No old completed cases found for cleanup.")
             return
-            
+
         case_ids = [row["id"] for row in res.data]
         print(f"[Cleanup] Found {len(case_ids)} completed cases older than 100 days to clean up: {case_ids}")
-        
+
         for case_id in case_ids:
-            # 1. Fetch all screenshot URLs from evidence table for this case
             ev_res = sb.table("evidence").select("marketplaces, ads, domains, social").eq("case_id", case_id).execute()
             urls_to_delete = set()
             if ev_res.data:
@@ -132,15 +201,13 @@ def cleanup_old_cases() -> None:
                             for item in items:
                                 if isinstance(item, dict) and item.get("screenshot_url"):
                                     urls_to_delete.add(item["screenshot_url"])
-                                    
-            # 2. Fetch screenshots from infringements table for this case
+
             inf_res = sb.table("infringements").select("screenshot_url").eq("case_id", case_id).execute()
             if inf_res.data:
                 for row in inf_res.data:
                     if row.get("screenshot_url"):
                         urls_to_delete.add(row["screenshot_url"])
-                        
-            # 3. Parse relative paths for Supabase Storage
+
             paths_to_delete = []
             marker = "/evidence-screenshots/"
             for url in urls_to_delete:
@@ -149,22 +216,18 @@ def cleanup_old_cases() -> None:
                     path = url[idx + len(marker):]
                     if path:
                         paths_to_delete.append(path)
-                        
-            # 4. Remove from storage
+
             if paths_to_delete:
                 try:
                     sb.storage.from_("evidence-screenshots").remove(paths_to_delete)
                     print(f"[Cleanup] Deleted {len(paths_to_delete)} screenshots from storage for case {case_id}")
                 except Exception as storage_err:
                     print(f"[Cleanup] Error deleting screenshots from storage for case {case_id}: {storage_err}")
-                    
-            # 5. Delete heavy evidence logs from database
+
             sb.table("evidence").delete().eq("case_id", case_id).execute()
-            
-            # 6. Nullify screenshot_url in infringements table for this case
             sb.table("infringements").update({"screenshot_url": None}).eq("case_id", case_id).execute()
-            
+
             print(f"[Cleanup] Successfully cleaned up heavy information for case {case_id}")
-            
+
     except Exception as e:
         print(f"[Cleanup] Error during automatic 100-day cleanup: {e}")

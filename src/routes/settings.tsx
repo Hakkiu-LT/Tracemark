@@ -33,7 +33,7 @@ import { toast } from "sonner";
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { ClientsPage } from "./clients";
+import { ClientsPage } from "@/components/ClientsPage";
 import {
   getSubscription,
   getInvoices,

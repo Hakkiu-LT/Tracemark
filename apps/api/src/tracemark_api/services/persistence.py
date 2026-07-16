@@ -14,9 +14,11 @@ from tracemark_api.services.ai import (
     DomainEvidence,
     Evidence,
     MarketplaceEvidence,
+    ScoredEvidenceItem,
     SocialEvidence,
 )
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.detection_funnel import verdict_to_risk_level
 
 RiskLevel = Literal["HIGH", "MEDIUM", "LOW"]
 
@@ -95,6 +97,7 @@ def _match_type(item: MarketplaceEvidence | AdEvidence | DomainEvidence | Social
 def persist_infringement(
     case_id: str,
     item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
+    scored: ScoredEvidenceItem | None = None,
 ) -> str:
     """
     Upsert one infringement record into the `infringements` table.
@@ -103,9 +106,15 @@ def persist_infringement(
     has already been stored for this case, the row is updated instead of
     inserted again (idempotent).
 
+    When ``scored`` is provided, the risk level and match score are derived
+    from the tiered funnel scores instead of the hardcoded ``risk_scorer``.
+
     Returns the row id.
     """
-    risk_level, match_score = risk_scorer(item)
+    if scored is not None:
+        risk_level, match_score = verdict_to_risk_level(scored.verdict, scored.overall_score)
+    else:
+        risk_level, match_score = risk_scorer(item)
     source_url = _item_url(item)
 
     screenshot_url = getattr(item, "screenshot_url", None)
@@ -186,18 +195,17 @@ def persist_evidence(
     brand_name: str | None = None,
 ) -> str:
     """
-    Insert one evidence snapshot for an infringement.
+    Insert one evidence snapshot for an infringement into ``evidence_items``.
 
     Each call creates a new row, so a single infringement can accumulate
     multiple screenshots taken at different points in time.
 
     When ``brand_name`` is provided and ``ai_analysis`` is ``None``, the
     function will automatically call ``generate_evidence_analysis()`` to
-    populate the ``ai_analysis`` jsonb column using Gemini Vision.
+    populate the criteria from Gemini Vision.
 
-    Returns the new evidence row id.
+    Returns the new evidence_items row id.
     """
-    # Auto-populate ai_analysis via Gemini Vision when possible
     if ai_analysis is None and brand_name and screenshot_url:
         try:
             from tracemark_api.services.ai import generate_evidence_analysis
@@ -206,13 +214,55 @@ def persist_evidence(
             print(f"[Persistence] AI analysis generation failed: {e}")
 
     sb = get_supabase()
+
+    case_id = None
+    source_url = ""
+    platform = ""
+    try:
+        inf_res = (
+            sb.table("infringements")
+            .select("case_id, source_url, platform")
+            .eq("id", infringement_id)
+            .maybe_single()
+            .execute()
+        )
+        if inf_res and inf_res.data:
+            case_id = inf_res.data.get("case_id")
+            source_url = inf_res.data.get("source_url", "")
+            platform = inf_res.data.get("platform", "")
+    except Exception as e:
+        print(f"[warn] Failed to fetch infringement {infringement_id}: {e}")
+
+    tier2_score = None
+    criteria: list[dict] = []
+    if ai_analysis:
+        vis_score = ai_analysis.get("visual_similarity_score")
+        if vis_score is not None:
+            tier2_score = vis_score
+        criteria = [
+            {
+                "name": "brand_match_detected",
+                "score": 1.0 if ai_analysis.get("brand_match_detected") else 0.0,
+                "evidence": ", ".join(ai_analysis.get("brand_names_found", [])),
+            },
+            {
+                "name": "visual_similarity",
+                "score": vis_score or 0.0,
+                "evidence": ai_analysis.get("risk_assessment", ""),
+            },
+        ]
+
     result = (
-        sb.table("evidence")
+        sb.table("evidence_items")
         .insert(
             {
+                "case_id": case_id,
                 "infringement_id": infringement_id,
+                "source_url": source_url,
+                "platform": platform,
                 "screenshot_url": screenshot_url,
-                "ai_analysis": ai_analysis,
+                "tier2_score": tier2_score,
+                "criteria": criteria,
             }
         )
         .execute()
@@ -220,17 +270,71 @@ def persist_evidence(
     return result.data[0]["id"]
 
 
-def persist_all_infringements(case_id: str, evidence: Evidence) -> list[str]:
+def persist_scored_evidence_item(
+    case_id: str,
+    item: ScoredEvidenceItem,
+    infringement_id: str | None = None,
+) -> str:
+    """
+    Persist a ``ScoredEvidenceItem`` (the unified per-detection record from the
+    tiered funnel) into the ``evidence_items`` table.
+
+    Returns the new row id.
+    """
+    sb = get_supabase()
+    payload: dict = {
+        "case_id": case_id,
+        "source_url": item.source_url,
+        "platform": item.platform,
+        "screenshot_url": item.screenshot_url,
+        "content_hash": item.content_hash,
+        "overall_score": item.overall_score,
+        "verdict": item.verdict,
+        "category": item.category,
+        "criteria": [c.model_dump() for c in item.criteria],
+        "confidence": item.confidence,
+        "scraped_at": item.scraped_at.isoformat(),
+        "status": item.status,
+    }
+    if infringement_id:
+        payload["infringement_id"] = infringement_id
+    if item.tier0:
+        payload["tier0_score"] = item.tier0.overall_score
+    if item.tier1:
+        payload["tier1_score"] = item.tier1.overall_score
+        if item.tier1.content_hash:
+            payload["content_hash"] = item.tier1.content_hash
+    if item.tier2_score is not None:
+        payload["tier2_score"] = item.tier2_score
+
+    result = sb.table("evidence_items").insert(payload).execute()
+    return result.data[0]["id"]
+
+
+def persist_all_infringements(
+    case_id: str,
+    evidence: Evidence,
+    scored_items: list[ScoredEvidenceItem] | None = None,
+) -> list[str]:
     """
     Convenience wrapper: persist every item from an Evidence object.
     Returns a list of infringement ids (one per item).
+
+    When ``scored_items`` is provided, each infringement is scored using the
+    tiered funnel scores instead of the hardcoded ``risk_scorer``.
     """
+    scored_map: dict[str, ScoredEvidenceItem] = {}
+    for s in scored_items or []:
+        scored_map[s.source_url] = s
+
     ids: list[str] = []
-    for item in (
-        list(evidence.marketplaces)
-        + list(evidence.ads)
-        + list(evidence.domains)
-        + list(evidence.social)
-    ):
-        ids.append(persist_infringement(case_id, item))
+    for item in evidence.marketplaces:
+        ids.append(persist_infringement(case_id, item, scored_map.get(item.listing_url)))
+    for item in evidence.ads:
+        ids.append(persist_infringement(case_id, item, scored_map.get(item.destination_url)))
+    for item in evidence.domains:
+        ids.append(persist_infringement(case_id, item, scored_map.get(f"https://{item.domain_name}")))
+    for item in evidence.social:
+        url = item.post_url or f"https://{item.platform.lower()}.com/{item.handle}"
+        ids.append(persist_infringement(case_id, item, scored_map.get(url)))
     return ids

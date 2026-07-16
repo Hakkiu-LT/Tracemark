@@ -73,7 +73,6 @@ def save_decision(case_id: str, decision: Decision, score: EvidenceScore | None 
     result = sb.table("decisions").insert(payload).execute()
     return result.data[0]["id"]
 
-
 def update_case_status(case_id: str, status: str, decline_reason: str | None = None) -> None:
     sb = get_supabase()
     updates = {"status": status}

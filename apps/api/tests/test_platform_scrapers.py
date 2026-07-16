@@ -25,7 +25,6 @@ from tracemark_api.services.marketplace import (
     InstagramScraper,
     GoogleShoppingScraper,
     GoogleSERPAPI,
-    GoogleAdsAPI,
     MetaAdsAPI,
     MarketplaceScraper,
 )
@@ -635,61 +634,104 @@ class TestGoogleSERPAPI:
 
 
 # ---------------------------------------------------------------------------
-# Google Ads API Tests
+# Google Ads via SerpApi (google_ads engine) Tests
 # ---------------------------------------------------------------------------
 
-class TestGoogleAdsAPI:
+class TestGoogleSERPAPIGoogleAds:
+    @patch.dict("os.environ", {"GOOGLE_SERP_API": "test-key"}, clear=False)
     @patch("tracemark_api.services.marketplace.requests.get")
-    def test_search_json_success(self, mock_get):
-        ads_api = GoogleAdsAPI()
-        
-        # Setup mock response for public ads JSON API
+    def test_search_google_ads_page_returns_ads_and_organic(self, mock_get):
+        """One SerpApi google_ads call returns ads + organic results + shopping + local_ads."""
+        serp = GoogleSERPAPI()
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "ads": [
                 {
-                    "advertiser_name": "BadGuyStore",
-                    "ad_text": "Cheap TestBrand items 50% off",
-                    "destination_url": "https://fake-testbrand.com",
-                    "impressions_range": "10k-50k",
-                    "first_shown_date": "2026-06-20"
+                    "position": 1,
+                    "block_position": "top",
+                    "title": "Cheap TestBrand items 50% off",
+                    "link": "https://fake-testbrand.com",
+                    "displayed_link": "https://fake-testbrand.com",
+                    "description": "Buy fake TestBrand products at low prices",
+                    "source": "faketestbrand.com",
                 }
-            ]
+            ],
+            "organic_results": [
+                {"link": "https://legit-testbrand.com/products"},
+                {"link": "https://en.wikipedia.org/wiki/TestBrand"},
+            ],
+            "shopping_results": [
+                {
+                    "title": "TestBrand pillow - 50% OFF",
+                    "link": "https://cheap-shop.com/testbrand",
+                    "source": "cheap-shop.com",
+                    "extracted_price": 19.99,
+                }
+            ],
+            "local_ads": {
+                "results": [
+                    {
+                        "title": "CheapDeals Inc",
+                        "description": "TestBrand products on sale — free shipping",
+                        "link": "https://local-cheapdeals.com",
+                    }
+                ]
+            },
         }
         mock_get.return_value = mock_resp
 
-        results = ads_api.search("TestBrand", caller_id="test")
-        assert len(results) == 1
-        assert results[0]["advertiser"] == "BadGuyStore"
-        assert "50% off" in results[0]["ad_text"]
-        assert results[0]["destination_url"] == "https://fake-testbrand.com"
+        result = serp.search_google_ads_page("TestBrand", caller_id="test")
 
+        # Verify the call used engine=google_ads
+        call_args = mock_get.call_args
+        assert call_args is not None
+        params = call_args.kwargs.get("params") or call_args[1].get("params")
+        assert params["engine"] == "google_ads"
+        assert params["q"] == "TestBrand"
+        assert params["api_key"] == "test-key"
+
+        # ads parsed
+        assert len(result["ads"]) == 1
+        assert result["ads"][0]["advertiser"] == "faketestbrand.com"
+        assert "TestBrand" in result["ads"][0]["ad_text"]
+        assert result["ads"][0]["destination_url"] == "https://fake-testbrand.com"
+        assert result["ads"][0]["title"] == "Cheap TestBrand items 50% off"
+
+        # organic results
+        assert "legit-testbrand.com" in result["organic"]
+        # Wikipedia is not brand-relevant and should be filtered out
+        assert "en.wikipedia.org" not in result["organic"]
+
+        # shopping results
+        assert len(result["shopping"]) == 1
+        assert result["shopping"][0]["source"] == "google_shopping"
+        assert result["shopping"][0]["price"] == 19.99
+
+        # local ads
+        assert len(result["local_ads"]) == 1
+        assert result["local_ads"][0]["source"] == "google_local"
+        assert result["local_ads"][0]["advertiser"] == "CheapDeals Inc"
+
+    @patch.dict("os.environ", {}, clear=False)
+    def test_search_google_ads_page_no_api_key(self, monkeypatch):
+        """Without GOOGLE_SERP_API env var, returns empty result without crashing."""
+        monkeypatch.delenv("GOOGLE_SERP_API", raising=False)
+        serp = GoogleSERPAPI()
+        result = serp.search_google_ads_page("TestBrand")
+        assert result == {"ads": [], "organic": [], "shopping": [], "local_ads": []}
+
+    @patch.dict("os.environ", {"GOOGLE_SERP_API": "test-key"}, clear=False)
     @patch("tracemark_api.services.marketplace.requests.get")
-    def test_search_json_fails_falls_back_to_html(self, mock_get):
-        ads_api = GoogleAdsAPI()
-        
-        # JSON returns 500, but fallback HTML scrape succeeds
-        mock_json_resp = MagicMock()
-        mock_json_resp.status_code = 500
-        
-        mock_html_resp = MagicMock()
-        mock_html_resp.status_code = 200
-        mock_html_resp.text = """
-        <html><body>
-          <div data-advertiser-name="ImposterShop">
-            <span class="headline">Impersonating TestBrand widget</span>
-            <a href="https://bad-shop.net">Link</a>
-          </div>
-        </body></html>
-        """
-        mock_get.side_effect = [mock_json_resp, mock_html_resp]
+    def test_search_google_ads_page_handles_http_error(self, mock_get):
+        """If SerpApi returns non-200, we get empty result without crashing."""
+        serp = GoogleSERPAPI()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_get.return_value = mock_resp
 
-        results = ads_api.search("TestBrand", caller_id="test")
-        assert len(results) == 1
-        assert results[0]["advertiser"] == "ImposterShop"
-        assert "Impersonating" in results[0]["ad_text"]
-        assert results[0]["destination_url"] == "https://bad-shop.net"
+        result = serp.search_google_ads_page("TestBrand")
+        assert result == {"ads": [], "organic": [], "shopping": [], "local_ads": []}
 
 
 # ---------------------------------------------------------------------------
@@ -793,45 +835,49 @@ class TestCachedScreenshotRouting:
             mock_pw_screenshot.assert_not_called()
 
 
-class TestAIDomainEvaluation:
-    @patch("tracemark_api.services.marketplace.ChatGoogleGenerativeAI")
-    def test_extract_domain_evaluations_with_ai(self, mock_llm_class):
-        from tracemark_api.services.marketplace import extract_domain_evaluations_with_ai, DomainEvaluation, DomainEvaluationList
-        
-        mock_llm = MagicMock()
-        mock_llm_class.return_value = mock_llm
-        
-        mock_structured = MagicMock()
-        mock_llm.with_structured_output.return_value = mock_structured
-        
-        mock_structured.invoke.return_value = DomainEvaluationList(
-            items=[
-                DomainEvaluation(
-                    domain_name="njctl.org",
-                    is_clone=False,
-                    similarity_score=15,
-                    reasoning="Unrelated generic teaching organization."
-                ),
-                DomainEvaluation(
-                    domain_name="buyderila.com",
-                    is_clone=True,
-                    similarity_score=92,
-                    reasoning="Impersonating store using brand name."
-                )
-            ]
-        )
-        
-        with patch.dict("os.environ", {"GEMINI_API_KEY": "fake_key"}):
-            results = extract_domain_evaluations_with_ai(
-                brand_name="derila",
-                domains_data=[{"domain": "njctl.org"}, {"domain": "buyderila.com"}],
-                caller_id="test"
-            )
-            
+class TestDomainEvidenceBuilder:
+    def test_build_domain_evidence_from_whois_data(self):
+        """DomainEvidence is built directly from WHOIS data — no Gemini needed."""
+        from tracemark_api.services.marketplace import _build_domain_evidence
+
+        domains_data = [
+            {
+                "domain": "deri1a.com",
+                "registrant": "GoDaddy",
+                "created_date": "2026-06-01",
+                "expiry_date": "2027-06-01",
+                "name_servers": ["ns1.godaddy.com"],
+                "registrant_organization": "Unknown",
+                "registrant_country": "US",
+                "registrant_email": "unknown",
+                "country": "US",
+            },
+            {
+                "domain": "derilapillowcheap.com",
+                "registrant": "Chengdu West Dimension",
+                "created_date": "2026-07-10",
+                "expiry_date": "2027-07-10",
+                "name_servers": ["ns1.cheap.com"],
+                "registrant_organization": "Cheap Corp",
+                "registrant_country": "CN",
+                "registrant_email": "cheap@corp.cn",
+                "country": "US",
+            },
+        ]
+
+        results = _build_domain_evidence(domains_data)
+
         assert len(results) == 2
-        assert results[0].domain_name == "njctl.org"
-        assert results[0].is_clone is False
-        assert results[0].similarity_score == 15
-        assert results[1].domain_name == "buyderila.com"
-        assert results[1].is_clone is True
-        assert results[1].similarity_score == 92
+        assert results[0].domain_name == "deri1a.com"
+        assert results[0].registrar == "GoDaddy"
+        assert results[0].is_clone is True
+        assert results[0].creation_date == "2026-06-01"
+        assert results[0].detection_region == "US"
+
+        assert results[1].domain_name == "derilapillowcheap.com"
+        assert results[1].registrar == "Chengdu West Dimension"
+        assert results[1].registrant_country == "CN"
+
+    def test_build_domain_evidence_empty(self):
+        from tracemark_api.services.marketplace import _build_domain_evidence
+        assert _build_domain_evidence([]) == []
