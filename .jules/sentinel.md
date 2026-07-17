@@ -1,0 +1,4 @@
+## 2025-02-18 - [CRITICAL] Missing Manual Authorization Check for FastAPI Documents Endpoint
+**Vulnerability:** IDOR (Insecure Direct Object Reference) in `/documents/{id}/send-email` where the endpoint did not enforce any ownership validation for documents prior to generating/sending emails.
+**Learning:** The FastAPI backend relies on Supabase's Service Role Key to bypass RLS entirely. Consequently, any endpoint accessing, modifying, or operating on resources (e.g. documents, cases, infringements) must explicitly inject `CurrentProfile` and perform manual authorization checks (e.g., verifying `profile.organization_id` against the resource's parent `organization_id`) before permitting the operation.
+**Prevention:** Every time a new endpoint is created or modified that acts on specific database resources, manually enforce `organization_id` ownership using `Depends(get_current_profile)` and compare it with the queried record.
