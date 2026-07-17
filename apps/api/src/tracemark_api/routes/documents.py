@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import CurrentProfile, get_current_profile
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("/{id}/send-email")
 def send_document_email_endpoint(
     id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Fetch the document metadata, trigger dispatch_notifications for the user,
@@ -25,6 +25,26 @@ def send_document_email_endpoint(
 
     doc = res.data
     infringement_id = doc.get("infringement_id")
+
+    # Authorize: ensure the document's case belongs to the current user's organization
+    try:
+        auth_res = (
+            sb.table("infringements")
+            .select("cases(organization_id)")
+            .eq("id", infringement_id)
+            .maybe_single()
+            .execute()
+        )
+        if not auth_res.data or not auth_res.data.get("cases"):
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        doc_org_id = auth_res.data["cases"].get("organization_id")
+        if doc_org_id != profile.organization_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Authorization check failed")
 
     try:
         from tracemark_api.services.delivery_log import log_delivery
