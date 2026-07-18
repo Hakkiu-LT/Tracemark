@@ -23,11 +23,18 @@ SAMPLE_INFRINGEMENT = {
     "screenshot_url": None,
     "flagged_at": "2026-06-25T10:00:00+00:00",
     "created_at": "2026-06-25T10:00:00+00:00",
+    "cases": {
+        "organization_id": "org-123",
+        "user_id": "user-1",
+        "detection_region": "US",
+        "status": "active",
+        "updated_at": "2026-06-25T10:00:00+00:00"
+    }
 }
 
 SAMPLE_EVIDENCE = {
     "id": "ev-001",
-    "case_id": "case-001",
+    "case_id": "case-abc",
     "infringement_id": "inf-001",
     "source_url": "https://example.com/suspicious",
     "platform": "amazon",
@@ -77,6 +84,32 @@ def _make_sb(data, count=None):
             res_org.data = {"persona": "brand_owner"}
             q_org.execute.return_value = res_org
             return q_org
+        if name == "profiles":
+            q_prof = MagicMock()
+            q_prof.select.return_value = q_prof
+            q_prof.eq.return_value = q_prof
+            q_prof.maybe_single.return_value = q_prof
+            res_prof = MagicMock()
+            res_prof.data = {"organization_id": "org-123", "plan": "pro"}
+            q_prof.execute.return_value = res_prof
+            return q_prof
+        if name == "subscriptions":
+            q_sub = MagicMock()
+            q_sub.select.return_value = q_sub
+            q_sub.eq.return_value = q_sub
+            q_sub.order.return_value = q_sub
+            res_sub = MagicMock()
+            res_sub.data = []
+            q_sub.execute.return_value = res_sub
+            return q_sub
+        if name == "subscription_addons":
+            q_add = MagicMock()
+            q_add.select.return_value = q_add
+            q_add.eq.return_value = q_add
+            res_add = MagicMock()
+            res_add.data = []
+            q_add.execute.return_value = res_add
+            return q_add
         return q_infringements
 
     sb.table.side_effect = get_query
@@ -98,6 +131,7 @@ def test_list_infringements_returns_200(client):
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,
+        patch("tracemark_api.services.entitlements.get_supabase", return_value=sb),
     ):
         dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
             id=FAKE_USER.id, email=FAKE_USER.email
@@ -120,6 +154,7 @@ def test_list_infringements_risk_level_filter(client):
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,
+        patch("tracemark_api.services.entitlements.get_supabase", return_value=sb),
     ):
         dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
             id=FAKE_USER.id, email=FAKE_USER.email
@@ -138,6 +173,7 @@ def test_get_single_infringement_returns_200(client):
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,
+        patch("tracemark_api.services.entitlements.get_supabase", return_value=sb),
     ):
         dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
             id=FAKE_USER.id, email=FAKE_USER.email
@@ -153,6 +189,7 @@ def test_get_single_infringement_not_found(client):
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,
+        patch("tracemark_api.services.entitlements.get_supabase", return_value=sb),
     ):
         dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
             id=FAKE_USER.id, email=FAKE_USER.email
@@ -164,9 +201,69 @@ def test_get_single_infringement_not_found(client):
 
 def test_get_evidence_returns_list(client):
     sb = _make_sb([SAMPLE_EVIDENCE], count=1)
+
+    # We need to configure the mock for the two separate calls in get_evidence
+    # 1. table("infringements") to check IDOR
+    # 2. table("evidence_items") to get the actual evidence
+
+    q_inf = MagicMock()
+    q_inf.select.return_value = q_inf
+    q_inf.eq.return_value = q_inf
+    q_inf.maybe_single.return_value = q_inf
+    res_inf = MagicMock()
+    res_inf.data = SAMPLE_INFRINGEMENT
+    q_inf.execute.return_value = res_inf
+
+    q_ev = MagicMock()
+    q_ev.select.return_value = q_ev
+    q_ev.eq.return_value = q_ev
+    q_ev.order.return_value = q_ev
+    res_ev = MagicMock()
+    res_ev.data = [SAMPLE_EVIDENCE]
+    q_ev.execute.return_value = res_ev
+
+    q_prof = MagicMock()
+    q_prof.select.return_value = q_prof
+    q_prof.eq.return_value = q_prof
+    q_prof.maybe_single.return_value = q_prof
+    res_prof = MagicMock()
+    res_prof.data = {"organization_id": "org-123", "plan": "pro"}
+    q_prof.execute.return_value = res_prof
+
+    q_sub = MagicMock()
+    q_sub.select.return_value = q_sub
+    q_sub.eq.return_value = q_sub
+    q_sub.order.return_value = q_sub
+    res_sub = MagicMock()
+    res_sub.data = []
+    q_sub.execute.return_value = res_sub
+
+    q_add = MagicMock()
+    q_add.select.return_value = q_add
+    q_add.eq.return_value = q_add
+    res_add = MagicMock()
+    res_add.data = []
+    q_add.execute.return_value = res_add
+
+    def get_query(name):
+        if name == "infringements":
+            return q_inf
+        if name == "evidence_items":
+            return q_ev
+        if name == "profiles":
+            return q_prof
+        if name == "subscriptions":
+            return q_sub
+        if name == "subscription_addons":
+            return q_add
+        return MagicMock()
+
+    sb.table.side_effect = get_query
+
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,
+        patch("tracemark_api.services.entitlements.get_supabase", return_value=sb),
     ):
         dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
             id=FAKE_USER.id, email=FAKE_USER.email

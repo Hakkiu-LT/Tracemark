@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Literal
 
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/infringements", tags=["infringements"])
@@ -137,13 +137,13 @@ def list_infringements(
 @router.get("/{infringement_id}", response_model=InfringementItem)
 def get_infringement(
     infringement_id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ) -> InfringementItem:
     """Return a single infringement by id."""
     sb = get_supabase()
     result = (
         sb.table("infringements")
-        .select("*, cases(detection_region, status, updated_at)")
+        .select("*, cases!inner(organization_id, user_id, detection_region, status, updated_at)")
         .eq("id", infringement_id)
         .maybe_single().execute()
     )
@@ -152,6 +152,13 @@ def get_infringement(
         
     data = result.data
     cases_data = data.get("cases") or {}
+
+    org_id = cases_data.get("organization_id")
+    user_id = cases_data.get("user_id")
+
+    if (org_id and org_id != profile.organization_id) or (not org_id and user_id != profile.id):
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
     data["detection_region"] = cases_data.get("detection_region")
     data["status"] = cases_data.get("status") or data.get("status")
     data["case_updated_at"] = cases_data.get("updated_at")
@@ -161,10 +168,28 @@ def get_infringement(
 @router.get("/{infringement_id}/evidence", response_model=list[EvidenceItem])
 def get_evidence(
     infringement_id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ) -> list[EvidenceItem]:
     """Return all evidence snapshots for an infringement, newest first."""
     sb = get_supabase()
+
+    infringement_result = (
+        sb.table("infringements")
+        .select("id, cases!inner(organization_id, user_id)")
+        .eq("id", infringement_id)
+        .maybe_single().execute()
+    )
+
+    if not infringement_result.data:
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
+    cases_data = infringement_result.data.get("cases") or {}
+    org_id = cases_data.get("organization_id")
+    user_id = cases_data.get("user_id")
+
+    if (org_id and org_id != profile.organization_id) or (not org_id and user_id != profile.id):
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
     result = (
         sb.table("evidence_items")
         .select("*")
@@ -182,16 +207,23 @@ class UpdateStatusRequest(BaseModel):
 def update_infringement_status(
     infringement_id: str,
     payload: UpdateStatusRequest,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ) -> InfringementItem:
     """Update the status of an infringement."""
     sb = get_supabase()
     
-    # Verify it exists
-    existing = sb.table("infringements").select("id").eq("id", infringement_id).maybe_single().execute()
+    # Verify it exists and belongs to the user
+    existing = sb.table("infringements").select("id, cases!inner(organization_id, user_id)").eq("id", infringement_id).maybe_single().execute()
     if not existing.data:
         raise HTTPException(status_code=404, detail="Infringement not found")
         
+    cases_data = existing.data.get("cases") or {}
+    org_id = cases_data.get("organization_id")
+    user_id = cases_data.get("user_id")
+
+    if (org_id and org_id != profile.organization_id) or (not org_id and user_id != profile.id):
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
     updates = {"status": payload.status}
     if payload.decline_reason is not None:
         updates["decline_reason"] = payload.decline_reason
