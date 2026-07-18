@@ -46,6 +46,7 @@ src/tracemark_api/services/takedown.py
 src/tracemark_api/services/unified_scraper.py
 tests/test_api_usage_tracker.py
 tests/test_auth.py
+tests/test_auto_reference.py
 tests/test_billing.py
 tests/test_brands.py
 tests/test_clients.py
