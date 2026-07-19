@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("/{id}/send-email")
 def send_document_email_endpoint(
     id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Fetch the document metadata, trigger dispatch_notifications for the user,
@@ -26,28 +26,42 @@ def send_document_email_endpoint(
     doc = res.data
     infringement_id = doc.get("infringement_id")
 
+    # Resolve platform and infringing_url from the infringement, and verify ownership via the associated case
+    platform = "Unknown Platform"
+    infringing_url = ""
+    case_id = None
+    try:
+        inf_res = (
+            sb.table("infringements")
+            .select("case_id, platform, source_url, cases(organization_id, user_id)")
+            .eq("id", infringement_id)
+            .single()
+            .execute()
+        )
+        if inf_res.data:
+            case_id = inf_res.data.get("case_id")
+            platform = inf_res.data.get("platform", "Unknown Platform")
+            infringing_url = inf_res.data.get("source_url", "")
+
+            case_data = inf_res.data.get("cases") or {}
+
+            # Authorize: check if case belongs to user's org, or user directly
+            if profile.organization_id:
+                if case_data.get("organization_id") != profile.organization_id:
+                    raise HTTPException(status_code=403, detail="Not authorized to access this document")
+            else:
+                if case_data.get("user_id") != profile.id:
+                    raise HTTPException(status_code=403, detail="Not authorized to access this document")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DocumentsRoute] Failed to fetch infringement details or verify ownership: {e}")
+        # If we can't verify ownership securely, deny access
+        raise HTTPException(status_code=403, detail="Not authorized to access this document")
+
     try:
         from tracemark_api.services.delivery_log import log_delivery
         from tracemark_api.services.notifications import dispatch_notifications
-
-        # Resolve platform and infringing_url from the infringement
-        platform = "Unknown Platform"
-        infringing_url = ""
-        case_id = None
-        try:
-            inf_res = (
-                sb.table("infringements")
-                .select("case_id, platform, source_url")
-                .eq("id", infringement_id)
-                .single()
-                .execute()
-            )
-            if inf_res.data:
-                case_id = inf_res.data.get("case_id")
-                platform = inf_res.data.get("platform", "Unknown Platform")
-                infringing_url = inf_res.data.get("source_url", "")
-        except Exception as e:
-            print(f"[DocumentsRoute] Failed to fetch infringement details: {e}")
 
         event = {
             "type": "takedown_generated",
