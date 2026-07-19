@@ -221,7 +221,22 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 10. Scraper Health Monitoring & E2E Validation
+## 10. Organization & User Group Management (Multi-Member Dashboards)
+*Implementing multi-user support to group registered accounts under organizations, allowing teams to share dashboards and manage brands collaboratively.*
+
+### Backend
+- **User Organization & Groups Schema Migration** | ❌ Missing | Define DB schema for `organizations`, `user_groups`, and intermediate tables to link profiles to organizations with roles (Editor, Viewer).
+- **Organization-Scoped API Routing** | ❌ Missing | Refactor FastAPI dependencies and middleware to fetch and enforce organization-scoped RLS queries.
+- **Member Invitation API & SMTP Invites** | ❌ Missing | Endpoints to invite new users to an organization, verify activation tokens, and link users upon registration.
+
+### Frontend
+- **Organization Switcher & Settings Panel** | ❌ Missing | Add tenant switcher dropdown in dashboard header and organization management page (billing details, workspace settings).
+- **Member Invite & Access Control UI** | ❌ Missing | Build table listing active group/org members, their roles, and an invite input modal with SMTP dispatch.
+- **Zustand Store Organization Scoping** | ❌ Missing | Scope application state (selected brands, active scans, infringement feed) by current organization ID.
+
+---
+
+## 11. Scraper Health Monitoring & E2E Validation
 *Establishing validation protocols, automated alerts, and health metrics across all target scraping channels.*
 
 ### Backend
@@ -232,7 +247,7 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 11. Startup Production Hosting (Hetzner CCX13 Deployment)
+## 12. Startup Production Hosting (Hetzner CCX13 Deployment)
 *Transitioning from local/development setups to a highly secure, high-performance, cost-effective dedicated server hosting architecture on Hetzner.*
 
 ### Infrastructure
@@ -244,7 +259,7 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 12. SEO, Web Analytics & Conversion Tracking
+## 13. SEO, Web Analytics & Conversion Tracking
 *Integrating analytics tools to measure acquisition, trace user funnels, and optimize pages for organic search visibility.*
 
 ### Frontend
@@ -255,7 +270,7 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 13. Admin Operations Portal (Subdomain Separation)
+## 14. Admin Operations Portal (Subdomain Separation)
 *Separating internal operations and administrative controls into a dedicated subdomain to isolate code complexity and protect system data.*
 
 ### Infrastructure & Backend
@@ -268,7 +283,7 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 14. Multi-Model AI Routing Engine
+## 15. Multi-Model AI Routing Engine
 *Designing an AI provider abstraction layer to support multiple LLM/VLM backends (including OpenAI, Anthropic, and leading cost-efficient models) for Tier 2 evaluation and visual classification.*
 
 ### Backend
@@ -278,7 +293,7 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 15. UI Case/Alert Decoupling & MVP Preparation
+## 16. UI Case/Alert Decoupling & MVP Preparation
 *Refining frontend views to present copycats as individual, actionable cases to maximize user engagement and streamline enforcement workflows.*
 
 ### Frontend
@@ -290,7 +305,7 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 16. Amazon SES Email Integration
+## 17. Amazon SES Email Integration
 *Setting up enterprise-grade transactional and authentication emails using Amazon Simple Email Service (SES).*
 
 ### Backend & Infrastructure
@@ -301,7 +316,25 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 17. Advanced Logo & Image Similarity Features
+## 18. Credit-Based Consumption & Monetization
+*Implementing a credit-based billing system that allows users to purchase credits and run checks using all scrapers, geographic regions, and advanced detection services.*
+
+### Research & Architecture
+- **Credit system architecture design** | ❌ Missing | Investigate architecture for purchasing, tracking, and consuming credits on-demand.
+- **Define credit pricing structure** | ❌ Missing | Formulate credit cost rules for different tiers (e.g., static scrapers vs JS-heavy, specific target countries, and vision evaluation API cost offsets).
+
+### Backend
+- **Stripe Top-Up & Credit Bundle Integration** | ❌ Missing | Implement API endpoints and Stripe Checkout flows for purchasing credit top-ups and bundles.
+- **Credit Balance & Transaction Ledger Schema** | ❌ Missing | DB schema migrations for client credit balances and a transactional audit ledger.
+- **Consumption Hook in Pipeline** | ❌ Missing | Integrate credit verification and deduction into the `gather_evidence` / `/check-brand` flows.
+
+### Frontend
+- **Credit Dashboard & Purchase Center** | ❌ Missing | Build UI elements showing credit balances, usage trends, and quick-buy checkout options.
+- **Scan Cost Calculator** | ❌ Missing | Display estimated/calculated credit costs in the Brand Search configuration panel prior to starting a scan.
+
+---
+
+## 19. Advanced Logo & Image Similarity Features
 *Visual copycat detection using logo cropping, CLIP embeddings, and Gemini Vision verification.*
 
 ### Backend
