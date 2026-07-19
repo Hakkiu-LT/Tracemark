@@ -1,0 +1,4 @@
+## 2024-05-24 - Missing Authorization / IDOR Vulnerabilities Across FastAPI Backend
+**Vulnerability:** Fast API endpoints (e.g., in `documents.py`) often lacked authorization checks, allowing any authenticated user to act on any resource by providing its ID.
+**Learning:** The FastAPI backend initializes the Supabase client using the `SUPABASE_SERVICE_ROLE_KEY` globally via `get_supabase()`, completely bypassing Supabase's Row Level Security (RLS). This means the database trusts all queries from the backend implicitly.
+**Prevention:** Authorization must be manually implemented on *every* single endpoint. Inject `profile: CurrentProfile = Depends(get_current_profile)` into route handlers, query the resource's parent hierarchy (e.g., `document -> infringement -> case(organization_id, user_id)`), and strictly verify that `profile.organization_id` or `profile.id` matches the resource's owner before allowing access or mutation.
