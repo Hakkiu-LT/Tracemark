@@ -1,0 +1,80 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import os
+
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+
+from tracemark_admin_api.routes.auth import router as auth_router
+from tracemark_admin_api.routes.staff import router as staff_router
+from tracemark_admin_api.routes.customers import router as customers_router
+from tracemark_admin_api.routes.organizations import router as organizations_router
+from tracemark_admin_api.routes.brands_admin import router as brands_router
+from tracemark_admin_api.routes.billing_admin import router as billing_router
+from tracemark_admin_api.routes.resources import router as resources_router
+from tracemark_admin_api.routes.meta import router as meta_router
+from tracemark_admin_api.routes.audit import router as audit_router
+from tracemark_admin_api.routes.search import router as search_router
+from tracemark_admin_api.routes.cases import router as cases_router
+from tracemark_admin_api.routes.infringements_admin import router as infringements_router
+from tracemark_admin_api.routes.takedowns_admin import router as takedowns_router
+
+_is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
+
+# The admin portal has exactly ONE legitimate origin. Extra origins can be added via
+# ADMIN_ALLOWED_ORIGINS (comma-separated) for staging.
+_extra_origins = [o.strip() for o in os.environ.get("ADMIN_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
+app = FastAPI(
+    title="Tracemark Admin API",
+    version="0.1.0",
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
+)
+
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(staff_router, prefix="/api/v1")
+app.include_router(customers_router, prefix="/api/v1")
+app.include_router(organizations_router, prefix="/api/v1")
+app.include_router(billing_router, prefix="/api/v1")
+app.include_router(brands_router, prefix="/api/v1")
+app.include_router(resources_router, prefix="/api/v1")
+app.include_router(meta_router, prefix="/api/v1")
+app.include_router(audit_router, prefix="/api/v1")
+app.include_router(search_router, prefix="/api/v1")
+app.include_router(cases_router, prefix="/api/v1")
+app.include_router(infringements_router, prefix="/api/v1")
+app.include_router(takedowns_router, prefix="/api/v1")
+
+_allowed_origins = [
+    "http://localhost:8082",  # admin app local dev
+    "https://admin.tracemark.ai",
+] + _extra_origins
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "tracemark-admin-api"}

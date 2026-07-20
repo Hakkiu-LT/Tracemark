@@ -252,23 +252,19 @@ def resolve_entitlements_for_org(org_id: str) -> tuple[str, Entitlement]:
 
 
 def resolve_entitlements_for_user(user_id: str) -> tuple[str, str, Entitlement]:
-    """Return (org_id, plan, effective Entitlement) for a user.
-    If the user has the is_admin flag set to True, they are granted Enterprise-level entitlements.
-    """
+    """Return (org_id, plan, effective Entitlement) for a user, based on their org's
+    active subscription. (Admin/staff access is handled entirely by the separate admin
+    portal now — it no longer affects customer entitlements.)"""
     sb = get_supabase()
     res = (
         sb.table("profiles")
-        .select("organization_id, is_admin")
+        .select("organization_id")
         .eq("id", user_id)
         .maybe_single()
         .execute()
     )
     profile_data = res.data if (res and res.data) else {}
     org_id = profile_data.get("organization_id") or user_id
-    is_admin = profile_data.get("is_admin", False)
-
-    if is_admin:
-        return org_id, "enterprise", PLAN_ENTITLEMENTS["enterprise"]
 
     plan, ent = resolve_entitlements_for_org(org_id)
     return org_id, plan, ent

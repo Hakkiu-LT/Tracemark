@@ -6,6 +6,18 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
+## ⚠️ MANDATORY RULE — Admin Portal parity for every new feature
+
+**Any new feature that creates, stores, or changes customer data MUST also be wired into the Admin Portal (`apps/admin` + `apps/admin-api`).** When you add functionality:
+1. **Expose it in admin** — staff must be able to VIEW the new data across all organizations (add/extend an admin-api route reading via `customer_sb()`, gated by a staff permission).
+2. **Make it editable in admin** — staff must be able to EDIT/manage it (PATCH/DELETE), reusing the same DB tables the customer app uses (so changes reflect on both sides), and log every mutation via `write_audit_log`.
+3. **Add a permission** to the catalog (`apps/admin-api/.../permissions.py` + `apps/admin/src/lib/permissions.ts`) if the feature is a new resource.
+4. **Surface it in the UI** — a page/section under the relevant Company/Case/User view.
+
+Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables, so parity keeps staff able to support, test, and control everything customers do. A feature is not "done" until it is usable from the Admin Portal.
+
+---
+
 ## 🔴 HIGH PRIORITY — Automation Rules Builder
 *Allow users to create if/then rules that automatically trigger actions (takedown, escalate, notify) based on detection conditions — without manual review per case. Red Points sells this as "Unlimited Automation Rules". This is a top sales differentiator.*
 
@@ -241,14 +253,14 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 *Implementing multi-user support to group registered accounts under organizations, allowing teams to share dashboards and manage brands collaboratively.*
 
 ### Backend
-- **User Organization & Groups Schema Migration** | ❌ Missing | Define DB schema for `organizations`, `user_groups`, and intermediate tables to link profiles to organizations with roles (Editor, Viewer).
-- **Organization-Scoped API Routing** | ❌ Missing | Refactor FastAPI dependencies and middleware to fetch and enforce organization-scoped RLS queries.
-- **Member Invitation API & SMTP Invites** | ❌ Missing | Endpoints to invite new users to an organization, verify activation tokens, and link users upon registration.
+- **User Organization & Groups Schema Migration** | ✅ Done | `organizations` + `organization_members` (roles owner/admin/member) migration `20260720000014`; safe backfill preserving the billing anchor (org.id = user id for single-member); `handle_new_user` creates org + owner membership on signup.
+- **Organization-Scoped API Routing** | ⚠️ Partial | Entitlements/billing anchor on `organization_id` (unchanged). Member management exposed via **admin portal** (`/organizations/{id}/members`). Customer-app org-scoped middleware not reworked.
+- **Member Invitation API & SMTP Invites** | ❌ Missing | (Fazė F) Customer-side invite endpoints + activation tokens + SMTP. Staff can add members from admin today.
 
 ### Frontend
-- **Organization Switcher & Settings Panel** | ❌ Missing | Add tenant switcher dropdown in dashboard header and organization management page (billing details, workspace settings).
-- **Member Invite & Access Control UI** | ❌ Missing | Build table listing active group/org members, their roles, and an invite input modal with SMTP dispatch.
-- **Zustand Store Organization Scoping** | ❌ Missing | Scope application state (selected brands, active scans, infringement feed) by current organization ID.
+- **Organization Switcher & Settings Panel** | ❌ Missing | (Fazė F) Customer-app tenant switcher + org settings.
+- **Member Invite & Access Control UI** | ⚠️ Partial | Members list + roles + add/remove live in the **admin portal** (OrganizationDetail). Customer-facing invite modal not built (Fazė F).
+- **Zustand Store Organization Scoping** | ❌ Missing | Scope customer-app state by current organization ID (Fazė F).
 
 ---
 
@@ -286,16 +298,19 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 14. Admin Operations Portal (Subdomain Separation)
-*Separating internal operations and administrative controls into a dedicated subdomain to isolate code complexity and protect system data.*
+## 14. Admin Operations Portal (Subdomain Separation) — ✅ LARGELY DONE
+*Separated internal operations into a dedicated subdomain admin portal (`apps/admin` SPA + `apps/admin-api` FastAPI). Staff auth is isolated via a `staff_accounts` table (same Supabase, separate from customer `auth.users` by row). Full customer control, all changes hit the same tables the customer app reads.*
 
 ### Infrastructure & Backend
-- **Admin Subdomain DNS & Router Mapping** | ❌ Missing | Route `admin.tracemark.ai` (or similar subdomains) to serve the administrative dashboard.
-- **Administrative API Endpoint Guarding** | ❌ Missing | Move and restrict administrative API actions (fetching usage stats, altering user plans, manually overriding client limits) under strict administrative JWT scopes.
+- **Admin subdomain + separate app** | ✅ Done | `apps/admin` (Vite SPA) → own Cloudflare Worker at `admin.tracemark.ai` (`wrangler.jsonc`); `apps/admin-api` FastAPI (own CORS/auth). Coupled ops (resource/usage metrics, billing entitlements, Meta token, SMTP sends) go through main-API `/internal/*` gated by `INTERNAL_API_SECRET`.
+- **Staff auth + granular RBAC** | ✅ Done | `staff_accounts` + `staff_permissions` + `admin_audit_log` migrations. `get_current_staff` + `require_permission()`; roles dev/sales/marketing/admin as presets + per-staff overrides. Multiple super-admins supported (with last-super-admin lockout protection). Permission catalog in `permissions.py`.
+- **Admin API endpoints** | ✅ Done | staff, customers, organizations (+members/usage), brands, billing (plan/cancel), cases/infringements/evidence/decisions (incl. AI override), takedowns/documents (+send-email), resources, audit, global search.
+- **Admin removed from customer app (Fazė 6)** | ✅ Done | Deleted customer `users`/`api-usage`/`resources` pages + main-API `admin`/`admin_resources`/`usage` routes + `is_admin→enterprise` overrides; resource sampler auto-starts in main API.
 
 ### Frontend
-- **Isolated Admin Dashboard** | ❌ Missing | Build a standalone internal panel for Tracemark staff to manage clients, toggle user subscription states, configure API rate limits, audit system logs, and inspect background jobs.
-- **MFA & Enterprise SSO Security** | ❌ Missing | Enforce Multi-Factor Authentication (MFA) and domain-restricted access for all administrative log-ins to prevent unauthorized system takeovers.
+- **Isolated Admin Dashboard** | ✅ Done | Companies, Cases, Users, Staff, Monitoring (API + resources), Audit; deep drill-down (company → members/usage/billing/brands/cases; case → screenshots/AI/infringements/takedowns/documents) with inline editing; global search (⌘K); confirm dialogs.
+- **MFA & Enterprise SSO Security** | ❌ Missing | Enforce MFA + domain-restricted access for admin logins (future hardening).
+- **Self-serve org invitations (customer side)** | ❌ Missing | Roadmap §10 "Fazė F" — customers inviting their own teammates / org switcher (staff already manage members from admin).
 
 ---
 

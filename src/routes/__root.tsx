@@ -13,9 +13,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, RequireAuth, useAuth } from "@/lib/auth";
-import { useStore } from "@/lib/store";
-import { apiFetch } from "@/lib/api";
-import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 
@@ -63,24 +60,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       </div>
     </div>
   );
-}
-
-function ResourceMonitoringSync() {
-  const { profile } = useAuth();
-  const marks = useStore((s) => s.marks);
-
-  useEffect(() => {
-    const isAdmin = !!profile?.is_admin || profile?.plan === "admin";
-    if (!isAdmin) return;
-
-    const hasActiveMonitoring = marks.some((m) => m.status === "active");
-    apiFetch("/admin/resources/status", {
-      method: "POST",
-      body: JSON.stringify({ active: hasActiveMonitoring }),
-    }).catch((e) => console.error("Failed to sync monitoring status:", e));
-  }, [marks, profile]);
-
-  return null;
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -132,7 +111,6 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ResourceMonitoringSync />
         {isPublic ? (
           <>
             <Outlet />
