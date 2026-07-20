@@ -2,7 +2,23 @@
 
 This document unifies the frontend and backend roadmap tasks, organized by **Feature Areas**.
 
-> **Legend**: ✅ Done · ⚠️ Partial · ❌ Missing
+> **Legend**: ✅ Done · ⚠️ Partial · ❌ Missing · 🔴 High Priority
+
+---
+
+## 🔴 HIGH PRIORITY — Automation Rules Builder
+*Allow users to create if/then rules that automatically trigger actions (takedown, escalate, notify) based on detection conditions — without manual review per case. Red Points sells this as "Unlimited Automation Rules". This is a top sales differentiator.*
+
+### Backend
+- **`automation_rules` DB schema migration** | ❌ Missing | Table storing rule conditions (platform, confidence threshold, risk level, keyword match) and actions (auto-takedown, escalate, notify, dismiss).
+- **Rules evaluation engine** | ❌ Missing | Service that runs after `detection_funnel.py` / `decision.py` — checks each new infringement against saved user rules and executes matching actions automatically.
+- **`POST/GET/PUT/DELETE /api/v1/rules` endpoints** | ❌ Missing | CRUD for automation rules, scoped per org.
+- **Integration hook in pipeline** | ❌ Missing | After `persist_infringement()`, call rules engine to evaluate and execute any matching rules immediately.
+
+### Frontend
+- **`/settings/automation` route + Rules Builder UI** | ❌ Missing | Page listing active rules with enable/disable toggles.
+- **Rule creation dialog** | ❌ Missing | If/then form: condition selectors (platform, confidence %, risk level, keyword match) + action selector (send takedown, escalate, dismiss, email notify).
+- **Rules activity log** | ❌ Missing | Show which rule triggered on which case (audit trail).
 
 ---
 
@@ -316,25 +332,7 @@ This document unifies the frontend and backend roadmap tasks, organized by **Fea
 
 ---
 
-## 18. Credit-Based Consumption & Monetization
-*Implementing a credit-based billing system that allows users to purchase credits and run checks using all scrapers, geographic regions, and advanced detection services.*
-
-### Research & Architecture
-- **Credit system architecture design** | ❌ Missing | Investigate architecture for purchasing, tracking, and consuming credits on-demand.
-- **Define credit pricing structure** | ❌ Missing | Formulate credit cost rules for different tiers (e.g., static scrapers vs JS-heavy, specific target countries, and vision evaluation API cost offsets).
-
-### Backend
-- **Stripe Top-Up & Credit Bundle Integration** | ❌ Missing | Implement API endpoints and Stripe Checkout flows for purchasing credit top-ups and bundles.
-- **Credit Balance & Transaction Ledger Schema** | ❌ Missing | DB schema migrations for client credit balances and a transactional audit ledger.
-- **Consumption Hook in Pipeline** | ❌ Missing | Integrate credit verification and deduction into the `gather_evidence` / `/check-brand` flows.
-
-### Frontend
-- **Credit Dashboard & Purchase Center** | ❌ Missing | Build UI elements showing credit balances, usage trends, and quick-buy checkout options.
-- **Scan Cost Calculator** | ❌ Missing | Display estimated/calculated credit costs in the Brand Search configuration panel prior to starting a scan.
-
----
-
-## 19. Advanced Logo & Image Similarity Features
+## 18. Advanced Logo & Image Similarity Features
 *Visual copycat detection using logo cropping, CLIP embeddings, and Gemini Vision verification.*
 
 ### Backend
