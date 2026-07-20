@@ -9,8 +9,6 @@ src/tracemark_api.egg-info/dependency_links.txt
 src/tracemark_api.egg-info/requires.txt
 src/tracemark_api.egg-info/top_level.txt
 src/tracemark_api/routes/__init__.py
-src/tracemark_api/routes/admin.py
-src/tracemark_api/routes/admin_resources.py
 src/tracemark_api/routes/auth.py
 src/tracemark_api/routes/billing.py
 src/tracemark_api/routes/brands.py
@@ -19,8 +17,8 @@ src/tracemark_api/routes/clients.py
 src/tracemark_api/routes/documents.py
 src/tracemark_api/routes/health.py
 src/tracemark_api/routes/infringements.py
+src/tracemark_api/routes/internal.py
 src/tracemark_api/routes/monitoring.py
-src/tracemark_api/routes/usage.py
 src/tracemark_api/services/__init__.py
 src/tracemark_api/services/ai.py
 src/tracemark_api/services/api_usage_tracker.py
@@ -41,11 +39,13 @@ src/tracemark_api/services/marketplace.py
 src/tracemark_api/services/notifications.py
 src/tracemark_api/services/persistence.py
 src/tracemark_api/services/playwright_client.py
+src/tracemark_api/services/resource_monitor.py
 src/tracemark_api/services/storage.py
 src/tracemark_api/services/takedown.py
 src/tracemark_api/services/unified_scraper.py
 tests/test_api_usage_tracker.py
 tests/test_auth.py
+tests/test_auto_reference.py
 tests/test_billing.py
 tests/test_brands.py
 tests/test_clients.py
