@@ -134,10 +134,12 @@ def test_list_infringements_risk_level_filter(client):
 
 
 def test_get_single_infringement_returns_200(client):
-    sb = _make_sb(SAMPLE_INFRINGEMENT)
+    sample = {**SAMPLE_INFRINGEMENT, "cases": {"organization_id": "org-1", "user_id": FAKE_USER.id}}
+    sb = _make_sb(sample)
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,
+        patch("tracemark_api.dependencies.resolve_entitlements_for_user", return_value=("org-1", "pro", None))
     ):
         dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
             id=FAKE_USER.id, email=FAKE_USER.email
@@ -153,6 +155,7 @@ def test_get_single_infringement_not_found(client):
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,
+        patch("tracemark_api.dependencies.resolve_entitlements_for_user", return_value=("org-1", "pro", None))
     ):
         dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
             id=FAKE_USER.id, email=FAKE_USER.email
@@ -163,10 +166,32 @@ def test_get_single_infringement_not_found(client):
 
 
 def test_get_evidence_returns_list(client):
-    sb = _make_sb([SAMPLE_EVIDENCE], count=1)
+    sb = MagicMock()
+    # Mocking first call for auth check and second for evidence
+    auth_response = MagicMock(data={"id": "inf-001", "cases": {"organization_id": "org-1", "user_id": FAKE_USER.id}})
+    evidence_response = MagicMock(data=[SAMPLE_EVIDENCE])
+
+    # We need to mock the chained builder methods
+    select_mock = MagicMock()
+    eq_mock = MagicMock()
+    order_mock = MagicMock()
+    maybe_single_mock = MagicMock()
+
+    # Setup chain: table().select().eq().maybe_single().execute() -> auth_response
+    # AND chain: table().select().eq().order().execute() -> evidence_response
+    def execute_side_effect():
+        if maybe_single_mock.called:
+            maybe_single_mock.called = False
+            return auth_response
+        return evidence_response
+
+    sb.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = auth_response
+    sb.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = evidence_response
+
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,
+        patch("tracemark_api.dependencies.resolve_entitlements_for_user", return_value=("org-1", "pro", None))
     ):
         dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
             id=FAKE_USER.id, email=FAKE_USER.email
