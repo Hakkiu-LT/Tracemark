@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard, Activity, Users as UsersIcon, HardDrive } from "lucide-react";
+import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,19 +22,12 @@ export function AppSidebar() {
   const persona = useStore((s) => s.persona);
   const { user, profile } = useAuth();
 
-  const isAdmin = !!profile?.is_admin;
-
   const items = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Monitoring", url: "/monitoring", icon: Radar },
     { title: "Cases", url: "/cases", icon: ShieldAlert },
     ...(persona === "law_firm" ? [{ title: "Clients", url: "/clients", icon: Briefcase }] : []),
     { title: "Settings", url: "/settings", icon: Settings },
-    ...(isAdmin ? [
-      { title: "API Usage", url: "/api-usage", icon: Activity },
-      { title: "Users", url: "/users", icon: UsersIcon },
-      { title: "Resource Usage", url: "/resources", icon: HardDrive },
-    ] : []),
   ];
 
   const isActive = (url: string) => {
