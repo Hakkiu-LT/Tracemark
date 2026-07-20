@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tracemark-admin",
+  "compatibility_date": "2025-09-24",
+  // Static-asset-only Worker (no server code): serves the built Vite SPA.
+  "assets": {
+    "directory": "./dist",
+    // Unknown paths fall back to index.html so client-side routing works.
+    "not_found_handling": "single-page-application"
+  },
+  // Binds the subdomain to this Worker and auto-manages the proxied DNS record.
+  // The zone tracemark.ai must already exist in this Cloudflare account.
+  "routes": [{ "pattern": "admin.tracemark.ai", "custom_domain": true }]
+}

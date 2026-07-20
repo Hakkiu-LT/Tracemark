@@ -92,7 +92,10 @@ export function SettingsPage() {
 
   const currentPlan = profile?.plan || "free";
 
-  const isAdmin = !!profile?.is_admin;
+  // Admin is now handled entirely by the separate admin portal — a customer-app user
+  // is never treated as admin here (Fazė 6). Kept as an inert const so the billing
+  // branches below still compile without churn.
+  const isAdmin = false;
 
   useEffect(() => {
     if (profile) {

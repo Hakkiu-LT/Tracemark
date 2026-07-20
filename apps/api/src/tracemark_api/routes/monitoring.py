@@ -353,51 +353,8 @@ async def check_brand(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-class ExchangeMetaTokenRequest(BaseModel):
-    short_lived_token: str
-
-
-@router.post("/exchange-meta-token")
-def exchange_meta_token(payload: ExchangeMetaTokenRequest, current_user=Depends(get_current_user)):
-    """
-    Exchanges a short-lived user token for a long-lived one,
-    updates the .env file locally, and returns the result.
-    Restricted to admin users only.
-    """
-    import os
-    admin_emails = {
-        e.strip().lower()
-        for e in os.environ.get("ADMIN_EMAILS", "").split(",")
-        if e.strip()
-    }
-    if admin_emails and (current_user.email or "").lower() not in admin_emails:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Admin access required.")
-    try:
-        result = exchange_short_lived_meta_token(payload.short_lived_token)
-        new_token = result.get("access_token")
-        if not new_token:
-            raise HTTPException(status_code=400, detail="Meta API did not return an access token.")
-        
-        expires_in = result.get("expires_in")
-        expires_at_str = None
-        if expires_in:
-            from datetime import datetime, timedelta, timezone
-            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-            expires_at_str = expires_at.strftime('%Y-%m-%d %H:%M:%S UTC')
-
-        update_env_meta_token(new_token)
-        return {
-            "success": True,
-            "message": "Meta Access Token successfully updated and written to .env.",
-            "expires_in_seconds": expires_in,
-            "expires_at": expires_at_str,
-            "token_type": result.get("token_type")
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+# NOTE: Meta token exchange moved to the admin portal (admin-api → /internal/meta/
+# exchange-token). Removed from the customer API during the admin split (Fazė 6).
 
 
 class UpdateStatusRequest(BaseModel):

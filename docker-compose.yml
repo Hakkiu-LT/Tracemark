@@ -23,6 +23,29 @@ services:
       - SEARCHCANS_API=${SEARCHCANS_API}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      # Shared secret so the admin-api can call the main API's /internal/* endpoints.
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-}
+
+  admin-api:
+    build:
+      context: ./apps/admin-api
+      dockerfile: Dockerfile
+    image: tracemark-admin-api
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      - api
+    networks:
+      - tracemark
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - SUPABASE_URL=${VITE_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SECRET_KEY}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-}
+      # Reach the main API over the internal docker network.
+      - MAIN_API_URL=http://api:8000/api/v1
+      - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-}
 
   frontend:
     build:
@@ -33,6 +56,23 @@ services:
       - "127.0.0.1:8080:8080"
     depends_on:
       - api
+    networks:
+      - tracemark
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+        VITE_ADMIN_API_URL: ${VITE_ADMIN_API_URL:-http://localhost:8001/api/v1}
+    image: tracemark-admin
+    ports:
+      - "127.0.0.1:8082:8082"
+    depends_on:
+      - admin-api
     networks:
       - tracemark
     restart: unless-stopped

@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* Design tokens for the admin portal. Deep-navy / clean-gray, matching Tracemark. */
+:root {
+  --background: oklch(0.98 0.005 260);
+  --foreground: oklch(0.22 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.02 260);
+  --primary: oklch(0.22 0.06 260);
+  --primary-foreground: oklch(0.98 0.005 260);
+  --accent: oklch(0.58 0.18 255);
+  --accent-foreground: oklch(0.98 0.005 260);
+  --muted: oklch(0.96 0.005 260);
+  --muted-foreground: oklch(0.5 0.02 260);
+  --border: oklch(0.9 0.01 260);
+  --input: oklch(0.9 0.01 260);
+  --destructive: oklch(0.58 0.22 25);
+  --destructive-foreground: oklch(0.98 0.005 260);
+  --success: oklch(0.65 0.17 150);
+  --warning: oklch(0.75 0.16 75);
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: oklch(0.17 0.02 260);
+  --foreground: oklch(0.96 0.005 260);
+  --card: oklch(0.21 0.02 260);
+  --card-foreground: oklch(0.96 0.005 260);
+  --primary: oklch(0.58 0.18 255);
+  --primary-foreground: oklch(0.98 0.005 260);
+  --accent: oklch(0.58 0.18 255);
+  --accent-foreground: oklch(0.98 0.005 260);
+  --muted: oklch(0.26 0.02 260);
+  --muted-foreground: oklch(0.7 0.02 260);
+  --border: oklch(0.3 0.02 260);
+  --input: oklch(0.3 0.02 260);
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-foreground: oklch(0.98 0.005 260);
+  --success: oklch(0.7 0.17 150);
+  --warning: oklch(0.8 0.16 75);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
