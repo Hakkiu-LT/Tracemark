@@ -8,15 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from tracemark_api.routes.health import router as health_router
 from tracemark_api.routes.monitoring import router as monitoring_router
 from tracemark_api.routes.check_brand import router as check_brand_router
-from tracemark_api.routes.usage import router as usage_router
 from tracemark_api.routes.auth import router as auth_router
 from tracemark_api.routes.infringements import router as infringements_router
 from tracemark_api.routes.documents import router as documents_router
 from tracemark_api.routes.clients import router as clients_router
 from tracemark_api.routes.billing import router as billing_router
 from tracemark_api.routes.brands import router as brands_router
-from tracemark_api.routes.admin import router as admin_router
-from tracemark_api.routes.admin_resources import router as admin_resources_router
+from tracemark_api.routes.internal import router as internal_router
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
@@ -37,15 +35,13 @@ app = FastAPI(
 app.include_router(health_router)
 app.include_router(monitoring_router, prefix="/api/v1")
 app.include_router(check_brand_router, prefix="/api/v1")
-app.include_router(usage_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(infringements_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(clients_router, prefix="/api/v1")
 app.include_router(billing_router, prefix="/api/v1")
 app.include_router(brands_router, prefix="/api/v1")
-app.include_router(admin_router, prefix="/api/v1")
-app.include_router(admin_resources_router, prefix="/api/v1")
+app.include_router(internal_router, prefix="/api/v1")
 
 _allowed_origins = [
     "http://localhost:8080",
@@ -80,6 +76,13 @@ def startup_event():
     import threading
     import time
     from tracemark_api.services.storage import cleanup_old_cases
+
+    # Auto-start the resource sampler (admin portal reads it over /internal).
+    try:
+        from tracemark_api.services.resource_monitor import start_monitoring
+        start_monitoring()
+    except Exception as ex:
+        print(f"[Resource Monitor] failed to start: {ex}")
 
     def run_periodically():
         # Sleep for a minute to let the server start up smoothly

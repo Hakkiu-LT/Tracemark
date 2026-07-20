@@ -9,9 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UsersRouteImport } from './routes/users'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as ResourcesRouteImport } from './routes/resources'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as MonitoringRouteImport } from './routes/monitoring'
 import { Route as LandingRouteImport } from './routes/landing'
@@ -19,7 +17,6 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CasesRouteImport } from './routes/cases'
-import { Route as ApiUsageRouteImport } from './routes/api-usage'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
@@ -38,19 +35,9 @@ import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as MonitoringCaseIdTakedownRouteImport } from './routes/monitoring.$caseId.takedown'
 import { Route as CasesCaseIdTakedownRouteImport } from './routes/cases.$caseId.takedown'
 
-const UsersRoute = UsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResourcesRoute = ResourcesRouteImport.update({
-  id: '/resources',
-  path: '/resources',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlansRoute = PlansRouteImport.update({
@@ -86,11 +73,6 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const CasesRoute = CasesRouteImport.update({
   id: '/cases',
   path: '/cases',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiUsageRoute = ApiUsageRouteImport.update({
-  id: '/api-usage',
-  path: '/api-usage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -182,7 +164,6 @@ const CasesCaseIdTakedownRoute = CasesCaseIdTakedownRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/api-usage': typeof ApiUsageRoute
   '/cases': typeof CasesRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
@@ -190,9 +171,7 @@ export interface FileRoutesByFullPath {
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
-  '/resources': typeof ResourcesRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -212,7 +191,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/api-usage': typeof ApiUsageRoute
   '/cases': typeof CasesRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
@@ -220,9 +198,7 @@ export interface FileRoutesByTo {
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
-  '/resources': typeof ResourcesRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -243,7 +219,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/api-usage': typeof ApiUsageRoute
   '/cases': typeof CasesRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
@@ -251,9 +226,7 @@ export interface FileRoutesById {
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
-  '/resources': typeof ResourcesRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/users': typeof UsersRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
@@ -275,7 +248,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/api-usage'
     | '/cases'
     | '/checkout'
     | '/clients'
@@ -283,9 +255,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/monitoring'
     | '/plans'
-    | '/resources'
     | '/settings'
-    | '/users'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -305,7 +275,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/api-usage'
     | '/cases'
     | '/checkout'
     | '/clients'
@@ -313,9 +282,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/monitoring'
     | '/plans'
-    | '/resources'
     | '/settings'
-    | '/users'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -335,7 +302,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/api-usage'
     | '/cases'
     | '/checkout'
     | '/clients'
@@ -343,9 +309,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/monitoring'
     | '/plans'
-    | '/resources'
     | '/settings'
-    | '/users'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/auth/sign-up'
@@ -366,7 +330,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ApiUsageRoute: typeof ApiUsageRoute
   CasesRoute: typeof CasesRouteWithChildren
   CheckoutRoute: typeof CheckoutRoute
   ClientsRoute: typeof ClientsRoute
@@ -374,9 +337,7 @@ export interface RootRouteChildren {
   LandingRoute: typeof LandingRoute
   MonitoringRoute: typeof MonitoringRouteWithChildren
   PlansRoute: typeof PlansRoute
-  ResourcesRoute: typeof ResourcesRoute
   SettingsRoute: typeof SettingsRouteWithChildren
-  UsersRoute: typeof UsersRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
@@ -388,25 +349,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/users': {
-      id: '/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof UsersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/resources': {
-      id: '/resources'
-      path: '/resources'
-      fullPath: '/resources'
-      preLoaderRoute: typeof ResourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plans': {
@@ -456,13 +403,6 @@ declare module '@tanstack/react-router' {
       path: '/cases'
       fullPath: '/cases'
       preLoaderRoute: typeof CasesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api-usage': {
-      id: '/api-usage'
-      path: '/api-usage'
-      fullPath: '/api-usage'
-      preLoaderRoute: typeof ApiUsageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -654,7 +594,6 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ApiUsageRoute: ApiUsageRoute,
   CasesRoute: CasesRouteWithChildren,
   CheckoutRoute: CheckoutRoute,
   ClientsRoute: ClientsRoute,
@@ -662,9 +601,7 @@ const rootRouteChildren: RootRouteChildren = {
   LandingRoute: LandingRoute,
   MonitoringRoute: MonitoringRouteWithChildren,
   PlansRoute: PlansRoute,
-  ResourcesRoute: ResourcesRoute,
   SettingsRoute: SettingsRouteWithChildren,
-  UsersRoute: UsersRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,

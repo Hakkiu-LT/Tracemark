@@ -370,14 +370,6 @@ function MonitoringPage() {
     // Toggle first so UI reflects
     toggleMarkStatus(id);
 
-    // Signal resource monitor: start when first mark goes active, stop when last goes on_hold
-    const updatedMarks = useStore.getState().marks;
-    const activeCount = updatedMarks.filter((m) => m.status === "active").length;
-    apiFetch("/admin/resources/status", {
-      method: "POST",
-      body: JSON.stringify({ active: activeCount > 0 }),
-    }).catch(() => { }); // fire-and-forget, non-critical
-
     // If it was on_hold, it is now active -> trigger scan
     if (mark.status === "on_hold") {
       const existingTimeout = timeoutsRef.current.get(id);
