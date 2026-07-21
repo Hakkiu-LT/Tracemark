@@ -1,4 +1,4 @@
-# Tracemark Admin Portal
+# HAKKIU Admin Portal
 
 Isolated operations portal at **admin.tracemark.ai** (roadmap Sekcija 14).
 Staff-only. Separate from the customer app; talks to `apps/admin-api`.

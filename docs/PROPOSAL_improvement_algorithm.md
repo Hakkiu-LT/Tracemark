@@ -1,7 +1,7 @@
 
-# Improvement Algorithm — Tracemark Detection & Collection Engine
+# Improvement Algorithm — HAKKIU Detection & Collection Engine
 
-> **Context**: This document describes how to evolve the current Tracemark scraping and collection pipeline (Firecrawl + LLM text analysis) into a competitive, multi-signal detection engine capable of outperforming enterprise-grade brand-protection platforms. It is grounded in the existing monorepo architecture (`apps/api/` FastAPI backend, `src/` TanStack Start frontend) and the planned Supabase persistence layer.
+> **Context**: This document describes how to evolve the current HAKKIU scraping and collection pipeline (Firecrawl + LLM text analysis) into a competitive, multi-signal detection engine capable of outperforming enterprise-grade brand-protection platforms. It is grounded in the existing monorepo architecture (`apps/api/` FastAPI backend, `src/` TanStack Start frontend) and the planned Supabase persistence layer.
 
 ---
 

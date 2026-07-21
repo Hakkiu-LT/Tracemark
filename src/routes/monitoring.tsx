@@ -38,10 +38,10 @@ import { REGIONS, COUNTRY_BY_CODE } from "@/lib/regions";
 export const Route = createFileRoute("/monitoring")({
   head: () => ({
     meta: [
-      { title: "Monitoring — Tracemark" },
+      { title: "Monitoring — HAKKIU" },
       {
         name: "description",
-        content: "Manage the trademarks and brand assets Tracemark scans across the web.",
+        content: "Manage the trademarks and brand assets HAKKIU scans across the web.",
       },
     ],
   }),
@@ -299,7 +299,7 @@ function MonitoringPage() {
           evidence: {
             url: copycatUrl,
             timestamp: new Date().toISOString(),
-            userAgent: "Tracemark Scanner",
+            userAgent: "HAKKIU Scanner",
             method: "Automated Scraping",
             screenshot_url: screenshot,
           },

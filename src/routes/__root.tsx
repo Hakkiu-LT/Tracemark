@@ -67,10 +67,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Tracemark — Trademark & Brand Protection" },
+      { title: "HAKKIU — Trademark & Brand Protection" },
       { name: "description", content: "Monitor your trademarks, detect infringements, and automate takedowns across Amazon, Shopify, and the web." },
-      { property: "og:title", content: "Tracemark — Trademark & Brand Protection" },
-      { name: "twitter:title", content: "Tracemark — Trademark & Brand Protection" },
+      { property: "og:title", content: "HAKKIU — Trademark & Brand Protection" },
+      { name: "twitter:title", content: "HAKKIU — Trademark & Brand Protection" },
       { property: "og:description", content: "Monitor your trademarks, detect infringements, and automate takedowns across Amazon, Shopify, and the web." },
       { name: "twitter:description", content: "Monitor your trademarks, detect infringements, and automate takedowns across Amazon, Shopify, and the web." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/02a1ed82-8227-4b72-ba6c-8a1653239b9e/id-preview-ce27147c--15c49e3c-cecc-4003-b12c-7f67ca80d572.lovable.app-1779024978982.png" },
@@ -79,6 +79,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
     ],
     links: [
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "apple-touch-icon", href: "/favicon.png" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ShieldCheck, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { HeroV3 } from "@/components/landing/hero-v3";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Workflow } from "@/components/landing/workflow";
@@ -11,13 +12,13 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/landing")({
   head: () => ({
     meta: [
-      { title: "Tracemark — Protect your brand at internet speed" },
+      { title: "HAKKIU — Protect your brand at internet speed" },
       {
         name: "description",
         content:
-          "Tracemark monitors marketplaces and the open web 24/7, detects infringements with AI, and automates takedowns — built for brand owners and law firms.",
+          "HAKKIU monitors marketplaces and the open web 24/7, detects infringements with AI, and automates takedowns — built for brand owners and law firms.",
       },
-      { property: "og:title", content: "Tracemark — Protect your brand at internet speed" },
+      { property: "og:title", content: "HAKKIU — Protect your brand at internet speed" },
       {
         property: "og:description",
         content:
@@ -77,12 +78,11 @@ function LandingPage() {
       <footer className="border-t border-border bg-background">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-muted-foreground md:flex-row">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[oklch(0.58_0.18_255)]" />
-            <span className="font-semibold text-foreground">Tracemark</span>
+            <HakkiuLogo className="h-6 text-foreground" />
             <span>· Brand protection, automated.</span>
             <span>· Made with AI.</span>
           </div>
-          <div>© {new Date().getFullYear()} Tracemark. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} HAKKIU. All rights reserved.</div>
         </div>
       </footer>
     </>

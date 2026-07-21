@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 
 export const Route = createFileRoute("/monitoring/$caseId")({
   head: ({ params }) => ({
-    meta: [{ title: `Scan Result ${params.caseId.slice(0, 8)} — Tracemark` }],
+    meta: [{ title: `Scan Result ${params.caseId.slice(0, 8)} — HAKKIU` }],
   }),
   component: MonitoringCaseIdLayout,
 });

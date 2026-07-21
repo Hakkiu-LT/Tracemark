@@ -1,6 +1,6 @@
 # Billing & Payments — Implementation Notes
 
-Stripe-based subscription billing for Tracemark. Built with **Stripe Elements**
+Stripe-based subscription billing for HAKKIU. Built with **Stripe Elements**
 (embedded card form), a **FastAPI** backend, and **Supabase** as the source of
 truth (synced via Stripe webhooks).
 

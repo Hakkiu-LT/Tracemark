@@ -39,7 +39,7 @@ export function KeyFindings({ decision }: { decision: DecisionResponse }) {
 
         <div className="px-5 py-3 border-t border-border shrink-0">
           <p className="font-mono text-[10px] text-muted-foreground/40 text-center">
-            Tracemark Vision API v2.4
+            HAKKIU Vision API v2.4
           </p>
         </div>
       </CardContent>

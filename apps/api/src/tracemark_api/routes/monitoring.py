@@ -489,7 +489,7 @@ def test_email_notification_endpoint(
         from tracemark_api.services.notifications import send_email_notification
         event = {
             "type": "test",
-            "message": "This is a test notification from Tracemark to verify SMTP configuration.",
+            "message": "This is a test notification from HAKKIU to verify SMTP configuration.",
             "brand_name": "Test Brand",
         }
         send_email_notification(event, payload.email)

@@ -16,7 +16,7 @@ import { getRegionForId, getMacroRegionForCountry } from "@/lib/regions";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard - Tracemark" },
+      { title: "Dashboard - HAKKIU" },
       { name: "description", content: "Overview of monitored marks, active infringements, and takedown performance." },
     ],
   }),
