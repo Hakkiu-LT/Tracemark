@@ -97,3 +97,18 @@ def startup_event():
             time.sleep(24 * 3600)
 
     threading.Thread(target=run_periodically, daemon=True).start()
+
+    # Daily lightweight scraper reachability probe — records a per-platform health row
+    # (source='probe') so the admin Scraper Health page has data even without customer
+    # traffic. Cheap HTTP GETs only; no full scans / Firecrawl JS scrapes.
+    def run_health_probe():
+        from tracemark_api.services.scraper_health import run_reachability_probes
+        time.sleep(90)
+        while True:
+            try:
+                run_reachability_probes()
+            except Exception as ex:
+                print(f"[Scraper Health Probe] Exception during run: {ex}")
+            time.sleep(24 * 3600)
+
+    threading.Thread(target=run_health_probe, daemon=True).start()
