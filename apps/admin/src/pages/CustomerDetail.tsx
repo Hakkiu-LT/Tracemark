@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import { adminFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Can } from "@/components/Can";
+import { CopyableId } from "@/components/CopyableId";
 import { CustomerEditDialog } from "@/components/CustomerEditDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { Pencil } from "lucide-react";
 import {
   Badge,
@@ -64,7 +66,9 @@ const PLANS = ["free", "starter", "growth", "pro", "agency", "enterprise"];
 export function CustomerDetail() {
   const { userId } = useParams({ strict: false }) as { userId: string };
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { staff } = useAuth();
+  const confirm = useConfirm();
   const [plan, setPlan] = useState<string>("");
   const [billingMode, setBillingMode] = useState<"comp" | "charge">("comp");
   const [editing, setEditing] = useState(false);
@@ -73,6 +77,11 @@ export function CustomerDetail() {
     queryKey: ["customer", userId],
     queryFn: () => adminFetch<CustomerDetail>(`/customers/${userId}`),
   });
+  const { data: orgs } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: () => adminFetch<{ id: string; name: string | null }[]>("/organizations"),
+  });
+  const orgName = new Map((orgs ?? []).map((o) => [o.id, o.name]));
 
   const changePlan = useMutation({
     mutationFn: ({ newPlan, mode }: { newPlan: string; mode: "comp" | "charge" }) =>
@@ -114,6 +123,16 @@ export function CustomerDetail() {
     onSuccess: () => {
       toast.success("Brand deleted");
       qc.invalidateQueries({ queryKey: ["customer", userId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteCustomer = useMutation({
+    mutationFn: () => adminFetch(`/customers/${userId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success("Customer deleted");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      navigate({ to: "/customers" });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -160,7 +179,11 @@ export function CustomerDetail() {
         <CardHeader>
           <CardTitle>Overview</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="grid gap-4 sm:grid-cols-4">
+          <div>
+            <p className="text-xs uppercase text-muted-foreground">ID</p>
+            <div className="mt-1"><CopyableId id={data.id} length={12} /></div>
+          </div>
           <div>
             <p className="text-xs uppercase text-muted-foreground">Plan</p>
             <Badge variant={data.plan === "free" ? "secondary" : "success"} className="mt-1 capitalize">
@@ -173,7 +196,13 @@ export function CustomerDetail() {
           </div>
           <div>
             <p className="text-xs uppercase text-muted-foreground">Organization</p>
-            <p className="mt-1 truncate font-mono text-xs">{data.organization_id || "—"}</p>
+            {data.organization_id ? (
+              <Link to="/organizations/$orgId" params={{ orgId: data.organization_id }} className="mt-1 block text-sm text-accent hover:underline">
+                {orgName.get(data.organization_id) || <CopyableId id={data.organization_id} />}
+              </Link>
+            ) : (
+              <p className="mt-1 text-sm text-muted-foreground">—</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -190,6 +219,11 @@ export function CustomerDetail() {
                 <Badge variant="outline" className="capitalize">{data.subscription.plan}</Badge>
                 <span className="text-muted-foreground">{data.subscription.status}</span>
                 <span className="text-muted-foreground">/ {data.subscription.interval}</span>
+                {data.subscription.current_period_end && (
+                  <span className="text-muted-foreground">
+                    renews {new Date(data.subscription.current_period_end).toLocaleDateString()}
+                  </span>
+                )}
                 {data.subscription.cancel_at_period_end && (
                   <Badge variant="warning">Cancels at period end</Badge>
                 )}
@@ -312,8 +346,9 @@ export function CustomerDetail() {
                             variant="ghost"
                             className="text-destructive"
                             onClick={() => deleteBrand.mutate(b.id)}
+                            disabled={deleteBrand.isPending}
                           >
-                            Delete
+                            {deleteBrand.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Delete"}
                           </Button>
                         </Can>
                       </TableCell>
@@ -337,9 +372,28 @@ export function CustomerDetail() {
               {impersonate.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Impersonate customer
             </Button>
+            <Can permission="customers.delete">
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  confirm.open({
+                    title: `Delete ${data.full_name || data.email}?`,
+                    description: "Permanently deletes their login and all associated data. This cannot be undone.",
+                    confirmLabel: "Delete customer",
+                    destructive: true,
+                    onConfirm: async () => { await deleteCustomer.mutateAsync(); },
+                  })
+                }
+                disabled={deleteCustomer.isPending}
+              >
+                {deleteCustomer.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Delete customer
+              </Button>
+            </Can>
           </CardContent>
         </Card>
       )}
+      {confirm.element}
     </div>
   );
 }

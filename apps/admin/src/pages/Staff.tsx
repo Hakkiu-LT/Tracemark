@@ -46,7 +46,7 @@ export function Staff() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
 
-  const { data: staff, isLoading } = useQuery({
+  const { data: staff, isLoading, isError, refetch } = useQuery({
     queryKey: ["staff"],
     queryFn: () => adminFetch<StaffMember[]>("/staff"),
   });
@@ -78,7 +78,12 @@ export function Staff() {
           <CardTitle>{isLoading ? "Loading…" : `${staff?.length ?? 0} member(s)`}</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isError ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">Failed to load staff. Check your connection.</p>
+              <Button size="sm" variant="outline" onClick={() => refetch()} className="mt-3">Retry</Button>
+            </div>
+          ) : isLoading ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
                 <Skeleton key={i} className="h-11 w-full" />
@@ -216,7 +221,7 @@ function CreateStaffDialog({ canSuper, onClose, onCreated }: { canSuper: boolean
       </div>
       <div className="space-y-1.5">
         <Label>Temporary password</Label>
-        <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
       <div className="space-y-1.5">
         <Label>Full name</Label>
