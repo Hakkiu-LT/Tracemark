@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ExternalLink, Loader2, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -87,6 +87,7 @@ const TD_STATUS = ["pending", "sent", "acknowledged"];
 export function CaseDetail() {
   const { caseId } = useParams({ strict: false }) as { caseId: string };
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const confirm = useConfirm();
   const invalidate = () => qc.invalidateQueries({ queryKey: ["case", caseId] });
 
@@ -162,7 +163,7 @@ export function CaseDetail() {
                 onConfirm: async () => {
                   await adminFetch(`/cases/${caseId}`, { method: "DELETE" });
                   toast.success("Case deleted");
-                  history.back();
+                  navigate({ to: "/cases" });
                 },
               })
             }
