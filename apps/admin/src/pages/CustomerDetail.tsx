@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { adminFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Can } from "@/components/Can";
+import { CustomerEditDialog } from "@/components/CustomerEditDialog";
+import { Pencil } from "lucide-react";
 import {
   Badge,
   Button,
@@ -63,6 +65,8 @@ export function CustomerDetail() {
   const qc = useQueryClient();
   const { staff } = useAuth();
   const [plan, setPlan] = useState<string>("");
+  const [billingMode, setBillingMode] = useState<"comp" | "charge">("comp");
+  const [editing, setEditing] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["customer", userId],
@@ -70,10 +74,10 @@ export function CustomerDetail() {
   });
 
   const changePlan = useMutation({
-    mutationFn: (newPlan: string) =>
+    mutationFn: ({ newPlan, mode }: { newPlan: string; mode: "comp" | "charge" }) =>
       adminFetch(`/customers/${userId}/plan`, {
         method: "PUT",
-        body: JSON.stringify({ plan: newPlan }),
+        body: JSON.stringify({ plan: newPlan, mode }),
       }),
     onSuccess: () => {
       toast.success("Plan updated");
@@ -128,10 +132,27 @@ export function CustomerDetail() {
         <ArrowLeft className="h-4 w-4" /> Back to customers
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{data.full_name || data.email}</h1>
-        <p className="text-sm text-muted-foreground">{data.email}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{data.full_name || data.email}</h1>
+          <p className="text-sm text-muted-foreground">{data.email}</p>
+        </div>
+        <Can permission="customers.edit">
+          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Pencil className="h-4 w-4" /> Edit customer
+          </Button>
+        </Can>
       </div>
+
+      {editing && (
+        <CustomerEditDialog
+          customer={{
+            id: data.id, full_name: data.full_name, email: data.email,
+            persona: data.persona, plan: data.plan, organization_id: data.organization_id,
+          }}
+          onClose={() => setEditing(false)}
+        />
+      )}
 
       {/* Overview */}
       <Card>
@@ -179,7 +200,7 @@ export function CustomerDetail() {
             <Can permission="billing.manage">
               <div className="flex flex-wrap items-end gap-3 border-t border-border pt-4">
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Override plan</p>
+                  <p className="text-xs text-muted-foreground">Plan</p>
                   <Select value={plan || data.plan} onChange={(e) => setPlan(e.target.value)} className="w-40">
                     {PLANS.map((p) => (
                       <option key={p} value={p}>
@@ -188,9 +209,16 @@ export function CustomerDetail() {
                     ))}
                   </Select>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Apply as</p>
+                  <Select value={billingMode} onChange={(e) => setBillingMode(e.target.value as "comp" | "charge")} className="w-56">
+                    <option value="comp">Comp — no charge (free)</option>
+                    <option value="charge">Charge — bill via Stripe (prorated)</option>
+                  </Select>
+                </div>
                 <Button
                   size="sm"
-                  onClick={() => changePlan.mutate(plan || data.plan)}
+                  onClick={() => changePlan.mutate({ newPlan: plan || data.plan, mode: billingMode })}
                   disabled={changePlan.isPending}
                 >
                   {changePlan.isPending && <Loader2 className="h-4 w-4 animate-spin" />}

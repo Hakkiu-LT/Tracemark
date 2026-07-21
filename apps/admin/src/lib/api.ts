@@ -10,8 +10,10 @@ export async function adminFetch<T>(path: string, init: RequestInit = {}): Promi
     data: { session },
   } = await supabase.auth.getSession();
 
+  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    // Let the browser set multipart boundaries for FormData uploads.
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(init.headers as Record<string, string> | undefined),
   };
   if (session?.access_token) {

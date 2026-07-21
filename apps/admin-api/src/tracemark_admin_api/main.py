@@ -1,6 +1,7 @@
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+# Single source of truth: the repo-root .env (walks up from this module).
+load_dotenv(find_dotenv())
 
 import os
 
