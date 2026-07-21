@@ -19,6 +19,7 @@ import { OrganizationDetail } from "@/pages/OrganizationDetail";
 import { Cases } from "@/pages/Cases";
 import { CaseDetail } from "@/pages/CaseDetail";
 import { Staff } from "@/pages/Staff";
+import { StaffDetail } from "@/pages/StaffDetail";
 import { MonitoringApi } from "@/pages/MonitoringApi";
 import { MonitoringResources } from "@/pages/MonitoringResources";
 import { Audit } from "@/pages/Audit";
@@ -86,6 +87,7 @@ const customerDetailRoute = createRoute({
 const casesRoute = createRoute({ getParentRoute: () => appRoute, path: "/cases", component: Cases });
 const caseDetailRoute = createRoute({ getParentRoute: () => appRoute, path: "/cases/$caseId", component: CaseDetail });
 const staffRoute = createRoute({ getParentRoute: () => appRoute, path: "/staff", component: Staff });
+const staffDetailRoute = createRoute({ getParentRoute: () => appRoute, path: "/staff/$staffId", component: StaffDetail });
 const monitoringApiRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/monitoring/api",
@@ -110,6 +112,7 @@ const routeTree = rootRoute.addChildren([
     casesRoute,
     caseDetailRoute,
     staffRoute,
+    staffDetailRoute,
     monitoringApiRoute,
     monitoringResourcesRoute,
     auditRoute,
