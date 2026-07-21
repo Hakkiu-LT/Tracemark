@@ -112,13 +112,17 @@
 
 ---
 
-## 🟡 PRIORITY 6 — Scraper Health Monitoring
+## 🟡 PRIORITY 6 — Scraper Health Monitoring (mostly done — see note)
 
-- [ ] Manual audit: test all 12 platforms locally and confirm parsers still work
-- [ ] Automated cron: daily integration tests against each platform
-- [ ] Supabase table: log scraper failures (platform, reason, timestamp)
-- [ ] Alerting: Slack/SMTP notify if success rate drops on any platform
-- [ ] Admin dashboard: real-time success rate, latency, Firecrawl credit usage per platform
+- [ ] Manual audit: test all 12 platforms locally and confirm parsers still work (manual QA task, not code)
+- [x] Automated cron: daily **lightweight reachability probe** per platform (`scraper_health.run_reachability_probes`, wired as a daemon thread in `main.py` startup). Cheap HTTP GETs — no Firecrawl JS scrapes.
+- [x] Supabase table: log scraper failures per-platform — `scraper_health_log` migration `20260721000001` (⚠️ NOT yet applied to live DB — run `supabase db push`)
+- [~] Alerting: **in-page warnings only for now** — degraded platforms flagged in the admin Scraper Health page (`is_degraded`). Slack/SMTP push alerting deferred.
+- [x] Admin dashboard: real-time per-platform success rate, latency, recent failures + Firecrawl credit usage. `GET /scraper-health` (admin-api) + `ScraperHealth.tsx` page, gated by `scraper_health.view`.
+
+> Data source: every scraper call in `marketplace.batch_detect` now records health per platform via `scraper_health.probe(...)`. Firecrawl credits read from existing `api_usage_records`. Remaining to finish P6 fully: apply the migration, then (optional) add push alerting.
+
+- [x] Per-platform drill-down: `brand_name`/`caller_id` columns added to `scraper_health_log` (migration `20260721000002`), `GET /scraper-health/{platform}/events` admin-api endpoint, `ScraperHealthDetail.tsx` page with window/status/source filters, platform names in list page are now clickable links.
 
 ---
 

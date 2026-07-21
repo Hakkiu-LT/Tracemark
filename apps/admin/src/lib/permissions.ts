@@ -13,6 +13,7 @@ export const PERMISSIONS = {
   "billing.view": "View subscriptions and invoices",
   "billing.manage": "Change plans, cancel/modify subscriptions",
   "resources.view": "System metrics (CPU/RAM) and API usage",
+  "scraper_health.view": "Per-platform scraper health (success rate, latency, failures)",
   "integrations.manage": "Meta token exchange and integration keys",
   "staff.manage": "Create/edit staff and assign permissions",
   "audit.view": "Read the audit log",
@@ -25,7 +26,7 @@ export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
-  dev: ["resources.view", "integrations.manage", "brands.view", "customers.view", "audit.view"],
+  dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view"],
   sales: ["customers.view", "customers.edit", "billing.view", "billing.manage", "brands.view"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(

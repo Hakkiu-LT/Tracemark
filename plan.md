@@ -1,11 +1,44 @@
 # Tracemark — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-21 (session 3)
+> Last updated: 2026-07-21 (session 4)
 
 ---
 
-## Current focus: Automation Rules Builder (🔴 HIGH PRIORITY)
+## Just completed: PRIORITY 6 — Scraper Health Monitoring (⚠️ 1 step pending)
+
+Per-platform scraper health, surfaced in the Admin Portal. **No push alerting** —
+degraded platforms are flagged in-page only (decision confirmed this session).
+
+- DB: `scraper_health_log` migration `20260721000001` (append-only). **⚠️ NOT yet applied
+  to the live DB — run `supabase db push` to finish.**
+- Main API: new `services/scraper_health.py` (`record_scrape`, `classify_error`, async
+  `probe()` helper, `run_reachability_probes()`). `marketplace.batch_detect` now wraps
+  every platform scrape in `scraper_health.probe(...)`, recording per-platform
+  success/latency/error. A daily reachability-probe daemon thread added in `main.py` startup.
+- Admin API: `GET /scraper-health` (`routes/scraper_health.py`) aggregates per-platform
+  success rate/latency/last-failure + Firecrawl credits (from `api_usage_records`), gated by
+  new `scraper_health.view` permission (added to `permissions.py` + `permissions.ts`).
+- Admin FE: `ScraperHealth.tsx` page (KPI cards, per-platform table, degraded badges,
+  24h/7d toggle, isError retry) + route `/monitoring/scrapers` + nav entry.
+
+Verified: both backends import cleanly, admin app `tsc` clean, scraper test suite green
+(1 pre-existing unrelated google_ads test failure). Remaining: apply the migration, then
+smoke-test the endpoint/page against real data.
+
+**Drill-down added (session 5):** `brand_name` and `caller_id` columns added to
+`scraper_health_log` via migration `20260721000002`. `record_scrape` and `probe` signatures
+extended with those keyword args; all 12 `batch_detect` platform closures now pass both
+through. `run_reachability_probes` passes `caller_id="system"`. Admin API: new
+`GET /scraper-health/{platform}/events` endpoint (window/status/source filters, up to 1000
+rows). Admin FE: `ScraperHealthDetail.tsx` with three filter Button-groups, events table
+(time, brand, country, status badge, latency, error type + detail), isError/isLoading states.
+Platform names in `ScraperHealth.tsx` are now clickable links. Route
+`/monitoring/scrapers/$platform` wired in `router.tsx`.
+
+---
+
+## Next focus: Automation Rules Builder (🔴 HIGH PRIORITY)
 
 This is the next major feature. It lets users define if/then rules so that
 detected infringements are handled automatically — without manual review per
