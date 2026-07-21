@@ -4,7 +4,7 @@ import { SettingsPage } from "./settings";
 export const Route = createFileRoute("/settings/billing")({
   head: () => ({
     meta: [
-      { title: "Billing & Plans — Tracemark" },
+      { title: "Billing & Plans — HAKKIU" },
       { name: "description", content: "Manage your subscription, plans, and invoices." },
     ],
   }),

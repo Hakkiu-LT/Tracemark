@@ -38,7 +38,7 @@ export const Route = createFileRoute("/checkout")({
   validateSearch: checkoutSearchSchema,
   head: () => ({
     meta: [
-      { title: "Checkout — Tracemark" },
+      { title: "Checkout — HAKKIU" },
       { name: "description", content: "Complete your subscription upgrade securely." },
     ],
   }),

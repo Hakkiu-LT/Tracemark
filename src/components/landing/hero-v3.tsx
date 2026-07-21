@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 const BLUE = "oklch(0.55 0.19 262)";
 const RED = "oklch(0.58 0.22 27)";
 
-// The right-side visual is one continuous composition. Tracemark itself — the
+// The right-side visual is one continuous composition. HAKKIU itself — the
 // dashed monitoring boundary — is the through-line: it morphs and relabels as
 // the story advances, so the platform reads as the active system.
 //   0 monitor → 1 detect → 2 investigate → 3 takedown ready
@@ -65,7 +65,7 @@ export function HeroV3() {
           </h1>
 
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-[oklch(0.5_0.03_257)] dark:text-slate-400">
-            Tracemark monitors marketplaces, social channels, domains, and listings to turn
+            HAKKIU monitors marketplaces, social channels, domains, and listings to turn
             suspicious activity into evidence-ready takedown cases.
           </p>
 
@@ -140,15 +140,15 @@ function ProductStory() {
   const investigating = phase === 2;
   const box = investigating ? BOX_INVESTIGATE : BOX_MONITOR;
   const boundaryLabel = investigating
-    ? "Tracemark Investigation Zone"
-    : "Tracemark Monitoring Layer";
+    ? "HAKKIU Investigation Zone"
+    : "HAKKIU Monitoring Layer";
 
   return (
     <div className="relative mx-auto aspect-[14/13] w-full max-w-[760px]">
-      {/* radar rings — the pulse Tracemark emits while watching */}
+      {/* radar rings — the pulse HAKKIU emits while watching */}
       <RadarField phase={phase} />
 
-      {/* ── the signature: Tracemark's morphing boundary ── */}
+      {/* ── the signature: HAKKIU's morphing boundary ── */}
       <div
         className={cn(
           "absolute rounded-[32px] border border-dashed transition-all duration-700 ease-out",
@@ -575,7 +575,7 @@ function WebsiteCard() {
 function UnauthorizedCard() {
   return (
     <div className="relative w-56 rounded-2xl border border-[oklch(0.58_0.22_27/0.5)] dark:border-red-950/50 bg-white dark:bg-slate-900 p-4 shadow-[0_0_0_4px_oklch(0.58_0.22_27/0.08),0_18px_40px_-22px_oklch(0.58_0.22_27/0.5)] dark:shadow-none duration-500 animate-in fade-in-0 slide-in-from-bottom-3">
-      {/* target rings — Tracemark locks on */}
+      {/* target rings — HAKKIU locks on */}
       <span className="absolute -left-3 -top-3 flex h-9 w-9 items-center justify-center">
         <span className="absolute h-full w-full rounded-full border-2 border-[oklch(0.58_0.22_27/0.5)] motion-safe:animate-ping" />
         <span className="h-4 w-4 rounded-full bg-[oklch(0.58_0.22_27)] ring-4 ring-[oklch(0.58_0.22_27/0.2)]" />

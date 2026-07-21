@@ -1,5 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, ShieldCheck, CreditCard } from "lucide-react";
+import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, CreditCard } from "lucide-react";
+import { HakkiuMark } from "@/components/hakkiu-mark";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -44,12 +46,11 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <Link to="/landing" className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-            <ShieldCheck className="h-4 w-4" />
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold text-sidebar-foreground">Tracemark</span>
+          {collapsed ? (
+            <HakkiuMark className="h-7 w-7 shrink-0 text-sidebar-primary" />
+          ) : (
+            <div className="flex flex-col gap-1 leading-tight">
+              <HakkiuLogo className="h-5 text-sidebar-foreground" />
               <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">
                 {persona === "law_firm" ? "Law Firm" : "Brand Owner"}
               </span>

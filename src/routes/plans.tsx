@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ShieldCheck } from "lucide-react";
 import { LandingNav } from "@/components/landing/landing-nav";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { Pricing } from "@/components/landing/pricing";
 
 export const Route = createFileRoute("/plans")({
-  head: () => ({ meta: [{ title: "Plans & Pricing – Tracemark" }] }),
+  head: () => ({ meta: [{ title: "Plans & Pricing – HAKKIU" }] }),
   component: PlansPage,
 });
 
@@ -27,12 +27,11 @@ function PlansPage() {
       <footer className="border-t border-border bg-background">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-muted-foreground md:flex-row">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[oklch(0.58_0.18_255)]" />
-            <span className="font-semibold text-foreground">Tracemark</span>
+            <HakkiuLogo className="h-6 text-foreground" />
             <span>· Brand protection, automated.</span>
             <span>· Made with AI.</span>
           </div>
-          <div>© {new Date().getFullYear()} Tracemark. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} HAKKIU. All rights reserved.</div>
         </div>
       </footer>
     </div>
