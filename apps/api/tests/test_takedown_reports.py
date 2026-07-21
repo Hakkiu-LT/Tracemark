@@ -10,8 +10,17 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def override_auth():
-    from tracemark_api.dependencies import get_current_user, AuthUser
+    from tracemark_api.dependencies import get_current_user, get_current_profile, AuthUser, CurrentProfile
+    from tracemark_api.services.entitlements import base_entitlement
+
     app.dependency_overrides[get_current_user] = lambda: AuthUser(id="fake-id", email="fake@tracemark.io")
+    app.dependency_overrides[get_current_profile] = lambda: CurrentProfile(
+        id="fake-id",
+        email="fake@tracemark.io",
+        organization_id="fake-org",
+        plan="pro",
+        entitlements=base_entitlement("pro")
+    )
     yield
     app.dependency_overrides.clear()
 
@@ -209,7 +218,8 @@ def test_update_takedown_success():
     mock_sb = MagicMock()
     mock_sb.table.return_value = mock_table
     
-    with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
+    with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb), \
+         patch("tracemark_api.routes.monitoring._verify_takedown_ownership"):
         response = client.put(
             "/api/v1/monitoring/takedowns/takedown-123",
             json={"notice_text": "Updated notice text", "status": "sent"}
@@ -245,7 +255,8 @@ def test_update_takedown_no_fields():
     mock_sb = MagicMock()
     mock_sb.table.return_value = mock_table
     
-    with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
+    with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb), \
+         patch("tracemark_api.routes.monitoring._verify_takedown_ownership"):
         response = client.put(
             "/api/v1/monitoring/takedowns/takedown-123",
             json={}
@@ -271,7 +282,8 @@ def test_update_takedown_not_found():
     mock_sb = MagicMock()
     mock_sb.table.return_value = mock_table
     
-    with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
+    with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb), \
+         patch("tracemark_api.routes.monitoring._verify_takedown_ownership"):
         response = client.put(
             "/api/v1/monitoring/takedowns/non-existent-id",
             json={"status": "acknowledged"}
