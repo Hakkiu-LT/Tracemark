@@ -8,6 +8,10 @@ Trademark monitoring SaaS. Monorepo:
   project as customers via the service-role key; staff auth via `staff_accounts`.
 - Supabase migrations live in `supabase/migrations/` (apply with `supabase db push` —
   CLI is linked to the real Tracemark project; the MCP points at a different DB).
+- **ONE shared `.env` at the repo root** for the whole monorepo. Backends load it via
+  `load_dotenv(find_dotenv())`; the admin frontend reads it via Vite `envDir`; the
+  customer app (repo root) reads it natively. Only `VITE_*` vars are exposed to browsers.
+  Do NOT create per-app `.env` files.
 
 ## ⚠️ MANDATORY RULE — Admin Portal parity for every feature
 

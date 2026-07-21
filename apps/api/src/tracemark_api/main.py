@@ -1,5 +1,6 @@
-from dotenv import load_dotenv
-load_dotenv()
+from dotenv import load_dotenv, find_dotenv
+# Single source of truth: the repo-root .env (walks up from this module).
+load_dotenv(find_dotenv())
 
 import os
 from fastapi import FastAPI, Request, Response
