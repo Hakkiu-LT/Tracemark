@@ -1,10 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from "@/components/ui";
+import { HakkiuMark } from "@/components/HakkiuMark";
 
 export function SignIn() {
   const navigate = useNavigate();
@@ -31,10 +32,8 @@ export function SignIn() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <CardTitle>Tracemark Admin</CardTitle>
+          <HakkiuMark className="mb-2 h-14 w-14 text-accent" />
+          <CardTitle>HAKKIU Admin</CardTitle>
           <CardDescription>Staff sign-in only</CardDescription>
         </CardHeader>
         <CardContent>

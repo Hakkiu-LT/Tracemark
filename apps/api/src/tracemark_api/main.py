@@ -26,7 +26,7 @@ _production_origins = [
 ]
 
 app = FastAPI(
-    title="Tracemark API",
+    title="HAKKIU API",
     version="0.1.0",
     docs_url=None if _is_production else "/docs",
     redoc_url=None if _is_production else "/redoc",
