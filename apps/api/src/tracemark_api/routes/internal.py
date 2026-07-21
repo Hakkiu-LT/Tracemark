@@ -16,7 +16,7 @@ import hmac
 import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from tracemark_api.services.database import get_supabase
@@ -50,6 +50,88 @@ def internal_entitlements(org_id: str, _ok: bool = Depends(verify_internal_secre
         "entitlements": ent.to_dict(),
         "addons": _addons_for_org(org_id),
     }
+
+
+# ── Brand assets (photos) — admin portal manages these via the same storage path ──
+@router.get("/brands/{brand_id}/assets")
+def internal_list_brand_assets(brand_id: str, _ok: bool = Depends(verify_internal_secret)):
+    from tracemark_api.services.storage import get_brand_asset_url
+
+    sb = get_supabase()
+    rows = (
+        sb.table("brand_assets").select("id, brand_id, asset_type, file_url, metadata, created_at")
+        .eq("brand_id", brand_id).order("created_at", desc=True).execute().data or []
+    )
+    for r in rows:
+        r["signed_url"] = get_brand_asset_url(r["file_url"]) if r.get("file_url") else None
+    return rows
+
+
+@router.post("/brands/{brand_id}/assets")
+def internal_upload_brand_asset(
+    brand_id: str,
+    asset_type: str = Form(...),
+    file: UploadFile = File(...),
+    _ok: bool = Depends(verify_internal_secret),
+):
+    from tracemark_api.services.storage import (
+        upload_brand_asset,
+        compute_phash,
+        compute_content_hash,
+        get_brand_asset_url,
+    )
+
+    file_bytes = file.file.read()
+    content_type = file.content_type or "application/octet-stream"
+    storage_path = upload_brand_asset(file_bytes, content_type, brand_id, asset_type)
+    if not storage_path:
+        raise HTTPException(status_code=500, detail="Failed to upload asset to storage")
+
+    phash_val = None
+    if asset_type in ("logo", "product_image") and content_type.startswith("image/"):
+        phash_val = compute_phash(file_bytes)
+    chash = compute_content_hash(file_bytes)
+
+    embedding_val = None
+    if asset_type == "reference_content" and content_type.startswith("text/"):
+        try:
+            from tracemark_api.services.embedding_helper import embed_text
+            embedding_val = embed_text(file_bytes.decode("utf-8", errors="replace"))
+        except Exception as e:  # noqa: BLE001
+            print(f"[internal] reference embedding failed: {e}")
+
+    payload: dict = {
+        "brand_id": brand_id,
+        "asset_type": asset_type,
+        "file_url": storage_path,
+        "content_hash": chash,
+        "phash": phash_val,
+        "metadata": {"filename": file.filename, "content_type": content_type},
+    }
+    if embedding_val is not None:
+        payload["embedding"] = str(embedding_val)
+
+    row = get_supabase().table("brand_assets").insert(payload).execute().data[0]
+    row["signed_url"] = get_brand_asset_url(storage_path)
+    return row
+
+
+@router.delete("/brands/{brand_id}/assets/{asset_id}")
+def internal_delete_brand_asset(brand_id: str, asset_id: str, _ok: bool = Depends(verify_internal_secret)):
+    from tracemark_api.services.storage import BRAND_ASSETS_BUCKET
+
+    sb = get_supabase()
+    res = sb.table("brand_assets").select("file_url").eq("id", asset_id).eq("brand_id", brand_id).maybe_single().execute()
+    if not res or not res.data:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    path = res.data.get("file_url")
+    if path:
+        try:
+            sb.storage.from_(BRAND_ASSETS_BUCKET).remove([path])
+        except Exception as e:  # noqa: BLE001
+            print(f"[internal] storage delete failed: {e}")
+    sb.table("brand_assets").delete().eq("id", asset_id).execute()
+    return {"deleted": True, "id": asset_id}
 
 
 # ── Send-email (SMTP runs here; admin-api calls these) ───────────────────────
@@ -140,6 +222,7 @@ def internal_usage_stats(_ok: bool = Depends(verify_internal_secret)):
 class SetPlanRequest(BaseModel):
     org_id: str
     plan: str
+    mode: str = "comp"  # "comp" = free override (no Stripe) | "charge" = bill via Stripe (prorated)
 
 
 class CancelRequest(BaseModel):
@@ -164,8 +247,47 @@ def internal_set_plan(body: SetPlanRequest, _ok: bool = Depends(verify_internal_
     """
     if body.plan not in _VALID_PLANS:
         raise HTTPException(status_code=400, detail=f"Invalid plan: {body.plan}")
+    if body.mode not in ("comp", "charge"):
+        raise HTTPException(status_code=400, detail="mode must be 'comp' or 'charge'")
     sb = get_supabase()
 
+    # ── CHARGE: bill the customer via Stripe (prorated) ──────────────────────
+    if body.mode == "charge":
+        from tracemark_api.routes.billing import (
+            _ACTIVE_STATUSES, _current_subscription_row, _do_stripe, _stripe,
+            _as_dict, _sync_subscription_to_db,
+        )
+        from tracemark_api.services.billing_config import (
+            SELF_SERVE_PLANS, get_plan_price_id, price_id_to_plan,
+        )
+        if body.plan not in SELF_SERVE_PLANS:
+            raise HTTPException(status_code=400, detail=f"Plan '{body.plan}' is not self-serve (use comp)")
+        row = _current_subscription_row(body.org_id)
+        if not row or row.get("status") not in _ACTIVE_STATUSES or not row.get("stripe_subscription_id"):
+            raise HTTPException(
+                status_code=400,
+                detail="No active Stripe subscription to charge. Use comp, or have the customer subscribe via checkout.",
+            )
+        interval = row.get("interval") or "month"
+        desired_price = get_plan_price_id(body.plan, interval)
+        stripe_sub_id = row["stripe_subscription_id"]
+        sub = _as_dict(_do_stripe(_stripe().Subscription.retrieve, stripe_sub_id, expand=["items"]))
+        items = (sub.get("items") or {}).get("data") or []
+        old_plan_item = next((it for it in items if price_id_to_plan(it["price"]["id"]) is not None), None)
+        mods = []
+        if old_plan_item and old_plan_item["price"]["id"] != desired_price:
+            mods.append({"id": old_plan_item["id"], "price": desired_price})
+        elif not old_plan_item:
+            mods.append({"price": desired_price})
+        modify_kwargs = {"proration_behavior": "create_prorations", "cancel_at_period_end": False, "expand": ["items"]}
+        if mods:
+            modify_kwargs["items"] = mods
+        updated = _do_stripe(_stripe().Subscription.modify, stripe_sub_id, **modify_kwargs)
+        _sync_subscription_to_db(updated, body.org_id)  # syncs plan + mirrors profiles.plan + reconciles
+        return {"org_id": body.org_id, "plan": body.plan, "mode": "charge",
+                "status": _as_dict(updated).get("status")}
+
+    # ── COMP: free override (no Stripe) ──────────────────────────────────────
     now_iso = datetime.now(timezone.utc).isoformat()
     sub = (
         sb.table("subscriptions")
@@ -179,13 +301,9 @@ def internal_set_plan(body: SetPlanRequest, _ok: bool = Depends(verify_internal_
         sb.table("subscriptions").update({"plan": body.plan, "updated_at": now_iso}).eq(
             "id", sub.data[0]["id"]
         ).execute()
-
-    # Mirror onto profiles.plan (UI + entitlement fallback). profiles.id == org_id for
-    # single-member accounts; for real orgs this is a best-effort mirror.
     sb.table("profiles").update({"plan": body.plan}).eq("id", body.org_id).execute()
-
     result = reconcile_brand_locks(body.org_id)
-    return {"org_id": body.org_id, "plan": body.plan, "reconciled": result}
+    return {"org_id": body.org_id, "plan": body.plan, "mode": "comp", "reconciled": result}
 
 
 class MetaTokenRequest(BaseModel):

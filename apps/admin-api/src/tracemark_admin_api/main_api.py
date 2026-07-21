@@ -62,8 +62,34 @@ def send_document_email(document_id: str) -> Any:
     return _request("POST", f"/internal/documents/{document_id}/send-email")
 
 
-def set_plan(org_id: str, plan: str) -> Any:
-    return _request("POST", "/internal/billing/set-plan", json={"org_id": org_id, "plan": plan})
+# ── Brand assets (photos) ─────────────────────────────────────────────────────
+def list_brand_assets(brand_id: str) -> Any:
+    return _request("GET", f"/internal/brands/{brand_id}/assets")
+
+
+def upload_brand_asset(brand_id: str, asset_type: str, filename: str, content_type: str, data: bytes) -> Any:
+    url = f"{_base_url()}/internal/brands/{brand_id}/assets"
+    try:
+        resp = httpx.post(
+            url,
+            headers={"X-Internal-Secret": os.environ.get("INTERNAL_API_SECRET", "")},
+            data={"asset_type": asset_type},
+            files={"file": (filename, data, content_type)},
+            timeout=60.0,
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Main API unreachable: {exc}")
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=resp.status_code, detail=f"Main API error: {resp.text}")
+    return resp.json()
+
+
+def delete_brand_asset(brand_id: str, asset_id: str) -> Any:
+    return _request("DELETE", f"/internal/brands/{brand_id}/assets/{asset_id}")
+
+
+def set_plan(org_id: str, plan: str, mode: str = "comp") -> Any:
+    return _request("POST", "/internal/billing/set-plan", json={"org_id": org_id, "plan": plan, "mode": mode})
 
 
 def cancel_subscription(org_id: str, cancel: bool) -> Any:

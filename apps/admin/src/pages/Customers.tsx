@@ -3,8 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { adminFetch } from "@/lib/api";
+import { CustomerEditDialog, type EditableCustomer } from "@/components/CustomerEditDialog";
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -39,6 +41,7 @@ export function Customers() {
     queryFn: () => adminFetch<{ id: string; name: string | null }[]>("/organizations"),
   });
   const orgName = new Map((orgs ?? []).map((o) => [o.id, o.name]));
+  const [editing, setEditing] = useState<EditableCustomer | null>(null);
 
   const rows = (data ?? []).filter((u) => {
     if (filter === "paying") return u.plan !== "free";
@@ -78,6 +81,7 @@ export function Customers() {
                   <TableHead>Company</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Workspace</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -110,6 +114,20 @@ export function Customers() {
                         {u.persona === "law_firm" ? "Law Firm" : "Brand Owner"}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setEditing({
+                            id: u.id, full_name: u.full_name, email: u.email,
+                            persona: u.persona, plan: u.plan, organization_id: u.organization_id,
+                          })
+                        }
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -117,6 +135,7 @@ export function Customers() {
           )}
         </CardContent>
       </Card>
+      {editing && <CustomerEditDialog customer={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

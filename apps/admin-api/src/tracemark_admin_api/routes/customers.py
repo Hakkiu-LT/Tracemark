@@ -41,6 +41,8 @@ class CustomerDetail(CustomerRow):
 class UpdateCustomerRequest(BaseModel):
     full_name: str | None = None
     persona: str | None = None  # "brand_owner" | "law_firm"
+    email: str | None = None
+    password: str | None = None  # optional: set a new login password for the customer
 
 
 def _email_map(sb) -> dict[str, str]:
@@ -175,13 +177,32 @@ def update_customer(
             {"persona": payload.persona, "updated_at": datetime.now(timezone.utc).isoformat()}
         ).eq("organization_id", org_id).execute()
 
+    # Email / password live in auth.users — update via the admin auth API.
+    auth_attrs: dict = {}
+    if payload.email is not None:
+        auth_attrs["email"] = payload.email
+        auth_attrs["email_confirm"] = True  # mark verified; no confirmation email
+    if payload.password is not None:
+        if len(payload.password) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+        auth_attrs["password"] = payload.password
+    if auth_attrs:
+        try:
+            sb.auth.admin.update_user_by_id(user_id, auth_attrs)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=f"Could not update auth account: {exc}")
+
+    # Audit — never store the raw password.
+    changes = payload.model_dump(exclude_none=True)
+    if "password" in changes:
+        changes["password"] = "***changed***"
     write_audit_log(
         staff,
         "customers.edit",
         target_type="customer",
         target_id=user_id,
         target_org_id=org_id,
-        metadata={"before": before, "changes": payload.model_dump(exclude_none=True)},
+        metadata={"before": before, "changes": changes},
     )
 
     # Return the refreshed row.
