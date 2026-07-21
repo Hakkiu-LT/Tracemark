@@ -4,8 +4,10 @@ import {
   Building2,
   FileWarning,
   HardDrive,
+  KeyRound,
   LayoutDashboard,
   LogOut,
+  Package,
   ScrollText,
   Users,
   UserCog,
@@ -29,11 +31,13 @@ const NAV: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { label: "Companies", to: "/organizations", icon: Building2, permission: "customers.view" },
   { label: "Cases", to: "/cases", icon: FileWarning, permission: "customers.view" },
+  { label: "Brands", to: "/brands", icon: Package, permission: "brands.view" },
   { label: "Users", to: "/customers", icon: Users, permission: "customers.view" },
   { label: "Staff", to: "/staff", icon: UserCog, permission: "staff.manage" },
   { label: "API Usage", to: "/monitoring/api", icon: Activity, permission: "resources.view" },
   { label: "Resources", to: "/monitoring/resources", icon: HardDrive, permission: "resources.view" },
   { label: "Audit Log", to: "/audit", icon: ScrollText, permission: "audit.view" },
+  { label: "Integrations", to: "/integrations", icon: KeyRound, permission: "integrations.manage" },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {

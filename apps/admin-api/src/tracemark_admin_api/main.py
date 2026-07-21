@@ -21,6 +21,7 @@ from tracemark_admin_api.routes.search import router as search_router
 from tracemark_admin_api.routes.cases import router as cases_router
 from tracemark_admin_api.routes.infringements_admin import router as infringements_router
 from tracemark_admin_api.routes.takedowns_admin import router as takedowns_router
+from tracemark_admin_api.routes.stats import router as stats_router
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
@@ -49,6 +50,7 @@ app.include_router(search_router, prefix="/api/v1")
 app.include_router(cases_router, prefix="/api/v1")
 app.include_router(infringements_router, prefix="/api/v1")
 app.include_router(takedowns_router, prefix="/api/v1")
+app.include_router(stats_router, prefix="/api/v1")
 
 _allowed_origins = [
     "http://localhost:8082",  # admin app local dev

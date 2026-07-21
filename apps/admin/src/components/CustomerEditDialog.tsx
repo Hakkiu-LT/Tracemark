@@ -91,7 +91,7 @@ export function CustomerEditDialog({
       </div>
       <div className="space-y-1.5">
         <Label>New password <span className="text-xs text-muted-foreground">(optional — leave blank to keep)</span></Label>
-        <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
+        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">

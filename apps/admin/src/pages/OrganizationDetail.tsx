@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, Loader2, Pencil, X } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Pencil, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { adminFetch } from "@/lib/api";
@@ -82,6 +82,7 @@ export function OrganizationDetail() {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
   const [brandEdit, setBrandEdit] = useState<OrgDetail["brands"][number] | null>(null);
+  const [addingMember, setAddingMember] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["organization", orgId],
@@ -199,7 +200,14 @@ export function OrganizationDetail() {
 
       {/* Members */}
       <Card>
-        <CardHeader><CardTitle>Users ({data.members.length})</CardTitle></CardHeader>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>Users ({data.members.length})</CardTitle>
+          <Can permission="customers.edit">
+            <Button size="sm" variant="outline" onClick={() => setAddingMember(true)}>
+              <Plus className="h-4 w-4" /> Add member
+            </Button>
+          </Can>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -232,8 +240,14 @@ export function OrganizationDetail() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Can permission="customers.edit">
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeMember.mutate(m.user_id)}>
-                        Remove
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => removeMember.mutate(m.user_id)}
+                        disabled={removeMember.isPending}
+                      >
+                        {removeMember.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
                       </Button>
                     </Can>
                   </TableCell>
@@ -365,6 +379,17 @@ export function OrganizationDetail() {
         </Card>
       </Can>
 
+      {addingMember && (
+        <AddMemberDialog
+          orgId={orgId}
+          onClose={() => setAddingMember(false)}
+          onAdded={() => {
+            setAddingMember(false);
+            qc.invalidateQueries({ queryKey: ["organization", orgId] });
+          }}
+        />
+      )}
+
       {brandEdit && (
         <BrandEditDialog
           brand={brandEdit}
@@ -409,6 +434,8 @@ function BrandEditDialog({
   const [status, setStatus] = useState(brand.status);
   const [domains, setDomains] = useState(toLines(brand.official_domains));
   const [advertisers, setAdvertisers] = useState(toLines(brand.official_advertisers));
+  const [platforms, setPlatforms] = useState(toLines((brand as {platforms?: string[] | null}).platforms));
+  const [targetRegions, setTargetRegions] = useState(toLines((brand as {target_regions?: string[] | null}).target_regions));
   const [logoColor, setLogoColor] = useState(brand.logo_color || "");
   const [assetType, setAssetType] = useState<"logo" | "product_image">("logo");
   const [uploading, setUploading] = useState(false);
@@ -425,6 +452,8 @@ function BrandEditDialog({
         body: JSON.stringify({
           brand_name: brandName, website, registration_number: reg, status,
           official_domains: fromLines(domains), official_advertisers: fromLines(advertisers),
+          platforms: fromLines(platforms).length ? fromLines(platforms) : undefined,
+          target_regions: fromLines(targetRegions).length ? fromLines(targetRegions) : undefined,
           logo_color: logoColor || undefined,
         }),
       }),
@@ -494,6 +523,16 @@ function BrandEditDialog({
           <Label>Official advertisers <span className="text-xs text-muted-foreground">(one per line)</span></Label>
           <textarea value={advertisers} onChange={(e) => setAdvertisers(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" />
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Platforms <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+            <textarea value={platforms} onChange={(e) => setPlatforms(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" placeholder="amazon&#10;ebay&#10;aliexpress" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Target regions <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+            <textarea value={targetRegions} onChange={(e) => setTargetRegions(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" placeholder="US&#10;EU&#10;GB" />
+          </div>
+        </div>
 
         {/* Photos */}
         <div className="space-y-2 border-t border-border pt-3">
@@ -542,5 +581,51 @@ function Metric({ label, value }: { label: string; value: string }) {
       <p className="text-xs uppercase text-muted-foreground">{label}</p>
       <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
     </div>
+  );
+}
+
+function AddMemberDialog({ orgId, onClose, onAdded }: { orgId: string; onClose: () => void; onAdded: () => void }) {
+  const [userId, setUserId] = useState("");
+  const [role, setRole] = useState("member");
+
+  const add = useMutation({
+    mutationFn: () =>
+      adminFetch(`/organizations/${orgId}/members`, {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId.trim(), role }),
+      }),
+    onSuccess: () => { toast.success("Member added"); onAdded(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Add member"
+      description="Add an existing customer to this organization by their user ID."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => add.mutate()} disabled={add.isPending || !userId.trim()}>
+            {add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Add
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-1.5">
+        <Label>Customer user ID</Label>
+        <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="uuid…" className="font-mono text-xs" />
+        <p className="text-xs text-muted-foreground">Find the ID on the customer's detail page.</p>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Role</Label>
+        <Select value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="owner">owner</option>
+          <option value="admin">admin</option>
+          <option value="member">member</option>
+        </Select>
+      </div>
+    </Dialog>
   );
 }

@@ -176,10 +176,33 @@ def update_staff(
     if payload.full_name is not None:
         updates["full_name"] = payload.full_name
     if payload.role is not None:
+        if not staff.is_super_admin:
+            raise HTTPException(status_code=403, detail="Super-admin required to change role")
         if payload.role not in _VALID_ROLES:
             raise HTTPException(status_code=400, detail=f"Invalid role: {payload.role}")
         updates["role"] = payload.role
     if payload.is_active is not None:
+        if not staff.is_super_admin:
+            raise HTTPException(status_code=403, detail="Super-admin required to change active status")
+        if payload.is_active is False:
+            # Block self-deactivation.
+            if staff_id == staff.id:
+                raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
+            # Prevent lockout: never deactivate the last active super-admin.
+            target = (
+                admin_sb().table("staff_accounts").select("is_super_admin")
+                .eq("id", staff_id).maybe_single().execute()
+            )
+            if target and target.data and target.data.get("is_super_admin"):
+                active_supers = (
+                    admin_sb().table("staff_accounts").select("id")
+                    .eq("is_super_admin", True).eq("is_active", True).execute().data or []
+                )
+                if len(active_supers) <= 1:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Cannot deactivate the last active super-admin",
+                    )
         updates["is_active"] = payload.is_active
     if payload.is_super_admin is not None:
         # Only a super-admin may grant/revoke super-admin.
@@ -242,9 +265,11 @@ def update_staff(
 def set_permissions(
     staff_id: str,
     payload: SetPermissionsRequest,
-    staff: StaffPrincipal = Depends(require_permission("staff.manage")),
+    staff: StaffPrincipal = Depends(require_super_admin),
 ):
-    """Replace the full set of per-staff permission overrides (grant/deny)."""
+    """Replace the full set of per-staff permission overrides (grant/deny). Super-admin only."""
+    if staff_id == staff.id:
+        raise HTTPException(status_code=403, detail="Cannot modify your own permissions")
     sb = admin_sb()
     acct = sb.table("staff_accounts").select("*").eq("id", staff_id).maybe_single().execute()
     if not acct or not acct.data:
