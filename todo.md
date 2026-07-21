@@ -1,7 +1,7 @@
 # Tracemark — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-21
+> Last updated: 2026-07-21 (PRIORITY 1 complete)
 
 ---
 
@@ -10,19 +10,19 @@
 ### HIGH severity (must fix immediately)
 - [x] `routes/staff.py` — Block self-permission grant: `require_super_admin` + `staff_id == staff.id` guard
 - [x] `routes/staff.py` — Super-admin lockout covers `is_active=False` on last active super-admin + self-deactivation
-- [ ] `apps/admin-api/.env.example` — Replace real Supabase URL (`kdiyjwwejrdqnccfqhyv.supabase.co`) with placeholder `your-project-ref.supabase.co`
+- [x] `apps/admin-api/.env.example` — Replace real Supabase URL (`kdiyjwwejrdqnccfqhyv.supabase.co`) with placeholder `your-project-ref.supabase.co`
 
 ### MEDIUM severity (bundle into same security PR)
 - [x] `Staff.tsx:219`, `StaffDetail.tsx:140`, `CustomerEditDialog.tsx:94` — `type="password"` on all three password inputs
-- [ ] `routes/cases.py:135` — Change `DELETE /cases/{case_id}` guard from `customers.edit` to `require_super_admin`
-- [ ] `routes/brands_admin.py:113` — Add file size (10 MB max) + MIME type validation on brand asset uploads; same fix in `routes/internal.py:84`
-- [ ] `apps/admin/nginx.conf` — Add CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy headers
+- [x] `routes/cases.py:135` — Change `DELETE /cases/{case_id}` guard from `customers.edit` to `require_super_admin`
+- [x] `routes/brands_admin.py:113` — Add file size (10 MB max) + MIME type validation on brand asset uploads; same fix in `routes/internal.py:84`
+- [x] `apps/admin/nginx.conf` — Add CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy headers
 
 ### LOW severity (can do in parallel)
-- [ ] `main_api.py:21` — Replace silent `INTERNAL_API_SECRET` fallback with `RuntimeError` on startup if not set
-- [ ] All route files — Pass `request.client.host` as `ip` param to every `write_audit_log` call (currently always NULL)
-- [ ] `routes/customers.py:186` — Raise customer password minimum from 6 to 8 characters
-- [ ] `permissions.py` + backend — Enforce `billing.view` server-side on `/customers/{id}` and `/organizations/{id}` endpoints (currently frontend-only)
+- [x] `main_api.py:21` — Replace silent `INTERNAL_API_SECRET` fallback with `RuntimeError` on startup if not set
+- [x] All route files — Pass `request.client.host` as `ip` param to every `write_audit_log` call (currently always NULL)
+- [x] `routes/customers.py:186` — Raise customer password minimum from 6 to 8 characters
+- [x] `permissions.py` + backend — Enforce `billing.view` server-side on `/customers/{id}` and `/organizations/{id}` endpoints (currently frontend-only)
 
 ---
 
