@@ -16,6 +16,33 @@ from tracemark_api.dependencies import get_current_user, get_current_profile, Cu
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
 
+def _verify_case_ownership(case_id: str, profile: CurrentProfile) -> None:
+    sb = get_supabase()
+    case_res = sb.table("cases").select("organization_id, user_id").eq("id", case_id).maybe_single().execute()
+    if not case_res.data:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    case = case_res.data
+    # First check organization matching if an organization_id exists on both
+    if profile.organization_id and case.get("organization_id") == profile.organization_id:
+        return
+
+    # Fallback to user_id matching
+    if case.get("user_id") == profile.id:
+        return
+
+    raise HTTPException(status_code=403, detail="Not authorized to access this case")
+
+
+def _verify_takedown_ownership(takedown_id: str, profile: CurrentProfile) -> None:
+    sb = get_supabase()
+    td_res = sb.table("takedown_reports").select("case_id").eq("id", takedown_id).maybe_single().execute()
+    if not td_res.data:
+        raise HTTPException(status_code=404, detail="Takedown report not found")
+
+    _verify_case_ownership(td_res.data["case_id"], profile)
+
+
 _PRIVATE_NETS = ("localhost", "127.", "10.", "172.16.", "172.17.", "172.18.",
                   "172.19.", "172.2", "172.3", "192.168.", "0.0.0.0", "::1", "169.254.")
 
@@ -363,7 +390,8 @@ class UpdateStatusRequest(BaseModel):
 
 
 @router.post("/{case_id}/status")
-def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_user=Depends(get_current_user)):
+def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, profile: CurrentProfile = Depends(get_current_profile)):
+    _verify_case_ownership(case_id, profile)
     try:
         update_case_status(case_id, payload.status, decline_reason=payload.decline_reason)
         
@@ -434,12 +462,13 @@ class TakedownUpdateRequest(BaseModel):
 def update_takedown_report_endpoint(
     id: str,
     payload: TakedownUpdateRequest,
-    current_user = Depends(get_current_user)
+    profile: CurrentProfile = Depends(get_current_profile)
 ):
     """
     Update notice text and status of a takedown report in Supabase.
     If status transitions to 'sent', automatically record submitted_at time.
     """
+    _verify_takedown_ownership(id, profile)
     sb = get_supabase()
     
     update_data = {}
@@ -501,12 +530,13 @@ def test_email_notification_endpoint(
 @router.post("/takedowns/{id}/send-email")
 def send_takedown_email_endpoint(
     id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Send the notice text of the takedown report to its submission_email via SMTP,
     update status to 'sent', and set submitted_at to now.
     """
+    _verify_takedown_ownership(id, profile)
     sb = get_supabase()
     res = sb.table("takedown_reports").select("*").eq("id", id).maybe_single().execute()
     if not res.data:
