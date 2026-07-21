@@ -78,6 +78,16 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
+@app.on_event("startup")
+def _check_required_env() -> None:
+    if not os.environ.get("INTERNAL_API_SECRET"):
+        raise RuntimeError(
+            "INTERNAL_API_SECRET is not set. "
+            "This secret is required for admin-api ↔ main-api communication. "
+            "Set it in the repo-root .env before starting."
+        )
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "tracemark-admin-api"}

@@ -5,7 +5,7 @@ staff additionally requires the caller to be a super-admin.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api.clients import admin_sb
@@ -116,6 +116,7 @@ def get_staff(staff_id: str, staff: StaffPrincipal = Depends(require_permission(
 
 @router.post("", response_model=StaffOut)
 def create_staff(
+    request: Request,
     payload: CreateStaffRequest,
     staff: StaffPrincipal = Depends(require_permission("staff.manage")),
 ):
@@ -162,6 +163,7 @@ def create_staff(
         target_type="staff",
         target_id=new_id,
         metadata={"email": payload.email, "role": payload.role},
+        ip=request.client.host if request.client else None,
     )
     return _to_out(row)
 
@@ -169,6 +171,7 @@ def create_staff(
 @router.patch("/{staff_id}", response_model=StaffOut)
 def update_staff(
     staff_id: str,
+    request: Request,
     payload: UpdateStaffRequest,
     staff: StaffPrincipal = Depends(require_permission("staff.manage")),
 ):
@@ -256,7 +259,8 @@ def update_staff(
     if "password" in (payload.model_dump(exclude_none=True)):
         audit_meta["password"] = "***changed***"
     write_audit_log(
-        staff, "staff.update", target_type="staff", target_id=staff_id, metadata=audit_meta
+        staff, "staff.update", target_type="staff", target_id=staff_id, metadata=audit_meta,
+        ip=request.client.host if request.client else None,
     )
     return _to_out(row)
 
@@ -264,6 +268,7 @@ def update_staff(
 @router.put("/{staff_id}/permissions", response_model=StaffOut)
 def set_permissions(
     staff_id: str,
+    request: Request,
     payload: SetPermissionsRequest,
     staff: StaffPrincipal = Depends(require_super_admin),
 ):
@@ -296,6 +301,7 @@ def set_permissions(
         target_type="staff",
         target_id=staff_id,
         metadata={"overrides": [ov.model_dump() for ov in payload.overrides]},
+        ip=request.client.host if request.client else None,
     )
     return _to_out(acct.data)
 
@@ -303,6 +309,7 @@ def set_permissions(
 @router.delete("/{staff_id}")
 def delete_staff(
     staff_id: str,
+    request: Request,
     staff: StaffPrincipal = Depends(require_super_admin),
 ):
     """Hard-delete a staff member (super-admin only). Prefer PATCH is_active=false to
@@ -318,5 +325,6 @@ def delete_staff(
     # staff_accounts row + its permissions cascade via FK ON DELETE CASCADE.
     sb.table("staff_accounts").delete().eq("id", staff_id).execute()
 
-    write_audit_log(staff, "staff.delete", target_type="staff", target_id=staff_id)
+    write_audit_log(staff, "staff.delete", target_type="staff", target_id=staff_id,
+                    ip=request.client.host if request.client else None)
     return {"success": True}
