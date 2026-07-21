@@ -255,7 +255,7 @@ def internal_set_plan(body: SetPlanRequest, _ok: bool = Depends(verify_internal_
     if body.mode == "charge":
         from tracemark_api.routes.billing import (
             _ACTIVE_STATUSES, _current_subscription_row, _do_stripe, _stripe,
-            _as_dict, _sync_subscription_to_db,
+            _as_dict, _sync_subscription_to_db, _upsert_invoice,
         )
         from tracemark_api.services.billing_config import (
             SELF_SERVE_PLANS, get_plan_price_id, price_id_to_plan,
@@ -279,13 +279,34 @@ def internal_set_plan(body: SetPlanRequest, _ok: bool = Depends(verify_internal_
             mods.append({"id": old_plan_item["id"], "price": desired_price})
         elif not old_plan_item:
             mods.append({"price": desired_price})
-        modify_kwargs = {"proration_behavior": "create_prorations", "cancel_at_period_end": False, "expand": ["items"]}
-        if mods:
-            modify_kwargs["items"] = mods
-        updated = _do_stripe(_stripe().Subscription.modify, stripe_sub_id, **modify_kwargs)
+        if not mods:
+            raise HTTPException(status_code=400, detail="Customer is already on this plan — nothing to charge.")
+
+        # always_invoice bills the proration IMMEDIATELY (creates + attempts to pay an
+        # invoice now), instead of deferring it to the next cycle (create_prorations).
+        updated = _do_stripe(
+            _stripe().Subscription.modify, stripe_sub_id,
+            items=mods, proration_behavior="always_invoice",
+            cancel_at_period_end=False, expand=["items", "latest_invoice"],
+        )
         _sync_subscription_to_db(updated, body.org_id)  # syncs plan + mirrors profiles.plan + reconciles
+
+        # Sync the freshly-created invoice into our DB immediately, so it shows in the
+        # admin without waiting for the Stripe webhook (which can't reach localhost).
+        invoice_synced = False
+        latest = _as_dict(updated).get("latest_invoice")
+        try:
+            inv_obj = latest if isinstance(latest, dict) else (
+                _as_dict(_do_stripe(_stripe().Invoice.retrieve, latest)) if latest else None
+            )
+            if inv_obj:
+                _upsert_invoice(inv_obj, body.org_id)
+                invoice_synced = True
+        except Exception as exc:  # noqa: BLE001
+            print(f"[internal] invoice sync after charge failed: {exc}")
+
         return {"org_id": body.org_id, "plan": body.plan, "mode": "charge",
-                "status": _as_dict(updated).get("status")}
+                "status": _as_dict(updated).get("status"), "invoice_synced": invoice_synced}
 
     # ── COMP: free override (no Stripe) ──────────────────────────────────────
     now_iso = datetime.now(timezone.utc).isoformat()
