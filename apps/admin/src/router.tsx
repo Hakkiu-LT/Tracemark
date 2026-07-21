@@ -23,6 +23,8 @@ import { StaffDetail } from "@/pages/StaffDetail";
 import { MonitoringApi } from "@/pages/MonitoringApi";
 import { MonitoringResources } from "@/pages/MonitoringResources";
 import { Audit } from "@/pages/Audit";
+import { Brands } from "@/pages/Brands";
+import { Integrations } from "@/pages/Integrations";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
@@ -99,6 +101,8 @@ const monitoringResourcesRoute = createRoute({
   component: MonitoringResources,
 });
 const auditRoute = createRoute({ getParentRoute: () => appRoute, path: "/audit", component: Audit });
+const brandsRoute = createRoute({ getParentRoute: () => appRoute, path: "/brands", component: Brands });
+const integrationsRoute = createRoute({ getParentRoute: () => appRoute, path: "/integrations", component: Integrations });
 
 const routeTree = rootRoute.addChildren([
   signInRoute,
@@ -116,6 +120,8 @@ const routeTree = rootRoute.addChildren([
     monitoringApiRoute,
     monitoringResourcesRoute,
     auditRoute,
+    brandsRoute,
+    integrationsRoute,
   ]),
 ]);
 

@@ -30,6 +30,15 @@ class UpdateCaseRequest(BaseModel):
     status: str
 
 
+# Statuses a bulk action is allowed to set — intentionally narrow to the 3 UI actions.
+BULK_ALLOWED_STATUSES: frozenset[str] = frozenset({"reviewed", "dismissed", "escalated"})
+
+
+class BulkUpdateCasesRequest(BaseModel):
+    case_ids: list[str]
+    status: str
+
+
 class UpdateDecisionRequest(BaseModel):
     risk_level: str | None = None
     recommended_action: str | None = None
@@ -108,6 +117,53 @@ def get_case(case_id: str, staff: StaffPrincipal = Depends(require_permission("c
         "takedowns": takedowns,
         "documents": documents,
     }
+
+
+@router.patch("/bulk")
+def bulk_update_cases(
+    payload: BulkUpdateCasesRequest,
+    staff: StaffPrincipal = Depends(require_permission("customers.edit")),
+):
+    """Apply one status to many cases at once (Mark Reviewed / Dismiss / Escalate).
+
+    Partial-tolerant: IDs that don't exist are reported in not_found, the rest
+    are updated. One audit row summarises the whole batch.
+    """
+    if payload.status not in BULK_ALLOWED_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"status must be one of {sorted(BULK_ALLOWED_STATUSES)}",
+        )
+    ids = list({cid for cid in payload.case_ids if cid})
+    if not ids:
+        raise HTTPException(status_code=400, detail="case_ids is empty")
+    if len(ids) > 200:
+        raise HTTPException(status_code=400, detail="Too many cases (max 200 per batch)")
+
+    sb = customer_sb()
+    existing = sb.table("cases").select("id, organization_id").in_("id", ids).execute().data or []
+    found_ids = [r["id"] for r in existing]
+    not_found = [cid for cid in ids if cid not in {r["id"] for r in existing}]
+
+    updated = 0
+    if found_ids:
+        sb.table("cases").update(
+            {"status": payload.status, "updated_at": datetime.now(timezone.utc).isoformat()}
+        ).in_("id", found_ids).execute()
+        updated = len(found_ids)
+
+    write_audit_log(
+        staff, "cases.bulk_edit", target_type="case", target_id=None,
+        target_org_id=None,
+        metadata={
+            "status": payload.status,
+            "updated_ids": found_ids,
+            "not_found_ids": not_found,
+            "requested_count": len(ids),
+            "updated_count": updated,
+        },
+    )
+    return {"success": True, "updated": updated, "not_found": not_found}
 
 
 @router.patch("/{case_id}")

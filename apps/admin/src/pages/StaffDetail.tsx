@@ -137,19 +137,19 @@ export function StaffDetail() {
           <div className="space-y-1.5"><Label>Full name</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Email <span className="text-xs text-muted-foreground">(login)</span></Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>New password <span className="text-xs text-muted-foreground">(optional)</span></Label><Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" /></div>
+            <div className="space-y-1.5"><Label>New password <span className="text-xs text-muted-foreground">(optional)</span></Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Role</Label>
-              <Select value={role} onChange={(e) => setRole(e.target.value)} disabled={roleLocked}>
+              <Label>Role {!iAmSuper && <span className="text-xs text-muted-foreground">(super-admin only)</span>}</Label>
+              <Select value={role} onChange={(e) => setRole(e.target.value)} disabled={!iAmSuper || roleLocked}>
                 {roleOptions.map((r) => <option key={r} value={r}>{r === "super_admin" ? "super admin" : r}</option>)}
               </Select>
               {role === "super_admin" && <p className="text-xs text-muted-foreground">Super admin — bypasses all permission checks.</p>}
             </div>
             <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={active ? "active" : "disabled"} onChange={(e) => setActive(e.target.value === "active")}>
+              <Label>Status {!iAmSuper && <span className="text-xs text-muted-foreground">(super-admin only)</span>}</Label>
+              <Select value={active ? "active" : "disabled"} onChange={(e) => setActive(e.target.value === "active")} disabled={!iAmSuper}>
                 <option value="active">Active</option>
                 <option value="disabled">Disabled</option>
               </Select>
@@ -161,12 +161,21 @@ export function StaffDetail() {
         </CardContent>
       </Card>
 
-      {/* Permissions */}
+      {/* Permissions — visible to all, editable only by super-admins */}
       <Card>
         <CardHeader><CardTitle>What this employee can see & change</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {data.is_super_admin ? (
             <p className="text-sm text-muted-foreground">Super-admin — has all permissions.</p>
+          ) : !iAmSuper ? (
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Editing permissions requires super-admin access.</p>
+              <div className="flex flex-wrap gap-1 pt-1">
+                {data.permissions.map((p) => (
+                  <Badge key={p} variant="secondary" className="text-xs">{p}</Badge>
+                ))}
+              </div>
+            </div>
           ) : (
             <>
               <div className="flex flex-wrap items-center gap-2 border-b border-border pb-3">
