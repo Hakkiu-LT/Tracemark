@@ -48,7 +48,7 @@ interface OrgDetail {
     official_domains?: string[] | null; official_advertisers?: string[] | null; logo_color?: string | null;
   }[];
   subscription: { plan: string; status: string; interval: string; cancel_at_period_end: boolean } | null;
-  invoices: { id: string; amount_due: number; currency: string; status: string; hosted_invoice_url: string | null }[];
+  invoices: { id: string; amount_due: number; currency: string; status: string; hosted_invoice_url: string | null; created_at: string | null }[];
 }
 interface Usage {
   plan: string;
@@ -298,6 +298,7 @@ export function OrganizationDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Date</TableHead>
                     <TableHead>Invoice</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
@@ -306,6 +307,9 @@ export function OrganizationDetail() {
                 <TableBody>
                   {data.invoices.map((inv) => (
                     <TableRow key={inv.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        {inv.created_at ? new Date(inv.created_at).toLocaleString() : "—"}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">
                         {inv.hosted_invoice_url ? (
                           <a href={inv.hosted_invoice_url} target="_blank" rel="noopener" className="text-accent hover:underline">

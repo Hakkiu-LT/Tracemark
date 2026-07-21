@@ -50,6 +50,8 @@ class UpdateStaffRequest(BaseModel):
     role: str | None = None
     is_active: bool | None = None
     is_super_admin: bool | None = None
+    email: str | None = None
+    password: str | None = None
 
 
 class PermissionOverride(BaseModel):
@@ -102,6 +104,14 @@ def permission_catalog(staff: StaffPrincipal = Depends(require_permission("staff
 def list_staff(staff: StaffPrincipal = Depends(require_permission("staff.manage"))):
     rows = admin_sb().table("staff_accounts").select("*").execute().data or []
     return [_to_out(r) for r in rows]
+
+
+@router.get("/{staff_id}", response_model=StaffOut)
+def get_staff(staff_id: str, staff: StaffPrincipal = Depends(require_permission("staff.manage"))):
+    row = admin_sb().table("staff_accounts").select("*").eq("id", staff_id).maybe_single().execute()
+    if not row or not row.data:
+        raise HTTPException(status_code=404, detail="Staff not found")
+    return _to_out(row.data)
 
 
 @router.post("", response_model=StaffOut)
@@ -184,17 +194,48 @@ def update_staff(
             if len(supers) <= 1 and any(s["id"] == staff_id for s in supers):
                 raise HTTPException(status_code=400, detail="Cannot demote the last remaining super-admin")
         updates["is_super_admin"] = payload.is_super_admin
-    if not updates:
+    if payload.email is not None:
+        updates["email"] = payload.email  # keep staff_accounts.email in sync
+
+    sb = admin_sb()
+
+    # Email / password live in the staff auth.users — update via admin auth API.
+    auth_attrs: dict = {}
+    if payload.email is not None:
+        auth_attrs["email"] = payload.email
+        auth_attrs["email_confirm"] = True
+    if payload.password is not None:
+        if len(payload.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+        auth_attrs["password"] = payload.password
+    if auth_attrs:
+        try:
+            sb.auth.admin.update_user_by_id(staff_id, auth_attrs)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=f"Could not update staff auth account: {exc}")
+
+    if not updates and not auth_attrs:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    res = admin_sb().table("staff_accounts").update(updates).eq("id", staff_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Staff not found")
+    row = None
+    if updates:
+        res = sb.table("staff_accounts").update(updates).eq("id", staff_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Staff not found")
+        row = res.data[0]
+    else:
+        r = sb.table("staff_accounts").select("*").eq("id", staff_id).maybe_single().execute()
+        row = r.data if r else None
+        if not row:
+            raise HTTPException(status_code=404, detail="Staff not found")
 
+    audit_meta = dict(updates)
+    if "password" in (payload.model_dump(exclude_none=True)):
+        audit_meta["password"] = "***changed***"
     write_audit_log(
-        staff, "staff.update", target_type="staff", target_id=staff_id, metadata=updates
+        staff, "staff.update", target_type="staff", target_id=staff_id, metadata=audit_meta
     )
-    return _to_out(res.data[0])
+    return _to_out(row)
 
 
 @router.put("/{staff_id}/permissions", response_model=StaffOut)

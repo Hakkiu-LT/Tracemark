@@ -45,6 +45,7 @@ interface Invoice {
   currency: string;
   status: string;
   hosted_invoice_url: string | null;
+  created_at: string | null;
 }
 interface CustomerDetail {
   id: string;
@@ -241,6 +242,7 @@ export function CustomerDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Date</TableHead>
                     <TableHead>Invoice</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
@@ -249,6 +251,9 @@ export function CustomerDetail() {
                 <TableBody>
                   {data.invoices.map((inv) => (
                     <TableRow key={inv.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        {inv.created_at ? new Date(inv.created_at).toLocaleString() : "—"}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">
                         {inv.hosted_invoice_url ? (
                           <a href={inv.hosted_invoice_url} target="_blank" rel="noopener" className="text-accent hover:underline">
