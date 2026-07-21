@@ -81,8 +81,18 @@ def internal_upload_brand_asset(
         get_brand_asset_url,
     )
 
+    _MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+    _ALLOWED_IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"}
+    _ALLOWED_TEXT_MIMES = {"text/plain", "text/csv", "text/html"}
+
+    content_type = (file.content_type or "application/octet-stream").split(";")[0].strip().lower()
+    if asset_type in ("logo", "product_image") and content_type not in _ALLOWED_IMAGE_MIMES:
+        raise HTTPException(status_code=400, detail="Logo/product images must be JPEG, PNG, WebP, GIF, or SVG")
+    if asset_type == "reference_content" and content_type not in _ALLOWED_TEXT_MIMES:
+        raise HTTPException(status_code=400, detail="Reference content must be a plain-text, CSV, or HTML file")
     file_bytes = file.file.read()
-    content_type = file.content_type or "application/octet-stream"
+    if len(file_bytes) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File exceeds 10 MB limit")
     storage_path = upload_brand_asset(file_bytes, content_type, brand_id, asset_type)
     if not storage_path:
         raise HTTPException(status_code=500, detail="Failed to upload asset to storage")
