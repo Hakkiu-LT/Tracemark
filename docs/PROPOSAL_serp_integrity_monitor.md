@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **SERP Integrity Monitor** is a defensive detection module for Tracemark that scans Google/Bing search engine result pages (SERPs) for indexed URLs belonging to a protected brand's own domain, then identifies anomalies caused by XSS-based open redirect attacks, title injection, and SERP hijacking campaigns.
+The **SERP Integrity Monitor** is a defensive detection module for HAKKIU that scans Google/Bing search engine result pages (SERPs) for indexed URLs belonging to a protected brand's own domain, then identifies anomalies caused by XSS-based open redirect attacks, title injection, and SERP hijacking campaigns.
 
 Unlike the main infringement engine (which searches for *other domains* copying a brand), this module detects attackers **weaponizing the brand's own legitimate domain** to serve malicious redirects — appearing trustworthy in search results while silently forwarding victims to adversary-controlled sites.
 

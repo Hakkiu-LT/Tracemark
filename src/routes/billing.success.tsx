@@ -25,7 +25,7 @@ export const Route = createFileRoute("/billing/success")({
   validateSearch: successSearchSchema,
   head: () => ({
     meta: [
-      { title: "Payment Successful — Tracemark" },
+      { title: "Payment Successful — HAKKIU" },
       { name: "description", content: "Your subscription has been activated." },
     ],
   }),
@@ -107,7 +107,7 @@ function SuccessPage() {
           <CardDescription className="text-sm text-muted-foreground mt-1">
             {status === "timeout"
               ? "Your payment is being processed. This can take a moment — your plan will update automatically."
-              : "Thank you for subscribing to Tracemark."}
+              : "Thank you for subscribing to HAKKIU."}
           </CardDescription>
         </CardHeader>
 

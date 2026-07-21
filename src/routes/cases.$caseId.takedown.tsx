@@ -29,7 +29,7 @@ import {
 import jsPDF from "jspdf";
 
 export const Route = createFileRoute("/cases/$caseId/takedown")({
-  head: () => ({ meta: [{ title: "Takedown — Tracemark" }] }),
+  head: () => ({ meta: [{ title: "Takedown — HAKKIU" }] }),
   component: TakedownPage,
 });
 

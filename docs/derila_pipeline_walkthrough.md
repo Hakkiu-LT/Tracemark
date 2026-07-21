@@ -1,5 +1,5 @@
 
-# Tracemark Scraping & Detection — Updated Pipeline (Derila example)
+# HAKKIU Scraping & Detection — Updated Pipeline (Derila example)
 
 > The full pipeline as it runs after all improvements: SerpApi unified Google Ads, deterministic parsing (no Gemini for extraction), tiered detection funnel (Tier 0 → Tier 1 → Tier 2), `official_domains` whitelist, Approach A logo extraction, and single-node `gemini-3.5-flash` adjudication.
 

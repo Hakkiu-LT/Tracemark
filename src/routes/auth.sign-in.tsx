@@ -10,8 +10,8 @@ export const Route = createFileRoute("/auth/sign-in")({
   },
   head: () => ({
     meta: [
-      { title: "Sign in — Tracemark" },
-      { name: "description", content: "Sign in to your Tracemark workspace." },
+      { title: "Sign in — HAKKIU" },
+      { name: "description", content: "Sign in to your HAKKIU workspace." },
     ],
   }),
   component: SignInRoute,

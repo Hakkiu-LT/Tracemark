@@ -23,6 +23,7 @@ import type { Permission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui";
 import { SearchBox } from "@/components/SearchBox";
+import { HakkiuLogo } from "@/components/HakkiuLogo";
 
 type IconType = ComponentType<{ className?: string }>;
 
@@ -119,7 +120,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card">
         <div className="flex h-14 items-center gap-2 border-b border-border px-5">
-          <span className="text-sm font-semibold tracking-tight">Tracemark Admin</span>
+          <HakkiuLogo className="h-6 text-foreground" />
+          <span className="text-sm font-semibold tracking-tight text-muted-foreground">Admin</span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {/* Standalone Dashboard */}

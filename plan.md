@@ -1,11 +1,37 @@
-# Tracemark — Active Plan
+# HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-21 (session 4)
+> Last updated: 2026-07-21 (session 5)
 
 ---
 
-## Just completed: PRIORITY 6 — Scraper Health Monitoring (⚠️ 1 step pending)
+## Just completed: Rebrand Tracemark → HAKKIU (visible identity)
+
+Product renamed from "Tracemark" to "HAKKIU" across all USER-FACING surfaces + new
+brand assets. Safe discriminator used: capital `Tracemark` = brand text (changed);
+lowercase `tracemark` = infra (python packages `tracemark_api`/`tracemark_admin_api`,
+domains `tracemark.ai/.io`, storage keys) — deliberately LEFT intact to avoid a
+breaking refactor.
+
+- **Assets:** `public/hakkiu-logo-symbol.png` + `favicon-32x32.png` added to BOTH the
+  customer app (repo-root `public/`) and admin app (`apps/admin/public/`).
+- **Logo mark:** new `HakkiuMark` component in each app renders the hedgehog symbol as a
+  CSS mask filled with `currentColor` (adapts to any background). Replaced the old
+  `ShieldCheck` brand mark in: customer sidebar, landing nav, auth screen; admin sidebar
+  + SignIn. Wordmark text → "HAKKIU" / "HAKKIU Admin".
+- **Text:** all page `<title>`/meta/OG, footers, copy, test-email strings, "Vision API"
+  attribution, Stripe seed product names, FastAPI Swagger titles → HAKKIU (43 code
+  occurrences via subagent + brand-mark files by hand + all `*.md` docs).
+- **Favicon** wired into customer `__root.tsx` head + admin `index.html`.
+- **Out of scope / flagged (NOT changed):** python package/module names & imports, DB
+  tables, Supabase `project_id`, domains + emails (HAKKIU domain not provisioned yet),
+  localStorage keys (would log users out), wrangler/docker image names.
+- Verified: customer + admin `tsc --noEmit` clean; all 4 services restarted; logo +
+  favicon served (200 image/png) on both apps; titles render "HAKKIU".
+
+---
+
+## Earlier: PRIORITY 6 — Scraper Health Monitoring (⚠️ 1 step pending)
 
 Per-platform scraper health, surfaced in the Admin Portal. **No push alerting** —
 degraded platforms are flagged in-page only (decision confirmed this session).
@@ -140,7 +166,7 @@ infra to run daily crons against).
 
 First differentiated platform expansion. Depends on SES (for abuse notification
 emails) and stable production infra. Opens a new buyer segment (any company with
-a domain, not just brand owners). Tracemark already has WHOIS + domain
+a domain, not just brand owners). HAKKIU already has WHOIS + domain
 surveillance — extend with:
 - Newly registered lookalike domain detection.
 - Automated ICANN/registrar abuse report submission.
@@ -172,7 +198,7 @@ scrapers already partially exist.
 Red Points, Corsearch, MarqVision, BrandShield) and nascent self-serve AI players
 (Podqi, Bolster, Doppel — specific threat vectors only).
 
-**Tracemark's clearest position:** self-serve, transparent pricing, same-day
+**HAKKIU's clearest position:** self-serve, transparent pricing, same-day
 activation, multi-channel brand protection for SMB + growth-stage brands. No major
 player owns this position.
 

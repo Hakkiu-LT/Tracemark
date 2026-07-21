@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck, MailCheck, Eye, EyeOff } from "lucide-react";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,10 +92,7 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
     <div className="relative flex min-h-screen flex-col bg-background font-body-alt text-foreground">
       {/* Floating brand — left */}
       <Link to="/landing" className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-10">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-[0_0_20px_-2px] shadow-accent/60">
-          <ShieldCheck className="h-6 w-6" />
-        </div>
-        <span className="font-display text-xl font-semibold tracking-tight text-foreground">Tracemark</span>
+        <HakkiuLogo className="h-9 text-foreground" />
       </Link>
 
       {/* Floating back link — right */}
@@ -310,7 +308,7 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
             )}
 
             <p className="mt-8 text-center text-sm text-muted-foreground">
-              {isSignup ? "Already have an account? " : "New to Tracemark? "}
+              {isSignup ? "Already have an account? " : "New to HAKKIU? "}
               <button
                 type="button"
                 onClick={() => switchMode(isSignup ? "signin" : "signup")}

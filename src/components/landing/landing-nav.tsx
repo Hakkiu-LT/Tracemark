@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ShieldCheck, Sun, Moon } from "lucide-react";
+import { Sun, Moon } from "lucide-react";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -40,14 +41,11 @@ export function LandingNav() {
       )}
     >
       <div className="flex h-16 items-center justify-between gap-6 px-[6%]">
-        <Link to="/landing" className="flex items-center gap-2.5">
-          <div className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-md transition-colors",
-            scrolled ? "bg-primary/10 text-primary" : "bg-white/10 text-white"
-          )}>
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight">Tracemark</span>
+        <Link to="/landing" className="flex items-center">
+          <HakkiuLogo className={cn(
+            "h-8 transition-colors",
+            scrolled ? "text-foreground" : "text-white"
+          )} />
         </Link>
         <nav className={cn(
           "hidden items-center gap-9 text-[15px] transition-colors md:flex",

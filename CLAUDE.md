@@ -1,4 +1,4 @@
-# Tracemark — project instructions
+# HAKKIU — project instructions
 
 Trademark monitoring SaaS. Monorepo:
 - `src/` — customer web app (TanStack Start, Cloudflare Workers).
@@ -7,7 +7,7 @@ Trademark monitoring SaaS. Monorepo:
 - `apps/admin-api/` — Admin Portal backend (FastAPI). Reads/writes the SAME Supabase
   project as customers via the service-role key; staff auth via `staff_accounts`.
 - Supabase migrations live in `supabase/migrations/` (apply with `supabase db push` —
-  CLI is linked to the real Tracemark project; the MCP points at a different DB).
+  CLI is linked to the real HAKKIU project; the MCP points at a different DB).
 - **ONE shared `.env` at the repo root** for the whole monorepo. Backends load it via
   `load_dotenv(find_dotenv())`; the admin frontend reads it via Vite `envDir`; the
   customer app (repo root) reads it natively. Only `VITE_*` vars are exposed to browsers.

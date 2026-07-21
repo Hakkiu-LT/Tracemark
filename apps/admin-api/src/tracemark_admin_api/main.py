@@ -31,7 +31,7 @@ _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 _extra_origins = [o.strip() for o in os.environ.get("ADMIN_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
 app = FastAPI(
-    title="Tracemark Admin API",
+    title="HAKKIU Admin API",
     version="0.1.0",
     docs_url=None if _is_production else "/docs",
     redoc_url=None if _is_production else "/redoc",
