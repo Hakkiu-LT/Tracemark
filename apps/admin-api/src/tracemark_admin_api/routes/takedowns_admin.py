@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api import main_api
@@ -33,6 +33,7 @@ def list_takedowns(
 @router.patch("/takedowns/{takedown_id}")
 def update_takedown(
     takedown_id: str,
+    request: Request,
     payload: UpdateTakedownRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -47,7 +48,8 @@ def update_takedown(
         updates["submitted_at"] = datetime.now(timezone.utc).isoformat()
     sb.table("takedown_reports").update(updates).eq("id", takedown_id).execute()
     write_audit_log(
-        staff, "takedowns.edit", target_type="takedown", target_id=takedown_id, metadata={"changes": updates}
+        staff, "takedowns.edit", target_type="takedown", target_id=takedown_id, metadata={"changes": updates},
+        ip=request.client.host if request.client else None,
     )
     return {"success": True}
 
@@ -55,11 +57,13 @@ def update_takedown(
 @router.post("/takedowns/{takedown_id}/send-email")
 def send_takedown_email(
     takedown_id: str,
+    request: Request,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
     result = main_api.send_takedown_email(takedown_id)
     write_audit_log(
-        staff, "takedowns.send_email", target_type="takedown", target_id=takedown_id, metadata=result
+        staff, "takedowns.send_email", target_type="takedown", target_id=takedown_id, metadata=result,
+        ip=request.client.host if request.client else None,
     )
     return result
 
@@ -78,10 +82,12 @@ def list_documents(
 @router.post("/documents/{document_id}/send-email")
 def send_document_email(
     document_id: str,
+    request: Request,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
     result = main_api.send_document_email(document_id)
     write_audit_log(
-        staff, "documents.send_email", target_type="document", target_id=document_id, metadata=result
+        staff, "documents.send_email", target_type="document", target_id=document_id, metadata=result,
+        ip=request.client.host if request.client else None,
     )
     return result
