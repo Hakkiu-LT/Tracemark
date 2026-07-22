@@ -1,0 +1,60 @@
+# HAKKIU — production reverse proxy (Caddy v2)
+# Caddy terminates TLS (automatic Let's Encrypt certs) and routes each subdomain to the
+# matching container on the internal `tracemark` docker network (by service name).
+#
+# DNS required (A records → server public IP):
+#   hakkiu.com, www.hakkiu.com, admin.hakkiu.com, api.hakkiu.com, admin-api.hakkiu.com
+#
+# Certs + ACME state persist in the `caddy_data` volume — never delete it lightly.
+
+{
+	# Email used by Let's Encrypt for expiry warnings. Change to a mailbox you monitor.
+	email admin@hakkiu.com
+}
+
+# ── Customer app (apex) ────────────────────────────────────────────────────
+# Served by the customer container running the built worker under workerd (wrangler).
+# The Cloudflare `public/_headers` file is NOT honoured when self-hosting, so the
+# security headers + CSP are applied HERE instead. CSP mirrors public/_headers with
+# api.tracemark.ai swapped for api.hakkiu.com, plus Google Fonts allow-listed.
+hakkiu.com {
+	encode zstd gzip
+
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://api.hakkiu.com https://*.stripe.com wss://*.supabase.co; frame-src https://js.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		# Hide upstream server banner.
+		-Server
+	}
+
+	reverse_proxy frontend:8080
+}
+
+# www → apex (canonical host).
+www.hakkiu.com {
+	redir https://hakkiu.com{uri} permanent
+}
+
+# ── Admin frontend ─────────────────────────────────────────────────────────
+# The admin container's nginx already sets its own security headers + CSP,
+# so Caddy only proxies here (no duplicate headers).
+admin.hakkiu.com {
+	encode zstd gzip
+	reverse_proxy admin:8082
+}
+
+# ── Main API (scraping / AI / customer endpoints) ──────────────────────────
+api.hakkiu.com {
+	encode zstd gzip
+	reverse_proxy api:8000
+}
+
+# ── Admin API ──────────────────────────────────────────────────────────────
+admin-api.hakkiu.com {
+	encode zstd gzip
+	reverse_proxy admin-api:8001
+}
