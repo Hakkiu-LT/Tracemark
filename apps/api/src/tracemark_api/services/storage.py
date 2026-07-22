@@ -12,6 +12,7 @@ import uuid
 import hashlib
 import httpx
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
 
 BUCKET = "evidence-screenshots"
 BRAND_ASSETS_BUCKET = "brand-assets"
@@ -49,7 +50,13 @@ def upload_screenshot(image_url: str, prefix: str = "meta") -> str | None:
     to Supabase Storage. Returns a permanent public URL, or None on failure.
     """
     try:
-        response = httpx.get(image_url, timeout=20.0, follow_redirects=True)
+        validate_ssrf_url(image_url)
+    except SSRFError as e:
+        print(f"[Storage] Rejected unsafe screenshot URL: {e}")
+        return None
+
+    try:
+        response = httpx.get(image_url, timeout=20.0, follow_redirects=False)
         if response.status_code != 200:
             return None
 

@@ -5,24 +5,58 @@
 
 ---
 
-## 🔴 PRIORITY 1 — Security Patches (before any production traffic)
+## 🔴 PRIORITY 1 — Security Patches (2026-07-22 deep audit — see security-audit.md)
 
-### HIGH severity (must fix immediately)
+### Phase 0 — Do today (CRITICAL / account compromise risk)
+- [ ] **[C1] Rotate Supabase service role key** — hardcoded in `apps/api/query_case_details.py:6`; delete or fix the file, rotate key in Supabase dashboard, update `.env`
+- [ ] **[H6/H7] Staff password/email escalation** — `staff.manage` can reset/redirect any staff member's credentials (`admin-api/routes/staff.py:223–241`); add super-admin check before `auth_attrs` block
+- [ ] **[C2] Infringement IDOR** — `GET /infringements/{id}`, `GET /infringements/{id}/evidence`, `PATCH /infringements/{id}/status` — add `cases.organization_id = caller_org_id` check before returning/mutating
+
+### Phase 1 — This week (HIGH / exploitable by authenticated customers)
+- [ ] **[C3] SSRF on brand official_domains** — `embedding_helper.py:116–207`: add SSRF host validation before httpx fetch of user-supplied domain URLs
+- [ ] **[H1-H4] IDOR on monitoring/documents** — `monitoring.py:365,433,501`, `documents.py:12`: add org ownership check on case status, takedown PUT, takedown send-email, document send-email
+- [ ] **[H5] IDOR clients PUT** — `routes/clients.py:109`: add `organization_id` clause to UPDATE query (not just the pre-check)
+- [ ] **[H9/H10] Rate limiting** — install `slowapi`; 5/hr per user on check-brand, gather-evidence, check-ads, analyze; 3/hr + EmailStr validation on test-email
+- [ ] **[H8] Customer app security headers** — add `public/_headers` for Cloudflare Worker (CSP, X-Frame-Options, X-Content-Type-Options)
+- [ ] **[H11] Playwright SSRF** — add pre-`goto()` host validation in `playwright_client.py`
+- [ ] **[M4] gather-evidence / check-ads entitlement bypass** — add plan check before triggering scrape
+
+### Phase 2 — This sprint (MEDIUM)
+- [ ] **[M11] Enable email confirmation** — `supabase/config.toml:226` → `enable_confirmations = true`; apply to production Supabase dashboard
+- [ ] **[M12] Harden password policy** — `minimum_password_length = 12`, add complexity, `secure_password_change = true` in config.toml + production dashboard
+- [ ] **[M2] Fix .env token write** — strip newlines from Meta token before writing; move to DB long-term
+- [ ] **[H12] Restrict /internal/* routes** — IP allowlist middleware or separate port; not publicly reachable
+- [ ] **[M16] Admin CSP in production** — add `apps/admin/public/_headers` for Cloudflare Worker (CSP is currently nginx-only)
+- [ ] **[H14] admin-api lockfile** — run `uv lock` in `apps/admin-api/`, commit `uv.lock`, change Dockerfile to `uv sync --frozen`
+- [ ] **[M6] File upload size guard** — check Content-Length before `file.file.read()` in `routes/brands.py:305`
+- [ ] **[M7] Request model limits** — `max_length=200` on brand_name; `max_items=10` on platforms/official_advertisers/official_domains
+- [ ] **[M1] SSRF blocklist** — replace string-prefix IP matching in `monitoring.py` with `ipaddress` module check after DNS resolution (defeats octal/hex encoding + DNS rebinding)
+- [ ] **[M3] LIKE wildcard escape** — escape `%` and `_` in `infringements.py:119` platform filter
+
+### Phase 3 — Next sprint
+- [ ] **[M13] httpOnly cookie token storage** — custom Supabase storage adapter (httpOnly, Secure, SameSite=Strict)
+- [ ] **[M14/M15] URL validation in frontend** — harden `ensureAbsoluteUrl`; apply to submission_url, admin portal source_url/screenshot_url
+- [ ] **[L3/L4/L5] SSRF in screenshot/phash helpers** — shared SSRF-safe HTTP helper applied to `storage.py`, `embedding_helper.py:295`, `unified_scraper.py:188`
+- [ ] **[H13] npm CVEs** — upgrade wrangler past 4.101.0 or add `overrides` for sharp >=0.35.0; upgrade dompurify >=3.4.12
+- [ ] **[M21] Admin Dockerfile** — change `npm install --no-audit` to `npm ci`
+- [ ] **[M22/L16] Pin Docker images** — SHA256 digests on all base images; pin uv version
+- [ ] **[L17] Dependency scanning** — add Dependabot config, `pip-audit` in CI, `npm audit --audit-level=high` in CI
+- [ ] **[L12] Comp plan fix** — set `subscription.status='active'` in comp path (`internal.py:331`)
+- [ ] **[L13] Stripe sig_header null-check** — explicit guard before `construct_event`
+- [ ] **[M9/M10] Paginate admin endpoints** — paginated `list_users()`, LIMIT on list_organizations/list_customers
+
+### Previously completed security items
 - [x] `routes/staff.py` — Block self-permission grant: `require_super_admin` + `staff_id == staff.id` guard
 - [x] `routes/staff.py` — Super-admin lockout covers `is_active=False` on last active super-admin + self-deactivation
-- [x] `apps/admin-api/.env.example` — Replace real Supabase URL (`kdiyjwwejrdqnccfqhyv.supabase.co`) with placeholder `your-project-ref.supabase.co`
-
-### MEDIUM severity (bundle into same security PR)
+- [x] `apps/admin-api/.env.example` — Replace real Supabase URL with placeholder
 - [x] `Staff.tsx:219`, `StaffDetail.tsx:140`, `CustomerEditDialog.tsx:94` — `type="password"` on all three password inputs
 - [x] `routes/cases.py:135` — Change `DELETE /cases/{case_id}` guard from `customers.edit` to `require_super_admin`
-- [x] `routes/brands_admin.py:113` — Add file size (10 MB max) + MIME type validation on brand asset uploads; same fix in `routes/internal.py:84`
-- [x] `apps/admin/nginx.conf` — Add CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy headers
-
-### LOW severity (can do in parallel)
+- [x] `routes/brands_admin.py:113` — Add file size (10 MB max) + MIME type validation on brand asset uploads
+- [x] `apps/admin/nginx.conf` — Add CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS headers
 - [x] `main_api.py:21` — Replace silent `INTERNAL_API_SECRET` fallback with `RuntimeError` on startup if not set
-- [x] All route files — Pass `request.client.host` as `ip` param to every `write_audit_log` call (currently always NULL)
+- [x] All route files — Pass `request.client.host` as `ip` param to every `write_audit_log` call
 - [x] `routes/customers.py:186` — Raise customer password minimum from 6 to 8 characters
-- [x] `permissions.py` + backend — Enforce `billing.view` server-side on `/customers/{id}` and `/organizations/{id}` endpoints (currently frontend-only)
+- [x] `permissions.py` + backend — Enforce `billing.view` server-side
 
 ---
 

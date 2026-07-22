@@ -103,10 +103,10 @@ def update_client(client_id: str, payload: ClientUpdate, current_user=Depends(ge
 
     if not update_data:
         # Fetch current record if nothing is updated
-        res = sb.table("clients").select("*").eq("id", client_id).maybe_single().execute()
+        res = sb.table("clients").select("*").eq("id", client_id).eq("organization_id", org_id).maybe_single().execute()
         return res.data
 
-    res = sb.table("clients").update(update_data).eq("id", client_id).execute()
+    res = sb.table("clients").update(update_data).eq("id", client_id).eq("organization_id", org_id).execute()
     return res.data[0]
 
 @router.delete("/{client_id}")
