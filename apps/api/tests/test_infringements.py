@@ -23,6 +23,14 @@ SAMPLE_INFRINGEMENT = {
     "screenshot_url": None,
     "flagged_at": "2026-06-25T10:00:00+00:00",
     "created_at": "2026-06-25T10:00:00+00:00",
+    # cases!inner join data required by _infringement_or_404 ownership check
+    "cases": {
+        "organization_id": None,
+        "user_id": "user-1",
+        "detection_region": "US",
+        "status": "active",
+        "updated_at": "2026-06-25T10:00:00+00:00",
+    },
 }
 
 SAMPLE_EVIDENCE = {
@@ -163,7 +171,31 @@ def test_get_single_infringement_not_found(client):
 
 
 def test_get_evidence_returns_list(client):
-    sb = _make_sb([SAMPLE_EVIDENCE], count=1)
+    # _infringement_or_404 is called first (returns infringement with cases join),
+    # then evidence_items are fetched (returns list). We need the mock to handle both.
+    inf_result = MagicMock()
+    inf_result.data = SAMPLE_INFRINGEMENT
+
+    ev_result = MagicMock()
+    ev_result.data = [SAMPLE_EVIDENCE]
+
+    call_count = {"n": 0}
+
+    def execute_side_effect():
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            return inf_result   # calls 1+2: profiles org lookup + infringement ownership check
+        return ev_result        # call 3: evidence list
+
+    sb = MagicMock()
+    q = MagicMock()
+    q.select.return_value = q
+    q.eq.return_value = q
+    q.order.return_value = q
+    q.maybe_single.return_value = q
+    q.execute.side_effect = execute_side_effect
+    sb.table.return_value = q
+
     with (
         patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
         patch("tracemark_api.dependencies.get_supabase") as dep_sb,

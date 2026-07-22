@@ -194,32 +194,51 @@ def test_generate_takedown_social_and_ads():
 # Integration Tests for PUT /api/v1/monitoring/takedowns/{id}
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _make_takedown_sb(takedown_data: dict):
+    """Build a mock Supabase that satisfies both _assert_takedown_in_org (select with
+    cases!inner join) and the subsequent update call."""
+    # Ownership-check result: takedown row with embedded cases join.
+    ownership_data = dict(takedown_data, cases={"organization_id": None, "user_id": "fake-id"})
+    ownership_result = MagicMock()
+    ownership_result.data = ownership_data
+
+    # Update result (returned after successful write).
+    update_result = MagicMock()
+    update_result.data = [takedown_data]
+
+    mock_table = MagicMock()
+    # select().eq().maybe_single().execute() → ownership check (and profiles lookup)
+    mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = ownership_result
+    # select().eq().execute() (no maybe_single) → used in the no-fields path to fetch current row
+    mock_table.select.return_value.eq.return_value.execute.return_value = update_result
+    # update().eq().execute() → write result
+    mock_table.update.return_value.eq.return_value.execute.return_value = update_result
+
+    mock_sb = MagicMock()
+    mock_sb.table.return_value = mock_table
+    return mock_sb, mock_table
+
+
 def test_update_takedown_success():
-    mock_result = MagicMock()
-    mock_result.data = [{
+    takedown_data = {
         "id": "takedown-123",
         "notice_text": "Updated notice text",
         "status": "sent",
-        "submitted_at": "2026-06-24T18:00:00Z"
-    }]
-    
-    mock_table = MagicMock()
-    mock_table.update.return_value.eq.return_value.execute.return_value = mock_result
-    
-    mock_sb = MagicMock()
-    mock_sb.table.return_value = mock_table
-    
+        "submitted_at": "2026-06-24T18:00:00Z",
+    }
+    mock_sb, mock_table = _make_takedown_sb(takedown_data)
+
     with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
         response = client.put(
             "/api/v1/monitoring/takedowns/takedown-123",
             json={"notice_text": "Updated notice text", "status": "sent"}
         )
-        
+
     assert response.status_code == 200
     assert response.json()["id"] == "takedown-123"
     assert response.json()["status"] == "sent"
     assert response.json()["notice_text"] == "Updated notice text"
-    
+
     # Verify update arguments
     mock_table.update.assert_called_once()
     args, kwargs = mock_table.update.call_args
@@ -230,34 +249,26 @@ def test_update_takedown_success():
 
 
 def test_update_takedown_no_fields():
-    # Sending empty body should fetch the report
-    mock_result = MagicMock()
-    mock_result.data = [{
+    takedown_data = {
         "id": "takedown-123",
         "notice_text": "Existing notice text",
         "status": "pending",
-        "submitted_at": None
-    }]
-    
-    mock_table = MagicMock()
-    mock_table.select.return_value.eq.return_value.execute.return_value = mock_result
-    
-    mock_sb = MagicMock()
-    mock_sb.table.return_value = mock_table
-    
+        "submitted_at": None,
+    }
+    mock_sb, mock_table = _make_takedown_sb(takedown_data)
+
     with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
         response = client.put(
             "/api/v1/monitoring/takedowns/takedown-123",
             json={}
         )
-        
+
     assert response.status_code == 200
     assert response.json()["id"] == "takedown-123"
     assert response.json()["status"] == "pending"
     assert response.json()["notice_text"] == "Existing notice text"
-    
-    # Verify select was called, update was not called
-    mock_table.select.assert_called_once_with("*")
+
+    # Verify update was not called (only a select fetch happened)
     mock_table.update.assert_not_called()
 
 
