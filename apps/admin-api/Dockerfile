@@ -1,21 +1,23 @@
 FROM python:3.11-slim
 
-# Copy uv from the official Astral image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Pin uv to a specific version for reproducible builds (avoids supply-chain risk from :latest).
+# TODO: also pin python:3.11-slim with a SHA256 digest for full supply-chain hardening.
+COPY --from=ghcr.io/astral-sh/uv:0.10.10 /uv /uvx /bin/
 
 WORKDIR /app
 
-COPY pyproject.toml .
+# Copy lockfile first so Docker layer cache invalidates only when deps change.
+COPY pyproject.toml uv.lock .
 
-# Dummy package structure so setuptools resolves during dependency install.
+# Export locked deps (excluding the project itself) and install pinned versions.
 RUN mkdir -p src/tracemark_admin_api && touch src/tracemark_admin_api/__init__.py
+RUN uv export --frozen --no-hashes --no-emit-project -o /tmp/requirements.txt && \
+    uv pip install --system --no-cache --compile-bytecode -r /tmp/requirements.txt
 
-RUN uv pip install --system --no-cache --compile-bytecode .
-
-# Copy the actual source and remap.
+# Copy the actual source and install the project itself (deps already pinned above).
 COPY src/ ./src/
 COPY scripts/ ./scripts/
-RUN uv pip install --system --no-cache --compile-bytecode .
+RUN uv pip install --system --no-cache --compile-bytecode --no-deps .
 
 # Non-root for a smaller blast radius (no Playwright/browsers needed here).
 RUN adduser --disabled-password --gecos "" appuser

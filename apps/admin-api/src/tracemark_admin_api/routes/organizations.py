@@ -83,13 +83,13 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
     sb = customer_sb()
     staff_ids = _staff_ids()
 
-    orgs = sb.table("organizations").select("id, name, industry").execute().data or []
-    members = sb.table("organization_members").select("organization_id, user_id").execute().data or []
-    profiles = sb.table("profiles").select("id, organization_id, plan").execute().data or []
-    org_settings = sb.table("org_settings").select("organization_id, persona").execute().data or []
-    brands = sb.table("brands").select("organization_id").execute().data or []
-    clients = sb.table("clients").select("organization_id, mrr").execute().data or []
-    subs = sb.table("subscriptions").select("organization_id, plan, status").execute().data or []
+    orgs = sb.table("organizations").select("id, name, industry").limit(1000).execute().data or []
+    members = sb.table("organization_members").select("organization_id, user_id").limit(5000).execute().data or []
+    profiles = sb.table("profiles").select("id, organization_id, plan").limit(1000).execute().data or []
+    org_settings = sb.table("org_settings").select("organization_id, persona").limit(1000).execute().data or []
+    brands = sb.table("brands").select("organization_id").limit(5000).execute().data or []
+    clients = sb.table("clients").select("organization_id, mrr").limit(5000).execute().data or []
+    subs = sb.table("subscriptions").select("organization_id, plan, status").limit(1000).execute().data or []
 
     members_by_org: dict[str, int] = {}
     for m in members:

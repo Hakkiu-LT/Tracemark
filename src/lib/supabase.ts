@@ -28,8 +28,35 @@ const isValidUrl = (url: string | undefined): boolean => {
   return url.startsWith("http://") || url.startsWith("https://");
 };
 
+// Secure cookie storage: moves auth tokens from localStorage to cookies with
+// Secure + SameSite=Strict flags. Cookies are still JS-readable (not httpOnly)
+// — full httpOnly would require a server-side session proxy.
+const secureCookieStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof document === "undefined") return null;
+    const encoded = encodeURIComponent(key).replace(/[+.*]/g, "\\$&");
+    const match = document.cookie.match(new RegExp(`(?:^|; )${encoded}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : null;
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof document === "undefined") return;
+    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; path=/; max-age=604800; Secure; SameSite=Strict`;
+  },
+  removeItem: (key: string): void => {
+    if (typeof document === "undefined") return;
+    document.cookie = `${encodeURIComponent(key)}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict`;
+  },
+};
+
 export const supabase =
-  isValidUrl(supabaseUrl) && supabaseKey ? createClient(supabaseUrl!, supabaseKey) : null;
+  isValidUrl(supabaseUrl) && supabaseKey
+    ? createClient(supabaseUrl!, supabaseKey, {
+        auth: {
+          storage: secureCookieStorage,
+          storageKey: "hakkiu-auth",
+        },
+      })
+    : null;
 
 /** A row from the `profiles` table — extra user metadata beyond auth.users. */
 export interface Profile {

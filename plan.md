@@ -1,7 +1,7 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-21 (session 5)
+> Last updated: 2026-07-22 (session 6 — Priority 1 Phase 2 + Phase 3 complete)
 
 ---
 
@@ -61,6 +61,25 @@ rows). Admin FE: `ScraperHealthDetail.tsx` with three filter Button-groups, even
 (time, brand, country, status badge, latency, error type + detail), isError/isLoading states.
 Platform names in `ScraperHealth.tsx` are now clickable links. Route
 `/monitoring/scrapers/$platform` wired in `router.tsx`.
+
+---
+
+## Just completed: Priority 1 Phase 2 + Phase 3 — all security patches
+
+All 10 Phase 3 items + 2 Phase 2 remaining items done:
+- **[H12]** IP allowlist middleware for `/internal/*` (loopback + Docker bridge, `INTERNAL_API_ALLOWED_IPS` env)
+- **[H14]** admin-api `uv.lock` committed + Dockerfile uses `uv export --frozen`
+- **[M13]** Cookie storage adapter for Supabase auth in both apps (Secure + SameSite=Strict)
+- **[M14/M15]** `ensureAbsoluteUrl` hardened + applied to all raw URL renders in customer + admin
+- **[L3/L4/L5]** SSRF guard added to `unified_scraper.py` (detect_requires_javascript + _scrape_static)
+- **[H13]** wrangler `^4.4.0` + `overrides` for sharp/dompurify in admin package.json
+- **[M22/L16]** uv pinned to `0.10.10` in both Python Dockerfiles
+- **[L17]** `.github/dependabot.yml` + `.github/workflows/ci.yml` (pip-audit + npm audit)
+- **[L12]** Comp plan fix: `status='active'` now set in subscription update
+- **[L13]** Stripe `sig_header` null-check before `construct_event`
+- **[M9/M10]** Admin endpoints paginated: `.limit(1000)` on all tables, `list_users(page=1, per_page=1000)`
+
+Priority 1 is now 100% complete. Next focus: Automation Rules Builder.
 
 ---
 

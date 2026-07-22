@@ -2,9 +2,11 @@ from dotenv import load_dotenv, find_dotenv
 # Single source of truth: the repo-root .env (walks up from this module).
 load_dotenv(find_dotenv())
 
+import ipaddress
 import os
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -67,6 +69,41 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+
+
+def _internal_ip_allowed(host: str) -> bool:
+    """Return True if the client IP is permitted to call /internal/* routes."""
+    # Loopback + Docker bridge range allowed by default; extend via env var.
+    defaults = [
+        ipaddress.ip_network("127.0.0.0/8"),
+        ipaddress.ip_network("::1/128"),
+        ipaddress.ip_network("172.16.0.0/12"),  # Docker private range
+    ]
+    extra: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for entry in os.environ.get("INTERNAL_API_ALLOWED_IPS", "").split(","):
+        entry = entry.strip()
+        if entry:
+            try:
+                extra.append(ipaddress.ip_network(entry, strict=False))
+            except ValueError:
+                pass
+    try:
+        addr = ipaddress.ip_address(host)
+        return any(addr in net for net in defaults + extra)
+    except ValueError:
+        return False
+
+
+@app.middleware("http")
+async def restrict_internal_routes(request: Request, call_next):
+    if request.url.path.startswith("/api/v1/internal/"):
+        client_ip = request.client.host if request.client else ""
+        if not _internal_ip_allowed(client_ip):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Forbidden: internal routes are not publicly accessible"},
+            )
+    return await call_next(request)
 
 
 @app.middleware("http")

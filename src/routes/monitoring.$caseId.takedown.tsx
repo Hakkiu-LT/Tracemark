@@ -174,7 +174,7 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
           paste it into the form.
         </p>
         <Button asChild disabled={!report.submission_url} className="w-full">
-          <a href={report.submission_url ?? "#"} target="_blank" rel="noopener noreferrer">
+          <a href={ensureAbsoluteUrl(report.submission_url) || "#"} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-4 w-4 mr-2" />
             Go to reporting page
           </a>

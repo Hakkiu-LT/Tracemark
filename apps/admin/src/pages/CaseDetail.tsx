@@ -5,6 +5,7 @@ import { ArrowLeft, ExternalLink, Loader2, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { adminFetch } from "@/lib/api";
+import { ensureAbsoluteUrl } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { useConfirm } from "@/components/ConfirmDialog";
 import {
@@ -183,15 +184,15 @@ export function CaseDetail() {
           {data.infringements.map((inf) => (
             <div key={inf.id} className="rounded-md border border-border p-4">
               <div className="flex gap-4">
-                {inf.screenshot_url && (
-                  <a href={inf.screenshot_url} target="_blank" rel="noopener" className="shrink-0">
-                    <img src={inf.screenshot_url} alt="" className="h-24 w-32 rounded border border-border object-cover" />
+                {inf.screenshot_url && ensureAbsoluteUrl(inf.screenshot_url) && (
+                  <a href={ensureAbsoluteUrl(inf.screenshot_url)} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                    <img src={ensureAbsoluteUrl(inf.screenshot_url)} alt="" className="h-24 w-32 rounded border border-border object-cover" />
                   </a>
                 )}
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{inf.platform}</Badge>
-                    <a href={inf.source_url} target="_blank" rel="noopener" className="truncate text-xs text-accent hover:underline">
+                    <a href={ensureAbsoluteUrl(inf.source_url) || "#"} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent hover:underline">
                       {inf.source_url}
                     </a>
                   </div>
@@ -256,7 +257,7 @@ export function CaseDetail() {
               <div key={doc.id} className="flex items-center gap-3 text-sm">
                 <Badge variant="outline">{doc.document_type}</Badge>
                 <Badge variant={doc.status === "sent" ? "success" : "secondary"}>{doc.status}</Badge>
-                <a href={doc.file_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-accent hover:underline">
+                <a href={ensureAbsoluteUrl(doc.file_url) || "#"} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
                   <ExternalLink className="h-3 w-3" /> Open
                 </a>
                 <Can permission="customers.edit">

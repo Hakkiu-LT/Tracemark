@@ -544,6 +544,8 @@ async def stripe_webhook(request: Request):
     via the signature header, and we need the raw request body to verify it."""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing stripe-signature header")
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
     if not webhook_secret:
         raise HTTPException(status_code=503, detail="Webhook secret not configured")
