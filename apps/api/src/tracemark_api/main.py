@@ -20,6 +20,7 @@ from tracemark_api.routes.clients import router as clients_router
 from tracemark_api.routes.billing import router as billing_router
 from tracemark_api.routes.brands import router as brands_router
 from tracemark_api.routes.internal import router as internal_router
+from tracemark_api.routes.usage import router as usage_router
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
@@ -50,6 +51,7 @@ app.include_router(clients_router, prefix="/api/v1")
 app.include_router(billing_router, prefix="/api/v1")
 app.include_router(brands_router, prefix="/api/v1")
 app.include_router(internal_router, prefix="/api/v1")
+app.include_router(usage_router, prefix="/api/v1")
 
 _allowed_origins = [
     "http://localhost:8080",
