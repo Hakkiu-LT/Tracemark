@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Literal
 
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/infringements", tags=["infringements"])
@@ -53,16 +53,6 @@ class EvidenceItem(BaseModel):
     created_at: str
 
 
-def _get_user_organization_id(user_id: str) -> str | None:
-    """Fetch the organization_id for a given user from the profiles table."""
-    sb = get_supabase()
-    try:
-        res = sb.table("profiles").select("organization_id").eq("id", user_id).maybe_single().execute()
-        return res.data.get("organization_id") if res.data else None
-    except Exception:
-        return None
-
-
 def _get_user_persona(user_id: str, organization_id: str | None) -> str:
     if not organization_id:
         return "brand_owner"
@@ -106,12 +96,11 @@ def list_infringements(
     client_id: str | None = Query(None, description="Filter by client_id"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ) -> InfringementsResponse:
     """Return a paginated list of infringements scoped to the user's organization."""
     sb = get_supabase()
-    organization_id = _get_user_organization_id(current_user.id)
-    persona = _get_user_persona(current_user.id, organization_id)
+    persona = _get_user_persona(profile.id, profile.organization_id)
 
     query = (
         sb.table("infringements")
@@ -119,12 +108,8 @@ def list_infringements(
         .order("flagged_at", desc=True)
         .limit(limit)
         .offset(offset)
+        .eq("cases.organization_id", profile.organization_id)
     )
-
-    if organization_id:
-        query = query.eq("cases.organization_id", organization_id)
-    else:
-        query = query.eq("cases.user_id", current_user.id)
 
     # Apply persona mode isolation
     if persona == "law_firm":
@@ -163,12 +148,11 @@ def list_infringements(
 @router.get("/{infringement_id}", response_model=InfringementItem)
 def get_infringement(
     infringement_id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ) -> InfringementItem:
     """Return a single infringement by id."""
     sb = get_supabase()
-    organization_id = _get_user_organization_id(current_user.id)
-    data = _infringement_or_404(infringement_id, organization_id, current_user.id, sb)
+    data = _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
 
     cases_data = data.get("cases") or {}
     data["detection_region"] = cases_data.get("detection_region")
@@ -180,13 +164,12 @@ def get_infringement(
 @router.get("/{infringement_id}/evidence", response_model=list[EvidenceItem])
 def get_evidence(
     infringement_id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ) -> list[EvidenceItem]:
     """Return all evidence snapshots for an infringement, newest first."""
     sb = get_supabase()
-    organization_id = _get_user_organization_id(current_user.id)
     # Verify ownership before returning evidence
-    _infringement_or_404(infringement_id, organization_id, current_user.id, sb)
+    _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
 
     result = (
         sb.table("evidence_items")
@@ -205,13 +188,12 @@ class UpdateStatusRequest(BaseModel):
 def update_infringement_status(
     infringement_id: str,
     payload: UpdateStatusRequest,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ) -> InfringementItem:
     """Update the status of an infringement."""
     sb = get_supabase()
-    organization_id = _get_user_organization_id(current_user.id)
     # Verify ownership via parent case (prevents cross-tenant status writes).
-    _infringement_or_404(infringement_id, organization_id, current_user.id, sb)
+    _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
         
     updates = {"status": payload.status}
     if payload.decline_reason is not None:

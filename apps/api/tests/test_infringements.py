@@ -7,9 +7,19 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tracemark_api.main import app
-from tracemark_api.dependencies import AuthUser
+from tracemark_api.dependencies import get_current_profile, CurrentProfile
+from tracemark_api.services.entitlements import compute_entitlements
 
-FAKE_USER = AuthUser(id="user-1", email="test@example.com")
+FAKE_ORG_ID = "fake-org"
+FAKE_USER_ID = "fake-id"
+
+FAKE_PROFILE = CurrentProfile(
+    id=FAKE_USER_ID,
+    email="test@example.com",
+    organization_id=FAKE_ORG_ID,
+    plan="enterprise",
+    entitlements=compute_entitlements("enterprise", []),
+)
 
 SAMPLE_INFRINGEMENT = {
     "id": "inf-001",
@@ -23,10 +33,9 @@ SAMPLE_INFRINGEMENT = {
     "screenshot_url": None,
     "flagged_at": "2026-06-25T10:00:00+00:00",
     "created_at": "2026-06-25T10:00:00+00:00",
-    # cases!inner join data required by _infringement_or_404 ownership check
     "cases": {
-        "organization_id": None,
-        "user_id": "user-1",
+        "organization_id": FAKE_ORG_ID,
+        "user_id": FAKE_USER_ID,
         "detection_region": "US",
         "status": "active",
         "updated_at": "2026-06-25T10:00:00+00:00",
@@ -72,8 +81,6 @@ def _make_sb(data, count=None):
     result_inf.data = data
     result_inf.count = count
     q_infringements.execute.return_value = result_inf
-    
-    sb.table.return_value = q_infringements
 
     def get_query(name):
         if name == "org_settings":
@@ -91,26 +98,23 @@ def _make_sb(data, count=None):
     return sb
 
 
+@pytest.fixture(autouse=True)
+def override_profile():
+    app.dependency_overrides[get_current_profile] = lambda: FAKE_PROFILE
+    yield
+    app.dependency_overrides.clear()
+
+
 @pytest.fixture()
 def client():
     with TestClient(app) as c:
         yield c
 
 
-def auth_headers():
-    return {"Authorization": "Bearer fake-token"}
-
-
 def test_list_infringements_returns_200(client):
     sb = _make_sb([SAMPLE_INFRINGEMENT], count=1)
-    with (
-        patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
-        patch("tracemark_api.dependencies.get_supabase") as dep_sb,
-    ):
-        dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
-            id=FAKE_USER.id, email=FAKE_USER.email
-        )
-        resp = client.get("/api/v1/infringements", headers=auth_headers())
+    with patch("tracemark_api.routes.infringements.get_supabase", return_value=sb):
+        resp = client.get("/api/v1/infringements")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -119,38 +123,28 @@ def test_list_infringements_returns_200(client):
 
 
 def test_list_infringements_no_token_returns_401(client):
+    app.dependency_overrides.clear()
     resp = client.get("/api/v1/infringements")
-    assert resp.status_code == 422  # Header missing → FastAPI 422
+    assert resp.status_code == 422
 
 
 def test_list_infringements_risk_level_filter(client):
     sb = _make_sb([], count=0)
-    with (
-        patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
-        patch("tracemark_api.dependencies.get_supabase") as dep_sb,
-    ):
-        dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
-            id=FAKE_USER.id, email=FAKE_USER.email
-        )
-        resp = client.get(
-            "/api/v1/infringements?risk_level=HIGH", headers=auth_headers()
-        )
+    with patch("tracemark_api.routes.infringements.get_supabase", return_value=sb):
+        resp = client.get("/api/v1/infringements?risk_level=HIGH")
 
     assert resp.status_code == 200
-    q = sb.table.return_value
-    q.eq.assert_called_with("risk_level", "HIGH")
+    # Verify the risk_level filter was applied somewhere in the eq calls
+    from unittest.mock import call
+    q_inf = sb.table("infringements")
+    eq_calls = [str(c) for c in q_inf.eq.call_args_list]
+    assert any("risk_level" in c and "HIGH" in c for c in eq_calls)
 
 
 def test_get_single_infringement_returns_200(client):
     sb = _make_sb(SAMPLE_INFRINGEMENT)
-    with (
-        patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
-        patch("tracemark_api.dependencies.get_supabase") as dep_sb,
-    ):
-        dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
-            id=FAKE_USER.id, email=FAKE_USER.email
-        )
-        resp = client.get("/api/v1/infringements/inf-001", headers=auth_headers())
+    with patch("tracemark_api.routes.infringements.get_supabase", return_value=sb):
+        resp = client.get("/api/v1/infringements/inf-001")
 
     assert resp.status_code == 200
     assert resp.json()["id"] == "inf-001"
@@ -158,21 +152,13 @@ def test_get_single_infringement_returns_200(client):
 
 def test_get_single_infringement_not_found(client):
     sb = _make_sb(None)
-    with (
-        patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
-        patch("tracemark_api.dependencies.get_supabase") as dep_sb,
-    ):
-        dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
-            id=FAKE_USER.id, email=FAKE_USER.email
-        )
-        resp = client.get("/api/v1/infringements/no-such-id", headers=auth_headers())
+    with patch("tracemark_api.routes.infringements.get_supabase", return_value=sb):
+        resp = client.get("/api/v1/infringements/no-such-id")
 
     assert resp.status_code == 404
 
 
 def test_get_evidence_returns_list(client):
-    # _infringement_or_404 is called first (returns infringement with cases join),
-    # then evidence_items are fetched (returns list). We need the mock to handle both.
     inf_result = MagicMock()
     inf_result.data = SAMPLE_INFRINGEMENT
 
@@ -183,9 +169,9 @@ def test_get_evidence_returns_list(client):
 
     def execute_side_effect():
         call_count["n"] += 1
-        if call_count["n"] <= 2:
-            return inf_result   # calls 1+2: profiles org lookup + infringement ownership check
-        return ev_result        # call 3: evidence list
+        if call_count["n"] <= 1:
+            return inf_result   # call 1: infringement ownership check
+        return ev_result        # call 2: evidence list
 
     sb = MagicMock()
     q = MagicMock()
@@ -196,16 +182,8 @@ def test_get_evidence_returns_list(client):
     q.execute.side_effect = execute_side_effect
     sb.table.return_value = q
 
-    with (
-        patch("tracemark_api.routes.infringements.get_supabase", return_value=sb),
-        patch("tracemark_api.dependencies.get_supabase") as dep_sb,
-    ):
-        dep_sb.return_value.auth.get_user.return_value.user = MagicMock(
-            id=FAKE_USER.id, email=FAKE_USER.email
-        )
-        resp = client.get(
-            "/api/v1/infringements/inf-001/evidence", headers=auth_headers()
-        )
+    with patch("tracemark_api.routes.infringements.get_supabase", return_value=sb):
+        resp = client.get("/api/v1/infringements/inf-001/evidence")
 
     assert resp.status_code == 200
     assert resp.json()[0]["id"] == "ev-001"
