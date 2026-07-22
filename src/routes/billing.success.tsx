@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, ArrowRight, Loader2, Eye, EyeOff, MailCheck } from "lucide-react";
+import { CheckCircle2, ArrowRight, Loader2, Eye, EyeOff, MailCheck, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { getSubscription, activateSubscription } from "@/lib/api";
@@ -57,6 +57,8 @@ function CreateAccountAfterPayment({
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resentAt, setResentAt] = useState<number | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,6 +99,19 @@ function CreateAccountAfterPayment({
     setLoading(false);
   }
 
+  async function handleResend() {
+    if (!supabase) return;
+    setResending(true);
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    setResending(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setResentAt(Date.now());
+      toast.success("Confirmation email resent.");
+    }
+  }
+
   if (sent) {
     return (
       <div className="flex min-h-[75vh] items-center justify-center p-4">
@@ -113,6 +128,16 @@ function CreateAccountAfterPayment({
           <p className="mt-2 text-sm text-muted-foreground">
             Your payment is confirmed — no further action needed until you confirm your email.
           </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-5 gap-2 text-muted-foreground"
+            onClick={handleResend}
+            disabled={resending || (resentAt !== null && Date.now() - resentAt < 60_000)}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${resending ? "animate-spin" : ""}`} />
+            {resentAt ? "Resend again" : "Didn't receive it? Resend"}
+          </Button>
         </div>
       </div>
     );

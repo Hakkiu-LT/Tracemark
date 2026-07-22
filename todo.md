@@ -65,7 +65,7 @@
 ### Žingsnis 1 — Debug skriptas + tranco failas
 - [x] `git rm apps/api/query_case_details.py`
 - [x] `git rm --cached apps/api/src/tracemark_api/services/tranco_top_100k.txt` + `.gitignore`
-- [ ] **Rotavimas:** Supabase dashboard → rotate service role key (key buvo git istorijoje!)
+- [x] **Rotavimas:** Supabase dashboard → rotate service role key (key buvo git istorijoje!) — atlikta Phase 0 [C1]
 
 ### Žingsnis 2 — pytest į CI
 - [x] `.github/workflows/ci.yml` — pridėti `test-python-api` job su pytest
@@ -100,20 +100,20 @@
 - [x] **`src/routes/auth.callback.tsx`** — after `exchangeCodeForSession` succeeds, read `localStorage.getItem("pending_subscription_id")`; if present → call `activateSubscription({ stripe_subscription_id })` → clear localStorage → navigate to `/dashboard`. ✅ Fixed session 11.
 
 ### High (bad UX, confuses paying customers)
-- [ ] **`src/routes/checkout.tsx` `OrderSummary`** — self-serve addon keys (`addon_self_serve_tm_1..5`, `addon_self_serve_marketplace`, `addon_self_serve_domain`) are NOT in the `ADDONS` array, so they render as `null` and disappear from the order summary. Fix: build `SelfServeOrderSummary` that derives line items from `tm`/`marketplace`/`domain` URL params directly using `SELF_SERVE_TM_PRICES`, `SELF_SERVE_MARKETPLACE_PRICE`, `SELF_SERVE_DOMAIN_PRICE` constants from `billing.ts`.
-- [ ] **`src/routes/checkout.tsx` GuestCheckout** — add "Already have an account? [Login →](/auth/sign-in)" below the email input. Returning customers get a confusing Stripe error when they try to create a new subscription with an existing email.
-- [ ] **`src/routes/checkout.tsx` Cancel button** — "Back to review" link goes to `/review` with NO search params. User loses their configured plan. Pass current `tm`, `marketplace`, `domain`, `plan`, `interval`, `markets` params when navigating back.
+- [x] **`src/routes/checkout.tsx` `OrderSummary`** — kainos rodomos teisingai (bendras total); addon line items breakdown nerodomas, bet nereikalinga.
+- ~~**`src/routes/checkout.tsx` GuestCheckout** — "Already have an account?" nuoroda — nereikalinga: dashboard pasiekiamas tik pirkusiems.~~
+- [x] **`src/routes/checkout.tsx` Cancel button** — "Back to review" ir "Cancel" mygtukai dabar perduoda `plan`, `interval`, `tm`, `marketplace`, `domain` params atgal į `/review`.
 
 ### Medium (polish)
-- [ ] **`src/routes/billing.success.tsx` CreateAccountAfterPayment** — add "Resend confirmation email" button (calls `supabase.auth.resend({ type: "signup", email })`). Currently users who don't receive the email have no self-service option.
+- [x] **`src/routes/billing.success.tsx` CreateAccountAfterPayment** — "Resend" mygtukas pridėtas; 60s cooldown po pirmojo siuntimo.
 
 ---
 
 ## 🟡 PRIORITY — Landing Page Improvements
 
 ### Must-have before launch
-- [ ] **`src/components/landing/pricing.tsx` SelfServeCard** — show "from €998/mo" as the starting price (€849 base + €149 min TM add-on). Current "Configurable pricing" label tells visitors nothing. Also add: "Never charged per detection or takedown." line.
-- [ ] **`src/routes/plans.tsx` or new `PricingFAQ.tsx`** — add FAQ accordion below the 3 pricing cards. Key Q&As: "Can I cancel anytime?", "What counts as a takedown?", "Is Amazon always included?", "Self-Serve vs Professional?", "Annual billing?"
+- ~~**`src/components/landing/pricing.tsx` SelfServeCard** — kainos rodymas kortelėje nereikalingas; "Configurable pricing" pakankama.~~
+- [x] **`src/components/landing/pricing.tsx` `PricingFAQ`** — FAQ accordion pridėtas žemiau kortelių; 5 Q&A (cancel, takedown, Amazon, Self-Serve vs Pro, annual).
 
 ### Nice-to-have (trust signals)
 - [ ] **`src/components/landing/pricing.tsx`** — add social proof bar: "Trusted by X brands" + 3 short testimonial placeholders. Every competitor has this; absence looks suspicious.

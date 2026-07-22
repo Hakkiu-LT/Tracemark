@@ -9,6 +9,12 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { RequestPricingModal } from "./request-pricing-modal";
 
@@ -186,6 +192,53 @@ const ASSURANCES = [
   { icon: Sparkles, label: "Cancel anytime" },
 ];
 
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+
+const FAQ_ITEMS = [
+  {
+    q: "Can I cancel anytime?",
+    a: "Yes. All plans are monthly with no lock-in. Cancel from your billing settings and you won't be charged again.",
+  },
+  {
+    q: "What counts as a takedown?",
+    a: "One takedown is one enforcement notice sent to a platform or registrar on your behalf — DMCA, platform abuse report, or ICANN complaint. You're never charged per takedown; they're unlimited on all plans.",
+  },
+  {
+    q: "Is Amazon always included?",
+    a: "Yes. Amazon is included in every Self-Serve plan at no extra cost. Additional marketplaces (eBay, AliExpress, Etsy, TikTok Shop, and 7 others) are available as add-ons.",
+  },
+  {
+    q: "What's the difference between Self-Serve and Professional?",
+    a: "Self-Serve covers up to 5 trademarks with daily monitoring, automated takedown documents, and email support. Professional adds unlimited brands, real-time 15-minute monitoring, a dedicated customer success manager, managed takedown service, and full API access.",
+  },
+  {
+    q: "Do you offer annual billing?",
+    a: "Annual billing is coming soon. Monthly billing is available today with no minimum commitment.",
+  },
+];
+
+function PricingFAQ() {
+  return (
+    <div className="mx-auto mt-16 max-w-2xl">
+      <h3 className="text-center text-lg font-semibold tracking-tight">
+        Frequently asked questions
+      </h3>
+      <Accordion type="single" collapsible className="mt-6 divide-y divide-border rounded-xl border border-border px-6">
+        {FAQ_ITEMS.map((item, i) => (
+          <AccordionItem key={i} value={`faq-${i}`} className="border-none">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-4">
+              {item.q}
+            </AccordionTrigger>
+            <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+              {item.a}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </div>
+  );
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function Pricing() {
@@ -259,6 +312,8 @@ export function Pricing() {
             </div>
           ))}
         </div>
+
+        <PricingFAQ />
       </div>
 
       <RequestPricingModal
