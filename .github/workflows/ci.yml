@@ -67,6 +67,29 @@ jobs:
       - name: npm audit
         run: npm audit --audit-level=high
 
+  test-python-api:
+    name: Pytest (main API)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.10.10"
+      - name: Install dependencies
+        working-directory: apps/api
+        run: uv sync
+      - name: Run tests
+        working-directory: apps/api
+        env:
+          SUPABASE_URL: http://localhost
+          SUPABASE_SECRET_KEY: dummy
+          SUPABASE_SERVICE_ROLE_KEY: dummy
+          STRIPE_SECRET_KEY: dummy
+          STRIPE_WEBHOOK_SECRET: dummy
+          GEMINI_API_KEY: dummy
+          INTERNAL_API_SECRET: dummy-secret-for-ci
+        run: uv run pytest -q -m "not integration" --tb=short
+
   typecheck-admin:
     name: TypeScript check (admin frontend)
     runs-on: ubuntu-latest
