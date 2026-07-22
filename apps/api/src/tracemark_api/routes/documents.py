@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import CurrentProfile, get_current_profile
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("/{id}/send-email")
 def send_document_email_endpoint(
     id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Fetch the document metadata, trigger dispatch_notifications for the user,
@@ -25,6 +25,32 @@ def send_document_email_endpoint(
 
     doc = res.data
     infringement_id = doc.get("infringement_id")
+
+    # Authorization Check (IDOR prevention)
+    if not infringement_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    case_res = (
+        sb.table("infringements")
+        .select("cases!inner(organization_id, user_id)")
+        .eq("id", infringement_id)
+        .maybe_single()
+        .execute()
+    )
+    if not case_res.data or not case_res.data.get("cases"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    case_info = case_res.data["cases"]
+    c_org_id = case_info.get("organization_id")
+    c_user_id = case_info.get("user_id")
+
+    # Verify ownership
+    if c_org_id:
+        if c_org_id != profile.organization_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+    else:
+        if c_user_id != profile.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
         from tracemark_api.services.delivery_log import log_delivery
