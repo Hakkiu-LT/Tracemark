@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import os
 
-# Canonical plan keys that support self-serve checkout (Enterprise is sales-led).
-SELF_SERVE_PLANS = ("starter", "growth", "pro", "agency")
+# Canonical plan keys that support self-serve checkout.
+SELF_SERVE_PLANS = ("self_serve", "starter", "growth", "pro", "agency")
 
-# Human-facing monthly prices in USD — used for validation / display only.
-# The real amount charged always comes from the Stripe Price object.
+# Human-facing monthly prices (indicative only — actual charge comes from Stripe).
 PLAN_MONTHLY_PRICE = {
+    "self_serve": 849,   # EUR — base only; TM + marketplace + domain add-ons on top
     "starter": 99,
     "growth": 249,
     "pro": 599,
@@ -22,33 +22,69 @@ PLAN_MONTHLY_PRICE = {
 
 # (plan, interval) -> env var holding the Stripe Price ID.
 _PLAN_PRICE_ENV = {
+    ("self_serve", "month"): "STRIPE_PRICE_SELF_SERVE_BASE",
+    # Legacy plans (USD, monthly + annual).
     ("starter", "month"): "STRIPE_PRICE_STARTER_MONTH",
-    ("starter", "year"): "STRIPE_PRICE_STARTER_YEAR",
-    ("growth", "month"): "STRIPE_PRICE_GROWTH_MONTH",
-    ("growth", "year"): "STRIPE_PRICE_GROWTH_YEAR",
-    ("pro", "month"): "STRIPE_PRICE_PRO_MONTH",
-    ("pro", "year"): "STRIPE_PRICE_PRO_YEAR",
-    ("agency", "month"): "STRIPE_PRICE_AGENCY_MONTH",
-    ("agency", "year"): "STRIPE_PRICE_AGENCY_YEAR",
+    ("starter", "year"):  "STRIPE_PRICE_STARTER_YEAR",
+    ("growth",  "month"): "STRIPE_PRICE_GROWTH_MONTH",
+    ("growth",  "year"):  "STRIPE_PRICE_GROWTH_YEAR",
+    ("pro",     "month"): "STRIPE_PRICE_PRO_MONTH",
+    ("pro",     "year"):  "STRIPE_PRICE_PRO_YEAR",
+    ("agency",  "month"): "STRIPE_PRICE_AGENCY_MONTH",
+    ("agency",  "year"):  "STRIPE_PRICE_AGENCY_YEAR",
 }
 
 # Add-on key -> env var holding the Stripe Price ID.
-# region/domains/reports/brand are recurring quantity add-ons handled in v1.
-# managed_takedown (one-off) and api_overage (metered) are Phase F.
 _ADDON_PRICE_ENV = {
-    "addon_region": "STRIPE_PRICE_ADDON_REGION",
-    "addon_domains": "STRIPE_PRICE_ADDON_DOMAINS",
-    "addon_reports": "STRIPE_PRICE_ADDON_REPORTS",
-    "addon_brand": "STRIPE_PRICE_ADDON_BRAND",
+    # Self-Serve TM tiers (mutually exclusive; quantity=1 each).
+    "addon_self_serve_tm_1": "STRIPE_PRICE_SELF_SERVE_TM_1",
+    "addon_self_serve_tm_2": "STRIPE_PRICE_SELF_SERVE_TM_2",
+    "addon_self_serve_tm_3": "STRIPE_PRICE_SELF_SERVE_TM_3",
+    "addon_self_serve_tm_4": "STRIPE_PRICE_SELF_SERVE_TM_4",
+    "addon_self_serve_tm_5": "STRIPE_PRICE_SELF_SERVE_TM_5",
+    # Self-Serve per-unit marketplace (quantity = extra marketplaces beyond Amazon).
+    "addon_self_serve_marketplace": "STRIPE_PRICE_SELF_SERVE_MARKETPLACE",
+    # Self-Serve domain protection (quantity=1, flat).
+    "addon_self_serve_domain": "STRIPE_PRICE_SELF_SERVE_DOMAIN",
+    # Legacy add-ons.
+    "addon_region":           "STRIPE_PRICE_ADDON_REGION",
+    "addon_domains":          "STRIPE_PRICE_ADDON_DOMAINS",
+    "addon_reports":          "STRIPE_PRICE_ADDON_REPORTS",
+    "addon_brand":            "STRIPE_PRICE_ADDON_BRAND",
     "addon_managed_takedown": "STRIPE_PRICE_ADDON_MANAGED_TAKEDOWN",
-    "addon_api_overage": "STRIPE_PRICE_ADDON_API_OVERAGE",
+    "addon_api_overage":      "STRIPE_PRICE_ADDON_API_OVERAGE",
 }
 
-# Add-ons that flow through the standard subscription-item checkout (v1).
-SUBSCRIPTION_ADDONS = ("addon_region", "addon_domains", "addon_reports", "addon_brand")
+# All add-on keys that flow through subscription-item checkout.
+SUBSCRIPTION_ADDONS = (
+    "addon_self_serve_tm_1",
+    "addon_self_serve_tm_2",
+    "addon_self_serve_tm_3",
+    "addon_self_serve_tm_4",
+    "addon_self_serve_tm_5",
+    "addon_self_serve_marketplace",
+    "addon_self_serve_domain",
+    "addon_region",
+    "addon_domains",
+    "addon_reports",
+    "addon_brand",
+)
 
-# Add-ons whose quantity should always be pinned to 1 (flat fee, not per-unit).
-_FLAT_ADDONS = ("addon_reports",)
+# Add-ons whose quantity must always be pinned to 1 (flat fee, not per-unit).
+_FLAT_ADDONS = (
+    "addon_reports",
+    "addon_self_serve_tm_1",
+    "addon_self_serve_tm_2",
+    "addon_self_serve_tm_3",
+    "addon_self_serve_tm_4",
+    "addon_self_serve_tm_5",
+    "addon_self_serve_domain",
+)
+
+# The set of mutually-exclusive TM tier keys (only one can be active at a time).
+SELF_SERVE_TM_ADDONS: frozenset[str] = frozenset(
+    f"addon_self_serve_tm_{n}" for n in range(1, 6)
+)
 
 
 def get_plan_price_id(plan: str, interval: str) -> str:

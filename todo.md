@@ -101,14 +101,14 @@
 > Key differentiator: "Never charged per detection. Never charged per takedown."
 
 ### Backend
-- [ ] `billing_config.py` — add `self_serve` base plan; `SELF_SERVE_PLANS = ("self_serve",)`
-- [ ] `entitlements.py` — `self_serve` base (all 12 platforms, daily monitoring)
-- [ ] `seed_stripe.py` — Stripe prices: base €849/mo; TM add-ons €149/€269/€349/€469/€579; per-marketplace €40/mo (11 prices, one per platform); domain protection €649/mo. Monthly only. Sandbox first.
+- [x] `billing_config.py` — `self_serve` plan + TM/marketplace/domain add-on keys; `SELF_SERVE_PLANS = ("self_serve", ...legacy...)`
+- [x] `entitlements.py` — `self_serve` entitlement (brands=0→TM add-on sets absolute; platforms=1+marketplace qty; domain_tracking from domain add-on)
+- [x] `seed_stripe.py` — EUR prices created in Stripe sandbox: base €849, TM ×1-5, marketplace €40/unit, domain €649; legacy USD plans preserved. .env updated with new price IDs.
 - [x] Migration: `sales_leads` table — `supabase/migrations/20260722000001_sales_leads.sql`
 - [x] `routes/leads.py` — `POST /api/v1/leads` (public, no auth) + rate-limit 3/hr per IP; registered in `main.py`
 
 ### Customer Frontend
-- [ ] `src/lib/billing.ts` — restructure PLANS for self_serve checkout
+- [x] `src/lib/billing.ts` — `self_serve` plan added; `selfServeAddons()` helper; TM/marketplace/domain price constants
 - [x] New `PricingConfigurator` component in `pricing.tsx`: TM count buttons (1-5) + marketplace checkboxes (Amazon included, 11×€40) + domain toggle (€649) + live total
 - [x] `pricing.tsx` — 3-card layout: Self-Serve configurator, Professional, Enterprise
 - [x] `RequestPricingModal` — 6-field form → `POST /api/v1/leads` → thank-you state; `request-pricing-modal.tsx`
