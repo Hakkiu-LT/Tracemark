@@ -2,31 +2,33 @@ from unittest.mock import patch, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 from tracemark_api.main import app
-from tracemark_api.dependencies import get_current_user, AuthUser
+from tracemark_api.dependencies import get_current_profile, CurrentProfile
+from tracemark_api.services.entitlements import compute_entitlements
 
 client = TestClient(app)
 
-TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
+TEST_ORG_ID = "test-org-123"
 
 
 @pytest.fixture(autouse=True)
 def mock_auth():
-    app.dependency_overrides[get_current_user] = lambda: AuthUser(id=TEST_USER_ID, email="gabo.seqq@gmail.com")
+    profile = CurrentProfile(
+        id="550e8400-e29b-41d4-a716-446655440000",
+        email="gabo.seqq@gmail.com",
+        organization_id=TEST_ORG_ID,
+        plan="enterprise",
+        entitlements=compute_entitlements("enterprise", []),
+    )
+    app.dependency_overrides[get_current_profile] = lambda: profile
     yield
     app.dependency_overrides.clear()
 
 
 @pytest.fixture(autouse=True)
 def mock_monitoring_supabase():
-    """Prevent _assert_case_in_org and _monitoring_org_id from hitting the real DB.
-
-    Both helpers call get_supabase() in tracemark_api.routes.monitoring.
-    The mock satisfies two different selects through the same chain:
-      - profiles: data.get("organization_id") = None → no org, personal account
-      - cases:    data.get("user_id") = TEST_USER_ID → ownership check passes
-    """
+    """Prevent _assert_case_in_org from hitting the real DB."""
     ownership_data = MagicMock()
-    ownership_data.data = {"organization_id": None, "user_id": TEST_USER_ID}
+    ownership_data.data = {"organization_id": TEST_ORG_ID}
 
     mock_table = MagicMock()
     mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = ownership_data
