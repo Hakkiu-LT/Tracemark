@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, field_validator, EmailStr, Field
 from typing import Literal, Annotated
@@ -261,7 +262,7 @@ async def check_brand(
 
     # Enforce plan entitlements before spending any scraping budget.
     _enforce_scan_entitlements(profile, payload)
-    _reject_if_brand_locked(profile.organization_id, payload.brand_name)
+    await asyncio.to_thread(_reject_if_brand_locked, profile.organization_id, payload.brand_name)
 
     detection_depth: DetectionDepth = resolve_detection_depth(profile.entitlements)
     organization_id = profile.organization_id
@@ -308,7 +309,6 @@ async def check_brand(
                 pass
 
             if brand_id:
-                import asyncio
                 scored_items = await asyncio.to_thread(
                     run_tier1, evidence, scored_items, brand_id,
                 )

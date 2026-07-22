@@ -1,7 +1,30 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-22 (session 6 — Priority 1 Phase 2 + Phase 3 complete)
+> Last updated: 2026-07-22 (session 8 — architecture refactoring ALL 6 steps COMPLETE)
+
+---
+
+## ✅ Completed: Codebase Architecture Refactoring (visi 6 žingsniai)
+
+Visi žingsniai baigti. 229 testai praeina. TypeScript be klaidų.
+
+### Kitas žingsnis: Automation Rules Builder (PRIORITY 2)
+
+Tikslas: leisti administratoriams konfigūruoti automatines taisykles (pvz. "jei rizika HIGH → automatiškai generuoti takedown").
+
+**Backend:**
+- DB migration: `automation_rules` table
+- `services/rules_engine.py` — evaluate rules against new infringement
+- Hook into `persist_infringement()`
+- `routes/rules.py` — CRUD endpoints
+
+**Frontend + Admin Portal:**
+- `/settings/automation` route
+- Rules list + creation dialog + activity log
+- Admin portal parity (mandatory per CLAUDE.md)
+
+**Pastaba:** Supabase service-role key rotavimas vis dar pending (rankinis veiksmas reikalingas).
 
 ---
 

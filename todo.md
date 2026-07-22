@@ -1,7 +1,7 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-22 (Priority 1 Phase 2 + Phase 3 complete — all security patches done)
+> Last updated: 2026-07-22 (Architecture refactoring P1.5 steps 1–6 complete)
 
 ---
 
@@ -57,6 +57,40 @@
 - [x] All route files — Pass `request.client.host` as `ip` param to every `write_audit_log` call
 - [x] `routes/customers.py:186` — Raise customer password minimum from 6 to 8 characters
 - [x] `permissions.py` + backend — Enforce `billing.view` server-side
+
+---
+
+## 🔴 PRIORITY 1.5 — Codebase Architecture Refactoring (prieš Automation Rules)
+
+### Žingsnis 1 — Debug skriptas + tranco failas
+- [x] `git rm apps/api/query_case_details.py`
+- [x] `git rm --cached apps/api/src/tracemark_api/services/tranco_top_100k.txt` + `.gitignore`
+- [ ] **Rotavimas:** Supabase dashboard → rotate service role key (key buvo git istorijoje!)
+
+### Žingsnis 2 — pytest į CI
+- [x] `.github/workflows/ci.yml` — pridėti `test-python-api` job su pytest
+- [x] Patikrinti kurie testai reikalauja tikro Supabase → pažymėti `@pytest.mark.integration`
+
+### Žingsnis 3 — `conftest.py`
+- [x] Sukurti `apps/api/tests/conftest.py` su bendru `client`, `auth_user`, `auth_profile`
+- [x] Palaipsniui migruoti testų failus (po vieną, tikrinant po kiekvieno)
+
+### Žingsnis 4 — organization_id dublikacijos (po vieną failą)
+- [x] `routes/infringements.py` — `get_current_user` → `get_current_profile`, pašalinti `_get_user_organization_id`
+- [x] `routes/documents.py` — `get_current_user` → `get_current_profile`, pašalinti `_doc_org_id`
+- [x] `routes/monitoring.py` — `_require_paid_plan(profile)` refaktoringas (pašalina ir async problemą)
+- [x] `routes/clients.py` — migruota į `get_current_profile` (visi 5 handlers)
+
+### Žingsnis 5 — async/sync sumaišymas
+- [x] `monitoring.py` `check_brand` — `asyncio.to_thread` ant `_reject_if_brand_locked`; `import asyncio` perkeltas į modulio lygį
+- [x] `billing.py` `stripe_webhook` — turi `await request.body()`, async paliktas
+
+### Žingsnis 6 — Zustand ↔ Supabase (fazėmis)
+- [x] Faza 6.0: `serverId?: string` į `Mark` tipą (`store.ts`)
+- [x] Faza 6.1: saugoti `serverId` iš `getBrands()` atsakymo (`monitoring.tsx:151-163`)
+- [x] Faza 6.2: `handleSave` — naudoja `editingMark.serverId` kaip pirminį šaltinį (pašalina dublikatus)
+- [x] Faza 6.3: `updateMark` → saugo `serverId` po sėkmingo save
+- [x] Bump localStorage: `tracemark-store-v7` → `v8`
 
 ---
 
