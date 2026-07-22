@@ -19,6 +19,7 @@ export interface Client {
 
 export interface Mark {
   id: string;
+  serverId?: string;
   clientId: string;
   brandName: string;
   registrationNumber: string;
@@ -176,7 +177,7 @@ export const useStore = create<State>()(
         })),
     }),
     {
-      name: "tracemark-store-v7",
+      name: "tracemark-store-v8",
       partialize: (state) => ({
         persona: state.persona,
         activeClientId: state.activeClientId,

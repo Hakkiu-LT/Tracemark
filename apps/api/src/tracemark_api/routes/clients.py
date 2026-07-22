@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/clients", tags=["clients"])
@@ -38,24 +38,16 @@ class ClientBillingResponse(BaseModel):
     resolved_takedowns: int
     api_usage_credits: int
 
-def _get_user_org_id(user_id: str) -> str:
-    sb = get_supabase()
-    res = sb.table("profiles").select("organization_id").eq("id", user_id).maybe_single().execute()
-    org_id = res.data.get("organization_id") if res.data else None
-    if not org_id:
-        raise HTTPException(status_code=403, detail="Organization ID not configured for user profile.")
-    return org_id
-
 @router.get("", response_model=list[ClientResponse])
-def list_clients(current_user=Depends(get_current_user)):
-    org_id = _get_user_org_id(current_user.id)
+def list_clients(profile: CurrentProfile = Depends(get_current_profile)):
+    org_id = profile.organization_id
     sb = get_supabase()
     res = sb.table("clients").select("*").eq("organization_id", org_id).order("created_at", desc=True).execute()
     return res.data or []
 
 @router.get("/{client_id}", response_model=ClientResponse)
-def get_client(client_id: str, current_user=Depends(get_current_user)):
-    org_id = _get_user_org_id(current_user.id)
+def get_client(client_id: str, profile: CurrentProfile = Depends(get_current_profile)):
+    org_id = profile.organization_id
     sb = get_supabase()
     res = sb.table("clients").select("*").eq("id", client_id).eq("organization_id", org_id).maybe_single().execute()
     if not res.data:
@@ -63,8 +55,8 @@ def get_client(client_id: str, current_user=Depends(get_current_user)):
     return res.data
 
 @router.post("", response_model=ClientResponse)
-def create_client(payload: ClientCreate, current_user=Depends(get_current_user)):
-    org_id = _get_user_org_id(current_user.id)
+def create_client(payload: ClientCreate, profile: CurrentProfile = Depends(get_current_profile)):
+    org_id = profile.organization_id
     sb = get_supabase()
     client_data = {
         "name": payload.name,
@@ -80,8 +72,8 @@ def create_client(payload: ClientCreate, current_user=Depends(get_current_user))
     return res.data[0]
 
 @router.put("/{client_id}", response_model=ClientResponse)
-def update_client(client_id: str, payload: ClientUpdate, current_user=Depends(get_current_user)):
-    org_id = _get_user_org_id(current_user.id)
+def update_client(client_id: str, payload: ClientUpdate, profile: CurrentProfile = Depends(get_current_profile)):
+    org_id = profile.organization_id
     sb = get_supabase()
     
     # Check existence
@@ -110,8 +102,8 @@ def update_client(client_id: str, payload: ClientUpdate, current_user=Depends(ge
     return res.data[0]
 
 @router.delete("/{client_id}")
-def delete_client(client_id: str, current_user=Depends(get_current_user)):
-    org_id = _get_user_org_id(current_user.id)
+def delete_client(client_id: str, profile: CurrentProfile = Depends(get_current_profile)):
+    org_id = profile.organization_id
     sb = get_supabase()
     
     existing = sb.table("clients").select("id").eq("id", client_id).eq("organization_id", org_id).maybe_single().execute()
@@ -122,8 +114,8 @@ def delete_client(client_id: str, current_user=Depends(get_current_user)):
     return {"success": True}
 
 @router.get("/{client_id}/billing", response_model=ClientBillingResponse)
-def get_client_billing(client_id: str, current_user=Depends(get_current_user)):
-    org_id = _get_user_org_id(current_user.id)
+def get_client_billing(client_id: str, profile: CurrentProfile = Depends(get_current_profile)):
+    org_id = profile.organization_id
     sb = get_supabase()
     
     # Fetch client details
