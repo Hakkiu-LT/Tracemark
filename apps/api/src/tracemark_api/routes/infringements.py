@@ -74,6 +74,30 @@ def _get_user_persona(user_id: str, organization_id: str | None) -> str:
         return "brand_owner"
 
 
+def _infringement_or_404(infringement_id: str, org_id: str | None, user_id: str, sb) -> dict:
+    """Fetch an infringement only if its parent case belongs to the caller's org.
+    Returns 404 (not 403) to avoid leaking existence of other orgs' data."""
+    res = (
+        sb.table("infringements")
+        .select("*, cases!inner(organization_id, user_id, detection_region, status, updated_at)")
+        .eq("id", infringement_id)
+        .maybe_single()
+        .execute()
+    )
+    row = res.data if res else None
+    if not row:
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
+    case_info = row.get("cases") or {}
+    if org_id:
+        if case_info.get("organization_id") != org_id:
+            raise HTTPException(status_code=404, detail="Infringement not found")
+    else:
+        if case_info.get("user_id") != user_id:
+            raise HTTPException(status_code=404, detail="Infringement not found")
+    return row
+
+
 @router.get("", response_model=InfringementsResponse)
 def list_infringements(
     risk_level: str | None = Query(None, description="HIGH, MEDIUM or LOW"),
@@ -116,7 +140,9 @@ def list_infringements(
     if status:
         query = query.eq("status", status.lower())
     if platform:
-        query = query.ilike("platform", f"%{platform}%")
+        # Escape LIKE wildcards so user input can't broaden the match.
+        safe = platform.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.ilike("platform", f"%{safe}%")
 
     result = query.execute()
 
@@ -141,16 +167,9 @@ def get_infringement(
 ) -> InfringementItem:
     """Return a single infringement by id."""
     sb = get_supabase()
-    result = (
-        sb.table("infringements")
-        .select("*, cases(detection_region, status, updated_at)")
-        .eq("id", infringement_id)
-        .maybe_single().execute()
-    )
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Infringement not found")
-        
-    data = result.data
+    organization_id = _get_user_organization_id(current_user.id)
+    data = _infringement_or_404(infringement_id, organization_id, current_user.id, sb)
+
     cases_data = data.get("cases") or {}
     data["detection_region"] = cases_data.get("detection_region")
     data["status"] = cases_data.get("status") or data.get("status")
@@ -165,6 +184,10 @@ def get_evidence(
 ) -> list[EvidenceItem]:
     """Return all evidence snapshots for an infringement, newest first."""
     sb = get_supabase()
+    organization_id = _get_user_organization_id(current_user.id)
+    # Verify ownership before returning evidence
+    _infringement_or_404(infringement_id, organization_id, current_user.id, sb)
+
     result = (
         sb.table("evidence_items")
         .select("*")
@@ -186,11 +209,9 @@ def update_infringement_status(
 ) -> InfringementItem:
     """Update the status of an infringement."""
     sb = get_supabase()
-    
-    # Verify it exists
-    existing = sb.table("infringements").select("id").eq("id", infringement_id).maybe_single().execute()
-    if not existing.data:
-        raise HTTPException(status_code=404, detail="Infringement not found")
+    organization_id = _get_user_organization_id(current_user.id)
+    # Verify ownership via parent case (prevents cross-tenant status writes).
+    _infringement_or_404(infringement_id, organization_id, current_user.id, sb)
         
     updates = {"status": payload.status}
     if payload.decline_reason is not None:

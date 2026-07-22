@@ -106,30 +106,31 @@ infringement, executes matching actions.
 
 ---
 
-## Revised Priority Order (after security audit + competitor analysis)
+## Revised Priority Order (after deep security audit 2026-07-22)
 
-### Priority 1 — Security patches (1–3 days, do BEFORE any production traffic)
+### Priority 1 — Security patches (do BEFORE any production traffic)
 
-Three HIGH-severity issues found in the admin portal. Must fix first.
+Full audit run 2026-07-22 across 10 attack surfaces (57 findings). Full details in `security-audit.md`.
 
-1. **Privilege escalation** (`routes/staff.py:242`) — any admin-role staff can
-   call `set_permissions` on themselves. Fix: add self-modification block + change
-   guard to `require_super_admin`.
-2. **Super-admin lockout via `is_active=False`** (`routes/staff.py:182–195`) — 
-   the lockout guard only checks `is_super_admin=False`, not `is_active=False`.
-   Fix: extend lockout check to cover deactivation of the last active super-admin.
-3. **Live Supabase URL in tracked `.env.example`** — replace the real project URL
-   with a placeholder. Consider `git filter-repo` scrub if repo becomes public.
+**Phase 0 — Blocking (do today):**
+1. **Rotate Supabase service role key** — hardcoded in `apps/api/query_case_details.py:6`. Delete file, rotate key in dashboard, update `.env`.
+2. **Admin staff privilege escalation** — `staff.manage` can reset/change-email any staff member including super-admins (`routes/staff.py:223–241`). Add `require_super_admin` check before `auth_attrs` block.
+3. **Infringement IDOR (Critical)** — GET, GET evidence, PATCH status on `/infringements/{id}` have zero org ownership check. Join through `cases.organization_id` before returning/mutating.
 
-Plus these MEDIUM fixes (bundle into the same PR):
-- Fix `type="text"` → `type="password"` on 3 password inputs (Staff.tsx:219,
-  StaffDetail.tsx:140, CustomerEditDialog.tsx:94) — 30 min.
-- Gate `DELETE /cases/{case_id}` behind `require_super_admin` instead of
-  `customers.edit` (cases.py:135).
-- Add file size (10 MB) + MIME type validation on brand asset uploads
-  (brands_admin.py:113).
-- Add security headers to `apps/admin/nginx.conf` (CSP, X-Frame-Options, HSTS
-  etc.).
+**Phase 1 — This week:**
+4. SSRF: user-controlled `official_domains`/`website` fetched via httpx with no host validation (`embedding_helper.py:116`)
+5. Remaining IDOR: monitoring case status, takedowns, documents send-email
+6. Open SMTP relay: `/notifications/test/email` sends to any address, no rate limit
+7. Rate limiting: add `slowapi` with per-user caps on all scan endpoints
+8. CSP + X-Frame-Options: add `public/_headers` to customer Cloudflare Worker
+
+**Phase 2 — This sprint:**
+9. Email confirmation disabled (Supabase config)
+10. Password policy: 6-char min with no complexity in production
+11. `.env` write via internal token endpoint (newline injection)
+12. Restrict `/internal/*` to loopback or IP allowlist
+13. Admin CSP missing in production (only in nginx.conf, not CF Worker)
+14. admin-api missing lockfile (`uv lock` + commit)
 
 ### Priority 2 — Automation Rules Builder (finish it — in progress)
 

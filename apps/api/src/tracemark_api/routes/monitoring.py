@@ -1,7 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, field_validator
-from typing import Literal
-from urllib.parse import urlparse
+from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel, field_validator, EmailStr, Field
+from typing import Literal, Annotated
 from tracemark_api.services.firecrawl_client import scrape_page
 from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
@@ -11,31 +10,26 @@ from tracemark_api.services.entitlements import resolve_detection_depth, Detecti
 from tracemark_api.services.persistence import persist_all_infringements, persist_scored_evidence_item
 from tracemark_api.services.detection_funnel import run_tier0_and_filter, run_tier1, filter_evidence_by_scored
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
+from tracemark_api.services.rate_limit import limiter
+from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
 from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
-
-_PRIVATE_NETS = ("localhost", "127.", "10.", "172.16.", "172.17.", "172.18.",
-                  "172.19.", "172.2", "172.3", "192.168.", "0.0.0.0", "::1", "169.254.")
+BrandName = Annotated[str, Field(min_length=1, max_length=200)]
+PlatformStr = Annotated[str, Field(max_length=120)]
 
 
 class MonitorRequest(BaseModel):
-    url: str
+    url: Annotated[str, Field(max_length=2048)]
 
     @field_validator("url")
     @classmethod
     def validate_url(cls, v: str) -> str:
         try:
-            parsed = urlparse(v)
-        except Exception:
-            raise ValueError("Invalid URL")
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError("Only http/https URLs are allowed")
-        host = (parsed.hostname or "").lower()
-        for private in _PRIVATE_NETS:
-            if host.startswith(private) or host == private.rstrip("."):
-                raise ValueError("Internal/private URLs are not allowed")
+            validate_ssrf_url(v)
+        except SSRFError as e:
+            raise ValueError(str(e))
         return v
 
 
@@ -48,8 +42,61 @@ class MonitorResponse(BaseModel):
     error_message: str | None = None
 
 
+def _monitoring_org_id(user_id: str) -> str | None:
+    sb = get_supabase()
+    try:
+        res = sb.table("profiles").select("organization_id").eq("id", user_id).maybe_single().execute()
+        return res.data.get("organization_id") if (res and res.data) else None
+    except Exception:
+        return None
+
+
+def _assert_case_in_org(sb, case_id: str, org_id: str | None, user_id: str) -> None:
+    res = sb.table("cases").select("organization_id, user_id").eq("id", case_id).maybe_single().execute()
+    row = res.data if res else None
+    if not row:
+        raise HTTPException(status_code=404, detail="Case not found")
+    if org_id:
+        if row.get("organization_id") != org_id:
+            raise HTTPException(status_code=404, detail="Case not found")
+    elif row.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+
+def _assert_takedown_in_org(sb, takedown_id: str, org_id: str | None, user_id: str) -> dict:
+    res = (
+        sb.table("takedown_reports")
+        .select("*, cases!inner(organization_id, user_id)")
+        .eq("id", takedown_id)
+        .maybe_single()
+        .execute()
+    )
+    row = res.data if res else None
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
+    case_info = row.get("cases") or {}
+    if org_id:
+        if case_info.get("organization_id") != org_id:
+            raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
+    elif case_info.get("user_id") != user_id:
+        raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
+    return row
+
+
+def _require_paid_plan(user_id: str) -> None:
+    """Require an active paid subscription before triggering real scrapes."""
+    from tracemark_api.services.entitlements import _active_plan_for_org
+    org_id = _monitoring_org_id(user_id)
+    if org_id is None:
+        raise HTTPException(status_code=402, detail="Active paid plan required to run scrapes.")
+    plan = _active_plan_for_org(org_id) or "free"
+    if plan.lower() == "free":
+        raise HTTPException(status_code=402, detail="Active paid plan required to run scrapes. Upgrade to continue.")
+
+
 @router.post("/analyze", response_model=MonitorResponse)
-def analyze_url(payload: MonitorRequest, current_user=Depends(get_current_user)) -> MonitorResponse:
+@limiter.limit("5/hour")
+def analyze_url(request: Request, payload: MonitorRequest, current_user=Depends(get_current_user)) -> MonitorResponse:
     try:
         scrape_result = scrape_page(payload.url)
     except Exception as e:
@@ -96,17 +143,20 @@ def make_decision_endpoint(evidence: Evidence, current_user=Depends(get_current_
 
 
 class GatherEvidenceRequest(BaseModel):
-    brand_name: str
-    platforms: list[str] = ["amazon", "google_ads", "meta_ads", "domains"]
-    official_advertisers: list[str] = []
+    brand_name: BrandName
+    platforms: list[PlatformStr] = Field(default=["amazon", "google_ads", "meta_ads", "domains"], max_length=20)
+    official_advertisers: list[PlatformStr] = Field(default=[], max_length=50)
     # Supported: amazon, ebay, alibaba, aliexpress, google_ads, meta_ads, domains
 
 
 @router.post("/gather-evidence", response_model=Evidence)
+@limiter.limit("5/hour")
 async def gather_evidence_endpoint(
+    request: Request,
     payload: GatherEvidenceRequest,
     current_user = Depends(get_current_user)
 ) -> Evidence:
+    _require_paid_plan(current_user.id)
     caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
     try:
         evidence = await scrape_evidence(
@@ -121,13 +171,15 @@ async def gather_evidence_endpoint(
 
 
 class CheckAdsRequest(BaseModel):
-    brand_name: str
-    platforms: list[str] = ["google_ads", "meta_ads"]
-    official_advertisers: list[str] = []
+    brand_name: BrandName
+    platforms: list[PlatformStr] = Field(default=["google_ads", "meta_ads"], max_length=20)
+    official_advertisers: list[PlatformStr] = Field(default=[], max_length=50)
 
 
 @router.post("/check-ads")
+@limiter.limit("5/hour")
 async def check_ads_endpoint(
+    request: Request,
     payload: CheckAdsRequest,
     current_user = Depends(get_current_user)
 ):
@@ -135,6 +187,7 @@ async def check_ads_endpoint(
     Detect ad hijacking: unauthorized Google/Meta ads using a brand name to steal traffic.
     Whitelist official page names via official_advertisers (e.g. ["Orbio World", "Orbio Official"]).
     """
+    _require_paid_plan(current_user.id)
     caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
     try:
         return await check_ads_hijacking(
@@ -148,10 +201,10 @@ async def check_ads_endpoint(
 
 
 class CheckBrandRequest(BaseModel):
-    brand_name: str
-    platforms: list[str] = ["amazon", "google_ads", "meta_ads", "domains"]
-    official_advertisers: list[str] = []
-    official_domains: list[str] = []
+    brand_name: BrandName
+    platforms: list[PlatformStr] = Field(default=["amazon", "google_ads", "meta_ads", "domains"], max_length=20)
+    official_advertisers: list[PlatformStr] = Field(default=[], max_length=50)
+    official_domains: list[PlatformStr] = Field(default=[], max_length=50)
     target_regions: list[str] = ["US"]
     client_id: str | None = None
 
@@ -216,7 +269,9 @@ def _reject_if_brand_locked(org_id: str, brand_name: str) -> None:
 
 
 @router.post("/check-brand")
+@limiter.limit("5/hour")
 async def check_brand(
+    request: Request,
     payload: CheckBrandRequest,
     profile: CurrentProfile = Depends(get_current_profile),
 ):
@@ -364,6 +419,8 @@ class UpdateStatusRequest(BaseModel):
 
 @router.post("/{case_id}/status")
 def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_user=Depends(get_current_user)):
+    sb = get_supabase()
+    _assert_case_in_org(sb, case_id, _monitoring_org_id(current_user.id), current_user.id)
     try:
         update_case_status(case_id, payload.status, decline_reason=payload.decline_reason)
         
@@ -441,7 +498,8 @@ def update_takedown_report_endpoint(
     If status transitions to 'sent', automatically record submitted_at time.
     """
     sb = get_supabase()
-    
+    _assert_takedown_in_org(sb, id, _monitoring_org_id(current_user.id), current_user.id)
+
     update_data = {}
     if payload.notice_text is not None:
         update_data["notice_text"] = payload.notice_text
@@ -474,11 +532,13 @@ def update_takedown_report_endpoint(
 
 
 class TestEmailRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 @router.post("/notifications/test/email")
+@limiter.limit("3/hour")
 def test_email_notification_endpoint(
+    request: Request,
     payload: TestEmailRequest,
     current_user=Depends(get_current_user),
 ):
@@ -508,11 +568,8 @@ def send_takedown_email_endpoint(
     update status to 'sent', and set submitted_at to now.
     """
     sb = get_supabase()
-    res = sb.table("takedown_reports").select("*").eq("id", id).maybe_single().execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Takedown report not found")
+    report = _assert_takedown_in_org(sb, id, _monitoring_org_id(current_user.id), current_user.id)
 
-    report = res.data
     recipient = report.get("submission_email")
     if not recipient:
         raise HTTPException(status_code=400, detail="Submission email is not configured for this platform")

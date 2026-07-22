@@ -10,12 +10,12 @@ COPY pyproject.toml .
 # Dummy package structure so setuptools resolves during dependency install.
 RUN mkdir -p src/tracemark_admin_api && touch src/tracemark_admin_api/__init__.py
 
-RUN uv pip install --system --no-cache .
+RUN uv pip install --system --no-cache --compile-bytecode .
 
 # Copy the actual source and remap.
 COPY src/ ./src/
 COPY scripts/ ./scripts/
-RUN uv pip install --system --no-cache .
+RUN uv pip install --system --no-cache --compile-bytecode .
 
 # Non-root for a smaller blast radius (no Playwright/browsers needed here).
 RUN adduser --disabled-password --gecos "" appuser

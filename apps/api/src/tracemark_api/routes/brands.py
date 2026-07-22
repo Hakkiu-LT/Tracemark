@@ -302,8 +302,18 @@ def upload_brand_asset_endpoint(
     """
     _brand_or_404(profile.organization_id, brand_id)
 
-    file_bytes = file.file.read()
-    content_type = file.content_type or "application/octet-stream"
+    _ALLOWED_MIMES = {
+        "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml",
+        "text/plain", "text/csv", "text/html", "application/pdf",
+    }
+    content_type = (file.content_type or "application/octet-stream").split(";")[0].strip().lower()
+    if content_type not in _ALLOWED_MIMES:
+        raise HTTPException(status_code=400, detail=f"File type '{content_type}' is not allowed")
+
+    _MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+    file_bytes = file.file.read(_MAX_UPLOAD_BYTES + 1)
+    if len(file_bytes) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File exceeds 10 MB limit")
 
     storage_path = upload_brand_asset(file_bytes, content_type, brand_id, asset_type)
     if not storage_path:

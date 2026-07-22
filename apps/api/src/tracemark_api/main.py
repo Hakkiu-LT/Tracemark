@@ -6,6 +6,10 @@ import os
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from tracemark_api.services.rate_limit import limiter
+
 from tracemark_api.routes.health import router as health_router
 from tracemark_api.routes.monitoring import router as monitoring_router
 from tracemark_api.routes.check_brand import router as check_brand_router
@@ -32,6 +36,9 @@ app = FastAPI(
     redoc_url=None if _is_production else "/redoc",
     openapi_url=None if _is_production else "/openapi.json",
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(health_router)
 app.include_router(monitoring_router, prefix="/api/v1")
