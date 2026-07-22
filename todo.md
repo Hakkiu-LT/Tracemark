@@ -1,7 +1,7 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-22 (session 10 — billing/entitlement audit + fixes)
+> Last updated: 2026-07-22 (session 11 — billing/landing audit; added fix list for auth/callback + landing)
 
 ---
 
@@ -94,6 +94,33 @@
 
 ---
 
+## 🔴 PRIORITY — Billing Workflow Fixes (MUST fix before going live)
+
+### Critical (production-blocking)
+- [ ] **`src/routes/auth.callback.tsx`** — after `exchangeCodeForSession` succeeds, read `localStorage.getItem("pending_subscription_id")`; if present → call `activateSubscription({ stripe_subscription_id })` → clear localStorage → navigate to `/dashboard`. If activate fails → navigate to `/billing/success?subscription_id=...&email=user.email` for retry. **Without this, every guest checkout customer who goes through email confirmation ends up with a paid Stripe sub but no active subscription in the DB.**
+
+### High (bad UX, confuses paying customers)
+- [ ] **`src/routes/checkout.tsx` `OrderSummary`** — self-serve addon keys (`addon_self_serve_tm_1..5`, `addon_self_serve_marketplace`, `addon_self_serve_domain`) are NOT in the `ADDONS` array, so they render as `null` and disappear from the order summary. Fix: build `SelfServeOrderSummary` that derives line items from `tm`/`marketplace`/`domain` URL params directly using `SELF_SERVE_TM_PRICES`, `SELF_SERVE_MARKETPLACE_PRICE`, `SELF_SERVE_DOMAIN_PRICE` constants from `billing.ts`.
+- [ ] **`src/routes/checkout.tsx` GuestCheckout** — add "Already have an account? [Login →](/auth/sign-in)" below the email input. Returning customers get a confusing Stripe error when they try to create a new subscription with an existing email.
+- [ ] **`src/routes/checkout.tsx` Cancel button** — "Back to review" link goes to `/review` with NO search params. User loses their configured plan. Pass current `tm`, `marketplace`, `domain`, `plan`, `interval`, `markets` params when navigating back.
+
+### Medium (polish)
+- [ ] **`src/routes/billing.success.tsx` CreateAccountAfterPayment** — add "Resend confirmation email" button (calls `supabase.auth.resend({ type: "signup", email })`). Currently users who don't receive the email have no self-service option.
+
+---
+
+## 🟡 PRIORITY — Landing Page Improvements
+
+### Must-have before launch
+- [ ] **`src/components/landing/pricing.tsx` SelfServeCard** — show "from €998/mo" as the starting price (€849 base + €149 min TM add-on). Current "Configurable pricing" label tells visitors nothing. Also add: "Never charged per detection or takedown." line.
+- [ ] **`src/routes/plans.tsx` or new `PricingFAQ.tsx`** — add FAQ accordion below the 3 pricing cards. Key Q&As: "Can I cancel anytime?", "What counts as a takedown?", "Is Amazon always included?", "Self-Serve vs Professional?", "Annual billing?"
+
+### Nice-to-have (trust signals)
+- [ ] **`src/components/landing/pricing.tsx`** — add social proof bar: "Trusted by X brands" + 3 short testimonial placeholders. Every competitor has this; absence looks suspicious.
+- [ ] **`src/components/landing/hero-v3.tsx` or landing page** — A/B test: replace "Detect infringements before they spread" headline with benefit-first variant "Stop counterfeits from killing your brand revenue".
+
+---
+
 ## 🔴 PRIORITY — Pricing Redesign (Red Points model: 1 self-serve configurator + Professional + Enterprise)
 
 > Deep research complete (2026-07-22). Concrete pricing set. See plan.md for full spec.
@@ -107,6 +134,7 @@
 - [x] Migration: `sales_leads` table — `supabase/migrations/20260722000001_sales_leads.sql`
 - [x] `routes/leads.py` — `POST /api/v1/leads` (public, no auth) + rate-limit 3/hr per IP; registered in `main.py`
 - [x] **[CRITICAL BUG FIX]** `routes/billing.py` `/billing/activate` — now calls `_sync_subscription_to_db` with `expand=["items"]`, writes `subscription_addons` + reconciles brand locks. Guest checkout customers no longer land with `brands=0`.
+- [ ] **[STILL OPEN]** `src/routes/auth.callback.tsx` — email-confirmation path does NOT call `activateSubscription`. Guest checkout customers who go through email confirmation (production) have a paid Stripe sub but dead account. See "Billing Workflow Fixes" section above.
 - [x] `services/entitlements.py` — per-org entitlement override support: `_override_for_org`, `_apply_entitlement_override`; `resolve_entitlements_for_org` applies admin overrides on top of plan+addon
 - [x] Migration: `org_entitlement_overrides` table — `supabase/migrations/20260722000002_entitlement_overrides.sql` (applied ✅)
 - [x] `routes/internal.py` — GET/PUT/DELETE `/internal/orgs/{org_id}/entitlement-override` endpoints (secret-gated)
