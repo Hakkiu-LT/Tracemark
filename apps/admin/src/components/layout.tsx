@@ -15,6 +15,7 @@ import {
   Shield,
   Users,
   UserCog,
+  Inbox,
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
 
@@ -53,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Users", to: "/customers", icon: Users, permission: "customers.view" },
       { label: "Cases", to: "/cases", icon: FileWarning, permission: "customers.view" },
       { label: "Brands", to: "/brands", icon: Package, permission: "brands.view" },
+      { label: "Sales Leads", to: "/leads", icon: Inbox, permission: "leads.view" },
     ],
   },
   {
