@@ -8,30 +8,30 @@
 ## 🔴 PRIORITY 1 — Security Patches (2026-07-22 deep audit — see security-audit.md)
 
 ### Phase 0 — Do today (CRITICAL / account compromise risk)
-- [ ] **[C1] Rotate Supabase service role key** — hardcoded in `apps/api/query_case_details.py:6`; delete or fix the file, rotate key in Supabase dashboard, update `.env`
-- [ ] **[H6/H7] Staff password/email escalation** — `staff.manage` can reset/redirect any staff member's credentials (`admin-api/routes/staff.py:223–241`); add super-admin check before `auth_attrs` block
-- [ ] **[C2] Infringement IDOR** — `GET /infringements/{id}`, `GET /infringements/{id}/evidence`, `PATCH /infringements/{id}/status` — add `cases.organization_id = caller_org_id` check before returning/mutating
+- [x] **[C1] Rotate Supabase service role key** — hardcoded key removed from `query_case_details.py` (replaced with env vars); key rotation in Supabase dashboard still pending (deferred by user)
+- [x] **[H6/H7] Staff password/email escalation** — super-admin guard added before auth_attrs write in `admin-api/routes/staff.py`
+- [x] **[C2] Infringement IDOR** — all 3 endpoints now join through `cases.organization_id` via `_infringement_or_404` helper
 
 ### Phase 1 — This week (HIGH / exploitable by authenticated customers)
-- [ ] **[C3] SSRF on brand official_domains** — `embedding_helper.py:116–207`: add SSRF host validation before httpx fetch of user-supplied domain URLs
-- [ ] **[H1-H4] IDOR on monitoring/documents** — `monitoring.py:365,433,501`, `documents.py:12`: add org ownership check on case status, takedown PUT, takedown send-email, document send-email
-- [ ] **[H5] IDOR clients PUT** — `routes/clients.py:109`: add `organization_id` clause to UPDATE query (not just the pre-check)
-- [ ] **[H9/H10] Rate limiting** — install `slowapi`; 5/hr per user on check-brand, gather-evidence, check-ads, analyze; 3/hr + EmailStr validation on test-email
-- [ ] **[H8] Customer app security headers** — add `public/_headers` for Cloudflare Worker (CSP, X-Frame-Options, X-Content-Type-Options)
-- [ ] **[H11] Playwright SSRF** — add pre-`goto()` host validation in `playwright_client.py`
-- [ ] **[M4] gather-evidence / check-ads entitlement bypass** — add plan check before triggering scrape
+- [x] **[C3] SSRF on brand official_domains** — new `services/ssrf.py` validator applied in `embedding_helper.py` (all 3 fetch sites), `follow_redirects=False`
+- [x] **[H1-H4] IDOR on monitoring/documents** — `_assert_case_in_org` / `_assert_takedown_in_org` helpers added; case status, takedown PUT, takedown send-email, document send-email all org-scoped
+- [x] **[H5] IDOR clients PUT** — UPDATE query now includes `.eq("organization_id", org_id)`
+- [x] **[H9/H10] Rate limiting** — `slowapi` installed; 5/hr on check-brand, gather-evidence, check-ads, analyze; 3/hr + EmailStr on test-email
+- [x] **[H8] Customer app security headers** — `public/_headers` created with CSP, X-Frame-Options, HSTS
+- [x] **[H11] Playwright SSRF** — SSRF guard added before `page.goto()` in `playwright_client.py`
+- [x] **[M4] gather-evidence / check-ads entitlement bypass** — `_require_paid_plan` gate added (returns 402 for free-tier users)
 
 ### Phase 2 — This sprint (MEDIUM)
-- [ ] **[M11] Enable email confirmation** — `supabase/config.toml:226` → `enable_confirmations = true`; apply to production Supabase dashboard
-- [ ] **[M12] Harden password policy** — `minimum_password_length = 12`, add complexity, `secure_password_change = true` in config.toml + production dashboard
-- [ ] **[M2] Fix .env token write** — strip newlines from Meta token before writing; move to DB long-term
+- [x] **[M11] Enable email confirmation** — `enable_confirmations = true` in `supabase/config.toml` (must also apply in Supabase dashboard for production)
+- [x] **[M12] Harden password policy** — `minimum_password_length = 12`, `password_requirements = "lower_upper_letters_digits"`, `secure_password_change = true`
+- [x] **[M2] Fix .env token write** — newlines stripped from Meta token before writing
 - [ ] **[H12] Restrict /internal/* routes** — IP allowlist middleware or separate port; not publicly reachable
-- [ ] **[M16] Admin CSP in production** — add `apps/admin/public/_headers` for Cloudflare Worker (CSP is currently nginx-only)
+- [x] **[M16] Admin CSP in production** — `apps/admin/public/_headers` created for Cloudflare Worker
 - [ ] **[H14] admin-api lockfile** — run `uv lock` in `apps/admin-api/`, commit `uv.lock`, change Dockerfile to `uv sync --frozen`
-- [ ] **[M6] File upload size guard** — check Content-Length before `file.file.read()` in `routes/brands.py:305`
-- [ ] **[M7] Request model limits** — `max_length=200` on brand_name; `max_items=10` on platforms/official_advertisers/official_domains
-- [ ] **[M1] SSRF blocklist** — replace string-prefix IP matching in `monitoring.py` with `ipaddress` module check after DNS resolution (defeats octal/hex encoding + DNS rebinding)
-- [ ] **[M3] LIKE wildcard escape** — escape `%` and `_` in `infringements.py:119` platform filter
+- [x] **[M6] File upload size guard** — 10 MB cap + MIME allowlist in `routes/brands.py`
+- [x] **[M7] Request model limits** — `max_length=200` on brand_name; list field caps added to all scan request models
+- [x] **[M1] SSRF blocklist** — `monitoring.py` MonitorRequest now uses `validate_ssrf_url()` (DNS-rebinding-resistant) instead of string-prefix `_PRIVATE_NETS`
+- [x] **[M3] LIKE wildcard escape** — `%` and `_` escaped in `infringements.py` platform filter
 
 ### Phase 3 — Next sprint
 - [ ] **[M13] httpOnly cookie token storage** — custom Supabase storage adapter (httpOnly, Secure, SameSite=Strict)
