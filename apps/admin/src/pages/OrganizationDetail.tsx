@@ -543,13 +543,15 @@ function EntitlementOverrideDialog({
 
   const save = useMutation({
     mutationFn: () => {
+      // Always send all 8 fields. null = "revert this field to plan+addon default".
+      // This lets staff un-override a single flag without deleting the whole row.
       const payload: EntitlementOverride = {};
       for (const { key } of NUMERIC_FIELDS) {
         const v = form[key];
-        if (v !== "" && v != null) payload[key] = parseInt(v as string, 10) as never;
+        payload[key] = (v !== "" && v != null ? parseInt(v as string, 10) : null) as never;
       }
       for (const { key } of BOOL_FLAGS) {
-        if (form[key] != null) payload[key] = form[key] as never;
+        payload[key] = (form[key] ?? null) as never;
       }
       if (form.note) payload.note = form.note as string;
       return adminFetch(`/organizations/${orgId}/entitlement-override`, {

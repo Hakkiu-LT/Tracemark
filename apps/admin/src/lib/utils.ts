@@ -46,6 +46,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "organizations.edit": "Company edited",
   "organizations.remove_member": "Member removed",
   "organizations.update_member": "Member role updated",
+  "organizations.set_entitlement_override": "Custom limits set",
+  "organizations.clear_entitlement_override": "Custom limits cleared",
   "staff.create": "Staff created",
   "staff.delete": "Staff deleted",
   "staff.set_permissions": "Permissions changed",

@@ -103,6 +103,34 @@ page, it should have a strong CTA to `/plans`.
 
 ---
 
+---
+
+### Billing/limits system — full verification status (session 11 deep audit)
+
+3 Opus agents verified the complete flow. Summary:
+
+**✅ VERIFIED WORKING:**
+- All 8 enforcement points (`brands.py` create/reactivate, `monitoring.py` platforms/regions/domain, `billing.py` takedown) flow through `get_current_profile` → `resolve_entitlements_for_user` → `resolve_entitlements_for_org` → applies overrides
+- `resolve_entitlements_for_org` applies overrides LAST (stacked on plan+addons)
+- `brands_override=-1` → `UNLIMITED (None)` → `reconcile_brand_locks` unlocks all locked brands
+- `reconcile_brand_locks` is called on every override PUT/DELETE — brand locks stay in sync
+- `/billing/activate` fix verified: `expand=["items"]` present, `_sync_subscription_to_db` called, addon rows written correctly
+- `price_id_to_addon` correctly reverse-maps all self-serve Stripe price IDs to addon keys
+- `_override_for_org` degrades gracefully (returns None) if table doesn't exist pre-migration
+- No direct `PLAN_ENTITLEMENTS[]` or `compute_entitlements()` calls outside entitlements.py
+- Webhook→activate double-sync is idempotent (upsert + delete/reinsert), no data corruption
+- Admin permission wiring: `entitlements.manage` in ALL_PERMISSIONS → admin role preset → both py+ts mirrors in sync
+
+**✅ FIXED IN SESSION 11:**
+- Per-field un-override: frontend now always sends all 8 fields (null = clear); backend always writes all fields to upsert
+- Audit action labels: `organizations.set_entitlement_override` + `organizations.clear_entitlement_override` added to `ACTION_LABELS` in `utils.ts`
+
+**⚠️ KNOWN DESIGN GAP (intentional, documented):**
+- `_require_paid_plan` in `monitoring.py` checks `profile.plan == "free"` (raw string), not entitlements. A comped `free`-plan org with entitlement overrides still cannot run scans. Staff must use `comp` mode to set plan to a non-free value (e.g. `starter`) + add overrides for limits. This is by design — overrides control limits, not the billing tier gate.
+- `profiles.is_admin=True` users auto-resolve to hardcoded enterprise, ignoring any overrides set on their org. This is also intentional (internal staff always get full access).
+
+---
+
 ### Billing + landing work breakdown (next sprint)
 
 | Priority | Item | File(s) | Effort |

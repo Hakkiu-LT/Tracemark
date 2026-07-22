@@ -434,24 +434,27 @@ def set_entitlement_override(
 ):
     """Set (or update) custom entitlement limits for an org.
 
-    Any field left null retains its existing value. The override is applied on
-    top of plan+addon computed limits, so staff can grant custom Pro/Enterprise
-    deals without touching Stripe or plan definitions.
+    All 8 override fields are always written — null explicitly clears a field back
+    to "inherit from plan+addons". This lets the admin UI selectively un-override
+    individual flags without deleting the entire row.
     """
     sb = get_supabase()
     now = datetime.now(timezone.utc).isoformat()
+    # Always write all 8 override fields so null = "revert to plan default".
     row = {
         "organization_id": org_id,
         "updated_at": now,
+        "brands_override": body.brands_override,
+        "platforms_override": body.platforms_override,
+        "regions_override": body.regions_override,
+        "domain_tracking": body.domain_tracking,
+        "managed_takedown": body.managed_takedown,
+        "api_access": body.api_access,
+        "advanced_reports": body.advanced_reports,
+        "real_time_scans": body.real_time_scans,
     }
-    for field in (
-        "brands_override", "platforms_override", "regions_override",
-        "domain_tracking", "managed_takedown", "api_access",
-        "advanced_reports", "real_time_scans", "note",
-    ):
-        val = getattr(body, field)
-        if val is not None:
-            row[field] = val
+    if body.note is not None:
+        row["note"] = body.note
     sb.table("org_entitlement_overrides").upsert(row, on_conflict="organization_id").execute()
     reconcile_brand_locks(org_id)
     return {"success": True, "org_id": org_id}
