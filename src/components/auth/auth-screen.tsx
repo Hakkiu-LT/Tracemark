@@ -101,7 +101,7 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
         variant="outline"
         className="absolute right-6 top-6 z-30 h-11 border-border/60 bg-background/50 px-5 text-sm text-muted-foreground backdrop-blur hover:bg-background/70 hover:text-foreground sm:right-10"
       >
-        <Link to="/landing">← Back to landing</Link>
+        <Link to="/plans">← Back to plans</Link>
       </Button>
 
       <div className="grid flex-1 lg:grid-cols-[1.6fr_1fr]">
@@ -163,7 +163,7 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
                 >
                   {isSignup
                     ? "Start protecting your brand in minutes."
-                    : "Sign in to your workspace."}
+                    : "Log in to your workspace."}
                 </p>
 
                 <Button
@@ -307,16 +307,25 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
               </div>
             )}
 
-            <p className="mt-8 text-center text-sm text-muted-foreground">
-              {isSignup ? "Already have an account? " : "New to HAKKIU? "}
-              <button
-                type="button"
-                onClick={() => switchMode(isSignup ? "signin" : "signup")}
-                className="font-semibold text-foreground transition-colors hover:text-accent"
-              >
-                {isSignup ? "Sign in" : "Create an account"}
-              </button>
-            </p>
+            {isSignup ? (
+              <p className="mt-8 text-center text-sm text-muted-foreground">
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => switchMode("signin")}
+                  className="font-semibold text-foreground transition-colors hover:text-accent"
+                >
+                  Log in
+                </button>
+              </p>
+            ) : (
+              <p className="mt-8 text-center text-sm text-muted-foreground">
+                No account yet?{" "}
+                <Link to="/plans" className="font-semibold text-foreground transition-colors hover:text-accent">
+                  Purchase a plan to get started
+                </Link>
+              </p>
+            )}
           </div>
         </div>
       </div>

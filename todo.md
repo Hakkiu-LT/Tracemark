@@ -1,7 +1,7 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-22 (Architecture refactoring P1.5 steps 1–6 complete)
+> Last updated: 2026-07-22 (session 10 — billing/entitlement audit + fixes)
 
 ---
 
@@ -106,12 +106,22 @@
 - [x] `seed_stripe.py` — EUR prices created in Stripe sandbox: base €849, TM ×1-5, marketplace €40/unit, domain €649; legacy USD plans preserved. .env updated with new price IDs.
 - [x] Migration: `sales_leads` table — `supabase/migrations/20260722000001_sales_leads.sql`
 - [x] `routes/leads.py` — `POST /api/v1/leads` (public, no auth) + rate-limit 3/hr per IP; registered in `main.py`
+- [x] **[CRITICAL BUG FIX]** `routes/billing.py` `/billing/activate` — now calls `_sync_subscription_to_db` with `expand=["items"]`, writes `subscription_addons` + reconciles brand locks. Guest checkout customers no longer land with `brands=0`.
+- [x] `services/entitlements.py` — per-org entitlement override support: `_override_for_org`, `_apply_entitlement_override`; `resolve_entitlements_for_org` applies admin overrides on top of plan+addon
+- [x] Migration: `org_entitlement_overrides` table — `supabase/migrations/20260722000002_entitlement_overrides.sql` (applied ✅)
+- [x] `routes/internal.py` — GET/PUT/DELETE `/internal/orgs/{org_id}/entitlement-override` endpoints (secret-gated)
 
 ### Customer Frontend
 - [x] `src/lib/billing.ts` — `self_serve` plan added; `selfServeAddons()` helper; TM/marketplace/domain price constants
 - [x] New `PricingConfigurator` component in `pricing.tsx`: TM count buttons (1-5) + marketplace checkboxes (Amazon included, 11×€40) + domain toggle (€649) + live total
 - [x] `pricing.tsx` — 3-card layout: Self-Serve configurator, Professional, Enterprise
 - [x] `RequestPricingModal` — 6-field form → `POST /api/v1/leads` → thank-you state; `request-pricing-modal.tsx`
+- [x] `configure.tsx` — `/configure` public route with live price configurator; CTA "Review & pay" → `/checkout`
+- [x] `checkout.tsx` — account creation step for unauthenticated users (name/email/password) before Stripe payment; `/checkout` added to PUBLIC_PATHS
+- [x] `auth.sign-up.tsx` — blocked; redirects to `/plans`; no independent registration
+- [x] `auth-screen.tsx` — "Create an account" toggle removed from sign-in; replaced with "Purchase a plan" link
+- [x] Payment wall (`RequirePaidPlan` in `__root.tsx`) — unauthenticated or unpaid users → `/plans`
+- [x] All footers: "Sign in" → "Login"; hero: "Start monitoring" → `/plans`; "Talk to sales" → modal
 
 ### Admin Portal (mandatory parity)
 - [x] `admin-api/routes/leads.py`: `GET /leads` (paginated, filter by status/tier) + `PATCH /leads/{id}`, gated `leads.view`/`leads.edit`
@@ -119,6 +129,9 @@
 - [x] `apps/admin/src/pages/Leads.tsx` — table with tier, company, email, brand_count_range, status badge, mark-contacted/close actions
 - [x] `apps/admin/src/router.tsx` — `/leads` route added
 - [x] `apps/admin/src/components/layout.tsx` — "Sales Leads" nav item under Customers group
+- [x] `admin-api/routes/organizations.py` — GET/PUT/DELETE `/organizations/{id}/entitlement-override` (gated `entitlements.manage`); calls main-api via `main_api.py`
+- [x] Add `entitlements.manage` permission to `permissions.py` + `permissions.ts`
+- [x] `apps/admin/src/pages/OrganizationDetail.tsx` — "Custom limits override" card with full CRUD (numeric overrides + boolean feature flags + staff note); gated `<Can permission="entitlements.manage">`
 
 ---
 

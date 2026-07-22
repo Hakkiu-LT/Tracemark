@@ -82,7 +82,15 @@ function LandingPage() {
             <span>· Brand protection, automated.</span>
             <span>· Made with AI.</span>
           </div>
-          <div>© {new Date().getFullYear()} HAKKIU. All rights reserved.</div>
+          <div className="flex items-center gap-5">
+            <Link to="/auth/sign-in" className="hover:text-foreground transition-colors">Login</Link>
+            <span>·</span>
+            <span className="cursor-pointer hover:text-foreground transition-colors">Privacy Policy</span>
+            <span>·</span>
+            <span className="cursor-pointer hover:text-foreground transition-colors">Terms</span>
+            <span>·</span>
+            <span>© {new Date().getFullYear()} HAKKIU.</span>
+          </div>
         </div>
       </footer>
     </>

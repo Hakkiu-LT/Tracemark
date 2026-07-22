@@ -24,6 +24,7 @@ from tracemark_api.services.entitlements import (
     reconcile_brand_locks,
     resolve_entitlements_for_org,
     _addons_for_org,
+    _override_for_org,
 )
 
 router = APIRouter(prefix="/internal", tags=["internal"])
@@ -405,3 +406,61 @@ def internal_cancel(body: CancelRequest, _ok: bool = Depends(verify_internal_sec
         {"cancel_at_period_end": body.cancel, "updated_at": _ts_to_iso(int_now())}
     ).eq("organization_id", body.org_id).eq("stripe_subscription_id", stripe_sub_id).execute()
     return {"org_id": body.org_id, "cancel_at_period_end": body.cancel}
+
+
+# ── Per-org entitlement overrides (Pro/Enterprise custom deals) ────────────────
+
+class SetOverrideRequest(BaseModel):
+    brands_override: int | None = None       # -1 = unlimited; null = don't override
+    platforms_override: int | None = None
+    regions_override: int | None = None
+    domain_tracking: bool | None = None
+    managed_takedown: bool | None = None
+    api_access: bool | None = None
+    advanced_reports: bool | None = None
+    real_time_scans: bool | None = None
+    note: str | None = None
+
+
+@router.get("/orgs/{org_id}/entitlement-override")
+def get_entitlement_override(org_id: str, _ok: bool = Depends(verify_internal_secret)):
+    """Read the current admin override for an org (empty dict if none set)."""
+    return _override_for_org(org_id) or {}
+
+
+@router.put("/orgs/{org_id}/entitlement-override")
+def set_entitlement_override(
+    org_id: str, body: SetOverrideRequest, _ok: bool = Depends(verify_internal_secret)
+):
+    """Set (or update) custom entitlement limits for an org.
+
+    Any field left null retains its existing value. The override is applied on
+    top of plan+addon computed limits, so staff can grant custom Pro/Enterprise
+    deals without touching Stripe or plan definitions.
+    """
+    sb = get_supabase()
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "organization_id": org_id,
+        "updated_at": now,
+    }
+    for field in (
+        "brands_override", "platforms_override", "regions_override",
+        "domain_tracking", "managed_takedown", "api_access",
+        "advanced_reports", "real_time_scans", "note",
+    ):
+        val = getattr(body, field)
+        if val is not None:
+            row[field] = val
+    sb.table("org_entitlement_overrides").upsert(row, on_conflict="organization_id").execute()
+    reconcile_brand_locks(org_id)
+    return {"success": True, "org_id": org_id}
+
+
+@router.delete("/orgs/{org_id}/entitlement-override")
+def clear_entitlement_override(org_id: str, _ok: bool = Depends(verify_internal_secret)):
+    """Remove all custom overrides for an org (reverts to plan+addon limits)."""
+    sb = get_supabase()
+    sb.table("org_entitlement_overrides").delete().eq("organization_id", org_id).execute()
+    reconcile_brand_locks(org_id)
+    return {"success": True, "org_id": org_id}

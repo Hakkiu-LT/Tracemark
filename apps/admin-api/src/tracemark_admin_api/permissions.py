@@ -22,6 +22,7 @@ PERMISSIONS: dict[str, str] = {
     "brands.delete": "Delete any brand",
     "billing.view": "View subscriptions and invoices",
     "billing.manage": "Change plans, cancel/modify subscriptions",
+    "entitlements.manage": "Set custom per-org limits (brands/platforms/features) for Pro/Enterprise deals",
     "resources.view": "System metrics (CPU/RAM) and API usage",
     "scraper_health.view": "Per-platform scraper health (success rate, latency, failures)",
     "integrations.manage": "Meta token exchange and integration keys",

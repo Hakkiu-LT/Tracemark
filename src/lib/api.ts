@@ -217,6 +217,29 @@ export function updateSubscription(payload: {
   });
 }
 
+/** Guest checkout: start a subscription without auth; user creates account after payment. */
+export function guestSubscribe(payload: {
+  email: string;
+  plan: string;
+  interval: "month" | "year";
+  addons?: AddonSelection[];
+}): Promise<{ subscription_id: string; client_secret: string }> {
+  return apiFetch("/billing/guest-subscribe", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** After the guest creates their Supabase account, bind the subscription to their profile. */
+export function activateSubscription(payload: {
+  stripe_subscription_id: string;
+}): Promise<{ status: string }> {
+  return apiFetch("/billing/activate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function cancelSubscription(cancel: boolean): Promise<{ cancel_at_period_end: boolean }> {
   return apiFetch("/billing/cancel-subscription", {
     method: "POST",

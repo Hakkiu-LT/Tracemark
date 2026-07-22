@@ -12,250 +12,52 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RequestPricingModal } from "./request-pricing-modal";
 
-// ── Marketplace list ─────────────────────────────────────────────────────────
+// ── Self-Serve static card ────────────────────────────────────────────────────
 
-const MARKETPLACES: { key: string; label: string }[] = [
-  { key: "amazon",    label: "Amazon" },
-  { key: "ebay",      label: "eBay" },
-  { key: "alibaba",   label: "Alibaba" },
-  { key: "aliexpress",label: "AliExpress" },
-  { key: "etsy",      label: "Etsy" },
-  { key: "wish",      label: "Wish" },
-  { key: "temu",      label: "Temu" },
-  { key: "shopify",   label: "Shopify stores" },
-  { key: "facebook",  label: "Facebook" },
-  { key: "instagram", label: "Instagram" },
-  { key: "tiktok",    label: "TikTok Shop" },
-  { key: "taobao",    label: "Taobao" },
+const SELF_SERVE_FEATURES = [
+  "1–5 trademarks to monitor",
+  "All 12 marketplace platforms",
+  "Unlimited detections & takedowns",
+  "AI confidence scoring",
+  "Auto takedown documents",
+  "Branded PDF reports",
+  "Live enforcement dashboard",
+  "Email support",
 ];
 
-// ── Pricing constants ─────────────────────────────────────────────────────────
-
-const BASE_PRICE = 849;
-
-const TM_ADD_ON: Record<number, number> = {
-  1: 149,
-  2: 269,
-  3: 349,
-  4: 469,
-  5: 579,
-};
-
-const MARKETPLACE_ADD_ON_PRICE = 40; // per extra marketplace beyond Amazon
-
-const DOMAIN_PROTECTION_PRICE = 649;
-
-// ── Configurator ──────────────────────────────────────────────────────────────
-
-function PricingConfigurator() {
+function SelfServeCard() {
   const navigate = useNavigate();
-  const [tmCount, setTmCount] = useState(1);
-  // Amazon is always included. selectedExtra = set of keys beyond amazon.
-  const [extraMarkets, setExtraMarkets] = useState<Set<string>>(new Set());
-  const [domainProtection, setDomainProtection] = useState(false);
-
-  function toggleMarket(key: string) {
-    setExtraMarkets((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  const tmAddon = TM_ADD_ON[tmCount] ?? 0;
-  const marketplaceAddon = extraMarkets.size * MARKETPLACE_ADD_ON_PRICE;
-  const domainAddon = domainProtection ? DOMAIN_PROTECTION_PRICE : 0;
-  const total = BASE_PRICE + tmAddon + marketplaceAddon + domainAddon;
 
   return (
-    <div className="flex flex-col rounded-3xl border border-[oklch(0.58_0.18_255)] bg-card shadow-[0_18px_50px_-20px_rgba(37,64,235,0.45)] overflow-hidden">
+    <div className="flex h-full flex-col rounded-3xl border border-[oklch(0.58_0.18_255)] bg-card shadow-[0_18px_50px_-20px_rgba(37,64,235,0.32)] overflow-hidden">
       {/* Header */}
       <div className="px-7 pt-7 pb-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-display text-xl font-bold tracking-tight">Self-Serve</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Start protecting today. No sales call.
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[oklch(0.58_0.18_255)]/30 bg-card px-3.5 py-1.5 text-xs font-semibold text-[oklch(0.58_0.18_255)] shadow-sm">
-            <Star className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
-            Most popular
-          </span>
-        </div>
+        <h3 className="font-display text-xl font-bold tracking-tight">Self-Serve</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Configure instantly. No sales call needed.
+        </p>
 
-        {/* Live price */}
-        <div className="mt-5 flex items-baseline gap-1.5">
-          <span className="font-display text-5xl font-bold tracking-tight">
-            €{total.toLocaleString("en-EU")}
+        <div className="mt-5">
+          <span className="text-2xl font-bold text-[oklch(0.58_0.18_255)]">
+            Configurable pricing
           </span>
-          <span className="text-sm font-medium text-muted-foreground">/mo</span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Flat monthly fee · unlimited detections · unlimited takedowns
+          Set your plan · instant checkout
         </p>
       </div>
 
       <hr className="border-border" />
 
-      {/* Configurator body */}
-      <div className="px-7 py-6 space-y-7">
-
-        {/* Step 1 — TM count */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold">
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[oklch(0.58_0.18_255)] text-[10px] font-bold text-white">1</span>
-              Trademark count
-            </p>
-            <span className="text-sm font-semibold text-[oklch(0.58_0.18_255)]">
-              +€{tmAddon}/mo
-            </span>
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                onClick={() => setTmCount(n)}
-                className={cn(
-                  "rounded-xl border py-2.5 text-sm font-semibold transition-colors",
-                  tmCount === n
-                    ? "border-[oklch(0.58_0.18_255)] bg-[oklch(0.58_0.18_255)]/10 text-[oklch(0.58_0.18_255)]"
-                    : "border-border bg-background hover:border-[oklch(0.58_0.18_255)]/40 hover:bg-[oklch(0.58_0.18_255)]/5",
-                )}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">Trademarks / brand names to monitor</p>
-        </div>
-
-        {/* Step 2 — Marketplaces */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold">
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[oklch(0.58_0.18_255)] text-[10px] font-bold text-white">2</span>
-              Marketplaces
-            </p>
-            {extraMarkets.size > 0 && (
-              <span className="text-sm font-semibold text-[oklch(0.58_0.18_255)]">
-                +€{marketplaceAddon}/mo
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {MARKETPLACES.map(({ key, label }) => {
-              const isBase = key === "amazon";
-              const checked = isBase || extraMarkets.has(key);
-              return (
-                <button
-                  key={key}
-                  disabled={isBase}
-                  onClick={() => !isBase && toggleMarket(key)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors text-left",
-                    checked && !isBase
-                      ? "border-[oklch(0.58_0.18_255)] bg-[oklch(0.58_0.18_255)]/10 text-[oklch(0.58_0.18_255)]"
-                      : isBase
-                        ? "border-border bg-muted/30 text-muted-foreground cursor-default"
-                        : "border-border bg-background hover:border-[oklch(0.58_0.18_255)]/40 hover:bg-[oklch(0.58_0.18_255)]/5",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                      checked
-                        ? "border-[oklch(0.58_0.18_255)] bg-[oklch(0.58_0.18_255)]"
-                        : "border-border",
-                    )}
-                  >
-                    {checked && (
-                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </span>
-                  {label}
-                  {isBase && (
-                    <span className="ml-auto text-[10px] text-muted-foreground">included</span>
-                  )}
-                  {!isBase && !checked && (
-                    <span className="ml-auto text-[10px] text-muted-foreground">+€40</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Step 3 — Domain protection */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold">
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[oklch(0.58_0.18_255)] text-[10px] font-bold text-white">3</span>
-              Domain &amp; website protection
-            </p>
-            {domainProtection && (
-              <span className="text-sm font-semibold text-[oklch(0.58_0.18_255)]">
-                +€{DOMAIN_PROTECTION_PRICE}/mo
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => setDomainProtection((v) => !v)}
-            className={cn(
-              "flex w-full items-start gap-3 rounded-xl border p-4 text-left transition-colors",
-              domainProtection
-                ? "border-[oklch(0.58_0.18_255)] bg-[oklch(0.58_0.18_255)]/8"
-                : "border-border hover:border-[oklch(0.58_0.18_255)]/40",
-            )}
-          >
-            <span
-              className={cn(
-                "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                domainProtection
-                  ? "border-[oklch(0.58_0.18_255)] bg-[oklch(0.58_0.18_255)]"
-                  : "border-muted-foreground/40",
-              )}
-            >
-              {domainProtection && (
-                <span className="h-2.5 w-2.5 rounded-full bg-white" />
-              )}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Add domain &amp; website monitoring</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                WHOIS tracking · phishing domains · typosquat detection · lookalike sites
-              </p>
-            </div>
-            <span className="shrink-0 text-sm font-semibold text-muted-foreground">
-              +€{DOMAIN_PROTECTION_PRICE}/mo
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* What's included */}
-      <hr className="border-border" />
-      <div className="px-7 py-5">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Everything included
-        </p>
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {[
-            "Unlimited detections",
-            "Unlimited takedown notices",
-            "AI confidence scoring",
-            "Auto takedown documents",
-            "Branded PDF reports",
-            "Live enforcement dashboard",
-            "Unlimited team members",
-            "Email support",
-          ].map((f) => (
-            <li key={f} className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-[oklch(0.58_0.18_255)]" strokeWidth={2.25} />
+      {/* Features */}
+      <div className="flex-1 px-7 py-5">
+        <ul className="space-y-2.5">
+          {SELF_SERVE_FEATURES.map((f) => (
+            <li key={f} className="flex items-start gap-2.5 text-sm">
+              <CheckCircle2
+                className="mt-0.5 h-4 w-4 shrink-0 text-[oklch(0.58_0.18_255)]"
+                strokeWidth={2.25}
+              />
               {f}
             </li>
           ))}
@@ -263,28 +65,18 @@ function PricingConfigurator() {
       </div>
 
       {/* CTA */}
-      <div className="px-7 pb-7">
-        <p className="mb-3 text-xs text-muted-foreground">
-          Not charged per detection. Not charged per takedown. Your bill is flat.
-        </p>
+      <div className="px-7 pb-7 pt-2">
         <Button
-          onClick={() =>
-            navigate({
-              to: "/checkout",
-              search: {
-                plan: "self_serve",
-                interval: "month",
-                tm: tmCount,
-                marketplace: extraMarkets.size,
-                domain: domainProtection ? 1 : 0,
-              },
-            })
-          }
-          className="w-full bg-[oklch(0.58_0.18_255)] text-white hover:bg-[oklch(0.54_0.18_255)]"
+          onClick={() => navigate({ to: "/configure" })}
+          size="lg"
+          className="w-full font-semibold bg-[oklch(0.58_0.18_255)] text-white hover:bg-[oklch(0.54_0.18_255)]"
         >
-          Start monitoring — €{total.toLocaleString("en-EU")}/mo
+          Buy Now
           <ChevronRight className="ml-1.5 h-4 w-4" />
         </Button>
+        <p className="mt-2.5 text-center text-xs text-muted-foreground">
+          Instant access · cancel anytime
+        </p>
       </div>
     </div>
   );
@@ -295,41 +87,93 @@ function PricingConfigurator() {
 interface SalesCardProps {
   name: string;
   tagline: string;
-  indicativePrice: string;
   features: string[];
   tier: "professional" | "enterprise";
   onRequest: () => void;
+  mostPopular?: boolean;
 }
 
-function SalesCard({ name, tagline, indicativePrice, features, onRequest }: SalesCardProps) {
+function SalesCard({ name, tagline, features, tier, onRequest, mostPopular }: SalesCardProps) {
+  const isPro = tier === "professional";
+
   return (
-    <div className="flex flex-col rounded-3xl border border-border bg-card p-7 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
-      <h3 className="font-display text-xl font-bold tracking-tight">{name}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{tagline}</p>
+    <div
+      className={cn(
+        "flex h-full flex-col rounded-3xl border bg-card overflow-hidden",
+        isPro
+          ? "border-[oklch(0.55_0.22_300)] shadow-[0_18px_50px_-20px_rgba(130,60,220,0.28)]"
+          : "border-border shadow-[0_1px_4px_rgba(15,23,42,0.06)]",
+      )}
+    >
+      {/* Header */}
+      <div className="px-7 pt-7 pb-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-display text-xl font-bold tracking-tight">{name}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{tagline}</p>
+          </div>
+          {mostPopular && (
+            <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[oklch(0.55_0.22_300)]/40 bg-[oklch(0.55_0.22_300)]/8 px-3 py-1.5 text-xs font-semibold text-[oklch(0.55_0.22_300)]">
+              <Star className="h-3 w-3 fill-current" strokeWidth={0} />
+              Most popular
+            </span>
+          )}
+        </div>
 
-      <div className="mt-5 flex items-baseline gap-1">
-        <span className="font-display text-3xl font-bold tracking-tight">{indicativePrice}</span>
+        <div className="mt-5">
+          <span
+            className={cn(
+              "text-2xl font-bold",
+              isPro ? "text-[oklch(0.55_0.22_300)]" : "text-muted-foreground",
+            )}
+          >
+            Custom pricing
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Free consultation · tailored proposal
+        </p>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">Indicative · final price on request</p>
 
-      <hr className="my-5 border-border" />
+      <hr className="border-border" />
 
-      <ul className="flex-1 space-y-2.5">
-        {features.map((f) => (
-          <li key={f} className="flex items-start gap-2.5 text-sm">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[oklch(0.55_0.22_300)]" strokeWidth={2.25} />
-            {f}
-          </li>
-        ))}
-      </ul>
+      {/* Features */}
+      <div className="flex-1 px-7 py-5">
+        <ul className="space-y-2.5">
+          {features.map((f) => (
+            <li key={f} className="flex items-start gap-2.5 text-sm">
+              <CheckCircle2
+                className={cn(
+                  "mt-0.5 h-4 w-4 shrink-0",
+                  isPro ? "text-[oklch(0.55_0.22_300)]" : "text-[oklch(0.50_0.10_255)]",
+                )}
+                strokeWidth={2.25}
+              />
+              {f}
+            </li>
+          ))}
+        </ul>
+      </div>
 
-      <Button
-        onClick={onRequest}
-        variant="outline"
-        className="mt-7 w-full border-[oklch(0.55_0.22_300)]/30 text-[oklch(0.55_0.22_300)] hover:bg-[oklch(0.55_0.22_300)]/8 hover:text-[oklch(0.55_0.22_300)]"
-      >
-        Request pricing
-      </Button>
+      {/* CTA */}
+      <div className="px-7 pb-7 pt-2">
+        <Button
+          onClick={onRequest}
+          size="lg"
+          className={cn(
+            "w-full font-semibold text-white",
+            isPro
+              ? "bg-[oklch(0.55_0.22_300)] hover:bg-[oklch(0.50_0.22_300)]"
+              : "bg-[oklch(0.38_0.07_255)] hover:bg-[oklch(0.33_0.07_255)]",
+          )}
+        >
+          Request Pricing
+          <ChevronRight className="ml-1.5 h-4 w-4" />
+        </Button>
+        <p className="mt-2.5 text-center text-xs text-muted-foreground">
+          Response within 1 business day
+        </p>
+      </div>
     </div>
   );
 }
@@ -368,15 +212,15 @@ export function Pricing() {
           </p>
         </div>
 
-        {/* Cards grid */}
-        <div className="mx-auto mt-12 grid max-w-[380px] items-start gap-6 sm:max-w-none sm:grid-cols-2 xl:grid-cols-3">
-          <PricingConfigurator />
+        {/* Cards grid — items-stretch makes all cards the same height */}
+        <div className="mx-auto mt-12 grid max-w-[380px] items-stretch gap-6 sm:max-w-none sm:grid-cols-2 xl:grid-cols-3">
+          <SelfServeCard />
 
           <SalesCard
             tier="professional"
             name="Professional"
             tagline="For brands with complex enforcement needs"
-            indicativePrice="€3,500–6,000/mo"
+            mostPopular
             features={[
               "Unlimited brands",
               "Real-time monitoring (15-min refresh)",
@@ -393,12 +237,11 @@ export function Pricing() {
             tier="enterprise"
             name="Enterprise"
             tagline="For law firms, agencies & global brands"
-            indicativePrice="€7,000+/mo"
             features={[
               "White-label / law-firm mode",
               "Multi-client workspace",
               "SSO / SAML authentication",
-              "Custom integrations",
+              "Custom integrations (Salesforce, SAP)",
               "EU data residency",
               "99.9% uptime SLA",
               "Court-ready evidence packaging",
