@@ -130,12 +130,14 @@ function GuestPaymentInner({
   dueToday,
   subscriptionId,
   guestEmail,
+  backSearch,
 }: {
   plan: string;
   interval: BillingInterval;
   dueToday: number;
   subscriptionId: string;
   guestEmail: string;
+  backSearch: Record<string, string | number>;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -195,7 +197,7 @@ function GuestPaymentInner({
           )}
         </Button>
         <Button variant="ghost" asChild className="w-full text-muted-foreground hover:text-foreground">
-          <Link to="/review">Cancel</Link>
+          <Link to="/review" search={backSearch}>Cancel</Link>
         </Button>
       </CardFooter>
     </form>
@@ -209,6 +211,9 @@ function GuestCheckout({
   planMonthly,
   dueToday,
   selectedAddons,
+  tm,
+  marketplace,
+  domain,
 }: {
   plan: string;
   interval: BillingInterval;
@@ -216,11 +221,16 @@ function GuestCheckout({
   planMonthly: number;
   dueToday: number;
   selectedAddons: AddonSelection[];
+  tm: number;
+  marketplace: number;
+  domain: number;
 }) {
   const [email, setEmail] = useState("");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
+
+  const backSearch = { plan, interval, tm, marketplace, domain };
 
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault();
@@ -244,7 +254,7 @@ function GuestCheckout({
     <div className="mx-auto max-w-4xl py-6 space-y-6">
       <div>
         <Button variant="ghost" size="sm" asChild className="gap-2">
-          <Link to="/review">
+          <Link to="/review" search={backSearch}>
             <ArrowLeft className="h-4 w-4" /> Back to review
           </Link>
         </Button>
@@ -308,6 +318,7 @@ function GuestCheckout({
                   dueToday={dueToday}
                   subscriptionId={subscriptionId!}
                   guestEmail={email}
+                  backSearch={backSearch}
                 />
               </Elements>
             )}
@@ -586,6 +597,9 @@ function CheckoutPage() {
         planMonthly={planMonthly}
         dueToday={dueToday}
         selectedAddons={selectedAddons}
+        tm={ssTm}
+        marketplace={ssMarketplace}
+        domain={ssDomain ? 1 : 0}
       />
     );
   }
