@@ -51,6 +51,12 @@ services:
     build:
       context: .
       dockerfile: src/Dockerfile
+      # VITE_* are baked into the JS bundle at BUILD time — they must be present here,
+      # not just at runtime. docker-compose reads them from the root .env.
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.hakkiu.com/api/v1}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
     image: tracemark-frontend
     ports:
       - "127.0.0.1:8080:8080"
@@ -77,6 +83,31 @@ services:
       - tracemark
     restart: unless-stopped
 
+  # Reverse proxy + automatic HTTPS. The ONLY service exposed to the internet.
+  # Routes each subdomain to the matching container over the internal network.
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # Let's Encrypt certs + ACME state (persist!)
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - admin
+      - api
+      - admin-api
+    networks:
+      - tracemark
+    restart: unless-stopped
+
 networks:
   tracemark:
     driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

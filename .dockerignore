@@ -1,4 +1,25 @@
-node_modules/
-dist/
-.git/
+# Keep the build context small AND keep secrets/artifacts out of the image.
+# The customer Dockerfile does `COPY . .`, so anything not ignored here lands in a layer.
+
+node_modules
+dist
+dist-ssr
+.output
+.vinxi
+.nitro
+.tanstack
+.wrangler
+bun.lock
+
+.git
 apps/
+
+# NEVER bake secrets into an image layer.
+.env
+.env.*
+
+# Local junk
+*.log
+.DS_Store
+.vscode
+.idea

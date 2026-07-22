@@ -125,14 +125,28 @@
 
 ---
 
-## 🟡 PRIORITY 4 — Production Deployment (Hetzner CCX13)
+## 🟡 PRIORITY 4 — Production Deployment (Hetzner CCX13) — domain hakkiu.com
 
-- [ ] Provision Hetzner CCX13 instance (Ubuntu)
-- [ ] Dockerize API, admin-api, admin frontend, customer frontend
-- [ ] `docker-compose.yml` for production
-- [ ] Caddy reverse proxy + Let's Encrypt SSL
-- [ ] GitHub Actions CI/CD pipeline (lint → test → build → deploy)
-- [ ] Automated DB + Storage backups to Hetzner Storage Box
+### Prepared in repo (config ready — session 8)
+- [x] Dockerize API, admin-api, admin frontend, customer frontend (all 4 Dockerfiles exist)
+- [x] Customer `src/Dockerfile` — rewritten from `bun run dev` → production build + `wrangler dev --local` (workerd). Verified: built worker serves SSR HTTP 200. glibc base for workerd.
+- [x] `docker-compose.yml` — Caddy service + `caddy_data`/`caddy_config` volumes + frontend VITE_* build args added
+- [x] `Caddyfile` — 4 subdomains (hakkiu.com, admin/api/admin-api.hakkiu.com) + www→apex redirect + auto Let's Encrypt + customer CSP/security headers (api.tracemark.ai→api.hakkiu.com)
+- [x] `.dockerignore` — excludes `.env`, `.wrangler`, `dist` from customer image (secret-leak fix)
+- [x] `.env.production.example` — production URLs/CORS for hakkiu.com + secret placeholders
+- [x] `.github/workflows/deploy.yml` — SSH auto-deploy after green CI on main (appleboy/ssh-action)
+- [x] `scripts/backup.sh` — nightly pg_dump → local + Hetzner Storage Box, 14-day rotation
+- [x] `docs/DEPLOYMENT.md` — full server-hardening runbook (deploy user, SSH keys-only, ufw, fail2ban, unattended-upgrades, docker) + DNS + first deploy + external-service wiring + verification
+
+### User must run (needs their credentials — instructions in docs/DEPLOYMENT.md)
+- [ ] DNS: A records (@, www, admin, api, admin-api) → 116.202.8.87 (+ AAAA for IPv6)
+- [ ] Server hardening: deploy user, SSH keys-only, ufw (80/443/SSH), fail2ban, unattended-upgrades, Docker
+- [ ] Clone to `/opt/hakkiu`, create `.env` from `.env.production.example`, fill secrets (Stripe LIVE keys)
+- [ ] First deploy: `docker compose build && up -d`; confirm Caddy issues certs
+- [ ] GitHub repo secrets: SSH_HOST / SSH_USER / SSH_KEY (+ SSH_PORT) for the deploy workflow
+- [ ] Stripe webhook → https://api.hakkiu.com/api/v1/billing/webhook; Supabase Auth Site/Redirect URLs
+- [ ] Backups: install postgresql-client, set DATABASE_URL, add cron
+- [ ] Verification checklist (all 5 hostnames load over HTTPS; scan + Stripe checkout work)
 
 ---
 

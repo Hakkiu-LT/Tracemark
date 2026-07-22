@@ -1,7 +1,33 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-22 (session 8 — architecture refactoring ALL 6 steps COMPLETE)
+> Last updated: 2026-07-22 (session 8 — Hetzner production deployment prepared)
+
+---
+
+## Current focus: Production deployment to Hetzner (domain hakkiu.com)
+
+Decision (confirmed this session): **everything runs on the Hetzner server** (incl. the
+customer frontend), **automatic deploy** via GitHub Actions, **Caddy** for reverse proxy +
+auto-SSL. Supabase stays external.
+
+**Subdomain map:** `hakkiu.com` + `www` → customer app · `admin.hakkiu.com` → admin FE ·
+`api.hakkiu.com` → main API · `admin-api.hakkiu.com` → admin API.
+
+**Key technical finding:** the customer app is built for the Cloudflare Workers runtime
+(`@lovable.dev/vite-tanstack-config` only injects the cloudflare plugin at `command==="build"`,
+so `vite preview` does NOT run workerd). We self-host by running the built worker under
+`workerd` via `wrangler dev --local` — verified locally to serve full SSR HTML (HTTP 200).
+`src/Dockerfile` uses a glibc base (alpine's musl can't run the workerd binary).
+
+**All config prepared in the repo (see `docs/DEPLOYMENT.md`):** `Caddyfile`, updated
+`docker-compose.yml` (Caddy + volumes + frontend build args), rewritten customer `Dockerfile`,
+`.dockerignore` secret-leak fix, `.env.production.example`, `.github/workflows/deploy.yml`,
+`scripts/backup.sh`. Remaining work is on the server (DNS, hardening, secrets, first deploy) —
+those need the user's credentials and are documented step-by-step in `docs/DEPLOYMENT.md`.
+
+**Trade-off noted:** `wrangler dev` self-host is fine for MVP; scaling later → `wrangler deploy`
+to real Cloudflare (one command) and drop the `frontend` container.
 
 ---
 
