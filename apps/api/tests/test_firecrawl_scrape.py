@@ -27,6 +27,7 @@ HTML_PATH = ARTIFACTS_DIR / "firecrawl_adidas_com.html"
 PREVIEW_CHARS = 600
 
 RATE_LIMIT_SIGNALS = ("rate_limited", "rate limited", "rate-limit")
+TIMEOUT_SIGNALS = ("timed out", "timeout", "time out", "read operation timed")
 
 
 def _looks_like_rate_limit(markdown: str | None) -> bool:
@@ -34,6 +35,13 @@ def _looks_like_rate_limit(markdown: str | None) -> bool:
         return False
     md_lower = markdown.lower()
     return any(sig in md_lower for sig in RATE_LIMIT_SIGNALS)
+
+
+def _looks_like_timeout(error_message: str | None) -> bool:
+    if not error_message:
+        return False
+    msg_lower = error_message.lower()
+    return any(sig in msg_lower for sig in TIMEOUT_SIGNALS)
 
 
 requires_firecrawl_key = pytest.mark.skipif(
@@ -93,6 +101,11 @@ class TestScrapePageDownload:
         if _looks_like_rate_limit(result.markdown):
             pytest.skip(
                 "Firecrawl returned a rate-limit placeholder — skipping shape check"
+            )
+
+        if _looks_like_timeout(result.error_message):
+            pytest.skip(
+                f"Firecrawl timed out scraping {TARGET_URL} — skipping shape check"
             )
 
         assert result.success is True, (

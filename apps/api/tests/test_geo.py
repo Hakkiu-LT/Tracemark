@@ -44,7 +44,8 @@ def test_serpapi_geo_params():
     params = serpapi_geo_params("DE")
     assert params == {
         "gl": "de",
-        "hl": "de"
+        "hl": "de",
+        "location": "Germany",
     }
 
 

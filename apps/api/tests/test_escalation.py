@@ -6,11 +6,36 @@ from tracemark_api.dependencies import get_current_user, AuthUser
 
 client = TestClient(app)
 
+TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
+
+
 @pytest.fixture(autouse=True)
 def mock_auth():
-    app.dependency_overrides[get_current_user] = lambda: AuthUser(id="550e8400-e29b-41d4-a716-446655440000", email="gabo.seqq@gmail.com")
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(id=TEST_USER_ID, email="gabo.seqq@gmail.com")
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_monitoring_supabase():
+    """Prevent _assert_case_in_org and _monitoring_org_id from hitting the real DB.
+
+    Both helpers call get_supabase() in tracemark_api.routes.monitoring.
+    The mock satisfies two different selects through the same chain:
+      - profiles: data.get("organization_id") = None → no org, personal account
+      - cases:    data.get("user_id") = TEST_USER_ID → ownership check passes
+    """
+    ownership_data = MagicMock()
+    ownership_data.data = {"organization_id": None, "user_id": TEST_USER_ID}
+
+    mock_table = MagicMock()
+    mock_table.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = ownership_data
+
+    mock_sb = MagicMock()
+    mock_sb.table.return_value = mock_table
+
+    with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
+        yield mock_sb
 
 
 @patch("tracemark_api.routes.monitoring.update_case_status")
