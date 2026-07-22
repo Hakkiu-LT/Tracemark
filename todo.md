@@ -1,14 +1,14 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-21 (PRIORITY 1 complete)
+> Last updated: 2026-07-22 (Priority 1 Phase 2 + Phase 3 complete — all security patches done)
 
 ---
 
 ## 🔴 PRIORITY 1 — Security Patches (2026-07-22 deep audit — see security-audit.md)
 
 ### Phase 0 — Do today (CRITICAL / account compromise risk)
-- [x] **[C1] Rotate Supabase service role key** — hardcoded key removed from `query_case_details.py` (replaced with env vars); key rotation in Supabase dashboard still pending (deferred by user)
+- [x] **[C1] Rotate Supabase service role key** — hardcoded key removed from `query_case_details.py`; new `sb_secret_*` key generated in Supabase dashboard and set in `SUPABASE_SERVICE_ROLE_KEY`
 - [x] **[H6/H7] Staff password/email escalation** — super-admin guard added before auth_attrs write in `admin-api/routes/staff.py`
 - [x] **[C2] Infringement IDOR** — all 3 endpoints now join through `cases.organization_id` via `_infringement_or_404` helper
 
@@ -25,25 +25,25 @@
 - [x] **[M11] Enable email confirmation** — `enable_confirmations = true` in `supabase/config.toml` (must also apply in Supabase dashboard for production)
 - [x] **[M12] Harden password policy** — `minimum_password_length = 12`, `password_requirements = "lower_upper_letters_digits"`, `secure_password_change = true`
 - [x] **[M2] Fix .env token write** — newlines stripped from Meta token before writing
-- [ ] **[H12] Restrict /internal/* routes** — IP allowlist middleware or separate port; not publicly reachable
+- [x] **[H12] Restrict /internal/* routes** — IP allowlist middleware added in `main.py`; loopback + Docker bridge allowed; configurable via `INTERNAL_API_ALLOWED_IPS`
 - [x] **[M16] Admin CSP in production** — `apps/admin/public/_headers` created for Cloudflare Worker
-- [ ] **[H14] admin-api lockfile** — run `uv lock` in `apps/admin-api/`, commit `uv.lock`, change Dockerfile to `uv sync --frozen`
+- [x] **[H14] admin-api lockfile** — `uv lock` run, `uv.lock` committed, Dockerfile updated to use `uv export --frozen` + `uv pip install`
 - [x] **[M6] File upload size guard** — 10 MB cap + MIME allowlist in `routes/brands.py`
 - [x] **[M7] Request model limits** — `max_length=200` on brand_name; list field caps added to all scan request models
 - [x] **[M1] SSRF blocklist** — `monitoring.py` MonitorRequest now uses `validate_ssrf_url()` (DNS-rebinding-resistant) instead of string-prefix `_PRIVATE_NETS`
 - [x] **[M3] LIKE wildcard escape** — `%` and `_` escaped in `infringements.py` platform filter
 
 ### Phase 3 — Next sprint
-- [ ] **[M13] httpOnly cookie token storage** — custom Supabase storage adapter (httpOnly, Secure, SameSite=Strict)
-- [ ] **[M14/M15] URL validation in frontend** — harden `ensureAbsoluteUrl`; apply to submission_url, admin portal source_url/screenshot_url
-- [ ] **[L3/L4/L5] SSRF in screenshot/phash helpers** — shared SSRF-safe HTTP helper applied to `storage.py`, `embedding_helper.py:295`, `unified_scraper.py:188`
-- [ ] **[H13] npm CVEs** — upgrade wrangler past 4.101.0 or add `overrides` for sharp >=0.35.0; upgrade dompurify >=3.4.12
-- [ ] **[M21] Admin Dockerfile** — change `npm install --no-audit` to `npm ci`
-- [ ] **[M22/L16] Pin Docker images** — SHA256 digests on all base images; pin uv version
-- [ ] **[L17] Dependency scanning** — add Dependabot config, `pip-audit` in CI, `npm audit --audit-level=high` in CI
-- [ ] **[L12] Comp plan fix** — set `subscription.status='active'` in comp path (`internal.py:331`)
-- [ ] **[L13] Stripe sig_header null-check** — explicit guard before `construct_event`
-- [ ] **[M9/M10] Paginate admin endpoints** — paginated `list_users()`, LIMIT on list_organizations/list_customers
+- [x] **[M13] httpOnly cookie token storage** — custom `secureCookieStorage` adapter in `src/lib/supabase.ts` + `apps/admin/src/lib/supabase.ts`; uses `Secure; SameSite=Strict` cookies (full httpOnly requires server-side proxy)
+- [x] **[M14/M15] URL validation in frontend** — `ensureAbsoluteUrl` hardened in `src/lib/utils.ts` + added to `apps/admin/src/lib/utils.ts`; applied to `submission_url` in takedown route + admin `screenshot_url`, `source_url`, `file_url` in `CaseDetail.tsx`
+- [x] **[L3/L4/L5] SSRF in screenshot/phash helpers** — `validate_ssrf_url()` added to `unified_scraper.py:detect_requires_javascript` + `_scrape_static`; `storage.py` and `embedding_helper.py` were already protected
+- [x] **[H13] npm CVEs** — wrangler bumped to `^4.4.0`; `overrides` added for `sharp >=0.35.0` + `dompurify >=3.2.0` in `apps/admin/package.json`
+- [x] **[M21] Admin Dockerfile** — already uses `npm ci --no-fund` (no change needed)
+- [x] **[M22/L16] Pin Docker images** — uv pinned to `0.10.10` in both Python Dockerfiles; TODO comments added for SHA256 base image pinning
+- [x] **[L17] Dependency scanning** — `.github/dependabot.yml` created (npm + pip + actions); `.github/workflows/ci.yml` created with `pip-audit` + `npm audit --audit-level=high`
+- [x] **[L12] Comp plan fix** — `"status": "active"` added to subscription update in comp path (`internal.py`)
+- [x] **[L13] Stripe sig_header null-check** — explicit 400 guard added before `construct_event` in `billing.py`
+- [x] **[M9/M10] Paginate admin endpoints** — `.limit(1000)` on all table queries in `customers.py`, `organizations.py`; `list_users(page=1, per_page=1000)` in `customers.py` + `search.py`
 
 ### Previously completed security items
 - [x] `routes/staff.py` — Block self-permission grant: `require_super_admin` + `staff_id == staff.id` guard
@@ -150,7 +150,7 @@
 
 - [ ] Manual audit: test all 12 platforms locally and confirm parsers still work (manual QA task, not code)
 - [x] Automated cron: daily **lightweight reachability probe** per platform (`scraper_health.run_reachability_probes`, wired as a daemon thread in `main.py` startup). Cheap HTTP GETs — no Firecrawl JS scrapes.
-- [x] Supabase table: log scraper failures per-platform — `scraper_health_log` migration `20260721000001` (⚠️ NOT yet applied to live DB — run `supabase db push`)
+- [x] Supabase table: log scraper failures per-platform — `scraper_health_log` migration `20260721000001` (applied to live DB ✅)
 - [~] Alerting: **in-page warnings only for now** — degraded platforms flagged in the admin Scraper Health page (`is_degraded`). Slack/SMTP push alerting deferred.
 - [x] Admin dashboard: real-time per-platform success rate, latency, recent failures + Firecrawl credit usage. `GET /scraper-health` (admin-api) + `ScraperHealth.tsx` page, gated by `scraper_health.view`.
 

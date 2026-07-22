@@ -1,7 +1,8 @@
 FROM python:3.11-slim
 
-# Copy uv from the official Astral image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Pin uv to a specific version for reproducible builds (avoids supply-chain risk from :latest).
+# TODO: also pin python:3.11-slim with a SHA256 digest for full supply-chain hardening.
+COPY --from=ghcr.io/astral-sh/uv:0.10.10 /uv /uvx /bin/
 
 WORKDIR /app
 

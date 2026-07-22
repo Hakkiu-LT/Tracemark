@@ -329,7 +329,7 @@ def internal_set_plan(body: SetPlanRequest, _ok: bool = Depends(verify_internal_
         .execute()
     )
     if sub.data:
-        sb.table("subscriptions").update({"plan": body.plan, "updated_at": now_iso}).eq(
+        sb.table("subscriptions").update({"plan": body.plan, "status": "active", "updated_at": now_iso}).eq(
             "id", sub.data[0]["id"]
         ).execute()
     sb.table("profiles").update({"plan": body.plan}).eq("id", body.org_id).execute()
