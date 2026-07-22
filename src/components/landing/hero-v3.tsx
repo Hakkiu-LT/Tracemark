@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { TalkToSalesModal } from "./talk-to-sales-modal";
 import {
   Radio,
   ArrowRight,
-  Monitor,
+  CalendarCheck,
   Headphones,
   Award,
   ShoppingBag,
@@ -23,6 +24,7 @@ import {
   FolderCheck,
   Send,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +45,11 @@ const stats = [
 ];
 
 export function HeroV3() {
+  const [salesOpen, setSalesOpen] = useState(false);
+
   return (
+    <>
+    <TalkToSalesModal open={salesOpen} onOpenChange={setSalesOpen} />
     <section className="relative flex min-h-screen flex-col overflow-hidden border-b border-border bg-[radial-gradient(130%_120%_at_78%_18%,oklch(0.97_0.02_255)_0%,oklch(0.985_0.005_250)_46%,oklch(0.98_0.004_250)_100%)] dark:bg-[radial-gradient(130%_120%_at_78%_18%,oklch(0.18_0.04_260)_0%,oklch(0.14_0.03_260)_46%,oklch(0.12_0.03_260)_100%)] text-foreground">
       {/* faint grid detail */}
       <div
@@ -75,7 +81,7 @@ export function HeroV3() {
               size="lg"
               className="h-12 gap-2 rounded-xl bg-[oklch(0.55_0.19_262)] px-6 text-base shadow-lg shadow-[oklch(0.55_0.19_262/0.28)] hover:bg-[oklch(0.5_0.19_262)]"
             >
-              <Link to="/dashboard">
+              <Link to="/plans">
                 Start monitoring
                 <ArrowRight className="h-4.5 w-4.5" />
               </Link>
@@ -84,14 +90,24 @@ export function HeroV3() {
               asChild
               size="lg"
               variant="outline"
-              className="h-12 gap-2 rounded-xl border-[oklch(0.58_0.18_255/0.35)] dark:border-white/20 bg-white/60 dark:bg-slate-900/60 px-6 text-base text-[oklch(0.45_0.16_262)] dark:text-slate-300 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:text-[oklch(0.4_0.17_262)] dark:hover:text-white"
+              className="h-12 gap-2 rounded-xl border-[oklch(0.58_0.18_255/0.35)] dark:border-white/20 bg-white/60 dark:bg-slate-900/60 px-6 text-base text-[oklch(0.45_0.16_262)] dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 hover:text-[oklch(0.4_0.17_262)] dark:hover:text-white"
             >
-              <a href="#how">
-                <Monitor className="h-4.5 w-4.5" />
-                See platform
-              </a>
+              <Link to="/request-demo">
+                <CalendarCheck className="h-4.5 w-4.5" />
+                Book a demo
+              </Link>
             </Button>
           </div>
+
+          <p className="mt-4 text-sm text-[oklch(0.55_0.03_257)] dark:text-slate-400">
+            Need to talk first?{" "}
+            <button
+              onClick={() => setSalesOpen(true)}
+              className="font-medium text-[oklch(0.5_0.16_262)] dark:text-blue-400 underline underline-offset-2 hover:no-underline"
+            >
+              Talk to sales →
+            </button>
+          </p>
         </div>
 
         {/* ── RIGHT: animated product-storytelling visual ─────────── */}
@@ -116,7 +132,9 @@ export function HeroV3() {
           ))}
         </dl>
       </div>
+
     </section>
+    </>
   );
 }
 

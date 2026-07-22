@@ -443,6 +443,133 @@ def get_subscription(current_user=Depends(get_current_user)):
     }
 
 
+# ── Guest checkout (pay first, create account after) ─────────────────────────
+
+class GuestSubscribeRequest(BaseModel):
+    email: str
+    plan: str
+    interval: str = "month"
+    addons: list[AddonInput] = []
+
+
+class ActivateRequest(BaseModel):
+    stripe_subscription_id: str
+
+
+def _get_or_create_stripe_customer_for_email(email: str) -> str:
+    """Find or create a Stripe customer purely by email, no Supabase lookup."""
+    s = _stripe()
+    result = _do_stripe(s.Customer.search, query=f"email:'{email}'", limit=1)
+    customers = (result.get("data") or []) if isinstance(result, dict) else (getattr(result, "data", None) or [])
+    for c in customers:
+        meta = (c.get("metadata") or {}) if isinstance(c, dict) else (getattr(c, "metadata", None) or {})
+        # Only reuse guest customers — skip ones already linked to a Supabase org.
+        if not meta.get("organization_id"):
+            return c["id"] if isinstance(c, dict) else c.id
+    customer = _do_stripe(s.Customer.create, email=email, metadata={"guest": "true"})
+    return customer["id"] if isinstance(customer, dict) else customer.id
+
+
+@router.post("/guest-subscribe")
+def guest_subscribe(body: GuestSubscribeRequest):
+    """Create a Stripe subscription without authentication.
+
+    Returns a client_secret so the frontend can confirm payment via Stripe Elements.
+    After the user pays, they create their Supabase account and call /billing/activate
+    to bind the subscription to their profile.
+    """
+    email = (body.email or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email address")
+    if body.plan not in SELF_SERVE_PLANS:
+        raise HTTPException(status_code=400, detail=f"Plan '{body.plan}' is not self-serve")
+    if body.interval not in _VALID_INTERVALS:
+        raise HTTPException(status_code=400, detail="interval must be 'month' or 'year'")
+
+    s = _stripe()
+    try:
+        items = [{"price": get_plan_price_id(body.plan, body.interval)}]
+        for addon in body.addons:
+            if addon.key not in SUBSCRIPTION_ADDONS:
+                raise HTTPException(status_code=400, detail=f"Unknown add-on '{addon.key}'")
+            items.append({
+                "price": get_addon_price_id(addon.key),
+                "quantity": normalize_addon_quantity(addon.key, addon.quantity),
+            })
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    customer_id = _get_or_create_stripe_customer_for_email(email)
+
+    subscription = _do_stripe(
+        s.Subscription.create,
+        customer=customer_id,
+        items=items,
+        payment_behavior="default_incomplete",
+        payment_settings={"save_default_payment_method": "on_subscription"},
+        expand=["latest_invoice.confirmation_secret"],
+        metadata={"guest_email": email, "plan": body.plan, "guest": "true"},
+    )
+    sub = _as_dict(subscription)
+
+    invoice = sub.get("latest_invoice") or {}
+    confirmation = invoice.get("confirmation_secret") or {}
+    client_secret = confirmation.get("client_secret")
+    if not client_secret:
+        raise HTTPException(status_code=500, detail="Stripe did not return a client secret")
+
+    return {"subscription_id": sub.get("id"), "client_secret": client_secret}
+
+
+@router.post("/activate")
+def activate_subscription(body: ActivateRequest, current_user=Depends(get_current_user)):
+    """Link a guest Stripe subscription to the newly-authenticated user.
+
+    Called from /billing/success after the user creates their Supabase account.
+    The subscription's guest_email metadata must match the authenticated user's email.
+    """
+    s = _stripe()
+    sb = get_supabase()
+
+    # Expand items so _sync_subscription_to_db can write subscription_addons rows.
+    sub = _as_dict(_do_stripe(s.Subscription.retrieve, body.stripe_subscription_id, expand=["items"]))
+    metadata = sub.get("metadata") or {}
+    guest_email = (metadata.get("guest_email") or "").lower()
+
+    if guest_email != (current_user.email or "").lower():
+        raise HTTPException(
+            status_code=403,
+            detail="Subscription email does not match your account email",
+        )
+
+    org_id = _billing_org_id(current_user.id)
+    customer_id = sub.get("customer")
+    if isinstance(customer_id, dict):
+        customer_id = customer_id.get("id")
+
+    # Link Stripe customer to this org so future webhooks can resolve the org.
+    _do_stripe(
+        s.Customer.modify,
+        customer_id,
+        metadata={"organization_id": org_id},
+    )
+    sb.table("org_settings").upsert(
+        {
+            "organization_id": org_id,
+            "stripe_customer_id": customer_id,
+            "notification_email": current_user.email or "",
+        },
+        on_conflict="organization_id",
+    ).execute()
+
+    # Full sync: writes subscriptions + subscription_addons + reconciles brand locks.
+    # This is what activates the purchased TM/marketplace/domain add-ons so the
+    # customer's brand and scan limits reflect exactly what they paid for.
+    _sync_subscription_to_db(sub, org_id)
+
+    return {"status": "activated"}
+
+
 @router.get("/invoices")
 def get_invoices(current_user=Depends(get_current_user)):
     sb = get_supabase()

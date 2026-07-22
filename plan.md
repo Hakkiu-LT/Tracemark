@@ -1,7 +1,7 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-22 (session 8 — Hetzner deploy prepared + pricing redesign planned)
+> Last updated: 2026-07-22 (session 10 — billing/entitlement system audit + fixes)
 
 ---
 

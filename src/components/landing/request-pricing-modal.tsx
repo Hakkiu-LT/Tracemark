@@ -33,6 +33,7 @@ export function RequestPricingModal({ open, onOpenChange, tier }: RequestPricing
   const [error, setError] = useState<string | null>(null);
 
   const tierLabel = tier === "professional" ? "Professional" : "Enterprise";
+  const ctaLabel = tier === "professional" ? "Book a Demo" : "Contact Sales";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -160,8 +161,11 @@ export function RequestPricingModal({ open, onOpenChange, tier }: RequestPricing
                     <SelectValue placeholder="Select a range" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="1-5">1–5 brands</SelectItem>
-                    <SelectItem value="6-20">6–20 brands</SelectItem>
+                    <SelectItem value="1">1 brand</SelectItem>
+                    <SelectItem value="2-3">2–3 brands</SelectItem>
+                    <SelectItem value="4-5">4–5 brands</SelectItem>
+                    <SelectItem value="6-10">6–10 brands</SelectItem>
+                    <SelectItem value="11-20">11–20 brands</SelectItem>
                     <SelectItem value="20+">20+ brands</SelectItem>
                   </SelectContent>
                 </Select>
@@ -195,7 +199,7 @@ export function RequestPricingModal({ open, onOpenChange, tier }: RequestPricing
                     Sending…
                   </>
                 ) : (
-                  "Request a demo"
+                  ctaLabel
                 )}
               </Button>
             </form>

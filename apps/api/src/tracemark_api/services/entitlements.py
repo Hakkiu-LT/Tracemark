@@ -280,10 +280,54 @@ def _addons_for_org(org_id: str) -> list[dict]:
     return res.data or []
 
 
+def _override_for_org(org_id: str) -> dict | None:
+    """Admin-set per-org entitlement overrides (Pro/Enterprise custom deals)."""
+    sb = get_supabase()
+    try:
+        res = (
+            sb.table("org_entitlement_overrides")
+            .select("brands_override,platforms_override,regions_override,"
+                    "domain_tracking,managed_takedown,api_access,advanced_reports,real_time_scans")
+            .eq("organization_id", org_id)
+            .maybe_single()
+            .execute()
+        )
+        return res.data if res and res.data else None
+    except Exception:
+        return None
+
+
+def _apply_entitlement_override(ent: Entitlement, override: dict) -> Entitlement:
+    """Apply non-null override fields on top of plan+addon computed entitlements.
+
+    Numeric overrides: -1 means unlimited (stored as None in Entitlement).
+    Boolean overrides: only replace when explicitly set.
+    """
+    changes: dict = {}
+    for field, key in (("brands", "brands_override"), ("platforms", "platforms_override"), ("regions", "regions_override")):
+        val = override.get(key)
+        if val is not None:
+            changes[field] = UNLIMITED if val < 0 else val
+    for flag in ("domain_tracking", "managed_takedown", "api_access", "advanced_reports", "real_time_scans"):
+        val = override.get(flag)
+        if val is not None:
+            changes[flag] = bool(val)
+    return replace(ent, **changes) if changes else ent
+
+
 def resolve_entitlements_for_org(org_id: str) -> tuple[str, Entitlement]:
-    """Return (plan, effective Entitlement) for an org."""
+    """Return (plan, effective Entitlement) for an org.
+
+    Effective = plan base + purchased add-ons + admin override (if any).
+    Admin overrides let staff set custom limits for Pro/Enterprise without
+    touching Stripe or modifying plan definitions in code.
+    """
     plan = _active_plan_for_org(org_id)
-    return plan, compute_entitlements(plan, _addons_for_org(org_id))
+    ent = compute_entitlements(plan, _addons_for_org(org_id))
+    override = _override_for_org(org_id)
+    if override:
+        ent = _apply_entitlement_override(ent, override)
+    return plan, ent
 
 
 def resolve_entitlements_for_user(user_id: str) -> tuple[str, str, Entitlement]:
