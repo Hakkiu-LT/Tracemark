@@ -97,7 +97,7 @@
 ## 🔴 PRIORITY — Billing Workflow Fixes (MUST fix before going live)
 
 ### Critical (production-blocking)
-- [ ] **`src/routes/auth.callback.tsx`** — after `exchangeCodeForSession` succeeds, read `localStorage.getItem("pending_subscription_id")`; if present → call `activateSubscription({ stripe_subscription_id })` → clear localStorage → navigate to `/dashboard`. If activate fails → navigate to `/billing/success?subscription_id=...&email=user.email` for retry. **Without this, every guest checkout customer who goes through email confirmation ends up with a paid Stripe sub but no active subscription in the DB.**
+- [x] **`src/routes/auth.callback.tsx`** — after `exchangeCodeForSession` succeeds, read `localStorage.getItem("pending_subscription_id")`; if present → call `activateSubscription({ stripe_subscription_id })` → clear localStorage → navigate to `/dashboard`. ✅ Fixed session 11.
 
 ### High (bad UX, confuses paying customers)
 - [ ] **`src/routes/checkout.tsx` `OrderSummary`** — self-serve addon keys (`addon_self_serve_tm_1..5`, `addon_self_serve_marketplace`, `addon_self_serve_domain`) are NOT in the `ADDONS` array, so they render as `null` and disappear from the order summary. Fix: build `SelfServeOrderSummary` that derives line items from `tm`/`marketplace`/`domain` URL params directly using `SELF_SERVE_TM_PRICES`, `SELF_SERVE_MARKETPLACE_PRICE`, `SELF_SERVE_DOMAIN_PRICE` constants from `billing.ts`.
@@ -134,7 +134,7 @@
 - [x] Migration: `sales_leads` table — `supabase/migrations/20260722000001_sales_leads.sql`
 - [x] `routes/leads.py` — `POST /api/v1/leads` (public, no auth) + rate-limit 3/hr per IP; registered in `main.py`
 - [x] **[CRITICAL BUG FIX]** `routes/billing.py` `/billing/activate` — now calls `_sync_subscription_to_db` with `expand=["items"]`, writes `subscription_addons` + reconciles brand locks. Guest checkout customers no longer land with `brands=0`.
-- [ ] **[STILL OPEN]** `src/routes/auth.callback.tsx` — email-confirmation path does NOT call `activateSubscription`. Guest checkout customers who go through email confirmation (production) have a paid Stripe sub but dead account. See "Billing Workflow Fixes" section above.
+- [x] **[FIXED session 11]** `src/routes/auth.callback.tsx` — email-confirmation path now reads `pending_subscription_id` from localStorage and calls `activateSubscription` before navigating to dashboard.
 - [x] `services/entitlements.py` — per-org entitlement override support: `_override_for_org`, `_apply_entitlement_override`; `resolve_entitlements_for_org` applies admin overrides on top of plan+addon
 - [x] Migration: `org_entitlement_overrides` table — `supabase/migrations/20260722000002_entitlement_overrides.sql` (applied ✅)
 - [x] `routes/internal.py` — GET/PUT/DELETE `/internal/orgs/{org_id}/entitlement-override` endpoints (secret-gated)
