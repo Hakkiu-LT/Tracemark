@@ -20,6 +20,11 @@ import {
   ADDONS,
   effectiveMonthly,
   intervalTotal,
+  selfServeAddons,
+  SELF_SERVE_TM_PRICES,
+  SELF_SERVE_MARKETPLACE_PRICE,
+  SELF_SERVE_DOMAIN_PRICE,
+  SELF_SERVE_BASE_PRICE,
   type BillingInterval,
 } from "@/lib/billing";
 import {
@@ -32,6 +37,10 @@ import {
 const checkoutSearchSchema = z.object({
   plan: z.string().catch("growth"),
   interval: z.enum(["month", "year"]).catch("month"),
+  // Self-Serve configurator params (only used when plan=self_serve).
+  tm: z.coerce.number().min(1).max(5).optional(),
+  marketplace: z.coerce.number().min(0).max(11).optional(),
+  domain: z.coerce.number().min(0).max(1).optional(),
 });
 
 export const Route = createFileRoute("/checkout")({
@@ -51,6 +60,12 @@ function CheckoutPage() {
   const queryClient = useQueryClient();
   const interval = search.interval as BillingInterval;
   const plan = getPlan(search.plan) ?? getPlan("growth")!;
+  const isSelfServe = plan.id === "self_serve";
+
+  // Self-Serve params from the pricing configurator.
+  const ssTm = search.tm ?? 1;
+  const ssMarketplace = search.marketplace ?? 0;
+  const ssDomain = (search.domain ?? 0) > 0;
 
   // Is the user already subscribed? Then this is a plan change (uses the card on
   // file via update-subscription) rather than a fresh checkout. We must wait for
@@ -61,22 +76,29 @@ function CheckoutPage() {
   });
   const hasActiveSub = ["active", "trialing", "past_due"].includes(currentSub?.status ?? "");
 
-  // addon key -> quantity (0 = not selected)
+  // addon key -> quantity (0 = not selected) — only used for legacy plans.
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
 
-  const selectedAddons: AddonSelection[] = ADDONS.filter((a) => (quantities[a.key] ?? 0) > 0).map(
-    (a) => ({ key: a.key, quantity: quantities[a.key] }),
-  );
+  // For self_serve: addons come from URL params (pre-configured in pricing.tsx).
+  const selectedAddons: AddonSelection[] = isSelfServe
+    ? selfServeAddons(ssTm, ssMarketplace, ssDomain)
+    : ADDONS.filter((a) => (quantities[a.key] ?? 0) > 0).map(
+        (a) => ({ key: a.key, quantity: quantities[a.key] }),
+      );
 
-  const planMonthly = plan.monthly ?? 0;
-  const addonsMonthly = selectedAddons.reduce((sum, sel) => {
-    const meta = ADDONS.find((a) => a.key === sel.key);
-    return sum + (meta ? meta.price * sel.quantity : 0);
-  }, 0);
-  const monthlyTotal = planMonthly + addonsMonthly;
-  const dueToday = intervalTotal(monthlyTotal, interval);
+  // Monthly total for display.
+  const planMonthly = isSelfServe
+    ? SELF_SERVE_BASE_PRICE +
+      (SELF_SERVE_TM_PRICES[ssTm] ?? 0) +
+      ssMarketplace * SELF_SERVE_MARKETPLACE_PRICE +
+      (ssDomain ? SELF_SERVE_DOMAIN_PRICE : 0)
+    : (plan.monthly ?? 0) +
+      ADDONS.filter((a) => (quantities[a.key] ?? 0) > 0).reduce((sum, a) => {
+        return sum + a.price * (quantities[a.key] ?? 0);
+      }, 0);
+  const dueToday = intervalTotal(planMonthly, interval);
 
   function setQty(key: string, next: number) {
     setQuantities((q) => ({ ...q, [key]: Math.max(0, next) }));
@@ -265,7 +287,7 @@ function CheckoutPage() {
               </div>
               {interval === "year" && (
                 <p className="text-xs text-muted-foreground">
-                  Billed yearly — equivalent to ${monthlyTotal.toLocaleString()}/mo at the monthly
+                  Billed yearly — equivalent to ${planMonthly.toLocaleString()}/mo at the monthly
                   rate.
                 </p>
               )}

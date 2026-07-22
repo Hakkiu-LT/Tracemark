@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
   CheckCircle2,
   Shield,
@@ -7,7 +7,6 @@ import {
   Globe,
   Star,
   ChevronRight,
-  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -49,6 +48,7 @@ const DOMAIN_PROTECTION_PRICE = 649;
 // ── Configurator ──────────────────────────────────────────────────────────────
 
 function PricingConfigurator() {
+  const navigate = useNavigate();
   const [tmCount, setTmCount] = useState(1);
   // Amazon is always included. selectedExtra = set of keys beyond amazon.
   const [extraMarkets, setExtraMarkets] = useState<Set<string>>(new Set());
@@ -268,13 +268,22 @@ function PricingConfigurator() {
           Not charged per detection. Not charged per takedown. Your bill is flat.
         </p>
         <Button
-          asChild
+          onClick={() =>
+            navigate({
+              to: "/checkout",
+              search: {
+                plan: "self_serve",
+                interval: "month",
+                tm: tmCount,
+                marketplace: extraMarkets.size,
+                domain: domainProtection ? 1 : 0,
+              },
+            })
+          }
           className="w-full bg-[oklch(0.58_0.18_255)] text-white hover:bg-[oklch(0.54_0.18_255)]"
         >
-          <Link to="/dashboard">
-            Start monitoring — €{total.toLocaleString("en-EU")}/mo
-            <ChevronRight className="ml-1.5 h-4 w-4" />
-          </Link>
+          Start monitoring — €{total.toLocaleString("en-EU")}/mo
+          <ChevronRight className="ml-1.5 h-4 w-4" />
         </Button>
       </div>
     </div>
