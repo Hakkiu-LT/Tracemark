@@ -17,6 +17,8 @@ export const PERMISSIONS = {
   "integrations.manage": "Meta token exchange and integration keys",
   "staff.manage": "Create/edit staff and assign permissions",
   "audit.view": "Read the audit log",
+  "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
+  "leads.edit": "Update lead status (mark contacted, close)",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -27,7 +29,7 @@ export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
   dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view"],
-  sales: ["customers.view", "customers.edit", "billing.view", "billing.manage", "brands.view"],
+  sales: ["customers.view", "customers.edit", "billing.view", "billing.manage", "brands.view", "leads.view", "leads.edit"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(
     (p) => p !== "customers.delete" && p !== "customers.impersonate",

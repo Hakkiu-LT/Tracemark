@@ -18,14 +18,137 @@ mode, API access, branded PDF reports. NOT yet built (don't advertise): automati
 phishing/brand-impersonation, rogue apps, paid-ad monitoring, seller-network clustering.
 → Our positioning = **Counterfeits + Domain abuse**, not all 5 Red Points columns.
 
-### Structure
-- **Self-Serve (Buy now — only Stripe self-checkout):** configurator built on the EXISTING
-  add-on system (`addon_brand`/`addon_domains`/`addon_region`/`addon_reports` all already exist).
-  Base plan = all 12 platforms; scale via brands (1–5) + toggle add-ons; live total → checkout.
-- **Professional (Request Pricing):** unlimited brands, real-time, domain tracking, managed
-  takedown, priority support. Maps to `pro` entitlements. No Stripe — lead form.
-- **Enterprise (Request Pricing):** white-label/multi-client, full API, custom integrations,
-  SSO/SAML, SLA, EU residency. Maps to `agency`/`enterprise`. Lead form.
+---
+
+### Deep Research Findings (2026-07-22) — Competitor Pricing
+
+**Verified competitive intelligence:**
+- Red Points is the ONLY competitor with a published tier structure. Everyone else is 100% sales-gated with zero public prices.
+- Red Points Self-Serve configurator: 1 TM = **$174/mo**, 5 TMs = **$653/mo**. Add-ons: fake website protection **$745/mo**, "Brand Protection Plan" (unlimited users/rules/CV/AI) **$938/mo**.
+- Red Points' core marketing claim: *"You are not charged per detection. You are not charged per takedown."* — cost is scope-based (channels + geographies + TMs), not volume-based.
+- MarqVision: enterprise-only, annual contracts **$25,000–$100,000/yr**, no self-serve.
+- BrandProtection.ai: 4 tiers, no prices, all sales-gated.
+- Sentryc, Corsearch: large enterprise only. No public pricing exists.
+- **Key opportunity:** HAKKIU can be the ONLY competitor with transparent self-serve pricing for SMBs. This is a massive differentiator.
+
+---
+
+### HAKKIU Pricing Structure (Concrete Numbers)
+
+#### Self-Serve Configurator (Buy Now → Stripe)
+Mirrors Red Points' exact structure but ~10–13% cheaper in EUR. Red Points max ≈ €3,100; HAKKIU max ≈ €2,517.
+Monthly only — no annual option.
+
+**Configurator components (3 steps):**
+
+**Step 1 — Base subscription: €849/mo** (always required)
+Includes: unlimited detections & takedowns, all platform users, AI vision scoring,
+auto-takedown documents, branded PDF reports, live dashboard, email support, daily monitoring.
+Amazon marketplace included in base.
+
+**Step 2 — Trademark count (cumulative total add-on):**
+| TMs | Monthly add-on |
+|-----|---------------|
+| 1 | +€149/mo |
+| 2 | +€269/mo |
+| 3 | +€349/mo |
+| 4 | +€469/mo |
+| 5 | +€579/mo |
+
+**Step 2b — Marketplace selection: +€40/mo per marketplace**
+Amazon included in base (step 1). Each of the other 11 platforms is +€40/mo.
+All 12 selected = +€440/mo on top of base.
+
+**Step 3 — Domain/website protection toggle: +€649/mo** (optional)
+WHOIS monitoring, typosquatting detection, lookalike domain alerts.
+
+**Example totals:**
+- 1 TM + Amazon only: €849 + €149 + €0 = **€998/mo**
+- 1 TM + all 12 marketplaces: €849 + €149 + €440 = **€1,438/mo**
+- 5 TM + all 12: €849 + €579 + €440 = **€1,868/mo**
+- 5 TM + all 12 + domain: €849 + €579 + €440 + €649 = **€2,517/mo** ← max
+
+Red Points equivalent max ≈ €3,100 → HAKKIU is ~19% cheaper.
+
+**Configurator flow:** base always shown → TM slider (1–5) → marketplace checkboxes → domain toggle → live total → "Buy now" → Stripe checkout.
+
+**Key messaging:**
+> "You're never charged per detection. You're never charged per takedown. Infringement spikes don't change your bill."
+
+#### Professional — "Request Pricing" (Lead Form → Sales Call)
+Target: D2C brands with 5+ brands needing real-time monitoring + managed service.
+Indicative range (share in sales call, not shown on page): **€3,500–6,000/mo**
+
+Included vs. Self-Serve:
+- Unlimited brands (no 5-cap)
+- Real-time monitoring (vs. daily for self-serve)
+- Domain surveillance included (no add-on fee)
+- Priority support + dedicated CSM
+- Managed takedown service included
+- API access
+- Custom region scanning
+
+Maps to `pro` entitlements in codebase.
+
+#### Enterprise — "Request Pricing" (Lead Form → Sales Call)
+Target: law firms, brand protection agencies, portfolio companies (50+ brands).
+Indicative range: **€7,000+/mo** or custom annual contract.
+
+Adds over Professional:
+- White-label / law-firm multi-client mode
+- SSO/SAML
+- Custom platform integrations
+- SLA (99.9% uptime, 4h response)
+- EU data residency option
+- Full webhook API
+- Custom analytics + reporting
+
+Maps to `agency`/`enterprise` entitlements in codebase.
+
+---
+
+### "Request Pricing" / Demo Lead Form — Design
+
+**Trigger:** clicking "Request Pricing" on Professional or Enterprise card → modal overlay (NOT a new page).
+
+**Form fields (6 fields max):**
+1. First name *
+2. Last name *
+3. Work email *
+4. Company *
+5. How many brands do you need to protect? (dropdown: 1–5 / 6–20 / 20+ / Not sure) *
+6. Anything else we should know? (textarea, optional)
+
+**CTA button:** "Request a demo" (primary, full-width)
+
+**Social proof next to form:**
+- "Join [X] brands protecting their IP with HAKKIU"
+- 3 testimonial snippets (add real ones later; use placeholder for launch)
+- "Our team responds within 1 business day"
+
+**After submit:**
+- Thank-you message: "Thanks, [First name]. We'll reach out within 1 business day."
+- (Later: embed Calendly for immediate booking)
+
+**Backend:** stores to `sales_leads` table. Admin portal `Leads.tsx` shows all leads with mark-contacted button.
+
+---
+
+### Pricing Page Layout (3-card design, Red Points–inspired)
+
+```
+[ Self-Serve ]          [ Professional ]        [ Enterprise ]
+For solo brands         For growing brands      For agencies & legal
+up to 5 trademarks      unlimited brands        unlimited + white-label
+
+From $129/mo            Custom pricing          Custom pricing
+[Configure & Buy →]     [Request Pricing →]     [Request Pricing →]
+```
+
+Key differentiator callout above all 3 cards:
+> "Never charged per detection. Never charged per takedown. Your bill is flat."
+
+---
 
 ### Work breakdown
 **Backend:** `billing_config.py`+`entitlements.py` add `self_serve` base plan, `SELF_SERVE_PLANS

@@ -96,26 +96,29 @@
 
 ## 🔴 PRIORITY — Pricing Redesign (Red Points model: 1 self-serve configurator + Professional + Enterprise)
 
-> Planned session 8. Self-serve = live configurator (Buy now → Stripe). Professional +
-> Enterprise = "Request Pricing" → lead form (no Stripe). Reuses existing add-on system.
+> Deep research complete (2026-07-22). Concrete pricing set. See plan.md for full spec.
+> Self-serve: $129/mo (1 brand) → $389/mo (5 brands) + add-ons. Professional + Enterprise = lead form.
+> Key differentiator: "Never charged per detection. Never charged per takedown."
 
 ### Backend
 - [ ] `billing_config.py` — add `self_serve` base plan; `SELF_SERVE_PLANS = ("self_serve",)`
-- [ ] `entitlements.py` — `self_serve` base (all 12 platforms) + keep `professional`/`enterprise` maps
-- [ ] `seed_stripe.py` — self-serve base price + reuse existing add-on prices (test first, then live)
-- [ ] Migration: `sales_leads` table (id, org_id?, name, email, company, tier, message, status, created_at)
-- [ ] `routes/leads.py` — `POST /api/v1/leads` (public lead capture) + validation/rate-limit
+- [ ] `entitlements.py` — `self_serve` base (all 12 platforms, daily monitoring)
+- [ ] `seed_stripe.py` — Stripe prices: base €849/mo; TM add-ons €149/€269/€349/€469/€579; per-marketplace €40/mo (11 prices, one per platform); domain protection €649/mo. Monthly only. Sandbox first.
+- [x] Migration: `sales_leads` table — `supabase/migrations/20260722000001_sales_leads.sql`
+- [x] `routes/leads.py` — `POST /api/v1/leads` (public, no auth) + rate-limit 3/hr per IP; registered in `main.py`
 
 ### Customer Frontend
-- [ ] `src/lib/billing.ts` — restructure PLANS: self_serve (selfServe:true) + professional/enterprise (selfServe:false, monthly:null)
-- [ ] New configurator component (Red Points style): brand count + add-on toggles + live price → Buy now → `checkout.tsx`
-- [ ] `pricing.tsx` / `plans.tsx` — 3 cards; Buy now only on self-serve; "Request Pricing" → lead-form modal
-- [ ] Lead form modal (name, email, company, message) → `POST /leads`
+- [ ] `src/lib/billing.ts` — restructure PLANS for self_serve checkout
+- [x] New `PricingConfigurator` component in `pricing.tsx`: TM count buttons (1-5) + marketplace checkboxes (Amazon included, 11×€40) + domain toggle (€649) + live total
+- [x] `pricing.tsx` — 3-card layout: Self-Serve configurator, Professional, Enterprise
+- [x] `RequestPricingModal` — 6-field form → `POST /api/v1/leads` → thank-you state; `request-pricing-modal.tsx`
 
 ### Admin Portal (mandatory parity)
-- [ ] `admin-api`: `GET /leads` (all orgs) + PATCH mark-contacted, gated `leads.view`/`leads.edit`
-- [ ] Add `leads.view`, `leads.edit` to `permissions.py` AND `permissions.ts`
-- [ ] `apps/admin`: `Leads.tsx` page, gated with `<Can>`
+- [x] `admin-api/routes/leads.py`: `GET /leads` (paginated, filter by status/tier) + `PATCH /leads/{id}`, gated `leads.view`/`leads.edit`
+- [x] Add `leads.view`, `leads.edit` to `permissions.py` AND `permissions.ts`; `sales` role preset gets both
+- [x] `apps/admin/src/pages/Leads.tsx` — table with tier, company, email, brand_count_range, status badge, mark-contacted/close actions
+- [x] `apps/admin/src/router.tsx` — `/leads` route added
+- [x] `apps/admin/src/components/layout.tsx` — "Sales Leads" nav item under Customers group
 
 ---
 
