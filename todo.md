@@ -94,6 +94,31 @@
 
 ---
 
+## 🔴 PRIORITY — Pricing Redesign (Red Points model: 1 self-serve configurator + Professional + Enterprise)
+
+> Planned session 8. Self-serve = live configurator (Buy now → Stripe). Professional +
+> Enterprise = "Request Pricing" → lead form (no Stripe). Reuses existing add-on system.
+
+### Backend
+- [ ] `billing_config.py` — add `self_serve` base plan; `SELF_SERVE_PLANS = ("self_serve",)`
+- [ ] `entitlements.py` — `self_serve` base (all 12 platforms) + keep `professional`/`enterprise` maps
+- [ ] `seed_stripe.py` — self-serve base price + reuse existing add-on prices (test first, then live)
+- [ ] Migration: `sales_leads` table (id, org_id?, name, email, company, tier, message, status, created_at)
+- [ ] `routes/leads.py` — `POST /api/v1/leads` (public lead capture) + validation/rate-limit
+
+### Customer Frontend
+- [ ] `src/lib/billing.ts` — restructure PLANS: self_serve (selfServe:true) + professional/enterprise (selfServe:false, monthly:null)
+- [ ] New configurator component (Red Points style): brand count + add-on toggles + live price → Buy now → `checkout.tsx`
+- [ ] `pricing.tsx` / `plans.tsx` — 3 cards; Buy now only on self-serve; "Request Pricing" → lead-form modal
+- [ ] Lead form modal (name, email, company, message) → `POST /leads`
+
+### Admin Portal (mandatory parity)
+- [ ] `admin-api`: `GET /leads` (all orgs) + PATCH mark-contacted, gated `leads.view`/`leads.edit`
+- [ ] Add `leads.view`, `leads.edit` to `permissions.py` AND `permissions.ts`
+- [ ] `apps/admin`: `Leads.tsx` page, gated with `<Can>`
+
+---
+
 ## 🔴 PRIORITY 2 — Automation Rules Builder
 
 ### Backend

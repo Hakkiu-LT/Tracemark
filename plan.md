@@ -1,7 +1,44 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-22 (session 8 — Hetzner production deployment prepared)
+> Last updated: 2026-07-22 (session 8 — Hetzner deploy prepared + pricing redesign planned)
+
+---
+
+## Planned: Pricing redesign — Red Points model (1 self-serve + 2 request-pricing)
+
+Restructure pricing to mirror Red Points, adapted to what HAKKIU actually ships today.
+Confirmed decisions: **self-serve = a live configurator** (pick brands/add-ons → live price →
+Buy now), **two sales-led tiers** above it (Professional + Enterprise, "Request Pricing").
+
+**Feature reality (what we can sell now — all built):** 12-platform marketplace counterfeit
+detection, Gemini Vision scoring, auto takedown docs + delivery, geo/region scanning, WHOIS
+domain tracking, managed takedown ($500 one-off), real-time monitoring, white-label/law-firm
+mode, API access, branded PDF reports. NOT yet built (don't advertise): automation rules,
+phishing/brand-impersonation, rogue apps, paid-ad monitoring, seller-network clustering.
+→ Our positioning = **Counterfeits + Domain abuse**, not all 5 Red Points columns.
+
+### Structure
+- **Self-Serve (Buy now — only Stripe self-checkout):** configurator built on the EXISTING
+  add-on system (`addon_brand`/`addon_domains`/`addon_region`/`addon_reports` all already exist).
+  Base plan = all 12 platforms; scale via brands (1–5) + toggle add-ons; live total → checkout.
+- **Professional (Request Pricing):** unlimited brands, real-time, domain tracking, managed
+  takedown, priority support. Maps to `pro` entitlements. No Stripe — lead form.
+- **Enterprise (Request Pricing):** white-label/multi-client, full API, custom integrations,
+  SSO/SAML, SLA, EU residency. Maps to `agency`/`enterprise`. Lead form.
+
+### Work breakdown
+**Backend:** `billing_config.py`+`entitlements.py` add `self_serve` base plan, `SELF_SERVE_PLANS
+= ("self_serve",)`; `seed_stripe.py` self-serve base price + reuse add-on prices; new
+`sales_leads` table (migration) + `POST /api/v1/leads`.
+**Customer FE:** restructure `src/lib/billing.ts` PLANS (self_serve selfServe:true;
+professional/enterprise selfServe:false, monthly:null); new Red-Points-style configurator
+component (live price → `checkout.tsx`); `pricing.tsx`/`plans.tsx` 3 cards — Buy now only on
+self-serve, "Request Pricing" → lead-form modal → `POST /leads`.
+**Admin parity (mandatory):** admin-api `GET /leads` (+ mark-contacted) gated by `leads.view`;
+`leads.view`/`leads.edit` in `permissions.py`+`permissions.ts`; admin `Leads.tsx` page.
+**Rollout:** pre-launch (no live customers) → clean redefine of plan keys OK; test in Stripe
+sandbox first, then live.
 
 ---
 

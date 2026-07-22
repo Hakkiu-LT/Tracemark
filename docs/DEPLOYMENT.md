@@ -19,6 +19,31 @@ Internet ──443──▶ Caddy (auto TLS) ──▶ 4 containers on an intern
 
 ---
 
+## Environments & Stripe modes
+
+There are exactly **two** environments — the mode is decided purely by which `.env` is loaded,
+never by a code change:
+
+| Environment | Where | Stripe | Notes |
+|---|---|---|---|
+| **Test / sandbox** | local machine (uvicorn + `vite dev`) | `sk_test_` / `pk_test_` + **test** price IDs | day-to-day development + Stripe testing with fake cards |
+| **Production** | Hetzner server | `sk_live_` / `pk_live_` + **live** price IDs | real customers, real charges |
+
+Stripe **test and live are fully separate**: different keys, different Products/Prices, and
+**different `price_…` IDs**. So the `STRIPE_PRICE_*` values in the local `.env` (test) and the
+server `.env` (live) are *expected to differ*.
+
+⚠️ `VITE_STRIPE_PUBLISHABLE_KEY` is baked into the frontend bundle at build time — the server
+build uses the **live** key from the server `.env`, so production always talks to live Stripe.
+
+**Changing plans:** edit `PLANS` in `apps/api/scripts/seed_stripe.py` + `PLAN_MONTHLY_PRICE` in
+`services/billing_config.py`, run `seed_stripe.py` against test → paste the printed
+`STRIPE_PRICE_*` into the local `.env` → test. Then repeat in **live** mode (create the same
+Products/Prices in the Stripe live dashboard — the seed script refuses live keys as a safety
+guard) and put the live price IDs in the server `.env`. See `docs/BILLING.md`.
+
+---
+
 ## 0. Prerequisites (once)
 
 - [ ] SSH access to the server as `root` (Hetzner emails the root password, or use an SSH key added at creation).
