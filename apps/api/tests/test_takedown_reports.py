@@ -8,10 +8,18 @@ from tracemark_api.services.takedown import generate_takedown_reports, TakedownR
 client = TestClient(app)
 
 
+FAKE_ORG_ID = "fake-org"
+
 @pytest.fixture(autouse=True)
 def override_auth():
-    from tracemark_api.dependencies import get_current_user, AuthUser
-    app.dependency_overrides[get_current_user] = lambda: AuthUser(id="fake-id", email="fake@tracemark.io")
+    from tracemark_api.dependencies import get_current_profile, CurrentProfile
+    from tracemark_api.services.entitlements import compute_entitlements
+    profile = CurrentProfile(
+        id="fake-id", email="fake@tracemark.io",
+        organization_id=FAKE_ORG_ID,
+        plan="enterprise", entitlements=compute_entitlements("enterprise", []),
+    )
+    app.dependency_overrides[get_current_profile] = lambda: profile
     yield
     app.dependency_overrides.clear()
 
@@ -198,7 +206,7 @@ def _make_takedown_sb(takedown_data: dict):
     """Build a mock Supabase that satisfies both _assert_takedown_in_org (select with
     cases!inner join) and the subsequent update call."""
     # Ownership-check result: takedown row with embedded cases join.
-    ownership_data = dict(takedown_data, cases={"organization_id": None, "user_id": "fake-id"})
+    ownership_data = dict(takedown_data, cases={"organization_id": FAKE_ORG_ID})
     ownership_result = MagicMock()
     ownership_result.data = ownership_data
 

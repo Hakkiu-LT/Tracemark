@@ -42,31 +42,19 @@ class MonitorResponse(BaseModel):
     error_message: str | None = None
 
 
-def _monitoring_org_id(user_id: str) -> str | None:
-    sb = get_supabase()
-    try:
-        res = sb.table("profiles").select("organization_id").eq("id", user_id).maybe_single().execute()
-        return res.data.get("organization_id") if (res and res.data) else None
-    except Exception:
-        return None
-
-
-def _assert_case_in_org(sb, case_id: str, org_id: str | None, user_id: str) -> None:
-    res = sb.table("cases").select("organization_id, user_id").eq("id", case_id).maybe_single().execute()
+def _assert_case_in_org(sb, case_id: str, org_id: str) -> None:
+    res = sb.table("cases").select("organization_id").eq("id", case_id).maybe_single().execute()
     row = res.data if res else None
     if not row:
         raise HTTPException(status_code=404, detail="Case not found")
-    if org_id:
-        if row.get("organization_id") != org_id:
-            raise HTTPException(status_code=404, detail="Case not found")
-    elif row.get("user_id") != user_id:
+    if row.get("organization_id") != org_id:
         raise HTTPException(status_code=404, detail="Case not found")
 
 
-def _assert_takedown_in_org(sb, takedown_id: str, org_id: str | None, user_id: str) -> dict:
+def _assert_takedown_in_org(sb, takedown_id: str, org_id: str) -> dict:
     res = (
         sb.table("takedown_reports")
-        .select("*, cases!inner(organization_id, user_id)")
+        .select("*, cases!inner(organization_id)")
         .eq("id", takedown_id)
         .maybe_single()
         .execute()
@@ -75,22 +63,14 @@ def _assert_takedown_in_org(sb, takedown_id: str, org_id: str | None, user_id: s
     if not row:
         raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
     case_info = row.get("cases") or {}
-    if org_id:
-        if case_info.get("organization_id") != org_id:
-            raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
-    elif case_info.get("user_id") != user_id:
+    if case_info.get("organization_id") != org_id:
         raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
     return row
 
 
-def _require_paid_plan(user_id: str) -> None:
+def _require_paid_plan(profile: CurrentProfile) -> None:
     """Require an active paid subscription before triggering real scrapes."""
-    from tracemark_api.services.entitlements import _active_plan_for_org
-    org_id = _monitoring_org_id(user_id)
-    if org_id is None:
-        raise HTTPException(status_code=402, detail="Active paid plan required to run scrapes.")
-    plan = _active_plan_for_org(org_id) or "free"
-    if plan.lower() == "free":
+    if (profile.plan or "free").lower() == "free":
         raise HTTPException(status_code=402, detail="Active paid plan required to run scrapes. Upgrade to continue.")
 
 
@@ -154,10 +134,10 @@ class GatherEvidenceRequest(BaseModel):
 async def gather_evidence_endpoint(
     request: Request,
     payload: GatherEvidenceRequest,
-    current_user = Depends(get_current_user)
+    profile: CurrentProfile = Depends(get_current_profile),
 ) -> Evidence:
-    _require_paid_plan(current_user.id)
-    caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
+    _require_paid_plan(profile)
+    caller_id = profile.email or profile.id
     try:
         evidence = await scrape_evidence(
             payload.brand_name,
@@ -181,14 +161,14 @@ class CheckAdsRequest(BaseModel):
 async def check_ads_endpoint(
     request: Request,
     payload: CheckAdsRequest,
-    current_user = Depends(get_current_user)
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Detect ad hijacking: unauthorized Google/Meta ads using a brand name to steal traffic.
     Whitelist official page names via official_advertisers (e.g. ["Orbio World", "Orbio Official"]).
     """
-    _require_paid_plan(current_user.id)
-    caller_id = getattr(current_user, "email", None) or getattr(current_user, "id", "system")
+    _require_paid_plan(profile)
+    caller_id = profile.email or profile.id
     try:
         return await check_ads_hijacking(
             payload.brand_name,
@@ -418,9 +398,9 @@ class UpdateStatusRequest(BaseModel):
 
 
 @router.post("/{case_id}/status")
-def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, current_user=Depends(get_current_user)):
+def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, profile: CurrentProfile = Depends(get_current_profile)):
     sb = get_supabase()
-    _assert_case_in_org(sb, case_id, _monitoring_org_id(current_user.id), current_user.id)
+    _assert_case_in_org(sb, case_id, profile.organization_id)
     try:
         update_case_status(case_id, payload.status, decline_reason=payload.decline_reason)
         
@@ -491,14 +471,14 @@ class TakedownUpdateRequest(BaseModel):
 def update_takedown_report_endpoint(
     id: str,
     payload: TakedownUpdateRequest,
-    current_user = Depends(get_current_user)
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Update notice text and status of a takedown report in Supabase.
     If status transitions to 'sent', automatically record submitted_at time.
     """
     sb = get_supabase()
-    _assert_takedown_in_org(sb, id, _monitoring_org_id(current_user.id), current_user.id)
+    _assert_takedown_in_org(sb, id, profile.organization_id)
 
     update_data = {}
     if payload.notice_text is not None:
@@ -561,14 +541,14 @@ def test_email_notification_endpoint(
 @router.post("/takedowns/{id}/send-email")
 def send_takedown_email_endpoint(
     id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Send the notice text of the takedown report to its submission_email via SMTP,
     update status to 'sent', and set submitted_at to now.
     """
     sb = get_supabase()
-    report = _assert_takedown_in_org(sb, id, _monitoring_org_id(current_user.id), current_user.id)
+    report = _assert_takedown_in_org(sb, id, profile.organization_id)
 
     recipient = report.get("submission_email")
     if not recipient:
