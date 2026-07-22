@@ -371,7 +371,11 @@ def set_org_entitlement_override(
     on numeric fields. After saving, brand locks are reconciled automatically.
     """
     _org_or_404(org_id)
-    data = {k: v for k, v in payload.model_dump().items() if v is not None}
+    # Pass all 8 override fields (including null) so the main API can clear individual
+    # fields back to "inherit from plan+addons". Note is optional — only include if set.
+    data = payload.model_dump(exclude={"note"})
+    if payload.note is not None:
+        data["note"] = payload.note
     result = main_api.set_entitlement_override(org_id, data)
     write_audit_log(
         staff, "organizations.set_entitlement_override",
