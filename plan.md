@@ -1,7 +1,120 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-22 (session 10 — billing/entitlement system audit + fixes)
+> Last updated: 2026-07-22 (session 11 — full billing/landing audit; next: fix auth/callback + landing polish)
+
+---
+
+## 🔴 CURRENT FOCUS — Billing workflow + landing page
+
+### What was audited this session (session 11)
+
+Full system audit with 3 parallel Opus agents across billing enforcement, admin
+capabilities, and data flow. Critical bug fixed (`/billing/activate` addon sync).
+Remaining work broken down below.
+
+---
+
+### 🔴 BUG — `/auth/callback` never activates pending subscription
+
+**Severity: BLOCKING in production.** When Supabase has email confirmation enabled (production),
+the guest checkout flow stores `pending_subscription_id` in localStorage and asks the user to
+confirm their email. The user clicks the confirmation link → `/auth/callback` runs → but the
+callback page does NOT read `pending_subscription_id` from localStorage and does NOT call
+`activateSubscription()`. The user ends up logged in but with no subscription, despite having paid.
+
+**Fix needed in `src/routes/auth.callback.tsx`:**
+After `supabase.auth.exchangeCodeForSession(code)` succeeds, read
+`localStorage.getItem("pending_subscription_id")`. If present → call `activateSubscription()`
+→ clear the localStorage key → navigate to `/dashboard`. If `activateSubscription` fails →
+navigate to `/billing/success?subscription_id=...&email=...` so the user can retry.
+
+---
+
+### 🟡 BILLING WORKFLOW — remaining gaps
+
+1. **`OrderSummary` doesn't show self-serve addon prices**
+   `src/routes/checkout.tsx` `OrderSummary` uses `ADDONS.find(a => a.key === sel.key)`.
+   The `ADDONS` array in `billing.ts` only contains legacy addons (region/domains/reports/brand).
+   Self-serve keys (`addon_self_serve_tm_1..5`, `addon_self_serve_marketplace`,
+   `addon_self_serve_domain`) are not in `ADDONS` → `meta` is null → addon line items silently
+   disappear from the order summary. The order summary shows only the base plan price.
+   **Fix:** Either add self-serve addon entries to `ADDONS`, OR build a separate `SelfServeOrderSummary`
+   that derives line items from `tm`/`marketplace`/`domain` URL params directly using the
+   price constants from `billing.ts`.
+
+2. **"Already have an account? Login" missing in guest checkout**
+   The guest checkout (`GuestCheckout` in `checkout.tsx`) has no "already have an account" link.
+   If a returning customer navigates to checkout, they'll try to enter an email and hit a Stripe
+   error when the guest subscription creation fails (email already has a customer record).
+   **Fix:** Add a small "Already have an account? [Login →](/auth/sign-in)" link below the email
+   field in the guest checkout step 1.
+
+3. **No "resend confirmation email" button**
+   The "Check your email" state in `billing.success.tsx` `CreateAccountAfterPayment` shows a
+   static message with no resend button. If the confirmation email lands in spam or expires,
+   the user has no self-service option.
+   **Fix:** Add a "Resend confirmation email" button that calls `supabase.auth.resend({ type: 'signup', email })`.
+
+4. **No annual billing option for self-serve**
+   `configure.tsx` and `review.tsx` only show monthly pricing. The interval is hardcoded to
+   `"month"` in `handleCheckout`. The Stripe prices include yearly variants
+   (`STRIPE_PRICE_SELF_SERVE_*_YEAR` env vars — though NOT currently seeded in `seed_stripe.py`
+   for self-serve). **Defer to later:** seeding yearly prices + adding annual toggle is a full
+   feature, not a quick fix. Mark as a known gap.
+
+5. **Cancel button in checkout doesn't preserve URL params**
+   The "Back to review" / "Cancel" button in `checkout.tsx` links to `/review` without any
+   search params. The user loses their configured plan. **Fix:** Pass current search params
+   when navigating back.
+
+---
+
+### 🟡 LANDING PAGE — gaps and improvements needed
+
+**Problem: Self-serve pricing card shows no price**
+`src/components/landing/pricing.tsx` `SelfServeCard` shows "Configurable pricing" with no
+number. Visitors have no idea what they're about to pay. Red Points shows "From $174/mo".
+
+**Fix:** Show "from €998/mo" (= €849 base + €149 for 1 TM, the minimum viable purchase).
+Add the key differentiator line: "Never charged per detection or takedown."
+
+**Problem: No FAQ section on pricing page**
+Visitors always want to know:
+- "Can I cancel anytime?" → Yes, monthly, no lock-in
+- "What counts as a takedown?" → One DMCA/platform notice sent by HAKKIU
+- "Is Amazon always included?" → Yes, in base
+- "What's the difference between Self-Serve and Professional?" → real-time monitoring, unlimited brands, CSM
+- "Do you support annual billing?" → Coming soon
+
+**Fix:** Add a `PricingFAQ` accordion component below the 3 cards on `/plans`.
+
+**Problem: No social proof**
+The pricing page and hero have no logos, testimonials, or customer counts. Every SaaS
+pricing page needs at least 3 trust signals. Even placeholder copy is better than nothing
+at launch.
+
+**Fix:** Add a simple "Trusted by X brands" bar with 3 testimonial placeholders on the
+pricing page.
+
+**Problem: Pricing page is only accessible via /plans but the root / redirects somewhere**
+Need to check where `/` currently routes (landing or redirect). If it's a separate landing
+page, it should have a strong CTA to `/plans`.
+
+---
+
+### Billing + landing work breakdown (next sprint)
+
+| Priority | Item | File(s) | Effort |
+|----------|------|---------|--------|
+| 🔴 BLOCKING | Fix `/auth/callback` pending_subscription_id | `src/routes/auth.callback.tsx` | 30 min |
+| 🔴 HIGH | Fix `OrderSummary` self-serve addons display | `src/routes/checkout.tsx`, `src/lib/billing.ts` | 1 hr |
+| 🟡 | Add "Already have account? Login" to guest checkout | `src/routes/checkout.tsx` | 15 min |
+| 🟡 | Add resend confirmation email button | `src/routes/billing.success.tsx` | 30 min |
+| 🟡 | Show "from €998/mo" on Self-Serve pricing card | `src/components/landing/pricing.tsx` | 15 min |
+| 🟡 | Fix Cancel button to preserve URL params | `src/routes/checkout.tsx` | 15 min |
+| 🟢 | Add PricingFAQ accordion | `src/routes/plans.tsx` or new component | 1 hr |
+| 🟢 | Add social proof / trust bar to pricing | `src/components/landing/pricing.tsx` | 1 hr |
 
 ---
 
