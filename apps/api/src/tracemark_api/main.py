@@ -160,3 +160,19 @@ def startup_event():
             time.sleep(24 * 3600)
 
     threading.Thread(target=run_health_probe, daemon=True).start()
+
+    # Weekly digest — runs every Tuesday at 09:00 UTC.
+    def run_weekly_digest():
+        from tracemark_api.services.weekly_digest import send_weekly_digests
+        time.sleep(120)
+        while True:
+            now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+            # Tuesday = weekday 1, 09:00 UTC
+            if now.weekday() == 1 and now.hour == 9 and now.minute < 30:
+                try:
+                    send_weekly_digests()
+                except Exception as ex:
+                    print(f"[Weekly Digest] Exception: {ex}")
+            time.sleep(30 * 60)  # check every 30 minutes
+
+    threading.Thread(target=run_weekly_digest, daemon=True).start()

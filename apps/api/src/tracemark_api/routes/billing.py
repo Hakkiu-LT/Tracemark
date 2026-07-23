@@ -719,8 +719,69 @@ async def stripe_webhook(request: Request):
         org_id = _org_from_customer(obj.get("customer"))
         if org_id:
             _upsert_invoice(obj, org_id)
+            if event_type == "invoice.payment_failed":
+                _send_dunning_email(obj, org_id, attempt=1)
 
     return {"received": True}
+
+
+# ── Dunning email ────────────────────────────────────────────────────────────
+
+def _send_dunning_email(invoice: dict, org_id: str, attempt: int = 1) -> None:
+    """Send a payment-failed dunning email to the org's notification email."""
+    try:
+        from tracemark_api.services.notifications import _recipient_for_org
+        from tracemark_api.services.email import send_email
+        from tracemark_api.services.email_templates import payment_failed_html
+        import os
+
+        recipient = _recipient_for_org(org_id)
+        if not recipient:
+            return
+
+        # Resolve user name from profile
+        sb = get_supabase()
+        profile = (
+            sb.table("profiles")
+            .select("full_name, plan")
+            .eq("organization_id", org_id)
+            .eq("is_admin", True)
+            .limit(1)
+            .execute()
+        )
+        user_name = "there"
+        plan_name = "HAKKIU"
+        if profile and profile.data:
+            full = profile.data[0].get("full_name") or ""
+            user_name = full.split()[0] if full.strip() else "there"
+            plan_name = (profile.data[0].get("plan") or "HAKKIU").replace("_", " ").title()
+
+        amount_cents = invoice.get("amount_due", 0)
+        currency = (invoice.get("currency") or "eur").upper()
+        amount_display = f"{currency} {amount_cents / 100:.2f}"
+
+        days_map = {1: 7, 2: 4, 3: 1}
+        days_until_pause = days_map.get(attempt, 7)
+
+        app_url = os.environ.get("CUSTOMER_APP_URL", "https://hakkiu.com").rstrip("/")
+        billing_url = f"{app_url}/settings/billing"
+
+        html = payment_failed_html(
+            user_name=user_name,
+            attempt=attempt,
+            plan_name=plan_name,
+            amount_display=amount_display,
+            billing_url=billing_url,
+            days_until_pause=days_until_pause,
+        )
+        subject_map = {
+            1: f"Payment didn't go through — update your card for {plan_name}",
+            2: f"Reminder: payment still pending for {plan_name}",
+            3: f"Last notice: {plan_name} monitoring pauses in {days_until_pause} day{'s' if days_until_pause != 1 else ''}",
+        }
+        send_email(to=recipient, subject=subject_map.get(attempt, subject_map[1]), html=html)
+    except Exception as exc:
+        print(f"[Billing] Failed to send dunning email (attempt {attempt}) for org {org_id}: {exc}")
 
 
 # ── DB sync helpers ──────────────────────────────────────────────────────────

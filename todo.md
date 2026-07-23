@@ -185,12 +185,45 @@
 
 ---
 
-## 🟡 PRIORITY 3 — Amazon SES Email
+## 🟡 PRIORITY 3 — Resend Email Integration
 
-- [ ] Configure AWS SES, verify domain DNS (SPF, DKIM, DMARC)
-- [ ] Wire Supabase Auth custom SMTP to AWS SES
-- [ ] Set up `noreply@tracemark.ai` and `support@tracemark.ai`
-- [ ] HTML email templates (infringement alerts, takedown confirmations, weekly reports)
+> Full email catalog and implementation strategy: see `plan.md` → Priority 3.
+> Current state: `notifications.py` send functions are no-ops. All hooks exist — just need Resend wired in.
+
+### Step 1 — Infrastructure setup ✅ DONE
+- [x] `resend>=2.0.0` added to `apps/api/pyproject.toml` + installed via `uv add resend`
+- [x] `RESEND_API_KEY=re_your_api_key_here` placeholder added to `.env` + `.env.production.example`
+- [x] `apps/api/src/tracemark_api/services/email.py` — Resend wrapper (`send_email(to, subject, html)`)
+- [ ] **USER ACTION NEEDED:** Sign up at resend.com, verify `hakkiu.com` domain (SPF+DKIM DNS records), replace `RESEND_API_KEY` placeholder in `.env` with real key
+- [ ] **USER ACTION NEEDED:** Wire Supabase Auth → Resend SMTP relay (Supabase dashboard → Auth → SMTP: host `smtp.resend.com`, port 465, user `resend`, pass = API key)
+
+### Step 2 — Tier 1 transactional emails ✅ DONE
+- [x] `notifications.py` — replaced both no-op functions with real Resend dispatch
+- [x] `email_templates.py` — all HTML templates with HAKKIU logo header (logo from `CUSTOMER_APP_URL/hakkiu-lockup.png`):
+  - **Infringement alert** — risk badge, screenshot, listing URL, one-click buttons
+  - **Domain lookalike alert** — domain, registration date, MX server warning
+  - **Takedown submitted** — platform, submitted_at, expected response window
+  - **Takedown removed** ⭐ — green celebration layout, removal timing, all-time total
+  - **Takedown failed** — red layout, counter-notice warning, recommended action
+  - **Test email** — for configuration verification
+- [x] All existing hooks in `routes/monitoring.py`, `routes/documents.py`, `services/persistence.py` now send real emails (they call `dispatch_notifications` → `email.py` → Resend)
+
+### Step 3 — Weekly digest ✅ DONE
+- [x] `services/weekly_digest.py` — queries last 7 days per org, builds digest email
+- [x] Weekly digest HTML template — headline metric, stats block, detections list, takedown status, CTA
+- [x] Registered as daemon thread in `main.py` — checks every 30 min, fires Tuesdays 09:00 UTC
+- [ ] Admin portal parity: `GET /admin/email-logs` endpoint + `EmailLogs.tsx` page (deferred)
+
+### Step 4 — Onboarding emails ✅ DONE (partial)
+- [x] Email **Welcome** — fires when org creates their first brand (`routes/brands.py` → `_send_welcome_email`)
+- [x] Email **First detection found** ⭐ — `dispatch_notifications` detects `org_infringement_count == 1` and sends `first_detection_html` instead of the regular alert
+- [ ] Email **First takedown nudge** — 48h scheduler (deferred)
+- [ ] Email **Day-14 nudge** — 14-day scheduler (deferred)
+
+### Step 5 — Dunning ✅ DONE (day 0)
+- [x] Email **Payment failed — day 0** — wired into `invoice.payment_failed` Stripe webhook (`billing.py` → `_send_dunning_email`)
+- [x] Payment failed HTML template — friendly tone, plan name, amount, one-click billing update link
+- [ ] Email **Payment failed — day 3 + day 7** — follow-up dunning scheduler (deferred)
 
 ---
 
