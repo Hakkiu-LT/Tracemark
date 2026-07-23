@@ -1,7 +1,7 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-22 (session 11 — full billing/landing audit; next: fix auth/callback + landing polish)
+> Last updated: 2026-07-23 (session 12 — Resend email plan researched and written)
 
 ---
 
@@ -505,10 +505,149 @@ Full audit run 2026-07-22 across 10 attack surfaces (57 findings). Full details 
 
 See section above.
 
-### Priority 3 — Amazon SES email integration
+### Priority 3 — Resend email integration
 
-Required before phishing/domain pipeline, user invites, and growth in
-transactional email volume. No dependencies.
+Using Resend (resend.com) — easy setup, 3k/mo free tier, Python SDK +
+Supabase Auth SMTP relay support. Required before phishing pipeline, user
+invites, and any growth in transactional volume.
+
+**Current state:** `notifications.py` has `send_email_notification()` and
+`dispatch_notifications()` — both are no-ops (SMTP disabled). The
+`notification_deliveries` table already exists for audit trail.
+`org_settings.notification_email` stores the recipient per org.
+Auth emails (confirm, reset) go through Supabase — not our concern.
+Billing receipts go through Stripe — not our concern.
+
+---
+
+#### Email catalog — what to build and when
+
+**TIER 1 — Ship first (highest impact, directly tied to product value)**
+
+| # | Email | Trigger | Cadence |
+|---|---|---|---|
+| 1 | Infringement alert | New copycat/counterfeit detected | Immediate for first detection; daily digest if 10+ in same day |
+| 2 | Domain lookalike alert | New typosquatting domain found | Immediate |
+| 3 | Takedown submitted | HAKKIU sends DMCA notice to platform | Immediate |
+| 4 | Takedown removed ⭐ | Listing confirmed removed | Immediate — this is the #1 value-proof email |
+| 5 | Takedown failed | Platform rejected or counter-notice filed | Immediate + next-step guidance |
+
+**TIER 2 — Ship second (lifecycle + retention)**
+
+| # | Email | Trigger | Cadence |
+|---|---|---|---|
+| 6 | Welcome + first action | Signup complete | Within 5 min |
+| 7 | First scan running | Brand/trademark added | Within 5 min |
+| 8 | First detection found ⭐ | First infringement for org | Immediate — "aha moment" |
+| 9 | First takedown nudge | 48h after first detection, no takedown submitted | One-time |
+| 10 | Day-14 onboarding nudge | 14 days since signup, no takedown sent | One-time |
+| 11 | Weekly digest | Every Tuesday/Wednesday 09:00 UTC | Always send — even with 0 detections |
+| 12 | Payment failed — dunning | `invoice.payment_failed` Stripe webhook | 3 emails: day 0, day 3, day 7 |
+
+**TIER 3 — Later**
+
+| # | Email | Trigger | Notes |
+|---|---|---|---|
+| 13 | Takedown acknowledged | Platform confirms receipt | Only if platform sends back ack |
+| 14 | Listing re-appeared | Same seller relists after takedown | Catch repeat infringers |
+| 15 | 14-day no-login re-engagement | No dashboard login for 14 days | Branched by stall point |
+| 16 | 30-day clean streak milestone | 30 days with no infringements found | Positive reinforcement |
+| 17 | Monthly performance report | 1st of each month | Totals: detections, removals, platforms scanned |
+
+---
+
+#### Infringement alert email — required fields
+
+```
+Subject: [Alert] New counterfeit on Amazon.de — "Nike Air Max" (94% match)
+
+- Brand/trademark name
+- Platform + country
+- Listing title (exact)
+- Listing URL (direct link)
+- Seller name / seller ID
+- Price found vs. authorized price
+- AI confidence score
+- Screenshot thumbnail (linked to full)
+- Detection timestamp
+- One-click action buttons (no login required):
+    [Approve Takedown]  [Mark False Positive]  [Review in Dashboard]
+- Case ID for support reference
+```
+
+**DO NOT include:** internal IDs, scraping metadata, legal boilerplate beyond
+1-line disclaimer. Actionability is the primary constraint.
+
+#### Weekly digest — structure
+
+```
+Subject: Your brand report: Week of Jul 21 — 3 new detections
+
+1. Headline metric (big number): "3 new infringements found"
+   OR "Your brand was clean this week ✓"
+2. Stats block: Platforms scanned / Listings reviewed / New flags / Removed
+3. New detections list (compact cards with thumbnail + [Review] button)
+4. In-flight takedowns status
+5. Trend signal: "Amazon.de activity up 40% vs. last month"
+6. Single CTA: "2 detections awaiting approval [Review Now]"
+```
+
+Send Tuesday or Wednesday, 09:00 UTC. Always send even with 0 detections —
+frame as "we scanned 4,847 listings, your brand was clean."
+
+#### Takedown removed email — most important email we send
+
+This is the moment the customer sees proof of value. Make it memorable:
+- Which listing was removed (title + platform + thumbnail before/after)
+- Time from detection to removal
+- Running total: "127 listings removed this year"
+- CTA: "View your enforcement dashboard"
+
+#### Dunning sequence — payment failed
+
+3 emails over 7 days. Recovers 35-45% of failed payments.
+- Day 0: "Payment didn't go through — quick fix needed"
+- Day 3: Gentle reminder + one-click billing update link
+- Day 7: "Monitoring will pause without payment" + final notice
+
+**EU legal note:** Stripe receipts are NOT valid EU VAT invoices. For EU
+customers, must issue proper invoices with company VAT number + buyer details.
+Defer for now, add proper invoicing before scaling EU sales.
+
+---
+
+#### Implementation plan
+
+**Step 1 — Resend setup (infrastructure)**
+- Sign up, verify `tracemark.ai` domain (SPF, DKIM), get API key
+- `uv add resend` in `apps/api`
+- Wire Supabase Auth SMTP → Resend relay (for auth emails)
+- Create `apps/api/src/tracemark_api/services/email.py` — thin wrapper:
+  `send_email(to, subject, html, text=None)`
+
+**Step 2 — Tier 1 emails (wire into existing hooks)**
+- `notifications.py` `send_email_notification()` — replace no-op with real Resend call
+- Create HTML templates for infringement alert, domain alert, takedown submitted/removed/failed
+- Wire templates into existing `dispatch_notifications()` calls in:
+  - `routes/monitoring.py` (case status changes, takedown send)
+  - `routes/documents.py` (document send-email)
+
+**Step 3 — Weekly digest (new cron job)**
+- `services/weekly_digest.py` — query last 7 days of infringements + takedowns per org
+- Register as a daemon thread in `main.py` (like `run_reachability_probes`)
+- Runs every Tuesday 09:00 UTC; skips orgs with no activity and no login in 30 days
+
+**Step 4 — Onboarding sequence (event-triggered)**
+- Trigger email #6 (welcome) from Supabase `on_auth_user_created` trigger or
+  from `POST /api/v1/brands` first brand creation
+- Trigger email #8 (first detection) from `persist_infringement()` when
+  `org_infringement_count == 1`
+- 48h nudge (email #9) and day-14 nudge (email #10) via a lightweight
+  scheduled check in `main.py`
+
+**Step 5 — Dunning (wire into billing.py)**
+- On `invoice.payment_failed` Stripe webhook → send email #12a immediately
+- Schedule day-3 and day-7 follow-ups (store timestamps in a simple table or use Stripe's built-in dunning)
 
 ### Priority 4 — Production deployment (Hetzner CCX13)
 
