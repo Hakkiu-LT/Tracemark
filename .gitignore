@@ -35,6 +35,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 apps/api/.venv/
 **/__pycache__/
@@ -43,4 +44,8 @@ apps/api/tests/artifacts
 
 # Skills
 .agents/skills.json
+
+# Debug scripts and large data files
+apps/api/query_case_details.py
+apps/api/src/tracemark_api/services/tranco_top_100k.txt
 

@@ -225,6 +225,15 @@ def update_staff(
 
     sb = admin_sb()
 
+    # Fetch the target to protect super-admins from credential takeover.
+    target_row = (
+        sb.table("staff_accounts").select("is_super_admin")
+        .eq("id", staff_id).maybe_single().execute()
+    )
+    if not target_row or not target_row.data:
+        raise HTTPException(status_code=404, detail="Staff not found")
+    target_is_super = bool(target_row.data.get("is_super_admin"))
+
     # Email / password live in the staff auth.users — update via admin auth API.
     auth_attrs: dict = {}
     if payload.email is not None:
@@ -234,6 +243,14 @@ def update_staff(
         if len(payload.password) < 8:
             raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
         auth_attrs["password"] = payload.password
+
+    # PRIVILEGE GUARD: only a super-admin may reset a super-admin's credentials.
+    if auth_attrs and target_is_super and not staff.is_super_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Super-admin required to change another super-admin's email or password",
+        )
+
     if auth_attrs:
         try:
             sb.auth.admin.update_user_by_id(staff_id, auth_attrs)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
-from tracemark_api.dependencies import get_current_user
+from tracemark_api.dependencies import get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -12,19 +12,35 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("/{id}/send-email")
 def send_document_email_endpoint(
     id: str,
-    current_user=Depends(get_current_user),
+    profile: CurrentProfile = Depends(get_current_profile),
 ):
     """
     Fetch the document metadata, trigger dispatch_notifications for the user,
     update status to 'sent' and sent_at to now.
     """
     sb = get_supabase()
+
     res = sb.table("documents").select("*").eq("id", id).maybe_single().execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Document not found")
 
     doc = res.data
     infringement_id = doc.get("infringement_id")
+
+    # Verify document belongs to caller's org via: document → infringement → case → org
+    if infringement_id:
+        owner = (
+            sb.table("infringements")
+            .select("cases!inner(organization_id, user_id)")
+            .eq("id", infringement_id)
+            .maybe_single()
+            .execute()
+        )
+        owner_case = (owner.data or {}).get("cases") if owner else None
+        if not owner_case:
+            raise HTTPException(status_code=404, detail="Document not found")
+        if owner_case.get("organization_id") != profile.organization_id:
+            raise HTTPException(status_code=404, detail="Document not found")
 
     try:
         from tracemark_api.services.delivery_log import log_delivery

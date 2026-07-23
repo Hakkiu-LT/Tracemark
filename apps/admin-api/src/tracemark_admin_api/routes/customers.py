@@ -46,7 +46,7 @@ class UpdateCustomerRequest(BaseModel):
 
 
 def _email_map(sb) -> dict[str, str]:
-    users = sb.auth.admin.list_users()
+    users = sb.auth.admin.list_users(page=1, per_page=1000)
     return {u.id: (u.email or "") for u in users}
 
 
@@ -64,6 +64,7 @@ def list_customers(staff: StaffPrincipal = Depends(require_permission("customers
     profiles = (
         sb.table("profiles")
         .select("id, full_name, organization_id, plan, is_admin")
+        .limit(1000)
         .execute()
         .data
         or []

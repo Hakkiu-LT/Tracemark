@@ -35,8 +35,8 @@ def search(
     # People: match on profile full_name OR auth email. (Email lives in auth.users; we
     # filter the in-memory user list — fine at admin scale.)
     ql = q.lower()
-    emails = {u.id: (u.email or "") for u in sb.auth.admin.list_users()}
-    profiles = sb.table("profiles").select("id, full_name, organization_id").execute().data or []
+    emails = {u.id: (u.email or "") for u in sb.auth.admin.list_users(page=1, per_page=1000)}
+    profiles = sb.table("profiles").select("id, full_name, organization_id").limit(1000).execute().data or []
     people = []
     for p in profiles:
         if p["id"] in staff_ids:

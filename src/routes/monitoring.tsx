@@ -145,10 +145,14 @@ function MonitoringPage() {
       setEditRealBrandId(null);
       setEditAutoRef(null);
 
-      // The Zustand `Mark` uses a local-generated id ("m1234567890") that does
-      // not exist in the backend `brands` table. Look up the real DB record
-      // by brand name before loading assets or making any backend calls.
-      getBrands()
+      // Look up the real Supabase brand ID. Prefer the cached serverId stored
+      // in the Zustand Mark (set on first lookup) to avoid an extra network call.
+      const serverIdHint = editingMark.serverId ?? null;
+      Promise.resolve(
+        serverIdHint
+          ? { brands: [{ id: serverIdHint, brand_name: editingMark.brandName }] }
+          : getBrands(),
+      )
         .then((res) => {
           const realBrand = res.brands.find(
             (b) => b.brand_name === editingMark.brandName,
@@ -160,6 +164,9 @@ function MonitoringPage() {
             return null;
           }
           setEditRealBrandId(realBrand.id);
+          if (!editingMark.serverId) {
+            updateMark(editingMark.id, { serverId: realBrand.id });
+          }
           return listBrandAssets(realBrand.id);
         })
         .then((assets) => {
@@ -451,7 +458,7 @@ function MonitoringPage() {
     const cleanOfficialDomains = editOfficialDomains.filter((d) => d.trim());
     const cleanOfficialAdvertisers = editOfficialAdvertisers.filter((a) => a.trim());
 
-    let realBrandId = editRealBrandId;
+    let realBrandId = editRealBrandId ?? editingMark.serverId ?? null;
     if (!realBrandId) {
       try {
         const brandsRes = await getBrands();
@@ -510,6 +517,7 @@ function MonitoringPage() {
     }
 
     updateMark(editingMark.id, {
+      serverId: realBrandId ?? undefined,
       brandName: editBrandName.trim(),
       registrationNumber: editRegNum.trim(),
       website: editWebsite.trim(),

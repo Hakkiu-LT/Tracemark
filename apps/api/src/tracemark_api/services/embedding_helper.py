@@ -74,6 +74,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 
 
 from tracemark_api.services.storage import compute_content_hash
+from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
 
 
 def _parse_embedding(raw: any) -> list[float] | None:
@@ -125,6 +126,12 @@ def _fetch_page_text(url: str) -> str:
     if not url:
         return ""
 
+    try:
+        validate_ssrf_url(url)
+    except SSRFError as e:
+        print(f"[Embedding] Rejected unsafe URL in _fetch_page_text: {e}")
+        return ""
+
     text = ""
     try:
         import httpx
@@ -133,7 +140,7 @@ def _fetch_page_text(url: str) -> str:
         resp = httpx.get(
             url,
             timeout=10.0,
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
         )
         if resp.status_code == 200 and resp.text:
@@ -291,12 +298,18 @@ def compute_screenshot_phash(screenshot_url: str) -> int | None:
         return None
 
     try:
+        validate_ssrf_url(screenshot_url)
+    except SSRFError as e:
+        print(f"[Embedding] Rejected unsafe screenshot URL in compute_screenshot_phash: {e}")
+        return None
+
+    try:
         import io
         import httpx
         from PIL import Image
         import imagehash
 
-        resp = httpx.get(screenshot_url, timeout=15.0, follow_redirects=True)
+        resp = httpx.get(screenshot_url, timeout=15.0, follow_redirects=False)
         if resp.status_code != 200:
             return None
 
@@ -342,12 +355,18 @@ def extract_logo_phash_from_url(page_url: str) -> int | None:
         return None
 
     try:
+        validate_ssrf_url(page_url)
+    except SSRFError as e:
+        print(f"[Embedding] Rejected unsafe URL in extract_logo_phash_from_url: {e}")
+        return None
+
+    try:
         import re
         import httpx
         from PIL import Image
         import imagehash
 
-        resp = httpx.get(page_url, timeout=10.0, follow_redirects=True,
+        resp = httpx.get(page_url, timeout=10.0, follow_redirects=False,
                          headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
         if resp.status_code != 200 or not resp.text:
             return None
@@ -396,7 +415,12 @@ def extract_logo_phash_from_url(page_url: str) -> int | None:
         # Try the first few logo URLs
         for logo_url in logo_urls[:3]:
             try:
-                img_resp = httpx.get(logo_url, timeout=10.0, follow_redirects=True)
+                try:
+                    validate_ssrf_url(logo_url)
+                except SSRFError as ssrf_e:
+                    print(f"[Embedding] Rejected unsafe logo URL: {ssrf_e}")
+                    continue
+                img_resp = httpx.get(logo_url, timeout=10.0, follow_redirects=False)
                 if img_resp.status_code != 200:
                     continue
                 with Image.open(io.BytesIO(img_resp.content)) as img:

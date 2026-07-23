@@ -28,6 +28,26 @@ from tracemark_api.services.storage import (
 
 router = APIRouter(prefix="/brands", tags=["brands"])
 
+
+def _send_welcome_email(profile) -> None:
+    """Fire-and-forget welcome email when an org adds their first brand."""
+    try:
+        from tracemark_api.services.notifications import _recipient_for_org
+        from tracemark_api.services.email import send_email
+        from tracemark_api.services.email_templates import welcome_html
+        import os
+
+        recipient = _recipient_for_org(profile.organization_id)
+        if not recipient:
+            return
+        full_name = getattr(profile, "full_name", "") or ""
+        user_name = full_name.split()[0] if full_name.strip() else "there"
+        app_url = os.environ.get("CUSTOMER_APP_URL", "https://hakkiu.com").rstrip("/")
+        html = welcome_html(user_name=user_name, dashboard_url=app_url + "/dashboard")
+        send_email(to=recipient, subject="Welcome to HAKKIU — your monitoring is setting up", html=html)
+    except Exception as exc:
+        print(f"[Brands] Failed to send welcome email: {exc}")
+
 # Statuses that occupy a plan slot (locked = excess, doesn't count).
 _SLOT_STATUSES = ("active", "on_hold")
 
@@ -140,6 +160,11 @@ def create_brand(
     }
     res = sb.table("brands").insert(payload).execute()
     created = (res.data or [None])[0]
+
+    # Send welcome email only for the first brand the org creates
+    if used == 0:
+        _send_welcome_email(profile)
+
     return created
 
 
@@ -302,8 +327,18 @@ def upload_brand_asset_endpoint(
     """
     _brand_or_404(profile.organization_id, brand_id)
 
-    file_bytes = file.file.read()
-    content_type = file.content_type or "application/octet-stream"
+    _ALLOWED_MIMES = {
+        "image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml",
+        "text/plain", "text/csv", "text/html", "application/pdf",
+    }
+    content_type = (file.content_type or "application/octet-stream").split(";")[0].strip().lower()
+    if content_type not in _ALLOWED_MIMES:
+        raise HTTPException(status_code=400, detail=f"File type '{content_type}' is not allowed")
+
+    _MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+    file_bytes = file.file.read(_MAX_UPLOAD_BYTES + 1)
+    if len(file_bytes) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File exceeds 10 MB limit")
 
     storage_path = upload_brand_asset(file_bytes, content_type, brand_id, asset_type)
     if not storage_path:

@@ -2274,6 +2274,9 @@ def update_env_meta_token(new_token: str) -> None:
     """
     Helper function to write the updated META_ADS_ACCESS_TOKEN back to the local .env file.
     """
+    # Strip newlines to prevent .env injection via token value.
+    new_token = (new_token or "").replace("\n", "").replace("\r", "").strip()
+
     env_file = find_dotenv()
     if not env_file:
         print("[MetaAuth] No .env file found to update.")

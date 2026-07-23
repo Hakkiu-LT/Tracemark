@@ -17,6 +17,7 @@ if "SUPABASE_SERVICE_ROLE_KEY" not in os.environ and "SUPABASE_SECRET_KEY" in os
     os.environ["SUPABASE_SERVICE_ROLE_KEY"] = os.environ["SUPABASE_SECRET_KEY"]
 
 
+@pytest.mark.integration
 def test_supabase_credentials():
     url = os.environ.get("VITE_SUPABASE_URL") or os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -35,6 +36,7 @@ def test_supabase_credentials():
     except Exception as e:
         pytest.fail(f"Supabase connection/authentication failed: {e}")
 
+@pytest.mark.integration
 def test_gemini_api_key():
     api_key = os.environ.get("GEMINI_API_KEY")
     assert api_key is not None, "GEMINI_API_KEY environment variable is not defined in .env"
@@ -50,6 +52,7 @@ def test_gemini_api_key():
     except Exception as e:
         pytest.fail(f"Gemini API key verification failed: {e}")
 
+@pytest.mark.integration
 def test_firecrawl_api_key():
     api_key = os.environ.get("FIRECRAWL_API_KEY")
     assert api_key is not None, "FIRECRAWL_API_KEY environment variable is not defined in .env"
@@ -78,6 +81,7 @@ def test_firecrawl_api_key():
     except Exception as e:
         pytest.fail(f"Firecrawl API key verification failed: {e}")
 
+@pytest.mark.integration
 def test_meta_ads_credentials():
     token = os.environ.get("META_ADS_ACCESS_TOKEN")
     app_id = os.environ.get("META_APP_ID")

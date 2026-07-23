@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { Pricing } from "@/components/landing/pricing";
@@ -29,9 +29,16 @@ function PlansPage() {
           <div className="flex items-center gap-2">
             <HakkiuLogo className="h-6 text-foreground" />
             <span>· Brand protection, automated.</span>
-            <span>· Made with AI.</span>
           </div>
-          <div>© {new Date().getFullYear()} HAKKIU. All rights reserved.</div>
+          <div className="flex items-center gap-5">
+            <Link to="/auth/sign-in" className="hover:text-foreground transition-colors">Login</Link>
+            <span>·</span>
+            <span className="cursor-pointer hover:text-foreground transition-colors">Privacy Policy</span>
+            <span>·</span>
+            <span className="cursor-pointer hover:text-foreground transition-colors">Terms</span>
+            <span>·</span>
+            <span>© {new Date().getFullYear()} HAKKIU.</span>
+          </div>
         </div>
       </footer>
     </div>

@@ -6,7 +6,7 @@
  * numbers for money movement, only for showing the user what to expect.
  */
 
-export type PlanId = "free" | "starter" | "growth" | "pro" | "agency" | "enterprise";
+export type PlanId = "free" | "self_serve" | "starter" | "growth" | "pro" | "agency" | "enterprise";
 export type BillingInterval = "month" | "year";
 export type PlanAudience = "brand_owner" | "law_firm" | "both";
 
@@ -30,6 +30,22 @@ export interface PlanMeta {
 export const YEARLY_MONTHS_CHARGED = 10;
 
 export const PLANS: PlanMeta[] = [
+  {
+    id: "self_serve",
+    name: "Self-Serve",
+    monthly: 849,  // EUR — base only; add-ons on top
+    blurb: "Configure your plan: trademark count, marketplaces, domain protection.",
+    features: [
+      "Unlimited detections & takedowns",
+      "AI confidence scoring",
+      "Auto takedown documents",
+      "Branded PDF reports",
+      "Email support",
+    ],
+    audience: "brand_owner",
+    highlight: true,
+    selfServe: true,
+  },
   {
     id: "starter",
     name: "Starter",
@@ -123,6 +139,32 @@ export interface AddonMeta {
    * Usage-based add-ons (managed takedown, API overage) are handled separately.
    */
   usageBased?: boolean;
+}
+
+// Self-Serve add-on keys — used by pricing.tsx configurator and checkout.
+export const SELF_SERVE_TM_PRICES: Record<number, number> = {
+  1: 149, 2: 269, 3: 349, 4: 469, 5: 579,
+};
+export const SELF_SERVE_MARKETPLACE_PRICE = 40;
+export const SELF_SERVE_DOMAIN_PRICE = 649;
+export const SELF_SERVE_BASE_PRICE = 849;
+
+/** Build the addons array for the self_serve plan from configurator state. */
+export function selfServeAddons(
+  tmCount: number,
+  extraMarketplaces: number,
+  domainProtection: boolean,
+): { key: string; quantity: number }[] {
+  const addons: { key: string; quantity: number }[] = [
+    { key: `addon_self_serve_tm_${tmCount}`, quantity: 1 },
+  ];
+  if (extraMarketplaces > 0) {
+    addons.push({ key: "addon_self_serve_marketplace", quantity: extraMarketplaces });
+  }
+  if (domainProtection) {
+    addons.push({ key: "addon_self_serve_domain", quantity: 1 });
+  }
+  return addons;
 }
 
 export const ADDONS: AddonMeta[] = [

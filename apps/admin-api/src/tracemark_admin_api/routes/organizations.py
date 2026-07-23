@@ -68,6 +68,18 @@ class UpdateOrgRequest(BaseModel):
     industry: str | None = None
 
 
+class EntitlementOverrideRequest(BaseModel):
+    brands_override: int | None = None       # -1 = unlimited; None = don't change
+    platforms_override: int | None = None
+    regions_override: int | None = None
+    domain_tracking: bool | None = None
+    managed_takedown: bool | None = None
+    api_access: bool | None = None
+    advanced_reports: bool | None = None
+    real_time_scans: bool | None = None
+    note: str | None = None
+
+
 class AddMemberRequest(BaseModel):
     user_id: str
     role: str = "member"
@@ -83,13 +95,13 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
     sb = customer_sb()
     staff_ids = _staff_ids()
 
-    orgs = sb.table("organizations").select("id, name, industry").execute().data or []
-    members = sb.table("organization_members").select("organization_id, user_id").execute().data or []
-    profiles = sb.table("profiles").select("id, organization_id, plan").execute().data or []
-    org_settings = sb.table("org_settings").select("organization_id, persona").execute().data or []
-    brands = sb.table("brands").select("organization_id").execute().data or []
-    clients = sb.table("clients").select("organization_id, mrr").execute().data or []
-    subs = sb.table("subscriptions").select("organization_id, plan, status").execute().data or []
+    orgs = sb.table("organizations").select("id, name, industry").limit(1000).execute().data or []
+    members = sb.table("organization_members").select("organization_id, user_id").limit(5000).execute().data or []
+    profiles = sb.table("profiles").select("id, organization_id, plan").limit(1000).execute().data or []
+    org_settings = sb.table("org_settings").select("organization_id, persona").limit(1000).execute().data or []
+    brands = sb.table("brands").select("organization_id").limit(5000).execute().data or []
+    clients = sb.table("clients").select("organization_id, mrr").limit(5000).execute().data or []
+    subs = sb.table("subscriptions").select("organization_id, plan, status").limit(1000).execute().data or []
 
     members_by_org: dict[str, int] = {}
     for m in members:
@@ -332,3 +344,61 @@ def remove_member(
         ip=request.client.host if request.client else None,
     )
     return {"success": True}
+
+
+# ── Entitlement overrides (Pro/Enterprise custom limits) ──────────────────────
+
+@router.get("/{org_id}/entitlement-override")
+def get_org_entitlement_override(
+    org_id: str,
+    staff: StaffPrincipal = Depends(require_permission("entitlements.manage")),
+):
+    """Read the current admin entitlement override for an org."""
+    _org_or_404(org_id)
+    return main_api.get_entitlement_override(org_id)
+
+
+@router.put("/{org_id}/entitlement-override")
+def set_org_entitlement_override(
+    org_id: str,
+    request: Request,
+    payload: EntitlementOverrideRequest,
+    staff: StaffPrincipal = Depends(require_permission("entitlements.manage")),
+):
+    """Set or update custom entitlement limits for a Pro/Enterprise org.
+
+    Any field left null is ignored (keeps existing value). Use -1 for unlimited
+    on numeric fields. After saving, brand locks are reconciled automatically.
+    """
+    _org_or_404(org_id)
+    # Pass all 8 override fields (including null) so the main API can clear individual
+    # fields back to "inherit from plan+addons". Note is optional — only include if set.
+    data = payload.model_dump(exclude={"note"})
+    if payload.note is not None:
+        data["note"] = payload.note
+    result = main_api.set_entitlement_override(org_id, data)
+    write_audit_log(
+        staff, "organizations.set_entitlement_override",
+        target_type="organization", target_id=org_id, target_org_id=org_id,
+        metadata={"overrides": data},
+        ip=request.client.host if request.client else None,
+    )
+    return result
+
+
+@router.delete("/{org_id}/entitlement-override")
+def clear_org_entitlement_override(
+    org_id: str,
+    request: Request,
+    staff: StaffPrincipal = Depends(require_permission("entitlements.manage")),
+):
+    """Remove all custom overrides for an org (reverts to plan+addon limits)."""
+    _org_or_404(org_id)
+    result = main_api.clear_entitlement_override(org_id)
+    write_audit_log(
+        staff, "organizations.clear_entitlement_override",
+        target_type="organization", target_id=org_id, target_org_id=org_id,
+        metadata={},
+        ip=request.client.host if request.client else None,
+    )
+    return result

@@ -1,28 +1,165 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-21 (PRIORITY 1 complete)
+> Last updated: 2026-07-22 (session 11 — billing/landing audit; added fix list for auth/callback + landing)
 
 ---
 
-## 🔴 PRIORITY 1 — Security Patches (before any production traffic)
+## 🔴 PRIORITY 1 — Security Patches (2026-07-22 deep audit — see security-audit.md)
 
-### HIGH severity (must fix immediately)
+### Phase 0 — Do today (CRITICAL / account compromise risk)
+- [x] **[C1] Rotate Supabase service role key** — hardcoded key removed from `query_case_details.py`; new `sb_secret_*` key generated in Supabase dashboard and set in `SUPABASE_SERVICE_ROLE_KEY`
+- [x] **[H6/H7] Staff password/email escalation** — super-admin guard added before auth_attrs write in `admin-api/routes/staff.py`
+- [x] **[C2] Infringement IDOR** — all 3 endpoints now join through `cases.organization_id` via `_infringement_or_404` helper
+
+### Phase 1 — This week (HIGH / exploitable by authenticated customers)
+- [x] **[C3] SSRF on brand official_domains** — new `services/ssrf.py` validator applied in `embedding_helper.py` (all 3 fetch sites), `follow_redirects=False`
+- [x] **[H1-H4] IDOR on monitoring/documents** — `_assert_case_in_org` / `_assert_takedown_in_org` helpers added; case status, takedown PUT, takedown send-email, document send-email all org-scoped
+- [x] **[H5] IDOR clients PUT** — UPDATE query now includes `.eq("organization_id", org_id)`
+- [x] **[H9/H10] Rate limiting** — `slowapi` installed; 5/hr on check-brand, gather-evidence, check-ads, analyze; 3/hr + EmailStr on test-email
+- [x] **[H8] Customer app security headers** — `public/_headers` created with CSP, X-Frame-Options, HSTS
+- [x] **[H11] Playwright SSRF** — SSRF guard added before `page.goto()` in `playwright_client.py`
+- [x] **[M4] gather-evidence / check-ads entitlement bypass** — `_require_paid_plan` gate added (returns 402 for free-tier users)
+
+### Phase 2 — This sprint (MEDIUM)
+- [x] **[M11] Enable email confirmation** — `enable_confirmations = true` in `supabase/config.toml` (must also apply in Supabase dashboard for production)
+- [x] **[M12] Harden password policy** — `minimum_password_length = 12`, `password_requirements = "lower_upper_letters_digits"`, `secure_password_change = true`
+- [x] **[M2] Fix .env token write** — newlines stripped from Meta token before writing
+- [x] **[H12] Restrict /internal/* routes** — IP allowlist middleware added in `main.py`; loopback + Docker bridge allowed; configurable via `INTERNAL_API_ALLOWED_IPS`
+- [x] **[M16] Admin CSP in production** — `apps/admin/public/_headers` created for Cloudflare Worker
+- [x] **[H14] admin-api lockfile** — `uv lock` run, `uv.lock` committed, Dockerfile updated to use `uv export --frozen` + `uv pip install`
+- [x] **[M6] File upload size guard** — 10 MB cap + MIME allowlist in `routes/brands.py`
+- [x] **[M7] Request model limits** — `max_length=200` on brand_name; list field caps added to all scan request models
+- [x] **[M1] SSRF blocklist** — `monitoring.py` MonitorRequest now uses `validate_ssrf_url()` (DNS-rebinding-resistant) instead of string-prefix `_PRIVATE_NETS`
+- [x] **[M3] LIKE wildcard escape** — `%` and `_` escaped in `infringements.py` platform filter
+
+### Phase 3 — Next sprint
+- [x] **[M13] httpOnly cookie token storage** — custom `secureCookieStorage` adapter in `src/lib/supabase.ts` + `apps/admin/src/lib/supabase.ts`; uses `Secure; SameSite=Strict` cookies (full httpOnly requires server-side proxy)
+- [x] **[M14/M15] URL validation in frontend** — `ensureAbsoluteUrl` hardened in `src/lib/utils.ts` + added to `apps/admin/src/lib/utils.ts`; applied to `submission_url` in takedown route + admin `screenshot_url`, `source_url`, `file_url` in `CaseDetail.tsx`
+- [x] **[L3/L4/L5] SSRF in screenshot/phash helpers** — `validate_ssrf_url()` added to `unified_scraper.py:detect_requires_javascript` + `_scrape_static`; `storage.py` and `embedding_helper.py` were already protected
+- [x] **[H13] npm CVEs** — wrangler bumped to `^4.4.0`; `overrides` added for `sharp >=0.35.0` + `dompurify >=3.2.0` in `apps/admin/package.json`
+- [x] **[M21] Admin Dockerfile** — already uses `npm ci --no-fund` (no change needed)
+- [x] **[M22/L16] Pin Docker images** — uv pinned to `0.10.10` in both Python Dockerfiles; TODO comments added for SHA256 base image pinning
+- [x] **[L17] Dependency scanning** — `.github/dependabot.yml` created (npm + pip + actions); `.github/workflows/ci.yml` created with `pip-audit` + `npm audit --audit-level=high`
+- [x] **[L12] Comp plan fix** — `"status": "active"` added to subscription update in comp path (`internal.py`)
+- [x] **[L13] Stripe sig_header null-check** — explicit 400 guard added before `construct_event` in `billing.py`
+- [x] **[M9/M10] Paginate admin endpoints** — `.limit(1000)` on all table queries in `customers.py`, `organizations.py`; `list_users(page=1, per_page=1000)` in `customers.py` + `search.py`
+
+### Previously completed security items
 - [x] `routes/staff.py` — Block self-permission grant: `require_super_admin` + `staff_id == staff.id` guard
 - [x] `routes/staff.py` — Super-admin lockout covers `is_active=False` on last active super-admin + self-deactivation
-- [x] `apps/admin-api/.env.example` — Replace real Supabase URL (`kdiyjwwejrdqnccfqhyv.supabase.co`) with placeholder `your-project-ref.supabase.co`
-
-### MEDIUM severity (bundle into same security PR)
+- [x] `apps/admin-api/.env.example` — Replace real Supabase URL with placeholder
 - [x] `Staff.tsx:219`, `StaffDetail.tsx:140`, `CustomerEditDialog.tsx:94` — `type="password"` on all three password inputs
 - [x] `routes/cases.py:135` — Change `DELETE /cases/{case_id}` guard from `customers.edit` to `require_super_admin`
-- [x] `routes/brands_admin.py:113` — Add file size (10 MB max) + MIME type validation on brand asset uploads; same fix in `routes/internal.py:84`
-- [x] `apps/admin/nginx.conf` — Add CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy headers
-
-### LOW severity (can do in parallel)
+- [x] `routes/brands_admin.py:113` — Add file size (10 MB max) + MIME type validation on brand asset uploads
+- [x] `apps/admin/nginx.conf` — Add CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS headers
 - [x] `main_api.py:21` — Replace silent `INTERNAL_API_SECRET` fallback with `RuntimeError` on startup if not set
-- [x] All route files — Pass `request.client.host` as `ip` param to every `write_audit_log` call (currently always NULL)
+- [x] All route files — Pass `request.client.host` as `ip` param to every `write_audit_log` call
 - [x] `routes/customers.py:186` — Raise customer password minimum from 6 to 8 characters
-- [x] `permissions.py` + backend — Enforce `billing.view` server-side on `/customers/{id}` and `/organizations/{id}` endpoints (currently frontend-only)
+- [x] `permissions.py` + backend — Enforce `billing.view` server-side
+
+---
+
+## 🔴 PRIORITY 1.5 — Codebase Architecture Refactoring (prieš Automation Rules)
+
+### Žingsnis 1 — Debug skriptas + tranco failas
+- [x] `git rm apps/api/query_case_details.py`
+- [x] `git rm --cached apps/api/src/tracemark_api/services/tranco_top_100k.txt` + `.gitignore`
+- [x] **Rotavimas:** Supabase dashboard → rotate service role key (key buvo git istorijoje!) — atlikta Phase 0 [C1]
+
+### Žingsnis 2 — pytest į CI
+- [x] `.github/workflows/ci.yml` — pridėti `test-python-api` job su pytest
+- [x] Patikrinti kurie testai reikalauja tikro Supabase → pažymėti `@pytest.mark.integration`
+
+### Žingsnis 3 — `conftest.py`
+- [x] Sukurti `apps/api/tests/conftest.py` su bendru `client`, `auth_user`, `auth_profile`
+- [x] Palaipsniui migruoti testų failus (po vieną, tikrinant po kiekvieno)
+
+### Žingsnis 4 — organization_id dublikacijos (po vieną failą)
+- [x] `routes/infringements.py` — `get_current_user` → `get_current_profile`, pašalinti `_get_user_organization_id`
+- [x] `routes/documents.py` — `get_current_user` → `get_current_profile`, pašalinti `_doc_org_id`
+- [x] `routes/monitoring.py` — `_require_paid_plan(profile)` refaktoringas (pašalina ir async problemą)
+- [x] `routes/clients.py` — migruota į `get_current_profile` (visi 5 handlers)
+
+### Žingsnis 5 — async/sync sumaišymas
+- [x] `monitoring.py` `check_brand` — `asyncio.to_thread` ant `_reject_if_brand_locked`; `import asyncio` perkeltas į modulio lygį
+- [x] `billing.py` `stripe_webhook` — turi `await request.body()`, async paliktas
+
+### Žingsnis 6 — Zustand ↔ Supabase (fazėmis)
+- [x] Faza 6.0: `serverId?: string` į `Mark` tipą (`store.ts`)
+- [x] Faza 6.1: saugoti `serverId` iš `getBrands()` atsakymo (`monitoring.tsx:151-163`)
+- [x] Faza 6.2: `handleSave` — naudoja `editingMark.serverId` kaip pirminį šaltinį (pašalina dublikatus)
+- [x] Faza 6.3: `updateMark` → saugo `serverId` po sėkmingo save
+- [x] Bump localStorage: `tracemark-store-v7` → `v8`
+
+---
+
+## 🔴 PRIORITY — Billing Workflow Fixes (MUST fix before going live)
+
+### Critical (production-blocking)
+- [x] **`src/routes/auth.callback.tsx`** — after `exchangeCodeForSession` succeeds, read `localStorage.getItem("pending_subscription_id")`; if present → call `activateSubscription({ stripe_subscription_id })` → clear localStorage → navigate to `/dashboard`. ✅ Fixed session 11.
+
+### High (bad UX, confuses paying customers)
+- [x] **`src/routes/checkout.tsx` `OrderSummary`** — kainos rodomos teisingai (bendras total); addon line items breakdown nerodomas, bet nereikalinga.
+- ~~**`src/routes/checkout.tsx` GuestCheckout** — "Already have an account?" nuoroda — nereikalinga: dashboard pasiekiamas tik pirkusiems.~~
+- [x] **`src/routes/checkout.tsx` Cancel button** — "Back to review" ir "Cancel" mygtukai dabar perduoda `plan`, `interval`, `tm`, `marketplace`, `domain` params atgal į `/review`.
+
+### Medium (polish)
+- [x] **`src/routes/billing.success.tsx` CreateAccountAfterPayment** — "Resend" mygtukas pridėtas; 60s cooldown po pirmojo siuntimo.
+
+---
+
+## 🟡 PRIORITY — Landing Page Improvements
+
+### Must-have before launch
+- ~~**`src/components/landing/pricing.tsx` SelfServeCard** — kainos rodymas kortelėje nereikalingas; "Configurable pricing" pakankama.~~
+- [x] **`src/components/landing/pricing.tsx` `PricingFAQ`** — FAQ accordion pridėtas žemiau kortelių; 5 Q&A (cancel, takedown, Amazon, Self-Serve vs Pro, annual).
+
+### Nice-to-have (trust signals)
+- [ ] **`src/components/landing/pricing.tsx`** — add social proof bar: "Trusted by X brands" + 3 short testimonial placeholders. Every competitor has this; absence looks suspicious.
+- [ ] **`src/components/landing/hero-v3.tsx` or landing page** — A/B test: replace "Detect infringements before they spread" headline with benefit-first variant "Stop counterfeits from killing your brand revenue".
+
+---
+
+## 🔴 PRIORITY — Pricing Redesign (Red Points model: 1 self-serve configurator + Professional + Enterprise)
+
+> Deep research complete (2026-07-22). Concrete pricing set. See plan.md for full spec.
+> Self-serve: $129/mo (1 brand) → $389/mo (5 brands) + add-ons. Professional + Enterprise = lead form.
+> Key differentiator: "Never charged per detection. Never charged per takedown."
+
+### Backend
+- [x] `billing_config.py` — `self_serve` plan + TM/marketplace/domain add-on keys; `SELF_SERVE_PLANS = ("self_serve", ...legacy...)`
+- [x] `entitlements.py` — `self_serve` entitlement (brands=0→TM add-on sets absolute; platforms=1+marketplace qty; domain_tracking from domain add-on)
+- [x] `seed_stripe.py` — EUR prices created in Stripe sandbox: base €849, TM ×1-5, marketplace €40/unit, domain €649; legacy USD plans preserved. .env updated with new price IDs.
+- [x] Migration: `sales_leads` table — `supabase/migrations/20260722000001_sales_leads.sql`
+- [x] `routes/leads.py` — `POST /api/v1/leads` (public, no auth) + rate-limit 3/hr per IP; registered in `main.py`
+- [x] **[CRITICAL BUG FIX]** `routes/billing.py` `/billing/activate` — now calls `_sync_subscription_to_db` with `expand=["items"]`, writes `subscription_addons` + reconciles brand locks. Guest checkout customers no longer land with `brands=0`.
+- [x] **[FIXED session 11]** `src/routes/auth.callback.tsx` — email-confirmation path now reads `pending_subscription_id` from localStorage and calls `activateSubscription` before navigating to dashboard.
+- [x] `services/entitlements.py` — per-org entitlement override support: `_override_for_org`, `_apply_entitlement_override`; `resolve_entitlements_for_org` applies admin overrides on top of plan+addon
+- [x] Migration: `org_entitlement_overrides` table — `supabase/migrations/20260722000002_entitlement_overrides.sql` (applied ✅)
+- [x] `routes/internal.py` — GET/PUT/DELETE `/internal/orgs/{org_id}/entitlement-override` endpoints (secret-gated)
+
+### Customer Frontend
+- [x] `src/lib/billing.ts` — `self_serve` plan added; `selfServeAddons()` helper; TM/marketplace/domain price constants
+- [x] New `PricingConfigurator` component in `pricing.tsx`: TM count buttons (1-5) + marketplace checkboxes (Amazon included, 11×€40) + domain toggle (€649) + live total
+- [x] `pricing.tsx` — 3-card layout: Self-Serve configurator, Professional, Enterprise
+- [x] `RequestPricingModal` — 6-field form → `POST /api/v1/leads` → thank-you state; `request-pricing-modal.tsx`
+- [x] `configure.tsx` — `/configure` public route with live price configurator; CTA "Review & pay" → `/checkout`
+- [x] `checkout.tsx` — account creation step for unauthenticated users (name/email/password) before Stripe payment; `/checkout` added to PUBLIC_PATHS
+- [x] `auth.sign-up.tsx` — blocked; redirects to `/plans`; no independent registration
+- [x] `auth-screen.tsx` — "Create an account" toggle removed from sign-in; replaced with "Purchase a plan" link
+- [x] Payment wall (`RequirePaidPlan` in `__root.tsx`) — unauthenticated or unpaid users → `/plans`
+- [x] All footers: "Sign in" → "Login"; hero: "Start monitoring" → `/plans`; "Talk to sales" → modal
+
+### Admin Portal (mandatory parity)
+- [x] `admin-api/routes/leads.py`: `GET /leads` (paginated, filter by status/tier) + `PATCH /leads/{id}`, gated `leads.view`/`leads.edit`
+- [x] Add `leads.view`, `leads.edit` to `permissions.py` AND `permissions.ts`; `sales` role preset gets both
+- [x] `apps/admin/src/pages/Leads.tsx` — table with tier, company, email, brand_count_range, status badge, mark-contacted/close actions
+- [x] `apps/admin/src/router.tsx` — `/leads` route added
+- [x] `apps/admin/src/components/layout.tsx` — "Sales Leads" nav item under Customers group
+- [x] `admin-api/routes/organizations.py` — GET/PUT/DELETE `/organizations/{id}/entitlement-override` (gated `entitlements.manage`); calls main-api via `main_api.py`
+- [x] Add `entitlements.manage` permission to `permissions.py` + `permissions.ts`
+- [x] `apps/admin/src/pages/OrganizationDetail.tsx` — "Custom limits override" card with full CRUD (numeric overrides + boolean feature flags + staff note); gated `<Can permission="entitlements.manage">`
 
 ---
 
@@ -48,23 +185,70 @@
 
 ---
 
-## 🟡 PRIORITY 3 — Amazon SES Email
+## 🟡 PRIORITY 3 — Resend Email Integration
 
-- [ ] Configure AWS SES, verify domain DNS (SPF, DKIM, DMARC)
-- [ ] Wire Supabase Auth custom SMTP to AWS SES
-- [ ] Set up `noreply@tracemark.ai` and `support@tracemark.ai`
-- [ ] HTML email templates (infringement alerts, takedown confirmations, weekly reports)
+> Full email catalog and implementation strategy: see `plan.md` → Priority 3.
+> Current state: `notifications.py` send functions are no-ops. All hooks exist — just need Resend wired in.
+
+### Step 1 — Infrastructure setup ✅ DONE
+- [x] `resend>=2.0.0` added to `apps/api/pyproject.toml` + installed via `uv add resend`
+- [x] `RESEND_API_KEY=re_your_api_key_here` placeholder added to `.env` + `.env.production.example`
+- [x] `apps/api/src/tracemark_api/services/email.py` — Resend wrapper (`send_email(to, subject, html)`)
+- [ ] **USER ACTION NEEDED:** Sign up at resend.com, verify `hakkiu.com` domain (SPF+DKIM DNS records), replace `RESEND_API_KEY` placeholder in `.env` with real key
+- [ ] **USER ACTION NEEDED:** Wire Supabase Auth → Resend SMTP relay (Supabase dashboard → Auth → SMTP: host `smtp.resend.com`, port 465, user `resend`, pass = API key)
+
+### Step 2 — Tier 1 transactional emails ✅ DONE
+- [x] `notifications.py` — replaced both no-op functions with real Resend dispatch
+- [x] `email_templates.py` — all HTML templates with HAKKIU logo header (logo from `CUSTOMER_APP_URL/hakkiu-lockup.png`):
+  - **Infringement alert** — risk badge, screenshot, listing URL, one-click buttons
+  - **Domain lookalike alert** — domain, registration date, MX server warning
+  - **Takedown submitted** — platform, submitted_at, expected response window
+  - **Takedown removed** ⭐ — green celebration layout, removal timing, all-time total
+  - **Takedown failed** — red layout, counter-notice warning, recommended action
+  - **Test email** — for configuration verification
+- [x] All existing hooks in `routes/monitoring.py`, `routes/documents.py`, `services/persistence.py` now send real emails (they call `dispatch_notifications` → `email.py` → Resend)
+
+### Step 3 — Weekly digest ✅ DONE
+- [x] `services/weekly_digest.py` — queries last 7 days per org, builds digest email
+- [x] Weekly digest HTML template — headline metric, stats block, detections list, takedown status, CTA
+- [x] Registered as daemon thread in `main.py` — checks every 30 min, fires Tuesdays 09:00 UTC
+- [ ] Admin portal parity: `GET /admin/email-logs` endpoint + `EmailLogs.tsx` page (deferred)
+
+### Step 4 — Onboarding emails ✅ DONE (partial)
+- [x] Email **Welcome** — fires when org creates their first brand (`routes/brands.py` → `_send_welcome_email`)
+- [x] Email **First detection found** ⭐ — `dispatch_notifications` detects `org_infringement_count == 1` and sends `first_detection_html` instead of the regular alert
+- [ ] Email **First takedown nudge** — 48h scheduler (deferred)
+- [ ] Email **Day-14 nudge** — 14-day scheduler (deferred)
+
+### Step 5 — Dunning ✅ DONE (day 0)
+- [x] Email **Payment failed — day 0** — wired into `invoice.payment_failed` Stripe webhook (`billing.py` → `_send_dunning_email`)
+- [x] Payment failed HTML template — friendly tone, plan name, amount, one-click billing update link
+- [ ] Email **Payment failed — day 3 + day 7** — follow-up dunning scheduler (deferred)
 
 ---
 
-## 🟡 PRIORITY 4 — Production Deployment (Hetzner CCX13)
+## 🟡 PRIORITY 4 — Production Deployment (Hetzner CCX13) — domain hakkiu.com
 
-- [ ] Provision Hetzner CCX13 instance (Ubuntu)
-- [ ] Dockerize API, admin-api, admin frontend, customer frontend
-- [ ] `docker-compose.yml` for production
-- [ ] Caddy reverse proxy + Let's Encrypt SSL
-- [ ] GitHub Actions CI/CD pipeline (lint → test → build → deploy)
-- [ ] Automated DB + Storage backups to Hetzner Storage Box
+### Prepared in repo (config ready — session 8)
+- [x] Dockerize API, admin-api, admin frontend, customer frontend (all 4 Dockerfiles exist)
+- [x] Customer `src/Dockerfile` — rewritten from `bun run dev` → production build + `wrangler dev --local` (workerd). Verified: built worker serves SSR HTTP 200. glibc base for workerd.
+- [x] `docker-compose.yml` — Caddy service + `caddy_data`/`caddy_config` volumes + frontend VITE_* build args added
+- [x] `Caddyfile` — 4 subdomains (hakkiu.com, admin/api/admin-api.hakkiu.com) + www→apex redirect + auto Let's Encrypt + customer CSP/security headers (api.tracemark.ai→api.hakkiu.com)
+- [x] `.dockerignore` — excludes `.env`, `.wrangler`, `dist` from customer image (secret-leak fix)
+- [x] `.env.production.example` — production URLs/CORS for hakkiu.com + secret placeholders
+- [x] `.github/workflows/deploy.yml` — SSH auto-deploy after green CI on main (appleboy/ssh-action)
+- [x] `scripts/backup.sh` — nightly pg_dump → local + Hetzner Storage Box, 14-day rotation
+- [x] `docs/DEPLOYMENT.md` — full server-hardening runbook (deploy user, SSH keys-only, ufw, fail2ban, unattended-upgrades, docker) + DNS + first deploy + external-service wiring + verification
+
+### User must run (needs their credentials — instructions in docs/DEPLOYMENT.md)
+- [ ] DNS: A records (@, www, admin, api, admin-api) → 116.202.8.87 (+ AAAA for IPv6)
+- [ ] Server hardening: deploy user, SSH keys-only, ufw (80/443/SSH), fail2ban, unattended-upgrades, Docker
+- [ ] Clone to `/opt/hakkiu`, create `.env` from `.env.production.example`, fill secrets (Stripe LIVE keys)
+- [ ] First deploy: `docker compose build && up -d`; confirm Caddy issues certs
+- [ ] GitHub repo secrets: SSH_HOST / SSH_USER / SSH_KEY (+ SSH_PORT) for the deploy workflow
+- [ ] Stripe webhook → https://api.hakkiu.com/api/v1/billing/webhook; Supabase Auth Site/Redirect URLs
+- [ ] Backups: install postgresql-client, set DATABASE_URL, add cron
+- [ ] Verification checklist (all 5 hostnames load over HTTPS; scan + Stripe checkout work)
 
 ---
 
@@ -116,7 +300,7 @@
 
 - [ ] Manual audit: test all 12 platforms locally and confirm parsers still work (manual QA task, not code)
 - [x] Automated cron: daily **lightweight reachability probe** per platform (`scraper_health.run_reachability_probes`, wired as a daemon thread in `main.py` startup). Cheap HTTP GETs — no Firecrawl JS scrapes.
-- [x] Supabase table: log scraper failures per-platform — `scraper_health_log` migration `20260721000001` (⚠️ NOT yet applied to live DB — run `supabase db push`)
+- [x] Supabase table: log scraper failures per-platform — `scraper_health_log` migration `20260721000001` (applied to live DB ✅)
 - [~] Alerting: **in-page warnings only for now** — degraded platforms flagged in the admin Scraper Health page (`is_degraded`). Slack/SMTP push alerting deferred.
 - [x] Admin dashboard: real-time per-platform success rate, latency, recent failures + Firecrawl credit usage. `GET /scraper-health` (admin-api) + `ScraperHealth.tsx` page, gated by `scraper_health.view`.
 

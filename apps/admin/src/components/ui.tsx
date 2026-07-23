@@ -13,6 +13,8 @@ import {
   type LabelHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
+  type TdHTMLAttributes,
+  type ThHTMLAttributes,
 } from "react";
 
 import { cn } from "@/lib/utils";
@@ -150,7 +152,7 @@ export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSecti
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
   return <tr className={cn("border-b border-border transition-colors hover:bg-muted/40", className)} {...props} />;
 }
-export function TableHead({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {
+export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
       className={cn("h-10 px-3 text-left align-middle text-xs font-medium text-muted-foreground", className)}
@@ -158,7 +160,7 @@ export function TableHead({ className, ...props }: HTMLAttributes<HTMLTableCellE
     />
   );
 }
-export function TableCell({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {
+export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
   return <td className={cn("p-3 align-middle", className)} {...props} />;
 }
 
