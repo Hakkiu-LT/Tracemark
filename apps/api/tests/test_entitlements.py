@@ -192,6 +192,9 @@ def test_resolve_entitlements_for_user_regular():
     res_addons = MagicMock()
     res_addons.data = []
 
+    res_no_data = MagicMock()
+    res_no_data.data = None
+
     def table_mock(name):
         t = MagicMock()
         if name == "profiles":
@@ -203,6 +206,9 @@ def test_resolve_entitlements_for_user_regular():
         elif name == "subscription_addons":
             # select().eq().execute()
             t.select.return_value.eq.return_value.execute.return_value = res_addons
+        else:
+            # org_entitlement_overrides and any future tables return no data
+            t.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value = res_no_data
         return t
 
     sb.table.side_effect = table_mock
