@@ -38,13 +38,14 @@ ENV NODE_ENV=production \
     WRANGLER_SEND_METRICS=false \
     CI=1
 
-# The built worker + its assets, plus node_modules (wrangler + the workerd binary live here).
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./package.json
+# Non-root user created before COPY so --chown can be used instantly without a slow recursive chown layer
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
 
-# Non-root to reduce blast radius if the container is compromised.
-RUN useradd --create-home --shell /usr/sbin/nologin appuser && chown -R appuser:appuser /app
+# The built worker + its assets, plus node_modules (wrangler + the workerd binary live here).
+COPY --chown=appuser:appuser --from=build /app/dist ./dist
+COPY --chown=appuser:appuser --from=build /app/node_modules ./node_modules
+COPY --chown=appuser:appuser --from=build /app/package.json ./package.json
+
 USER appuser
 
 # wrangler reads dist/server/wrangler.json (main: index.js, assets: ../client).
