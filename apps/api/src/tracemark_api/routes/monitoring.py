@@ -43,19 +43,23 @@ class MonitorResponse(BaseModel):
     error_message: str | None = None
 
 
-def _assert_case_in_org(sb, case_id: str, org_id: str) -> None:
-    res = sb.table("cases").select("organization_id").eq("id", case_id).maybe_single().execute()
+def _assert_case_in_org(sb, case_id: str, org_id: str | None, user_id: str) -> None:
+    res = sb.table("cases").select("organization_id, user_id").eq("id", case_id).maybe_single().execute()
     row = res.data if res else None
     if not row:
         raise HTTPException(status_code=404, detail="Case not found")
-    if row.get("organization_id") != org_id:
-        raise HTTPException(status_code=404, detail="Case not found")
+    if org_id:
+        if row.get("organization_id") != org_id:
+            raise HTTPException(status_code=404, detail="Case not found")
+    else:
+        if row.get("user_id") != user_id:
+            raise HTTPException(status_code=404, detail="Case not found")
 
 
-def _assert_takedown_in_org(sb, takedown_id: str, org_id: str) -> dict:
+def _assert_takedown_in_org(sb, takedown_id: str, org_id: str | None, user_id: str) -> dict:
     res = (
         sb.table("takedown_reports")
-        .select("*, cases!inner(organization_id)")
+        .select("*, cases!inner(organization_id, user_id)")
         .eq("id", takedown_id)
         .maybe_single()
         .execute()
@@ -64,8 +68,12 @@ def _assert_takedown_in_org(sb, takedown_id: str, org_id: str) -> dict:
     if not row:
         raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
     case_info = row.get("cases") or {}
-    if case_info.get("organization_id") != org_id:
-        raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
+    if org_id:
+        if case_info.get("organization_id") != org_id:
+            raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
+    else:
+        if case_info.get("user_id") != user_id:
+            raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
     return row
 
 
@@ -400,7 +408,7 @@ class UpdateStatusRequest(BaseModel):
 @router.post("/{case_id}/status")
 def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, profile: CurrentProfile = Depends(get_current_profile)):
     sb = get_supabase()
-    _assert_case_in_org(sb, case_id, profile.organization_id)
+    _assert_case_in_org(sb, case_id, profile.organization_id, profile.id)
     try:
         update_case_status(case_id, payload.status, decline_reason=payload.decline_reason)
         
@@ -478,7 +486,7 @@ def update_takedown_report_endpoint(
     If status transitions to 'sent', automatically record submitted_at time.
     """
     sb = get_supabase()
-    _assert_takedown_in_org(sb, id, profile.organization_id)
+    _assert_takedown_in_org(sb, id, profile.organization_id, profile.id)
 
     update_data = {}
     if payload.notice_text is not None:
@@ -548,7 +556,7 @@ def send_takedown_email_endpoint(
     update status to 'sent', and set submitted_at to now.
     """
     sb = get_supabase()
-    report = _assert_takedown_in_org(sb, id, profile.organization_id)
+    report = _assert_takedown_in_org(sb, id, profile.organization_id, profile.id)
 
     recipient = report.get("submission_email")
     if not recipient:
