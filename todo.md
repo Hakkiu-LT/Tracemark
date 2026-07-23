@@ -1,7 +1,7 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-22 (session 11 — billing/landing audit; added fix list for auth/callback + landing)
+> Last updated: 2026-07-23 (session 13 — lead forms email notifications fully wired)
 
 ---
 
@@ -132,7 +132,11 @@
 - [x] `entitlements.py` — `self_serve` entitlement (brands=0→TM add-on sets absolute; platforms=1+marketplace qty; domain_tracking from domain add-on)
 - [x] `seed_stripe.py` — EUR prices created in Stripe sandbox: base €849, TM ×1-5, marketplace €40/unit, domain €649; legacy USD plans preserved. .env updated with new price IDs.
 - [x] Migration: `sales_leads` table — `supabase/migrations/20260722000001_sales_leads.sql`
+- [x] Migration: `sales_leads_v2` — `20260723000001_sales_leads_v2.sql`: nullable name/company, brand_count_range CHECK widened to frontend values, `source` column added (applied ✅)
 - [x] `routes/leads.py` — `POST /api/v1/leads` (public, no auth) + rate-limit 3/hr per IP; registered in `main.py`
+- [x] **Lead email notifications** — `routes/leads.py` sends email to all 5 team members on every lead; `new_lead_html` template added to `email_templates.py`; `LEADS_NOTIFY_EMAILS` env var; verified delivery ✅
+- [x] **Bug fix** — `brand_count_range` values reconciled (forms used `"1"`,`"2-3"` etc., backend/DB now accept same set)
+- [x] **Bug fix** — `TalkToSalesModal` no longer sends empty required fields; sends `source:"call_request"` only
 - [x] **[CRITICAL BUG FIX]** `routes/billing.py` `/billing/activate` — now calls `_sync_subscription_to_db` with `expand=["items"]`, writes `subscription_addons` + reconciles brand locks. Guest checkout customers no longer land with `brands=0`.
 - [x] **[FIXED session 11]** `src/routes/auth.callback.tsx` — email-confirmation path now reads `pending_subscription_id` from localStorage and calls `activateSubscription` before navigating to dashboard.
 - [x] `services/entitlements.py` — per-org entitlement override support: `_override_for_org`, `_apply_entitlement_override`; `resolve_entitlements_for_org` applies admin overrides on top of plan+addon
@@ -154,7 +158,7 @@
 ### Admin Portal (mandatory parity)
 - [x] `admin-api/routes/leads.py`: `GET /leads` (paginated, filter by status/tier) + `PATCH /leads/{id}`, gated `leads.view`/`leads.edit`
 - [x] Add `leads.view`, `leads.edit` to `permissions.py` AND `permissions.ts`; `sales` role preset gets both
-- [x] `apps/admin/src/pages/Leads.tsx` — table with tier, company, email, brand_count_range, status badge, mark-contacted/close actions
+- [x] `apps/admin/src/pages/Leads.tsx` — table with tier, company, email, brand_count_range, status badge, mark-contacted/close actions; Source column added (pricing_modal/request_demo/call_request); nullable fields handled
 - [x] `apps/admin/src/router.tsx` — `/leads` route added
 - [x] `apps/admin/src/components/layout.tsx` — "Sales Leads" nav item under Customers group
 - [x] `admin-api/routes/organizations.py` — GET/PUT/DELETE `/organizations/{id}/entitlement-override` (gated `entitlements.manage`); calls main-api via `main_api.py`

@@ -105,6 +105,7 @@ function RequestDemoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tier: form.type === "sales" ? "enterprise" : "professional",
+          source: "request_demo",
           first_name: form.firstName,
           last_name: form.lastName,
           email: form.email,

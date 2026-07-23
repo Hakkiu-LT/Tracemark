@@ -25,15 +25,22 @@ import {
 interface Lead {
   id: string;
   tier: "professional" | "enterprise";
-  first_name: string;
-  last_name: string;
+  source: "pricing_modal" | "request_demo" | "call_request" | null;
+  first_name: string | null;
+  last_name: string | null;
   email: string;
-  company: string;
-  brand_count_range: string;
+  company: string | null;
+  brand_count_range: string | null;
   message: string | null;
   status: "pending" | "contacted" | "closed";
   created_at: string;
 }
+
+const SOURCE_LABELS: Record<string, string> = {
+  pricing_modal: "Pricing page",
+  request_demo: "Demo wizard",
+  call_request: "Call request",
+};
 
 function statusVariant(s: string) {
   if (s === "pending")   return "warning" as const;
@@ -133,6 +140,7 @@ export function Leads() {
                 <TableRow>
                   <TableHead>Contact</TableHead>
                   <TableHead>Company</TableHead>
+                  <TableHead>Source</TableHead>
                   <TableHead>Tier</TableHead>
                   <TableHead>Brands</TableHead>
                   <TableHead>Status</TableHead>
@@ -143,7 +151,7 @@ export function Leads() {
               <TableBody>
                 {(data ?? []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canEdit ? 7 : 6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={canEdit ? 8 : 7} className="py-10 text-center text-muted-foreground">
                       No leads found.
                     </TableCell>
                   </TableRow>
@@ -152,7 +160,9 @@ export function Leads() {
                     <TableRow key={lead.id}>
                       <TableCell>
                         <div className="font-medium">
-                          {lead.first_name} {lead.last_name}
+                          {lead.first_name || lead.last_name
+                            ? `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim()
+                            : <span className="text-muted-foreground">—</span>}
                         </div>
                         <div className="text-xs text-muted-foreground">{lead.email}</div>
                         {lead.message && (
@@ -161,13 +171,16 @@ export function Leads() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{lead.company}</TableCell>
+                      <TableCell>{lead.company ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {lead.source ? (SOURCE_LABELS[lead.source] ?? lead.source) : "—"}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={tierVariant(lead.tier)} className="capitalize">
                           {lead.tier}
                         </Badge>
                       </TableCell>
-                      <TableCell>{lead.brand_count_range}</TableCell>
+                      <TableCell>{lead.brand_count_range ?? <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(lead.status)} className="capitalize">
                           {lead.status}

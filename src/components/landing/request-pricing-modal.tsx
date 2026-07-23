@@ -45,6 +45,7 @@ export function RequestPricingModal({ open, onOpenChange, tier }: RequestPricing
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tier,
+          source: "pricing_modal",
           first_name: firstName,
           last_name: lastName,
           email,
