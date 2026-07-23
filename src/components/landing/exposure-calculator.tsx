@@ -103,10 +103,10 @@ const EYEBROW = "text-xs font-semibold uppercase tracking-[0.18em]";
 // Shared selectable-button styling for the reach and channel pickers.
 function pickerClasses(selected: boolean) {
   return cn(
-    "rounded-xl border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.58_0.18_255)]/40",
+    "rounded-lg border text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer",
     selected
-      ? "border-[oklch(0.58_0.18_255)] bg-[oklch(0.58_0.18_255)]/8 text-[oklch(0.58_0.18_255)]"
-      : "border-border bg-card text-foreground/80 hover:border-[oklch(0.58_0.18_255)]/40 hover:text-foreground",
+      ? "border-foreground bg-foreground text-background shadow-sm"
+      : "border-border/80 bg-card text-foreground/80 hover:border-foreground/40 hover:text-foreground",
   );
 }
 

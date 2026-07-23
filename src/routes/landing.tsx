@@ -30,61 +30,69 @@ export const Route = createFileRoute("/landing")({
 
 function LandingPage() {
   return (
-    <>
-      {/* TOP NAV — transparent over the hero, gains a background on scroll */}
+    <div className="min-h-screen bg-background text-foreground antialiased selection:bg-foreground selection:text-background">
+      {/* TOP NAV */}
       <LandingNav />
 
-      {/* HERO */}
+      {/* HERO SECTION */}
       <HeroV3 />
 
-      {/* COVERAGE */}
+      {/* MULTI-CHANNEL COVERAGE */}
       <Coverage />
 
-      {/* HOW IT WORKS → FEATURES → PRICING share one continuous static dotted
-          field. The band sits behind the (now transparent) sections so the dot
-          grid runs unbroken from "From detection to takedown" down through the
-          pricing plans. */}
-      <div className="relative bg-background">
-        <div className="dot-bg-band pointer-events-none absolute inset-0" aria-hidden="true" />
-        <div className="relative">
-          {/* HOW IT WORKS */}
-          <Workflow />
+      {/* HOW IT WORKS */}
+      <Workflow />
 
-          {/* FEATURES */}
-          <Features />
+      {/* PLATFORM FEATURES */}
+      <Features />
 
-          {/* BRAND EXPOSURE CALCULATOR */}
-          <ExposureCalculator />
+      {/* BRAND EXPOSURE CALCULATOR */}
+      <ExposureCalculator />
 
-          {/* COMPARE PLANS AND PRICING CTA */}
-          <div className="mx-auto max-w-[80rem] px-6 pb-20 pt-10 md:px-10 lg:px-12 flex flex-col items-center justify-center text-center">
-            <h3 className="font-display text-2xl font-bold tracking-tight mb-4">
-              Plans built for brand teams and IP professionals
-            </h3>
-            <p className="mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground mb-6">
-              Choose the plan that fits your team and enforcement needs.
-            </p>
-            <Button asChild size="lg" className="h-12 gap-2 rounded-xl bg-[oklch(0.55_0.19_262)] px-8 text-base shadow-lg shadow-[oklch(0.55_0.19_262/0.28)] hover:bg-[oklch(0.5_0.19_262)] cursor-pointer">
-              <Link to="/plans">
-                Compare plans and pricing
-                <ArrowRight className="h-4.5 w-4.5" />
-              </Link>
-            </Button>
-          </div>
+      {/* COMPARE PLANS AND PRICING CTA */}
+      <div className="border-t border-border/60 bg-muted/20 py-24 text-center">
+        <div className="mx-auto max-w-4xl px-6 flex flex-col items-center">
+          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            READY TO DEPLOY BRAND DEFENSE?
+          </p>
+          <h3 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+            Plans built for brand teams and IP professionals.
+          </h3>
+          <p className="mt-4 max-w-xl text-base text-muted-foreground">
+            Start protecting your brand today with flexible plans tailored to your monitoring volume.
+          </p>
+          <Button
+            asChild
+            size="lg"
+            className="mt-8 h-12 gap-2 rounded-lg bg-foreground px-8 text-sm font-semibold text-background shadow-md hover:bg-foreground/90 transition-all cursor-pointer"
+          >
+            <Link to="/plans">
+              Compare Plans & Pricing
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </div>
 
-      <footer className="border-t border-border bg-background">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-muted-foreground md:flex-row">
+      {/* VERCEL STYLE FOOTER */}
+      <footer className="border-t border-border/60 bg-background py-12">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 text-xs text-muted-foreground sm:flex-row">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[oklch(0.58_0.18_255)]" />
+            <div className="flex h-5 w-5 items-center justify-center rounded bg-foreground text-background font-bold">
+              <ShieldCheck className="h-3 w-3" />
+            </div>
             <span className="font-semibold text-foreground">Tracemark</span>
-            <span>· Brand protection, automated.</span>
-            <span>· Made with AI.</span>
+            <span>· Automated Brand Enforcement</span>
           </div>
-          <div>© {new Date().getFullYear()} Tracemark. All rights reserved.</div>
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 font-mono text-[11px]">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              All Systems Operational
+            </span>
+            <span>© {new Date().getFullYear()} Tracemark, Inc.</span>
+          </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
