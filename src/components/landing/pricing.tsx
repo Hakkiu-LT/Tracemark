@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  Building2,
   Users,
   Scale,
   Rocket,
-  Briefcase,
   CheckCircle2,
   Star,
   Sparkles,
@@ -76,39 +74,41 @@ interface Plan {
   tone?: Tone; // accent for icons + CTA (defaults to blue)
   badge?: { label: string; icon: LucideIcon }; // highlights the card with a border + ribbon
   featured?: boolean; // lifts the card on desktop
+  starBorder?: boolean; // wraps card in purple glowing star border
 }
 
 const PLANS: Plan[] = [
-  {
-    name: "Starter",
-    icon: Building2,
-    audience: "For brand owners",
-    price: "$99",
-    period: "/mo",
-    blurb: "For founders protecting a single brand.",
-    features: [
-      "1 brand",
-      "3 platforms",
-      "Weekly scans",
-      "Assisted takedown notices",
-      "Email support",
-    ],
-    cta: "Start monitoring",
-    to: "/dashboard",
-  },
   {
     name: "Growth",
     icon: Users,
     audience: "For growing brand teams",
     price: "$249",
     period: "/mo",
-    blurb: "For scaling e-commerce and SaaS teams.",
+    blurb: "For scaling e-commerce and brand teams.",
     features: [
-      "5 brands",
-      "All 12 platforms",
-      "Daily scans",
-      "Auto takedown generation",
-      "Priority support",
+      "5 brands monitored",
+      "All 12 platforms covered",
+      "Daily automated AI scans",
+      "Auto-generated takedown notices",
+      "Priority email support",
+    ],
+    cta: "Start monitoring",
+    to: "/dashboard",
+    tone: "blue",
+  },
+  {
+    name: "Pro",
+    icon: Rocket,
+    audience: "For established brands & IP teams",
+    price: "$599",
+    period: "/mo",
+    blurb: "Real-time brand protection with domain tracking.",
+    features: [
+      "20 brands monitored",
+      "All 12 platforms + Domain tracking",
+      "Real-time AI monitoring & alerts",
+      "Auto-generated DMCA & C&D docs",
+      "Dedicated account manager",
     ],
     cta: "Start monitoring",
     to: "/dashboard",
@@ -117,56 +117,23 @@ const PLANS: Plan[] = [
     featured: true,
   },
   {
-    name: "Pro",
-    icon: Rocket,
-    audience: "For established brands",
-    price: "$599",
-    period: "/mo",
-    blurb: "Real-time protection with domain tracking.",
-    features: [
-      "20 brands",
-      "All platforms + domain tracking",
-      "Real-time monitoring",
-      "Auto-generated DMCA & C&D docs",
-      "Dedicated account manager",
-    ],
-    cta: "Start monitoring",
-    to: "/dashboard",
-  },
-  {
-    name: "Agency",
-    icon: Briefcase,
-    audience: "For agencies & law firms",
-    price: "$1,499",
-    period: "/mo",
-    blurb: "White-label multi-client workspace.",
-    features: [
-      "White-label reports",
-      "Full API access",
-      "Multi-client dashboard",
-      "SLA + dedicated support",
-    ],
-    cta: "Start monitoring",
-    to: "/dashboard",
-    tone: "violet",
-    badge: { label: "Best for agencies", icon: Sparkles },
-  },
-  {
     name: "Enterprise",
     icon: Scale,
-    audience: "For large corporations",
+    audience: "For enterprise & law firms",
     price: "Custom",
-    blurb: "Managed service — we do the work for you.",
+    blurb: "Managed brand enforcement with custom SLA.",
     features: [
-      "Managed takedown service",
-      "Court-ready evidence & legal integration",
-      "Dedicated scraping infrastructure",
-      "Custom integrations (SSO/SAML)",
-      "99.9% SLA · SOC 2 · GDPR",
+      "Unlimited brands & monitoring",
+      "Court-ready evidence & legal dossiers",
+      "Dedicated crawling infrastructure",
+      "Custom SSO/SAML & full API access",
+      "Dedicated IP specialist & 99.9% SLA",
     ],
     cta: "Book a demo",
     to: "/plans",
     tone: "violet",
+    badge: { label: "Enterprise SLA", icon: Sparkles },
+    starBorder: true,
   },
 ];
 
@@ -198,42 +165,7 @@ function useInView<T extends HTMLElement>(threshold = 0.2) {
   return { ref, inView };
 }
 
-/** Three baseline-aligned bars standing in for the three tiers — neutral
- *  (Starter), blue (Growth), violet (Enterprise). The middle bar grows to full
- *  height on hover, hinting at the side-by-side comparison the link opens. */
-function CompareGlyph() {
-  return (
-    <svg
-      width="17"
-      height="14"
-      viewBox="0 0 17 14"
-      fill="none"
-      aria-hidden="true"
-      className="shrink-0"
-    >
-      <rect x="0" y="7" width="4" height="7" rx="1.25" className="fill-foreground/25" />
-      <rect
-        x="6.5"
-        y="2"
-        width="4"
-        height="12"
-        rx="1.25"
-        className="origin-bottom fill-[oklch(0.58_0.18_255)] transition-transform duration-300 ease-out group-hover:scale-y-100 motion-reduce:transition-none"
-        style={{ transformBox: "fill-box", transform: "scaleY(0.68)" }}
-      />
-      <rect
-        x="13"
-        y="4.5"
-        width="4"
-        height="9.5"
-        rx="1.25"
-        className="fill-[oklch(0.55_0.22_300)]"
-      />
-    </svg>
-  );
-}
-
-function PlanCard({ plan, index, inView }: { plan: Plan; index: number; inView: boolean }) {
+function PlanCardContent({ plan, index, inView }: { plan: Plan; index: number; inView: boolean }) {
   const Icon = plan.icon;
   const t = TONE[plan.tone ?? "blue"];
   const highlighted = Boolean(plan.badge);
@@ -242,10 +174,11 @@ function PlanCard({ plan, index, inView }: { plan: Plan; index: number; inView: 
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-3xl border bg-card p-6 transition-all duration-700 ease-out motion-reduce:transition-none",
+        "relative flex h-full flex-col justify-between rounded-3xl border bg-card p-7 transition-all duration-700 ease-out motion-reduce:transition-none",
         highlighted
           ? cn(t.border, t.shadow)
           : "border-border shadow-[0_1px_3px_rgba(15,23,42,0.05)]",
+        plan.featured && "ring-2 ring-[oklch(0.58_0.18_255)] scale-[1.02]",
         inView ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
       )}
       style={{ transitionDelay: `${index * 120}ms` }}
@@ -254,7 +187,7 @@ function PlanCard({ plan, index, inView }: { plan: Plan; index: number; inView: 
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
           <span
             className={cn(
-              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-card px-4 py-1.5 text-xs font-semibold shadow-sm",
+              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-card px-4 py-1 text-xs font-semibold shadow-sm",
               t.badge,
               t.text,
             )}
@@ -265,48 +198,67 @@ function PlanCard({ plan, index, inView }: { plan: Plan; index: number; inView: 
         </div>
       )}
 
-      <h3 className="font-display text-xl font-bold tracking-tight">{plan.name}</h3>
+      <div>
+        <h3 className="font-display text-2xl font-bold tracking-tight">{plan.name}</h3>
 
-      <div
-        className={cn(
-          "mt-3 inline-flex w-fit items-center gap-2 rounded-lg px-2.5 py-1.5",
-          t.softBg,
-          t.text,
-        )}
-      >
-        <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
-        <span className="text-xs font-semibold text-foreground/80">{plan.audience}</span>
+        <div
+          className={cn(
+            "mt-3 inline-flex w-fit items-center gap-2 rounded-lg px-2.5 py-1.5",
+            t.softBg,
+            t.text,
+          )}
+        >
+          <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
+          <span className="text-xs font-semibold text-foreground/80">{plan.audience}</span>
+        </div>
+
+        <div className="mt-5 flex items-baseline gap-1.5">
+          <span className="font-display text-4xl font-extrabold tracking-tight">{plan.price}</span>
+          {plan.period && (
+            <span className="text-sm font-medium text-muted-foreground">{plan.period}</span>
+          )}
+        </div>
+
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{plan.blurb}</p>
+
+        <hr className="my-6 border-border" />
+
+        <ul className="space-y-3.5">
+          {plan.features.map((feature) => (
+            <li key={feature} className="flex items-start gap-3 text-sm font-medium">
+              <CheckCircle2 className={cn("mt-0.5 h-4 w-4 shrink-0", t.text)} strokeWidth={2.25} />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
       </div>
-
-      <div className="mt-4 flex items-baseline gap-1.5">
-        <span className="font-display text-4xl font-bold tracking-tight">{plan.price}</span>
-        {plan.period && (
-          <span className="text-sm font-medium text-muted-foreground">{plan.period}</span>
-        )}
-      </div>
-
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{plan.blurb}</p>
-
-      <hr className="my-5 border-border" />
-
-      <ul className="space-y-3">
-        {plan.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-3 text-sm font-medium">
-            <CheckCircle2 className={cn("mt-0.5 h-4 w-4 shrink-0", t.text)} strokeWidth={2.25} />
-            {feature}
-          </li>
-        ))}
-      </ul>
 
       <Button
         asChild
         variant={plan.featured ? "default" : "outline"}
-        className={cn("mt-6 w-full", plan.featured ? t.solid : t.outline)}
+        className={cn("mt-8 w-full h-11 text-sm font-semibold rounded-xl cursor-pointer", plan.featured ? t.solid : t.outline)}
       >
         <Link to={plan.to}>{plan.cta}</Link>
       </Button>
     </div>
   );
+}
+
+function PlanCard({ plan, index, inView }: { plan: Plan; index: number; inView: boolean }) {
+  if (plan.starBorder) {
+    return (
+      <StarBorder
+        color="oklch(0.65 0.25 300)"
+        trackColor="rgba(168, 85, 247, 0.25)"
+        speed="5s"
+        radius="1.5rem"
+        className="h-full"
+      >
+        <PlanCardContent plan={plan} index={index} inView={inView} />
+      </StarBorder>
+    );
+  }
+  return <PlanCardContent plan={plan} index={index} inView={inView} />;
 }
 
 export function Pricing() {
@@ -316,9 +268,9 @@ export function Pricing() {
     <section
       ref={ref}
       id="pricing"
-      className="relative scroll-mt-16 overflow-hidden border-b border-border py-16 md:py-20 lg:py-24"
+      className="relative scroll-mt-16 overflow-hidden border-b border-border/60 bg-background py-20 md:py-24"
     >
-      <div className="relative mx-auto w-full max-w-[80rem] px-6 md:px-10 lg:px-12">
+      <div className="relative mx-auto w-full max-w-6xl px-6 lg:px-8">
         {/* Header */}
         <div
           className={cn(
@@ -326,23 +278,19 @@ export function Pricing() {
             inView ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
           )}
         >
-          <div
-            className="text-xs font-semibold uppercase tracking-[0.18em]"
-            style={{ color: ACCENT }}
-          >
-            Use cases &amp; pricing
-          </div>
-          <h2 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl lg:whitespace-nowrap">
+          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            TRANSPARENT PLANS
+          </p>
+          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
             Plans built for brand teams and IP professionals
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Whether you&rsquo;re protecting your brand, scaling enforcement, or managing IP for
-            clients, choose the plan that fits your team and enforcement needs.
+            Whether you&rsquo;re scaling brand protection or managing enterprise enforcement, choose the plan built for your needs.
           </p>
         </div>
 
-        {/* Plans */}
-        <div className="mx-auto mt-10 grid max-w-[380px] items-center gap-5 sm:max-w-none sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {/* 3 Plans Grid (Growth, Pro - Most Popular, Enterprise with Purple StarBorder) */}
+        <div className="mx-auto mt-14 grid max-w-5xl items-stretch gap-8 sm:grid-cols-1 md:grid-cols-3">
           {PLANS.map((plan, i) => (
             <PlanCard key={plan.name} plan={plan} index={i} inView={inView} />
           ))}
