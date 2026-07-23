@@ -60,11 +60,8 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tier: "enterprise",
-          first_name: "",
-          last_name: "",
+          source: "call_request",
           email,
-          company: "",
-          brand_count_range: "",
           message: `Sales call request. Phone: ${countryCode}${phone}`,
         }),
       });

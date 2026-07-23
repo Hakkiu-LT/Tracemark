@@ -604,6 +604,66 @@ def payment_failed_html(
     return _base(content, preheader=f"Action needed: payment for {plan_name} subscription")
 
 
+def new_lead_html(
+    *,
+    source: str | None,
+    tier: str,
+    first_name: str | None,
+    last_name: str | None,
+    email: str,
+    company: str | None,
+    brand_count_range: str | None,
+    message: str | None,
+) -> str:
+    source_labels = {
+        "pricing_modal": "Request Pricing (Pricing page)",
+        "request_demo": "Request Demo (wizard)",
+        "call_request": "Call Request (hero CTA)",
+    }
+    source_label = source_labels.get(source or "", source or "Unknown")
+    tier_label = tier.capitalize()
+
+    name_line = ""
+    if first_name or last_name:
+        name_line = f"<strong>{(first_name or '')} {(last_name or '')}</strong>".strip()
+    else:
+        name_line = "<em style='color:{_MUTED};'>Not provided</em>"
+
+    def row(label: str, value: str) -> str:
+        return (
+            f'<tr>'
+            f'<td style="padding:8px 12px;font-size:13px;color:{_MUTED};white-space:nowrap;width:140px;">{label}</td>'
+            f'<td style="padding:8px 12px;font-size:14px;color:{_DARK};">{value}</td>'
+            f'</tr>'
+        )
+
+    rows = [
+        row("Source", source_label),
+        row("Tier", tier_label),
+        row("Name", name_line if (first_name or last_name) else "<em>—</em>"),
+        row("Email", f'<a href="mailto:{email}" style="color:{_BRAND_COLOR};">{email}</a>'),
+        row("Company", company or "<em>—</em>"),
+        row("Brands", brand_count_range or "<em>—</em>"),
+    ]
+    if message:
+        rows.append(row("Message", f'<span style="white-space:pre-wrap;">{message}</span>'))
+
+    rows_html = "".join(rows)
+
+    content = f"""
+<h2 style="margin:0 0 4px;font-size:20px;color:{_DARK};">New Sales Lead</h2>
+<p style="margin:0 0 20px;color:{_MUTED};font-size:14px;">
+  A new inquiry was submitted via <strong>{source_label}</strong>.
+</p>
+<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid {_BORDER};border-radius:6px;overflow:hidden;">
+  {rows_html}
+</table>
+{_divider()}
+{_btn("View in Admin Portal", "https://admin.tracemark.ai/leads")}
+"""
+    return _base(content, preheader=f"New {tier_label} lead from {email}")
+
+
 def test_email_html(*, brand_name: str = "Test Brand") -> str:
     content = f"""
 <h2 style="margin:0 0 4px;font-size:20px;color:{_DARK};">HAKKIU email is working ✓</h2>
