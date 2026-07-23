@@ -1,12 +1,19 @@
-import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
+  Users,
+  Scale,
+  Rocket,
   CheckCircle2,
-  Shield,
-  Sparkles,
-  Globe,
   Star,
+  Sparkles,
+  DollarSign,
+  CalendarDays,
+  ShieldCheck,
+  Shield,
+  Globe,
   ChevronRight,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,183 +23,71 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { StarBorder } from "./star-border";
 import { RequestPricingModal } from "./request-pricing-modal";
 
-// ── Self-Serve static card ────────────────────────────────────────────────────
+const ACCENT = "oklch(0.58 0.18 255)";
 
-const SELF_SERVE_FEATURES = [
-  "1–5 trademarks to monitor",
-  "All 12 marketplace platforms",
-  "Unlimited detections & takedowns",
-  "AI confidence scoring",
-  "Auto takedown documents",
-  "Branded PDF reports",
-  "Live enforcement dashboard",
-  "Email support",
-];
+type Tone = "blue" | "violet";
 
-function SelfServeCard() {
-  const navigate = useNavigate();
+// Static class fragments per accent tone — kept as literal strings so Tailwind's
+// JIT picks them up. Drives the card border, badge, icons, and CTA per plan.
+const TONE: Record<
+  Tone,
+  {
+    text: string;
+    softBg: string;
+    border: string;
+    shadow: string;
+    badge: string;
+    solid: string;
+    outline: string;
+  }
+> = {
+  blue: {
+    text: "text-[oklch(0.58_0.18_255)]",
+    softBg: "bg-[oklch(0.58_0.18_255)]/8",
+    border: "border-[oklch(0.58_0.18_255)]",
+    shadow: "shadow-[0_18px_50px_-20px_rgba(37,64,235,0.45)]",
+    badge: "border-[oklch(0.58_0.18_255)]/30",
+    solid: "bg-[oklch(0.58_0.18_255)] text-white hover:bg-[oklch(0.54_0.18_255)]",
+    outline:
+      "border-[oklch(0.58_0.18_255)]/30 bg-transparent text-[oklch(0.58_0.18_255)] hover:bg-[oklch(0.58_0.18_255)]/8 hover:text-[oklch(0.58_0.18_255)]",
+  },
+  violet: {
+    text: "text-[oklch(0.55_0.22_300)]",
+    softBg: "bg-[oklch(0.55_0.22_300)]/8",
+    border: "border-[oklch(0.55_0.22_300)]",
+    shadow: "shadow-[0_18px_50px_-20px_rgba(124,58,237,0.45)]",
+    badge: "border-[oklch(0.55_0.22_300)]/30",
+    solid: "bg-[oklch(0.55_0.22_300)] text-white hover:bg-[oklch(0.5_0.22_300)]",
+    outline:
+      "border-[oklch(0.55_0.22_300)]/30 bg-transparent text-[oklch(0.55_0.22_300)] hover:bg-[oklch(0.55_0.22_300)]/8 hover:text-[oklch(0.55_0.22_300)]",
+  },
+};
 
-  return (
-    <div className="flex h-full flex-col rounded-3xl border border-[oklch(0.58_0.18_255)] bg-card shadow-[0_18px_50px_-20px_rgba(37,64,235,0.32)] overflow-hidden">
-      {/* Header */}
-      <div className="px-7 pt-7 pb-5">
-        <h3 className="font-display text-xl font-bold tracking-tight">Self-Serve</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configure instantly. No sales call needed.
-        </p>
-
-        <div className="mt-5">
-          <span className="text-2xl font-bold text-[oklch(0.58_0.18_255)]">
-            Configurable pricing
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Set your plan · instant checkout
-        </p>
-      </div>
-
-      <hr className="border-border" />
-
-      {/* Features */}
-      <div className="flex-1 px-7 py-5">
-        <ul className="space-y-2.5">
-          {SELF_SERVE_FEATURES.map((f) => (
-            <li key={f} className="flex items-start gap-2.5 text-sm">
-              <CheckCircle2
-                className="mt-0.5 h-4 w-4 shrink-0 text-[oklch(0.58_0.18_255)]"
-                strokeWidth={2.25}
-              />
-              {f}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* CTA */}
-      <div className="px-7 pb-7 pt-2">
-        <Button
-          onClick={() => navigate({ to: "/configure" })}
-          size="lg"
-          className="w-full font-semibold bg-[oklch(0.58_0.18_255)] text-white hover:bg-[oklch(0.54_0.18_255)]"
-        >
-          Buy Now
-          <ChevronRight className="ml-1.5 h-4 w-4" />
-        </Button>
-        <p className="mt-2.5 text-center text-xs text-muted-foreground">
-          Instant access · cancel anytime
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ── Contact-sales card ────────────────────────────────────────────────────────
-
-interface SalesCardProps {
+interface Plan {
   name: string;
-  tagline: string;
+  icon: LucideIcon;
+  audience: string;
+  price: string;
+  period?: string;
+  blurb: string;
   features: string[];
-  tier: "professional" | "enterprise";
-  onRequest: () => void;
-  mostPopular?: boolean;
+  cta: string;
+  to?: string;
+  onClick?: () => void;
+  tone?: Tone; // accent for icons + CTA (defaults to blue)
+  badge?: { label: string; icon: LucideIcon }; // highlights the card with a border + ribbon
+  featured?: boolean; // lifts the card on desktop
+  starBorder?: boolean; // wraps card in purple glowing star border
 }
-
-function SalesCard({ name, tagline, features, tier, onRequest, mostPopular }: SalesCardProps) {
-  const isPro = tier === "professional";
-
-  return (
-    <div
-      className={cn(
-        "flex h-full flex-col rounded-3xl border bg-card overflow-hidden",
-        isPro
-          ? "border-[oklch(0.55_0.22_300)] shadow-[0_18px_50px_-20px_rgba(130,60,220,0.28)]"
-          : "border-border shadow-[0_1px_4px_rgba(15,23,42,0.06)]",
-      )}
-    >
-      {/* Header */}
-      <div className="px-7 pt-7 pb-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="font-display text-xl font-bold tracking-tight">{name}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{tagline}</p>
-          </div>
-          {mostPopular && (
-            <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[oklch(0.55_0.22_300)]/40 bg-[oklch(0.55_0.22_300)]/8 px-3 py-1.5 text-xs font-semibold text-[oklch(0.55_0.22_300)]">
-              <Star className="h-3 w-3 fill-current" strokeWidth={0} />
-              Most popular
-            </span>
-          )}
-        </div>
-
-        <div className="mt-5">
-          <span
-            className={cn(
-              "text-2xl font-bold",
-              isPro ? "text-[oklch(0.55_0.22_300)]" : "text-muted-foreground",
-            )}
-          >
-            Custom pricing
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Free consultation · tailored proposal
-        </p>
-      </div>
-
-      <hr className="border-border" />
-
-      {/* Features */}
-      <div className="flex-1 px-7 py-5">
-        <ul className="space-y-2.5">
-          {features.map((f) => (
-            <li key={f} className="flex items-start gap-2.5 text-sm">
-              <CheckCircle2
-                className={cn(
-                  "mt-0.5 h-4 w-4 shrink-0",
-                  isPro ? "text-[oklch(0.55_0.22_300)]" : "text-[oklch(0.50_0.10_255)]",
-                )}
-                strokeWidth={2.25}
-              />
-              {f}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* CTA */}
-      <div className="px-7 pb-7 pt-2">
-        <Button
-          onClick={onRequest}
-          size="lg"
-          className={cn(
-            "w-full font-semibold text-white",
-            isPro
-              ? "bg-[oklch(0.55_0.22_300)] hover:bg-[oklch(0.50_0.22_300)]"
-              : "bg-[oklch(0.38_0.07_255)] hover:bg-[oklch(0.33_0.07_255)]",
-          )}
-        >
-          Request Pricing
-          <ChevronRight className="ml-1.5 h-4 w-4" />
-        </Button>
-        <p className="mt-2.5 text-center text-xs text-muted-foreground">
-          Response within 1 business day
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ── Assurance bar ─────────────────────────────────────────────────────────────
 
 const ASSURANCES = [
-  { icon: Shield,   label: "No setup fees" },
-  { icon: Globe,    label: "EU-based infrastructure" },
+  { icon: Shield, label: "No setup fees" },
+  { icon: Globe, label: "EU-based infrastructure" },
   { icon: Sparkles, label: "Cancel anytime" },
 ];
-
-// ── FAQ ───────────────────────────────────────────────────────────────────────
 
 const FAQ_ITEMS = [
   {
@@ -200,33 +95,29 @@ const FAQ_ITEMS = [
     a: "Yes. All plans are monthly with no lock-in. Cancel from your billing settings and you won't be charged again.",
   },
   {
-    q: "What counts as a takedown?",
-    a: "One takedown is one enforcement notice sent to a platform or registrar on your behalf — DMCA, platform abuse report, or ICANN complaint. You're never charged per takedown; they're unlimited on all plans.",
+    q: "What counts as a takedown notice?",
+    a: "One notice is one formal copyright or trademark infringement notice dispatched to a marketplace or registrar. Notice drafting and generation is unlimited on all plans.",
   },
   {
-    q: "Is Amazon always included?",
-    a: "Yes. Amazon is included in every Self-Serve plan at no extra cost. Additional marketplaces (eBay, AliExpress, Etsy, TikTok Shop, and 7 others) are available as add-ons.",
+    q: "Is Amazon included?",
+    a: "Yes. Amazon monitoring is active on all plans at no extra cost, alongside 11 other major marketplaces.",
   },
   {
-    q: "What's the difference between Self-Serve and Professional?",
-    a: "Self-Serve covers up to 5 trademarks with daily monitoring, automated takedown documents, and email support. Professional adds unlimited brands, real-time 15-minute monitoring, a dedicated customer success manager, managed takedown service, and full API access.",
-  },
-  {
-    q: "Do you offer annual billing?",
-    a: "Annual billing is coming soon. Monthly billing is available today with no minimum commitment.",
+    q: "What is the difference between Pro and Enterprise?",
+    a: "Pro is self-serve with access to all 12 platforms and real-time scanning. Enterprise adds full custom scraping infrastructure, dedicated account specialists, and custom SSO/SAML integrations.",
   },
 ];
 
 function PricingFAQ() {
   return (
     <div className="mx-auto mt-16 max-w-2xl">
-      <h3 className="text-center text-lg font-semibold tracking-tight">
+      <h3 className="text-center text-lg font-semibold tracking-tight text-foreground">
         Frequently asked questions
       </h3>
-      <Accordion type="single" collapsible className="mt-6 divide-y divide-border rounded-xl border border-border px-6">
+      <Accordion type="single" collapsible className="mt-6 divide-y divide-border rounded-xl border border-border px-6 bg-card">
         {FAQ_ITEMS.map((item, i) => (
           <AccordionItem key={i} value={`faq-${i}`} className="border-none">
-            <AccordionTrigger className="text-sm font-medium hover:no-underline py-4">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-4 text-foreground">
               {item.q}
             </AccordionTrigger>
             <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
@@ -239,72 +130,232 @@ function PricingFAQ() {
   );
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
+/** Fires once when the element first scrolls into view. */
+function useInView<T extends HTMLElement>(threshold = 0.2) {
+  const ref = useRef<T>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || inView) return;
+    const ob = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          ob.disconnect();
+        }
+      },
+      { threshold },
+    );
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [inView, threshold]);
+  return { ref, inView };
+}
+
+function PlanCardContent({ plan, index, inView }: { plan: Plan; index: number; inView: boolean }) {
+  const Icon = plan.icon;
+  const t = TONE[plan.tone ?? "blue"];
+  const highlighted = Boolean(plan.badge);
+  const BadgeIcon = plan.badge?.icon;
+
+  return (
+    <div
+      className={cn(
+        "relative flex h-full flex-col justify-between rounded-3xl border bg-card p-7 transition-all duration-700 ease-out motion-reduce:transition-none",
+        highlighted
+          ? cn(t.border, t.shadow)
+          : "border-border shadow-[0_1px_3px_rgba(15,23,42,0.05)]",
+        plan.featured && "ring-2 ring-[oklch(0.58_0.18_255)] scale-[1.02]",
+        inView ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
+      )}
+      style={{ transitionDelay: `${index * 120}ms` }}
+    >
+      {plan.badge && BadgeIcon && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border bg-card px-4 py-1 text-xs font-semibold shadow-sm",
+              t.badge,
+              t.text,
+            )}
+          >
+            <BadgeIcon className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
+            {plan.badge.label}
+          </span>
+        </div>
+      )}
+
+      <div>
+        <h3 className="font-display text-2xl font-bold tracking-tight text-foreground">{plan.name}</h3>
+
+        <div
+          className={cn(
+            "mt-3 inline-flex w-fit items-center gap-2 rounded-lg px-2.5 py-1.5",
+            t.softBg,
+            t.text,
+          )}
+        >
+          <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
+          <span className="text-xs font-semibold text-foreground/80">{plan.audience}</span>
+        </div>
+
+        <div className="mt-5 flex items-baseline gap-1.5">
+          <span className="font-display text-4xl font-extrabold tracking-tight text-foreground">{plan.price}</span>
+          {plan.period && (
+            <span className="text-sm font-medium text-muted-foreground">{plan.period}</span>
+          )}
+        </div>
+
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{plan.blurb}</p>
+
+        <hr className="my-6 border-border" />
+
+        <ul className="space-y-3.5">
+          {plan.features.map((feature) => (
+            <li key={feature} className="flex items-start gap-3 text-sm font-medium text-foreground">
+              <CheckCircle2 className={cn("mt-0.5 h-4 w-4 shrink-0", t.text)} strokeWidth={2.25} />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {plan.onClick ? (
+        <Button
+          onClick={plan.onClick}
+          variant={plan.featured ? "default" : "outline"}
+          className={cn("mt-8 w-full h-11 text-sm font-semibold rounded-xl cursor-pointer", plan.featured ? t.solid : t.outline)}
+        >
+          {plan.cta}
+        </Button>
+      ) : (
+        <Button
+          asChild
+          variant={plan.featured ? "default" : "outline"}
+          className={cn("mt-8 w-full h-11 text-sm font-semibold rounded-xl cursor-pointer", plan.featured ? t.solid : t.outline)}
+        >
+          <Link to={plan.to ?? "/dashboard"}>{plan.cta}</Link>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function PlanCard({ plan, index, inView }: { plan: Plan; index: number; inView: boolean }) {
+  if (plan.starBorder) {
+    return (
+      <StarBorder
+        color="oklch(0.65 0.25 300)"
+        trackColor="rgba(168, 85, 247, 0.25)"
+        speed="5s"
+        radius="1.5rem"
+        className="h-full"
+      >
+        <PlanCardContent plan={plan} index={index} inView={inView} />
+      </StarBorder>
+    );
+  }
+  return <PlanCardContent plan={plan} index={index} inView={inView} />;
+}
 
 export function Pricing() {
+  const { ref, inView } = useInView<HTMLElement>();
   const [modalTier, setModalTier] = useState<"professional" | "enterprise" | null>(null);
+
+  const PLANS: Plan[] = [
+    {
+      name: "Growth",
+      icon: Users,
+      audience: "For growing brand teams",
+      price: "$249",
+      period: "/mo",
+      blurb: "For scaling e-commerce and brand teams.",
+      features: [
+        "5 brands monitored",
+        "All 12 platforms covered",
+        "Daily automated AI scans",
+        "Auto-generated takedown notices",
+        "Priority email support",
+      ],
+      cta: "Start monitoring",
+      to: "/dashboard",
+      tone: "blue",
+    },
+    {
+      name: "Pro",
+      icon: Rocket,
+      audience: "For established brands & IP teams",
+      price: "$599",
+      period: "/mo",
+      blurb: "Real-time brand protection with domain tracking.",
+      features: [
+        "20 brands monitored",
+        "All 12 platforms + Domain tracking",
+        "Real-time AI monitoring & alerts",
+        "Auto-generated DMCA & C&D docs",
+        "Dedicated account manager",
+      ],
+      cta: "Start monitoring",
+      to: "/dashboard",
+      tone: "blue",
+      badge: { label: "Most popular", icon: Star },
+      featured: true,
+    },
+    {
+      name: "Enterprise",
+      icon: Scale,
+      audience: "For enterprise & law firms",
+      price: "Custom",
+      blurb: "Managed brand enforcement with custom SLA.",
+      features: [
+        "Unlimited brands & monitoring",
+        "Court-ready evidence & legal dossiers",
+        "Dedicated crawling infrastructure",
+        "Custom SSO/SAML & full API access",
+        "Dedicated IP specialist & 99.9% SLA",
+      ],
+      cta: "Request Pricing",
+      onClick: () => setModalTier("enterprise"),
+      tone: "violet",
+      badge: { label: "Enterprise SLA", icon: Sparkles },
+      starBorder: true,
+    },
+  ];
 
   return (
     <section
+      ref={ref}
       id="pricing"
-      className="relative scroll-mt-16 overflow-hidden border-b border-border py-16 md:py-20 lg:py-24"
+      className="relative scroll-mt-16 overflow-hidden border-b border-border/60 bg-background py-20 md:py-24"
     >
-      <div className="relative mx-auto w-full max-w-[82rem] px-6 md:px-10 lg:px-12">
-
+      <div className="relative mx-auto w-full max-w-6xl px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[oklch(0.58_0.18_255)]">
-            Pricing
-          </div>
-          <h2 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl">
-            Flat pricing. No per-takedown fees.
+        <div
+          className={cn(
+            "text-center transition-all duration-700 ease-out motion-reduce:transition-none",
+            inView ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
+          )}
+        >
+          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            TRANSPARENT PLANS
+          </p>
+          <h2 className="mt-3 font-display text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+            Plans built for brand teams and IP professionals
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Configure your plan below — marketplaces, brand count, domain protection. One flat monthly
-            bill regardless of how many counterfeits we find or remove.
+            Whether you&rsquo;re scaling brand protection or managing enterprise enforcement, choose the plan built for your needs.
           </p>
         </div>
 
-        {/* Cards grid — items-stretch makes all cards the same height */}
-        <div className="mx-auto mt-12 grid max-w-[380px] items-stretch gap-6 sm:max-w-none sm:grid-cols-2 xl:grid-cols-3">
-          <SelfServeCard />
-
-          <SalesCard
-            tier="professional"
-            name="Professional"
-            tagline="For brands with complex enforcement needs"
-            mostPopular
-            features={[
-              "Unlimited brands",
-              "Real-time monitoring (15-min refresh)",
-              "Domain & website protection included",
-              "Managed takedown service",
-              "Dedicated customer success manager",
-              "Full API access & webhooks",
-              "Priority support with 4h SLA",
-            ]}
-            onRequest={() => setModalTier("professional")}
-          />
-
-          <SalesCard
-            tier="enterprise"
-            name="Enterprise"
-            tagline="For law firms, agencies & global brands"
-            features={[
-              "White-label / law-firm mode",
-              "Multi-client workspace",
-              "SSO / SAML authentication",
-              "Custom integrations (Salesforce, SAP)",
-              "EU data residency",
-              "99.9% uptime SLA",
-              "Court-ready evidence packaging",
-            ]}
-            onRequest={() => setModalTier("enterprise")}
-          />
+        {/* 3 Plans Grid (Growth, Pro - Most Popular, Enterprise with Purple StarBorder) */}
+        <div className="mx-auto mt-14 grid max-w-5xl items-stretch gap-8 sm:grid-cols-1 md:grid-cols-3">
+          {PLANS.map((plan, i) => (
+            <PlanCard key={plan.name} plan={plan} index={i} inView={inView} />
+          ))}
         </div>
 
         {/* Assurance bar */}
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
+        <div className="mt-16 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
           {ASSURANCES.map(({ icon: Icon, label }) => (
             <div key={label} className="flex items-center gap-2 text-sm text-muted-foreground">
               <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
@@ -313,13 +364,16 @@ export function Pricing() {
           ))}
         </div>
 
+        {/* FAQ Section */}
         <PricingFAQ />
       </div>
 
       <RequestPricingModal
         open={modalTier !== null}
-        onOpenChange={(open) => { if (!open) setModalTier(null); }}
-        tier={modalTier ?? "professional"}
+        onOpenChange={(open) => {
+          if (!open) setModalTier(null);
+        }}
+        tier={modalTier ?? "enterprise"}
       />
     </section>
   );
