@@ -6,7 +6,7 @@ result here.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api import main_api
@@ -19,6 +19,7 @@ router = APIRouter(prefix="/customers", tags=["billing"])
 
 class SetPlanRequest(BaseModel):
     plan: str
+    mode: str = "comp"  # "comp" = free override | "charge" = bill via Stripe (prorated)
 
 
 class CancelRequest(BaseModel):
@@ -43,18 +44,22 @@ def _org_for_user(user_id: str) -> str:
 @router.put("/{user_id}/plan")
 def change_plan(
     user_id: str,
+    request: Request,
     payload: SetPlanRequest,
     staff: StaffPrincipal = Depends(require_permission("billing.manage")),
 ):
+    if payload.mode not in ("comp", "charge"):
+        raise HTTPException(status_code=400, detail="mode must be 'comp' or 'charge'")
     org_id = _org_for_user(user_id)
-    result = main_api.set_plan(org_id, payload.plan)
+    result = main_api.set_plan(org_id, payload.plan, payload.mode)
     write_audit_log(
         staff,
         "billing.plan_change",
         target_type="customer",
         target_id=user_id,
         target_org_id=org_id,
-        metadata={"plan": payload.plan, "result": result},
+        metadata={"plan": payload.plan, "mode": payload.mode, "result": result},
+        ip=request.client.host if request.client else None,
     )
     return result
 
@@ -62,6 +67,7 @@ def change_plan(
 @router.post("/{user_id}/cancel-subscription")
 def cancel_subscription(
     user_id: str,
+    request: Request,
     payload: CancelRequest,
     staff: StaffPrincipal = Depends(require_permission("billing.manage")),
 ):
@@ -74,5 +80,6 @@ def cancel_subscription(
         target_id=user_id,
         target_org_id=org_id,
         metadata={"cancel": payload.cancel, "result": result},
+        ip=request.client.host if request.client else None,
     )
     return result

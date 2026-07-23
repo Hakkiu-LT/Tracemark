@@ -16,10 +16,10 @@ from __future__ import annotations
 import os
 import sys
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from supabase import create_client
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 
 def main() -> int:

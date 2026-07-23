@@ -126,7 +126,7 @@ function FilterPopover({
 export const Route = createFileRoute("/cases")({
   head: () => ({
     meta: [
-      { title: "Cases — Tracemark" },
+      { title: "Cases — HAKKIU" },
       { name: "description", content: "Review, triage, and act on every detected infringement." },
     ],
   }),

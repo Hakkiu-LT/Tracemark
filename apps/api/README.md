@@ -1,4 +1,4 @@
-# Tracemark API
+# HAKKIU API
 
 Python backend for scraping, evidence capture, and heavier AI tasks.
 

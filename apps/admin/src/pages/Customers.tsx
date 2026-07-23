@@ -3,12 +3,15 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { adminFetch } from "@/lib/api";
+import { CustomerEditDialog, type EditableCustomer } from "@/components/CustomerEditDialog";
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  Input,
   Select,
   Skeleton,
   Table,
@@ -30,7 +33,8 @@ interface CustomerRow {
 
 export function Customers() {
   const [filter, setFilter] = useState<"all" | "paying" | "free">("all");
-  const { data, isLoading } = useQuery({
+  const [search, setSearch] = useState("");
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["customers"],
     queryFn: () => adminFetch<CustomerRow[]>("/customers"),
   });
@@ -39,10 +43,12 @@ export function Customers() {
     queryFn: () => adminFetch<{ id: string; name: string | null }[]>("/organizations"),
   });
   const orgName = new Map((orgs ?? []).map((o) => [o.id, o.name]));
+  const [editing, setEditing] = useState<EditableCustomer | null>(null);
 
   const rows = (data ?? []).filter((u) => {
-    if (filter === "paying") return u.plan !== "free";
-    if (filter === "free") return u.plan === "free";
+    if (filter === "paying" && u.plan === "free") return false;
+    if (filter === "free" && u.plan !== "free") return false;
+    if (search && !u.email.toLowerCase().includes(search.toLowerCase()) && !(u.full_name ?? "").toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
@@ -54,16 +60,24 @@ export function Customers() {
       </div>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle>{isLoading ? "Loading…" : `${rows.length} customer(s)`}</CardTitle>
-          <Select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} className="w-40">
-            <option value="all">All</option>
-            <option value="paying">Paying</option>
-            <option value="free">Free</option>
-          </Select>
+          <div className="flex gap-2">
+            <Input placeholder="Search by email or name…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-52" />
+            <Select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} className="w-36">
+              <option value="all">All</option>
+              <option value="paying">Paying</option>
+              <option value="free">Free</option>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isError ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">Failed to load customers. Check your connection.</p>
+              <Button size="sm" variant="outline" onClick={() => refetch()} className="mt-3">Retry</Button>
+            </div>
+          ) : isLoading ? (
             <div className="space-y-2">
               {[0, 1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-11 w-full" />
@@ -78,6 +92,7 @@ export function Customers() {
                   <TableHead>Company</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Workspace</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -110,6 +125,20 @@ export function Customers() {
                         {u.persona === "law_firm" ? "Law Firm" : "Brand Owner"}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setEditing({
+                            id: u.id, full_name: u.full_name, email: u.email,
+                            persona: u.persona, plan: u.plan, organization_id: u.organization_id,
+                          })
+                        }
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -117,6 +146,7 @@ export function Customers() {
           )}
         </CardContent>
       </Card>
+      {editing && <CustomerEditDialog customer={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

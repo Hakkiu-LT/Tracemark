@@ -1,5 +1,6 @@
 from dotenv import load_dotenv, find_dotenv
 
+# Single source of truth: the repo-root .env (walks up from this module).
 load_dotenv(find_dotenv())
 
 import os
@@ -20,6 +21,8 @@ from tracemark_admin_api.routes.search import router as search_router
 from tracemark_admin_api.routes.cases import router as cases_router
 from tracemark_admin_api.routes.infringements_admin import router as infringements_router
 from tracemark_admin_api.routes.takedowns_admin import router as takedowns_router
+from tracemark_admin_api.routes.stats import router as stats_router
+from tracemark_admin_api.routes.scraper_health import router as scraper_health_router
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
@@ -28,7 +31,7 @@ _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 _extra_origins = [o.strip() for o in os.environ.get("ADMIN_ALLOWED_ORIGINS", "").split(",") if o.strip()]
 
 app = FastAPI(
-    title="Tracemark Admin API",
+    title="HAKKIU Admin API",
     version="0.1.0",
     docs_url=None if _is_production else "/docs",
     redoc_url=None if _is_production else "/redoc",
@@ -48,6 +51,8 @@ app.include_router(search_router, prefix="/api/v1")
 app.include_router(cases_router, prefix="/api/v1")
 app.include_router(infringements_router, prefix="/api/v1")
 app.include_router(takedowns_router, prefix="/api/v1")
+app.include_router(stats_router, prefix="/api/v1")
+app.include_router(scraper_health_router, prefix="/api/v1")
 
 _allowed_origins = [
     "http://localhost:8082",  # admin app local dev
@@ -73,6 +78,16 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     return response
+
+
+@app.on_event("startup")
+def _check_required_env() -> None:
+    if not os.environ.get("INTERNAL_API_SECRET"):
+        raise RuntimeError(
+            "INTERNAL_API_SECRET is not set. "
+            "This secret is required for admin-api ↔ main-api communication. "
+            "Set it in the repo-root .env before starting."
+        )
 
 
 @app.get("/health")

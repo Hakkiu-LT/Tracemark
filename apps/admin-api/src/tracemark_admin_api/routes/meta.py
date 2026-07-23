@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api.dependencies import StaffPrincipal, require_permission
@@ -23,6 +23,7 @@ class ExchangeTokenRequest(BaseModel):
 
 @router.post("/exchange-token")
 def exchange_token(
+    request: Request,
     payload: ExchangeTokenRequest,
     staff: StaffPrincipal = Depends(require_permission("integrations.manage")),
 ):
@@ -47,5 +48,6 @@ def exchange_token(
         target_type="integration",
         target_id="meta",
         metadata={"expires_at": result.get("expires_at")},
+        ip=request.client.host if request.client else None,
     )
     return result

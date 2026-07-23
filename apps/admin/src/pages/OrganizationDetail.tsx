@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Pencil, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { adminFetch } from "@/lib/api";
@@ -43,9 +43,12 @@ interface OrgDetail {
   brand_count: number;
   mrr: number;
   members: Member[];
-  brands: { id: string; brand_name: string; status: string; website: string | null; registration_number: string | null }[];
+  brands: {
+    id: string; brand_name: string; status: string; website: string | null; registration_number: string | null;
+    official_domains?: string[] | null; official_advertisers?: string[] | null; logo_color?: string | null;
+  }[];
   subscription: { plan: string; status: string; interval: string; cancel_at_period_end: boolean } | null;
-  invoices: { id: string; amount_due: number; currency: string; status: string; hosted_invoice_url: string | null }[];
+  invoices: { id: string; amount_due: number; currency: string; status: string; hosted_invoice_url: string | null; created_at: string | null }[];
 }
 interface Usage {
   plan: string;
@@ -79,6 +82,7 @@ export function OrganizationDetail() {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
   const [brandEdit, setBrandEdit] = useState<OrgDetail["brands"][number] | null>(null);
+  const [addingMember, setAddingMember] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["organization", orgId],
@@ -196,7 +200,14 @@ export function OrganizationDetail() {
 
       {/* Members */}
       <Card>
-        <CardHeader><CardTitle>Users ({data.members.length})</CardTitle></CardHeader>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>Users ({data.members.length})</CardTitle>
+          <Can permission="customers.edit">
+            <Button size="sm" variant="outline" onClick={() => setAddingMember(true)}>
+              <Plus className="h-4 w-4" /> Add member
+            </Button>
+          </Can>
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -229,8 +240,14 @@ export function OrganizationDetail() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Can permission="customers.edit">
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeMember.mutate(m.user_id)}>
-                        Remove
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => removeMember.mutate(m.user_id)}
+                        disabled={removeMember.isPending}
+                      >
+                        {removeMember.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
                       </Button>
                     </Can>
                   </TableCell>
@@ -295,6 +312,7 @@ export function OrganizationDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Date</TableHead>
                     <TableHead>Invoice</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
@@ -303,6 +321,9 @@ export function OrganizationDetail() {
                 <TableBody>
                   {data.invoices.map((inv) => (
                     <TableRow key={inv.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        {inv.created_at ? new Date(inv.created_at).toLocaleString() : "—"}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">
                         {inv.hosted_invoice_url ? (
                           <a href={inv.hosted_invoice_url} target="_blank" rel="noopener" className="text-accent hover:underline">
@@ -358,6 +379,17 @@ export function OrganizationDetail() {
         </Card>
       </Can>
 
+      {addingMember && (
+        <AddMemberDialog
+          orgId={orgId}
+          onClose={() => setAddingMember(false)}
+          onAdded={() => {
+            setAddingMember(false);
+            qc.invalidateQueries({ queryKey: ["organization", orgId] });
+          }}
+        />
+      )}
+
       {brandEdit && (
         <BrandEditDialog
           brand={brandEdit}
@@ -372,6 +404,20 @@ export function OrganizationDetail() {
   );
 }
 
+interface BrandAsset {
+  id: string;
+  asset_type: string;
+  signed_url: string | null;
+  metadata: { filename?: string } | null;
+}
+
+function toLines(arr?: string[] | null) {
+  return (arr || []).join("\n");
+}
+function fromLines(s: string) {
+  return s.split(/[\n,]/).map((x) => x.trim()).filter(Boolean);
+}
+
 function BrandEditDialog({
   brand,
   onClose,
@@ -381,20 +427,62 @@ function BrandEditDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const qc = useQueryClient();
   const [brandName, setBrandName] = useState(brand.brand_name);
   const [website, setWebsite] = useState(brand.website || "");
   const [reg, setReg] = useState(brand.registration_number || "");
   const [status, setStatus] = useState(brand.status);
+  const [domains, setDomains] = useState(toLines(brand.official_domains));
+  const [advertisers, setAdvertisers] = useState(toLines(brand.official_advertisers));
+  const [platforms, setPlatforms] = useState(toLines((brand as {platforms?: string[] | null}).platforms));
+  const [targetRegions, setTargetRegions] = useState(toLines((brand as {target_regions?: string[] | null}).target_regions));
+  const [logoColor, setLogoColor] = useState(brand.logo_color || "");
+  const [assetType, setAssetType] = useState<"logo" | "product_image">("logo");
+  const [uploading, setUploading] = useState(false);
+
+  const { data: assets } = useQuery({
+    queryKey: ["brand-assets", brand.id],
+    queryFn: () => adminFetch<BrandAsset[]>(`/brands/${brand.id}/assets`),
+  });
 
   const save = useMutation({
     mutationFn: () =>
       adminFetch(`/brands/${brand.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ brand_name: brandName, website, registration_number: reg, status }),
+        body: JSON.stringify({
+          brand_name: brandName, website, registration_number: reg, status,
+          official_domains: fromLines(domains), official_advertisers: fromLines(advertisers),
+          platforms: fromLines(platforms).length ? fromLines(platforms) : undefined,
+          target_regions: fromLines(targetRegions).length ? fromLines(targetRegions) : undefined,
+          logo_color: logoColor || undefined,
+        }),
       }),
     onSuccess: () => { toast.success("Brand updated"); onSaved(); },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const removeAsset = useMutation({
+    mutationFn: (assetId: string) => adminFetch(`/brands/${brand.id}/assets/${assetId}`, { method: "DELETE" }),
+    onSuccess: () => { toast.success("Photo removed"); qc.invalidateQueries({ queryKey: ["brand-assets", brand.id] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  async function onUpload(file: File | null) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("asset_type", assetType);
+      fd.append("file", file);
+      await adminFetch(`/brands/${brand.id}/assets`, { method: "POST", body: fd });
+      toast.success("Photo uploaded");
+      qc.invalidateQueries({ queryKey: ["brand-assets", brand.id] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <Dialog
@@ -403,23 +491,85 @@ function BrandEditDialog({
       title={`Edit brand — ${brand.brand_name}`}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>Close</Button>
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
-            {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Save
+            {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Save fields
           </Button>
         </>
       }
     >
-      <div className="space-y-1.5"><Label>Brand name</Label><Input value={brandName} onChange={(e) => setBrandName(e.target.value)} /></div>
-      <div className="space-y-1.5"><Label>Website</Label><Input value={website} onChange={(e) => setWebsite(e.target.value)} /></div>
-      <div className="space-y-1.5"><Label>Registration #</Label><Input value={reg} onChange={(e) => setReg(e.target.value)} /></div>
-      <div className="space-y-1.5">
-        <Label>Status</Label>
-        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="active">active</option>
-          <option value="on_hold">on_hold</option>
-          <option value="locked">locked</option>
-        </Select>
+      <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+        <div className="space-y-1.5"><Label>Brand name</Label><Input value={brandName} onChange={(e) => setBrandName(e.target.value)} /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5"><Label>Website</Label><Input value={website} onChange={(e) => setWebsite(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label>Registration #</Label><Input value={reg} onChange={(e) => setReg(e.target.value)} /></div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="active">active</option>
+              <option value="on_hold">on_hold</option>
+              <option value="locked">locked</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5"><Label>Logo color</Label><Input value={logoColor} onChange={(e) => setLogoColor(e.target.value)} placeholder="oklch(…) or #hex" /></div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Official domains <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+          <textarea value={domains} onChange={(e) => setDomains(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Official advertisers <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+          <textarea value={advertisers} onChange={(e) => setAdvertisers(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Platforms <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+            <textarea value={platforms} onChange={(e) => setPlatforms(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" placeholder="amazon&#10;ebay&#10;aliexpress" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Target regions <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+            <textarea value={targetRegions} onChange={(e) => setTargetRegions(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" placeholder="US&#10;EU&#10;GB" />
+          </div>
+        </div>
+
+        {/* Photos */}
+        <div className="space-y-2 border-t border-border pt-3">
+          <Label>Photos (logos / product images)</Label>
+          <div className="flex flex-wrap gap-3">
+            {(assets || []).map((a) => (
+              <div key={a.id} className="relative">
+                {a.signed_url ? (
+                  <img src={a.signed_url} alt={a.asset_type} className="h-20 w-20 rounded border border-border object-cover" />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded border border-border text-[10px] text-muted-foreground">{a.asset_type}</div>
+                )}
+                <button
+                  onClick={() => removeAsset.mutate(a.id)}
+                  className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                  title="Remove"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+                <span className="mt-0.5 block text-center text-[9px] text-muted-foreground">{a.asset_type}</span>
+              </div>
+            ))}
+            {(assets || []).length === 0 && <p className="text-xs text-muted-foreground">No photos yet.</p>}
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={assetType} onChange={(e) => setAssetType(e.target.value as "logo" | "product_image")} className="h-8 w-36">
+              <option value="logo">logo</option>
+              <option value="product_image">product_image</option>
+            </Select>
+            <label className="cursor-pointer">
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => onUpload(e.target.files?.[0] ?? null)} />
+              <span className="inline-flex h-8 items-center rounded-md border border-border px-3 text-sm hover:bg-muted">
+                {uploading ? "Uploading…" : "Upload photo"}
+              </span>
+            </label>
+          </div>
+        </div>
       </div>
     </Dialog>
   );
@@ -431,5 +581,51 @@ function Metric({ label, value }: { label: string; value: string }) {
       <p className="text-xs uppercase text-muted-foreground">{label}</p>
       <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
     </div>
+  );
+}
+
+function AddMemberDialog({ orgId, onClose, onAdded }: { orgId: string; onClose: () => void; onAdded: () => void }) {
+  const [userId, setUserId] = useState("");
+  const [role, setRole] = useState("member");
+
+  const add = useMutation({
+    mutationFn: () =>
+      adminFetch(`/organizations/${orgId}/members`, {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId.trim(), role }),
+      }),
+    onSuccess: () => { toast.success("Member added"); onAdded(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Add member"
+      description="Add an existing customer to this organization by their user ID."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => add.mutate()} disabled={add.isPending || !userId.trim()}>
+            {add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Add
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-1.5">
+        <Label>Customer user ID</Label>
+        <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="uuid…" className="font-mono text-xs" />
+        <p className="text-xs text-muted-foreground">Find the ID on the customer's detail page.</p>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Role</Label>
+        <Select value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="owner">owner</option>
+          <option value="admin">admin</option>
+          <option value="member">member</option>
+        </Select>
+      </div>
+    </Dialog>
   );
 }

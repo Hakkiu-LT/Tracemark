@@ -1,4 +1,4 @@
-# Tracemark Admin Portal
+# HAKKIU Admin Portal
 
 Isolated operations portal at **admin.tracemark.ai** (roadmap Sekcija 14).
 Staff-only. Separate from the customer app; talks to `apps/admin-api`.
@@ -17,13 +17,12 @@ Staff-only. Separate from the customer app; talks to `apps/admin-api`.
    ```
    Adds `staff_accounts`, `staff_permissions`, `admin_audit_log`.
 
-2. **Set environment variables**
-   - Main API (`apps/api`): add `INTERNAL_API_SECRET=<long-random-string>`.
-   - Admin API (`apps/admin-api/.env`, see `.env.example`): `SUPABASE_URL`,
-     `SUPABASE_SERVICE_ROLE_KEY` (same as main), `INTERNAL_API_SECRET` (same value),
-     `MAIN_API_URL`.
-   - Admin frontend (`apps/admin/.env`, see `.env.example`): `VITE_SUPABASE_URL`,
-     `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_ADMIN_API_URL`.
+2. **Set environment variables — ONE shared `.env` at the repo root** (copy from
+   `.env.example`). Both backends (main + admin) load it via `find_dotenv()`, both
+   frontends (customer + admin) read it via Vite (`envDir`). Only `VITE_*` vars reach
+   the browser. Keys the admin portal needs: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+   `INTERNAL_API_SECRET`, `MAIN_API_URL`, `CUSTOMER_APP_URL`, `VITE_SUPABASE_URL`,
+   `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_ADMIN_API_URL` (all already in the root `.env`).
 
 3. **Seed the first super-admin** (from `apps/admin-api`):
    ```

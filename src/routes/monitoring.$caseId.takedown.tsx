@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 
 export const Route = createFileRoute("/monitoring/$caseId/takedown")({
-  head: () => ({ meta: [{ title: "Takedown Notices — Tracemark" }] }),
+  head: () => ({ meta: [{ title: "Takedown Notices — HAKKIU" }] }),
   component: TakedownNoticesPage,
 });
 
