@@ -23,6 +23,7 @@ PERMISSIONS: dict[str, str] = {
     "billing.view": "View subscriptions and invoices",
     "billing.manage": "Change plans, cancel/modify subscriptions",
     "resources.view": "System metrics (CPU/RAM) and API usage",
+    "scraper_health.view": "Per-platform scraper health (success rate, latency, failures)",
     "integrations.manage": "Meta token exchange and integration keys",
     "staff.manage": "Create/edit staff and assign permissions",
     "audit.view": "Read the audit log",
@@ -36,6 +37,7 @@ ALL_PERMISSIONS: frozenset[str] = frozenset(PERMISSIONS)
 ROLE_PRESETS: dict[str, set[str]] = {
     "dev": {
         "resources.view",
+        "scraper_health.view",
         "integrations.manage",
         "brands.view",
         "customers.view",

@@ -6,7 +6,7 @@ import { AlertCircle, ArrowLeft } from "lucide-react";
 export const Route = createFileRoute("/billing/cancel")({
   head: () => ({
     meta: [
-      { title: "Checkout Cancelled — Tracemark" },
+      { title: "Checkout Cancelled — HAKKIU" },
       { name: "description", content: "Your checkout transaction was cancelled." },
     ],
   }),

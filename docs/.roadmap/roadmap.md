@@ -268,10 +268,10 @@ Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables
 *Establishing validation protocols, automated alerts, and health metrics across all target scraping channels.*
 
 ### Backend
-- **Manual Scraper Audit & Verification** | ❌ Missing | Conduct a manual check for each of the 12 target platforms (Amazon, eBay, etc.) via local tests or checking routes to confirm current parsing structures are fully functional.
-- **Automated Integration Test Suite** | ❌ Missing | Implement daily automated cron checks that query a controlled test listing/url on each of the 12 platforms (Amazon, eBay, etc.) to verify parser selectors have not broken due to layout changes.
-- **Scraper Health Metrics API & Alerting (Supabase)** | ❌ Missing | Log scraping failure reasons (e.g., bot detection, network timeout, layout mismatch) directly to **Supabase** database tables and trigger notifications (Slack/Discord/SMTP) if success rates drop on any platform.
-- **Centralized Diagnostic Dashboard** | ❌ Missing | Admin view showcasing real-time success rate, scraping latency, and Firecrawl API credit consumption per platform.
+- **Manual Scraper Audit & Verification** | ❌ Missing | Conduct a manual check for each of the 12 target platforms (Amazon, eBay, etc.) via local tests or checking routes to confirm current parsing structures are fully functional. *(Manual QA task — not code.)*
+- **Automated Integration Test Suite** | ⚠️ Partial | Daily **lightweight reachability probe** per platform (`scraper_health.run_reachability_probes`, daemon thread in `main.py`) records a `source='probe'` health row. Cheap HTTP GETs only — does NOT yet validate parser selectors against a controlled test listing.
+- **Scraper Health Metrics API & Alerting (Supabase)** | ⚠️ Partial | Per-platform health logged to Supabase `scraper_health_log` (migration `20260721000001`; ⚠️ needs `supabase db push`). Written from `marketplace.batch_detect` via `scraper_health.probe(...)` with error categories (timeout/blocked/parse_error/api_error/http_error). **Push alerting (Slack/SMTP) deferred** — degraded platforms flagged in-page only.
+- **Centralized Diagnostic Dashboard** | ✅ Done | Admin `GET /scraper-health` + `ScraperHealth.tsx` page: real-time per-platform success rate, latency, recent failures, and Firecrawl credit consumption (from `api_usage_records`); 24h/7d window; gated by `scraper_health.view`. Per-platform drill-down included: `brand_name`/`caller_id` columns added to `scraper_health_log` (migration `20260721000002`); `GET /scraper-health/{platform}/events` endpoint returns individual scrape events (brand scanned, country, success/failure, error detail, latency, source, timestamp); `ScraperHealthDetail.tsx` page with window/status/source filters; platform names in list are clickable links.
 
 ---
 

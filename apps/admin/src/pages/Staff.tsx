@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -45,7 +46,7 @@ export function Staff() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
 
-  const { data: staff, isLoading } = useQuery({
+  const { data: staff, isLoading, isError, refetch } = useQuery({
     queryKey: ["staff"],
     queryFn: () => adminFetch<StaffMember[]>("/staff"),
   });
@@ -77,7 +78,12 @@ export function Staff() {
           <CardTitle>{isLoading ? "Loading…" : `${staff?.length ?? 0} member(s)`}</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isError ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">Failed to load staff. Check your connection.</p>
+              <Button size="sm" variant="outline" onClick={() => refetch()} className="mt-3">Retry</Button>
+            </div>
+          ) : isLoading ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
                 <Skeleton key={i} className="h-11 w-full" />
@@ -92,14 +98,17 @@ export function Staff() {
                   <TableHead>Role</TableHead>
                   <TableHead>Permissions</TableHead>
                   <TableHead>Status</TableHead>
-                  {iAmSuper && <TableHead>Super admin</TableHead>}
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(staff ?? []).map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell className="font-medium">{m.full_name || "—"}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to="/staff/$staffId" params={{ staffId: m.id }} className="text-accent hover:underline">
+                        {m.full_name || "—"}
+                      </Link>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{m.email}</TableCell>
                     <TableCell>
                       {m.is_super_admin ? (
@@ -131,23 +140,10 @@ export function Staff() {
                         </Button>
                       )}
                     </TableCell>
-                    {iAmSuper && (
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant={m.is_super_admin ? "default" : "outline"}
-                          onClick={() => updateStaff.mutate({ id: m.id, patch: { is_super_admin: !m.is_super_admin } })}
-                        >
-                          {m.is_super_admin ? "Yes" : "No"}
-                        </Button>
-                      </TableCell>
-                    )}
                     <TableCell className="text-right">
-                      {!m.is_super_admin && (
-                        <Button size="sm" variant="ghost" onClick={() => setEditing(m)}>
-                          Permissions
-                        </Button>
-                      )}
+                      <Link to="/staff/$staffId" params={{ staffId: m.id }}>
+                        <Button size="sm" variant="outline">Edit</Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -225,7 +221,7 @@ function CreateStaffDialog({ canSuper, onClose, onCreated }: { canSuper: boolean
       </div>
       <div className="space-y-1.5">
         <Label>Temporary password</Label>
-        <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
       <div className="space-y-1.5">
         <Label>Full name</Label>

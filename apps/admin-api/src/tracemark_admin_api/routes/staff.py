@@ -5,7 +5,7 @@ staff additionally requires the caller to be a super-admin.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api.clients import admin_sb
@@ -50,6 +50,8 @@ class UpdateStaffRequest(BaseModel):
     role: str | None = None
     is_active: bool | None = None
     is_super_admin: bool | None = None
+    email: str | None = None
+    password: str | None = None
 
 
 class PermissionOverride(BaseModel):
@@ -104,8 +106,17 @@ def list_staff(staff: StaffPrincipal = Depends(require_permission("staff.manage"
     return [_to_out(r) for r in rows]
 
 
+@router.get("/{staff_id}", response_model=StaffOut)
+def get_staff(staff_id: str, staff: StaffPrincipal = Depends(require_permission("staff.manage"))):
+    row = admin_sb().table("staff_accounts").select("*").eq("id", staff_id).maybe_single().execute()
+    if not row or not row.data:
+        raise HTTPException(status_code=404, detail="Staff not found")
+    return _to_out(row.data)
+
+
 @router.post("", response_model=StaffOut)
 def create_staff(
+    request: Request,
     payload: CreateStaffRequest,
     staff: StaffPrincipal = Depends(require_permission("staff.manage")),
 ):
@@ -152,6 +163,7 @@ def create_staff(
         target_type="staff",
         target_id=new_id,
         metadata={"email": payload.email, "role": payload.role},
+        ip=request.client.host if request.client else None,
     )
     return _to_out(row)
 
@@ -159,6 +171,7 @@ def create_staff(
 @router.patch("/{staff_id}", response_model=StaffOut)
 def update_staff(
     staff_id: str,
+    request: Request,
     payload: UpdateStaffRequest,
     staff: StaffPrincipal = Depends(require_permission("staff.manage")),
 ):
@@ -166,10 +179,33 @@ def update_staff(
     if payload.full_name is not None:
         updates["full_name"] = payload.full_name
     if payload.role is not None:
+        if not staff.is_super_admin:
+            raise HTTPException(status_code=403, detail="Super-admin required to change role")
         if payload.role not in _VALID_ROLES:
             raise HTTPException(status_code=400, detail=f"Invalid role: {payload.role}")
         updates["role"] = payload.role
     if payload.is_active is not None:
+        if not staff.is_super_admin:
+            raise HTTPException(status_code=403, detail="Super-admin required to change active status")
+        if payload.is_active is False:
+            # Block self-deactivation.
+            if staff_id == staff.id:
+                raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
+            # Prevent lockout: never deactivate the last active super-admin.
+            target = (
+                admin_sb().table("staff_accounts").select("is_super_admin")
+                .eq("id", staff_id).maybe_single().execute()
+            )
+            if target and target.data and target.data.get("is_super_admin"):
+                active_supers = (
+                    admin_sb().table("staff_accounts").select("id")
+                    .eq("is_super_admin", True).eq("is_active", True).execute().data or []
+                )
+                if len(active_supers) <= 1:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Cannot deactivate the last active super-admin",
+                    )
         updates["is_active"] = payload.is_active
     if payload.is_super_admin is not None:
         # Only a super-admin may grant/revoke super-admin.
@@ -184,26 +220,61 @@ def update_staff(
             if len(supers) <= 1 and any(s["id"] == staff_id for s in supers):
                 raise HTTPException(status_code=400, detail="Cannot demote the last remaining super-admin")
         updates["is_super_admin"] = payload.is_super_admin
-    if not updates:
+    if payload.email is not None:
+        updates["email"] = payload.email  # keep staff_accounts.email in sync
+
+    sb = admin_sb()
+
+    # Email / password live in the staff auth.users — update via admin auth API.
+    auth_attrs: dict = {}
+    if payload.email is not None:
+        auth_attrs["email"] = payload.email
+        auth_attrs["email_confirm"] = True
+    if payload.password is not None:
+        if len(payload.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+        auth_attrs["password"] = payload.password
+    if auth_attrs:
+        try:
+            sb.auth.admin.update_user_by_id(staff_id, auth_attrs)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=f"Could not update staff auth account: {exc}")
+
+    if not updates and not auth_attrs:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    res = admin_sb().table("staff_accounts").update(updates).eq("id", staff_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Staff not found")
+    row = None
+    if updates:
+        res = sb.table("staff_accounts").update(updates).eq("id", staff_id).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Staff not found")
+        row = res.data[0]
+    else:
+        r = sb.table("staff_accounts").select("*").eq("id", staff_id).maybe_single().execute()
+        row = r.data if r else None
+        if not row:
+            raise HTTPException(status_code=404, detail="Staff not found")
 
+    audit_meta = dict(updates)
+    if "password" in (payload.model_dump(exclude_none=True)):
+        audit_meta["password"] = "***changed***"
     write_audit_log(
-        staff, "staff.update", target_type="staff", target_id=staff_id, metadata=updates
+        staff, "staff.update", target_type="staff", target_id=staff_id, metadata=audit_meta,
+        ip=request.client.host if request.client else None,
     )
-    return _to_out(res.data[0])
+    return _to_out(row)
 
 
 @router.put("/{staff_id}/permissions", response_model=StaffOut)
 def set_permissions(
     staff_id: str,
+    request: Request,
     payload: SetPermissionsRequest,
-    staff: StaffPrincipal = Depends(require_permission("staff.manage")),
+    staff: StaffPrincipal = Depends(require_super_admin),
 ):
-    """Replace the full set of per-staff permission overrides (grant/deny)."""
+    """Replace the full set of per-staff permission overrides (grant/deny). Super-admin only."""
+    if staff_id == staff.id:
+        raise HTTPException(status_code=403, detail="Cannot modify your own permissions")
     sb = admin_sb()
     acct = sb.table("staff_accounts").select("*").eq("id", staff_id).maybe_single().execute()
     if not acct or not acct.data:
@@ -230,6 +301,7 @@ def set_permissions(
         target_type="staff",
         target_id=staff_id,
         metadata={"overrides": [ov.model_dump() for ov in payload.overrides]},
+        ip=request.client.host if request.client else None,
     )
     return _to_out(acct.data)
 
@@ -237,6 +309,7 @@ def set_permissions(
 @router.delete("/{staff_id}")
 def delete_staff(
     staff_id: str,
+    request: Request,
     staff: StaffPrincipal = Depends(require_super_admin),
 ):
     """Hard-delete a staff member (super-admin only). Prefer PATCH is_active=false to
@@ -252,5 +325,6 @@ def delete_staff(
     # staff_accounts row + its permissions cascade via FK ON DELETE CASCADE.
     sb.table("staff_accounts").delete().eq("id", staff_id).execute()
 
-    write_audit_log(staff, "staff.delete", target_type="staff", target_id=staff_id)
+    write_audit_log(staff, "staff.delete", target_type="staff", target_id=staff_id,
+                    ip=request.client.host if request.client else None)
     return {"success": True}

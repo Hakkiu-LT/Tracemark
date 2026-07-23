@@ -1,4 +1,4 @@
-"""One-time helper: create all Tracemark Stripe Products + Prices and print the
+"""One-time helper: create all HAKKIU Stripe Products + Prices and print the
 matching `.env` lines.
 
 Run it once against your TEST-mode Stripe account:
@@ -23,19 +23,19 @@ stripe.api_key = key
 
 # amounts are in cents. Yearly = monthly * 10 (~2 months free).
 PLANS = {
-    "starter": {"name": "Tracemark Starter", "monthly": 9900},
-    "growth": {"name": "Tracemark Growth", "monthly": 24900},
-    "pro": {"name": "Tracemark Pro", "monthly": 59900},
-    "agency": {"name": "Tracemark Agency", "monthly": 149900},
+    "starter": {"name": "HAKKIU Starter", "monthly": 9900},
+    "growth": {"name": "HAKKIU Growth", "monthly": 24900},
+    "pro": {"name": "HAKKIU Pro", "monthly": 59900},
+    "agency": {"name": "HAKKIU Agency", "monthly": 149900},
 }
 
 # (env_var, product name, amount, recurring interval or None for one-off)
 ADDONS = [
-    ("STRIPE_PRICE_ADDON_REGION", "Tracemark Add-on: Additional Region", 4900, "month"),
-    ("STRIPE_PRICE_ADDON_DOMAINS", "Tracemark Add-on: Domain Tracking (50)", 2900, "month"),
-    ("STRIPE_PRICE_ADDON_REPORTS", "Tracemark Add-on: Advanced Reports", 7900, "month"),
-    ("STRIPE_PRICE_ADDON_BRAND", "Tracemark Add-on: Extra Brand", 1900, "month"),
-    ("STRIPE_PRICE_ADDON_MANAGED_TAKEDOWN", "Tracemark Add-on: Managed Takedown", 50000, None),
+    ("STRIPE_PRICE_ADDON_REGION", "HAKKIU Add-on: Additional Region", 4900, "month"),
+    ("STRIPE_PRICE_ADDON_DOMAINS", "HAKKIU Add-on: Domain Tracking (50)", 2900, "month"),
+    ("STRIPE_PRICE_ADDON_REPORTS", "HAKKIU Add-on: Advanced Reports", 7900, "month"),
+    ("STRIPE_PRICE_ADDON_BRAND", "HAKKIU Add-on: Extra Brand", 1900, "month"),
+    ("STRIPE_PRICE_ADDON_MANAGED_TAKEDOWN", "HAKKIU Add-on: Managed Takedown", 50000, None),
 ]
 
 

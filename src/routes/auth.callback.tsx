@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { HakkiuMark } from "@/components/hakkiu-mark";
 
 export const Route = createFileRoute("/auth/callback")({
-  head: () => ({ meta: [{ title: "Signing in… — Tracemark" }] }),
+  head: () => ({ meta: [{ title: "Signing in… — HAKKIU" }] }),
   component: CallbackPage,
 });
 
@@ -35,7 +35,7 @@ function CallbackPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <ShieldCheck className="h-5 w-5 text-primary" />
+        <HakkiuMark className="h-8 w-8 shrink-0 text-primary" />
         <span className="text-sm">Signing you in…</span>
       </div>
     </div>

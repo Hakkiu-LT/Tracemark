@@ -8,10 +8,10 @@ import {
   FileText,
   Search,
   Lock,
-  ExternalLink,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 
 const stats = [
   { value: "24/7", label: "Surveillance" },
@@ -37,7 +37,7 @@ export function HeroV3() {
           className="group inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/50 px-3.5 py-1 text-xs font-medium text-muted-foreground backdrop-blur-md transition-all hover:border-foreground/30 hover:bg-muted"
         >
           <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-semibold text-foreground">Tracemark AI 2.0</span>
+          <span className="font-semibold text-foreground">HAKKIU AI 2.0</span>
           <span className="text-border">|</span>
           <span>Next-Gen Counterfeit Enforcement Engine</span>
           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
@@ -107,7 +107,7 @@ export function HeroV3() {
               </div>
               <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-3 py-1 text-xs text-muted-foreground font-mono">
                 <Lock className="h-3 w-3 text-emerald-500" />
-                <span>app.tracemark.ai/live-monitoring</span>
+                <span>app.hakkiu.com/live-monitoring</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -170,7 +170,7 @@ export function HeroV3() {
                           </span>
                         </div>
                         <p className="mt-1 text-muted-foreground font-mono text-[11px]">
-                          URL: get-tracemark-official-shop.com
+                          URL: get-hakkiu-official-shop.com
                         </p>
                       </div>
                     </div>
@@ -191,7 +191,7 @@ export function HeroV3() {
                           </span>
                         </div>
                         <p className="mt-1 text-muted-foreground font-mono text-[11px]">
-                          Handle: @cheap_tracemark_outlet
+                          Handle: @cheap_hakkiu_outlet
                         </p>
                       </div>
                     </div>

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api.clients import customer_sb
@@ -41,6 +41,8 @@ class CustomerDetail(CustomerRow):
 class UpdateCustomerRequest(BaseModel):
     full_name: str | None = None
     persona: str | None = None  # "brand_owner" | "law_firm"
+    email: str | None = None
+    password: str | None = None  # optional: set a new login password for the customer
 
 
 def _email_map(sb) -> dict[str, str]:
@@ -126,6 +128,7 @@ def get_customer(
         or []
     )
 
+    can_view_billing = staff.has("billing.view")
     return CustomerDetail(
         id=p["id"],
         email=emails.get(p["id"], "unknown@example.com"),
@@ -135,14 +138,15 @@ def get_customer(
         is_admin=bool(p.get("is_admin", False)),
         persona=personas.get(org_id) if org_id else None,
         brands=brands,
-        subscription=subscription,
-        invoices=invoices,
+        subscription=subscription if can_view_billing else None,
+        invoices=invoices if can_view_billing else [],
     )
 
 
 @router.patch("/{user_id}", response_model=CustomerRow)
 def update_customer(
     user_id: str,
+    request: Request,
     payload: UpdateCustomerRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -175,13 +179,33 @@ def update_customer(
             {"persona": payload.persona, "updated_at": datetime.now(timezone.utc).isoformat()}
         ).eq("organization_id", org_id).execute()
 
+    # Email / password live in auth.users — update via the admin auth API.
+    auth_attrs: dict = {}
+    if payload.email is not None:
+        auth_attrs["email"] = payload.email
+        auth_attrs["email_confirm"] = True  # mark verified; no confirmation email
+    if payload.password is not None:
+        if len(payload.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+        auth_attrs["password"] = payload.password
+    if auth_attrs:
+        try:
+            sb.auth.admin.update_user_by_id(user_id, auth_attrs)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail=f"Could not update auth account: {exc}")
+
+    # Audit — never store the raw password.
+    changes = payload.model_dump(exclude_none=True)
+    if "password" in changes:
+        changes["password"] = "***changed***"
     write_audit_log(
         staff,
         "customers.edit",
         target_type="customer",
         target_id=user_id,
         target_org_id=org_id,
-        metadata={"before": before, "changes": payload.model_dump(exclude_none=True)},
+        metadata={"before": before, "changes": changes},
+        ip=request.client.host if request.client else None,
     )
 
     # Return the refreshed row.
@@ -207,6 +231,7 @@ def _row_after_update(sb, user_id: str) -> CustomerRow:
 @router.delete("/{user_id}")
 def delete_customer(
     user_id: str,
+    request: Request,
     staff: StaffPrincipal = Depends(require_super_admin),
 ):
     """Delete a customer auth user (super-admin only). Related rows cascade via FKs
@@ -220,7 +245,8 @@ def delete_customer(
         raise HTTPException(status_code=400, detail=f"Could not delete customer: {exc}")
 
     write_audit_log(
-        staff, "customers.delete", target_type="customer", target_id=user_id, target_org_id=org_id
+        staff, "customers.delete", target_type="customer", target_id=user_id, target_org_id=org_id,
+        ip=request.client.host if request.client else None,
     )
     return {"success": True}
 
@@ -228,6 +254,7 @@ def delete_customer(
 @router.post("/{user_id}/impersonate")
 def impersonate_customer(
     user_id: str,
+    request: Request,
     staff: StaffPrincipal = Depends(require_super_admin),
 ):
     """Generate a short-lived magic link to log in as the customer (super-admin only)."""
@@ -242,5 +269,6 @@ def impersonate_customer(
         target_type="customer",
         target_id=user_id,
         metadata={"email": result.get("email")},
+        ip=request.client.host if request.client else None,
     )
     return result

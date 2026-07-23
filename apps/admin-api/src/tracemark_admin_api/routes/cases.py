@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api.clients import customer_sb
-from tracemark_admin_api.dependencies import StaffPrincipal, require_permission
+from tracemark_admin_api.dependencies import StaffPrincipal, require_permission, require_super_admin
 from tracemark_admin_api.services.audit import write_audit_log
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -27,6 +27,15 @@ class CaseRow(BaseModel):
 
 
 class UpdateCaseRequest(BaseModel):
+    status: str
+
+
+# Statuses a bulk action is allowed to set — intentionally narrow to the 3 UI actions.
+BULK_ALLOWED_STATUSES: frozenset[str] = frozenset({"reviewed", "dismissed", "escalated"})
+
+
+class BulkUpdateCasesRequest(BaseModel):
+    case_ids: list[str]
     status: str
 
 
@@ -110,9 +119,59 @@ def get_case(case_id: str, staff: StaffPrincipal = Depends(require_permission("c
     }
 
 
+@router.patch("/bulk")
+def bulk_update_cases(
+    request: Request,
+    payload: BulkUpdateCasesRequest,
+    staff: StaffPrincipal = Depends(require_permission("customers.edit")),
+):
+    """Apply one status to many cases at once (Mark Reviewed / Dismiss / Escalate).
+
+    Partial-tolerant: IDs that don't exist are reported in not_found, the rest
+    are updated. One audit row summarises the whole batch.
+    """
+    if payload.status not in BULK_ALLOWED_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"status must be one of {sorted(BULK_ALLOWED_STATUSES)}",
+        )
+    ids = list({cid for cid in payload.case_ids if cid})
+    if not ids:
+        raise HTTPException(status_code=400, detail="case_ids is empty")
+    if len(ids) > 200:
+        raise HTTPException(status_code=400, detail="Too many cases (max 200 per batch)")
+
+    sb = customer_sb()
+    existing = sb.table("cases").select("id, organization_id").in_("id", ids).execute().data or []
+    found_ids = [r["id"] for r in existing]
+    not_found = [cid for cid in ids if cid not in {r["id"] for r in existing}]
+
+    updated = 0
+    if found_ids:
+        sb.table("cases").update(
+            {"status": payload.status, "updated_at": datetime.now(timezone.utc).isoformat()}
+        ).in_("id", found_ids).execute()
+        updated = len(found_ids)
+
+    write_audit_log(
+        staff, "cases.bulk_edit", target_type="case", target_id=None,
+        target_org_id=None,
+        metadata={
+            "status": payload.status,
+            "updated_ids": found_ids,
+            "not_found_ids": not_found,
+            "requested_count": len(ids),
+            "updated_count": updated,
+        },
+        ip=request.client.host if request.client else None,
+    )
+    return {"success": True, "updated": updated, "not_found": not_found}
+
+
 @router.patch("/{case_id}")
 def update_case(
     case_id: str,
+    request: Request,
     payload: UpdateCaseRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -127,12 +186,13 @@ def update_case(
         staff, "cases.edit", target_type="case", target_id=case_id,
         target_org_id=before.data.get("organization_id"),
         metadata={"before_status": before.data.get("status"), "status": payload.status},
+        ip=request.client.host if request.client else None,
     )
     return {"success": True, "status": payload.status}
 
 
 @router.delete("/{case_id}")
-def delete_case(case_id: str, staff: StaffPrincipal = Depends(require_permission("customers.edit"))):
+def delete_case(case_id: str, request: Request, staff: StaffPrincipal = Depends(require_super_admin)):
     sb = customer_sb()
     before = sb.table("cases").select("organization_id").eq("id", case_id).maybe_single().execute()
     if not before or not before.data:
@@ -141,6 +201,7 @@ def delete_case(case_id: str, staff: StaffPrincipal = Depends(require_permission
     write_audit_log(
         staff, "cases.delete", target_type="case", target_id=case_id,
         target_org_id=before.data.get("organization_id"),
+        ip=request.client.host if request.client else None,
     )
     return {"success": True}
 
@@ -148,6 +209,7 @@ def delete_case(case_id: str, staff: StaffPrincipal = Depends(require_permission
 @router.patch("/{case_id}/decision")
 def update_decision(
     case_id: str,
+    request: Request,
     payload: UpdateDecisionRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -161,6 +223,7 @@ def update_decision(
         raise HTTPException(status_code=404, detail="No decision for this case")
     sb.table("decisions").update(updates).eq("case_id", case_id).execute()
     write_audit_log(
-        staff, "decisions.edit", target_type="decision", target_id=case_id, metadata=updates
+        staff, "decisions.edit", target_type="decision", target_id=case_id, metadata=updates,
+        ip=request.client.host if request.client else None,
     )
     return {"success": True}

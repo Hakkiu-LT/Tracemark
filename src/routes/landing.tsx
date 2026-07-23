@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ShieldCheck, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { HeroV3 } from "@/components/landing/hero-v3";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Workflow } from "@/components/landing/workflow";
@@ -11,13 +12,13 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/landing")({
   head: () => ({
     meta: [
-      { title: "Tracemark — Protect your brand at internet speed" },
+      { title: "HAKKIU — Protect your brand at internet speed" },
       {
         name: "description",
         content:
-          "Tracemark monitors marketplaces and the open web 24/7, detects infringements with AI, and automates takedowns — built for brand owners and law firms.",
+          "HAKKIU monitors marketplaces and the open web 24/7, detects infringements with AI, and automates takedowns — built for brand owners and law firms.",
       },
-      { property: "og:title", content: "Tracemark — Protect your brand at internet speed" },
+      { property: "og:title", content: "HAKKIU — Protect your brand at internet speed" },
       {
         property: "og:description",
         content:
@@ -78,10 +79,7 @@ function LandingPage() {
       <footer className="border-t border-border/60 bg-background py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 text-xs text-muted-foreground sm:flex-row">
           <div className="flex items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded bg-foreground text-background font-bold">
-              <ShieldCheck className="h-3 w-3" />
-            </div>
-            <span className="font-semibold text-foreground">Tracemark</span>
+            <HakkiuLogo className="h-5 text-foreground" />
             <span>· Automated Brand Enforcement</span>
           </div>
           <div className="flex items-center gap-4">
@@ -89,7 +87,7 @@ function LandingPage() {
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               All Systems Operational
             </span>
-            <span>© {new Date().getFullYear()} Tracemark, Inc.</span>
+            <span>© {new Date().getFullYear()} HAKKIU, Inc.</span>
           </div>
         </div>
       </footer>

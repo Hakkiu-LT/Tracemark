@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api import main_api
@@ -185,6 +185,7 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
         .order("created_at", desc=True).execute().data or []
     )
 
+    can_view_billing = staff.has("billing.view")
     return OrgDetail(
         id=org["id"],
         name=org.get("name"),
@@ -196,8 +197,8 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
         mrr=mrr,
         members=members,
         brands=brands,
-        subscription=subscription,
-        invoices=invoices,
+        subscription=subscription if can_view_billing else None,
+        invoices=invoices if can_view_billing else [],
     )
 
 
@@ -246,6 +247,7 @@ def organization_usage(org_id: str, staff: StaffPrincipal = Depends(require_perm
 @router.patch("/{org_id}", response_model=OrgDetail)
 def update_organization(
     org_id: str,
+    request: Request,
     payload: UpdateOrgRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -258,6 +260,7 @@ def update_organization(
     write_audit_log(
         staff, "organizations.edit", target_type="organization", target_id=org_id,
         target_org_id=org_id, metadata={"before": before, "changes": updates},
+        ip=request.client.host if request.client else None,
     )
     return get_organization(org_id, staff)
 
@@ -268,6 +271,7 @@ _VALID_ROLES = {"owner", "admin", "member"}
 @router.post("/{org_id}/members")
 def add_member(
     org_id: str,
+    request: Request,
     payload: AddMemberRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -283,6 +287,7 @@ def add_member(
     write_audit_log(
         staff, "organizations.add_member", target_type="organization", target_id=org_id,
         target_org_id=org_id, metadata={"user_id": payload.user_id, "role": payload.role},
+        ip=request.client.host if request.client else None,
     )
     return {"success": True}
 
@@ -291,6 +296,7 @@ def add_member(
 def update_member(
     org_id: str,
     user_id: str,
+    request: Request,
     payload: UpdateMemberRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -305,6 +311,7 @@ def update_member(
     write_audit_log(
         staff, "organizations.update_member", target_type="organization", target_id=org_id,
         target_org_id=org_id, metadata={"user_id": user_id, "role": payload.role},
+        ip=request.client.host if request.client else None,
     )
     return {"success": True}
 
@@ -313,6 +320,7 @@ def update_member(
 def remove_member(
     org_id: str,
     user_id: str,
+    request: Request,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
     customer_sb().table("organization_members").delete().eq("organization_id", org_id).eq(
@@ -321,5 +329,6 @@ def remove_member(
     write_audit_log(
         staff, "organizations.remove_member", target_type="organization", target_id=org_id,
         target_org_id=org_id, metadata={"user_id": user_id},
+        ip=request.client.host if request.client else None,
     )
     return {"success": True}

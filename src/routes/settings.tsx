@@ -47,7 +47,7 @@ import { getPlan, ADDONS, effectiveMonthly } from "@/lib/billing";
 import { computeEntitlements, formatLimit } from "@/lib/entitlements";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — Tracemark" }] }),
+  head: () => ({ meta: [{ title: "Settings — HAKKIU" }] }),
   component: () => <SettingsPage />,
 });
 
@@ -189,8 +189,8 @@ export function SettingsPage() {
     const emailStr = emailVal.trim();
     const isGmail =
       emailStr.toLowerCase().endsWith("@gmail.com") || emailStr.toLowerCase().includes("gmail");
-    const subject = "Test Alert — Tracemark";
-    const body = "This is a test notification from Tracemark to verify your profile settings.";
+    const subject = "Test Alert — HAKKIU";
+    const body = "This is a test notification from HAKKIU to verify your profile settings.";
 
     if (isGmail) {
       const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailStr)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;

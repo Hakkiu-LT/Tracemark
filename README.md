@@ -1,4 +1,4 @@
-# Tracemark
+# HAKKIU
 Software for trademark monitoring, scraping, and takedown workflows.
 
 ## Repo layout

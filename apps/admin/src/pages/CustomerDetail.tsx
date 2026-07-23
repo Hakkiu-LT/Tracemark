@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -7,6 +7,10 @@ import { toast } from "sonner";
 import { adminFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Can } from "@/components/Can";
+import { CopyableId } from "@/components/CopyableId";
+import { CustomerEditDialog } from "@/components/CustomerEditDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { Pencil } from "lucide-react";
 import {
   Badge,
   Button,
@@ -43,6 +47,7 @@ interface Invoice {
   currency: string;
   status: string;
   hosted_invoice_url: string | null;
+  created_at: string | null;
 }
 interface CustomerDetail {
   id: string;
@@ -61,19 +66,28 @@ const PLANS = ["free", "starter", "growth", "pro", "agency", "enterprise"];
 export function CustomerDetail() {
   const { userId } = useParams({ strict: false }) as { userId: string };
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { staff } = useAuth();
+  const confirm = useConfirm();
   const [plan, setPlan] = useState<string>("");
+  const [billingMode, setBillingMode] = useState<"comp" | "charge">("comp");
+  const [editing, setEditing] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["customer", userId],
     queryFn: () => adminFetch<CustomerDetail>(`/customers/${userId}`),
   });
+  const { data: orgs } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: () => adminFetch<{ id: string; name: string | null }[]>("/organizations"),
+  });
+  const orgName = new Map((orgs ?? []).map((o) => [o.id, o.name]));
 
   const changePlan = useMutation({
-    mutationFn: (newPlan: string) =>
+    mutationFn: ({ newPlan, mode }: { newPlan: string; mode: "comp" | "charge" }) =>
       adminFetch(`/customers/${userId}/plan`, {
         method: "PUT",
-        body: JSON.stringify({ plan: newPlan }),
+        body: JSON.stringify({ plan: newPlan, mode }),
       }),
     onSuccess: () => {
       toast.success("Plan updated");
@@ -113,6 +127,16 @@ export function CustomerDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteCustomer = useMutation({
+    mutationFn: () => adminFetch(`/customers/${userId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success("Customer deleted");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      navigate({ to: "/customers" });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading || !data) {
     return (
       <div className="mx-auto w-full max-w-5xl space-y-4 p-6 md:p-8">
@@ -128,17 +152,38 @@ export function CustomerDetail() {
         <ArrowLeft className="h-4 w-4" /> Back to customers
       </Link>
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{data.full_name || data.email}</h1>
-        <p className="text-sm text-muted-foreground">{data.email}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{data.full_name || data.email}</h1>
+          <p className="text-sm text-muted-foreground">{data.email}</p>
+        </div>
+        <Can permission="customers.edit">
+          <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Pencil className="h-4 w-4" /> Edit customer
+          </Button>
+        </Can>
       </div>
+
+      {editing && (
+        <CustomerEditDialog
+          customer={{
+            id: data.id, full_name: data.full_name, email: data.email,
+            persona: data.persona, plan: data.plan, organization_id: data.organization_id,
+          }}
+          onClose={() => setEditing(false)}
+        />
+      )}
 
       {/* Overview */}
       <Card>
         <CardHeader>
           <CardTitle>Overview</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="grid gap-4 sm:grid-cols-4">
+          <div>
+            <p className="text-xs uppercase text-muted-foreground">ID</p>
+            <div className="mt-1"><CopyableId id={data.id} length={12} /></div>
+          </div>
           <div>
             <p className="text-xs uppercase text-muted-foreground">Plan</p>
             <Badge variant={data.plan === "free" ? "secondary" : "success"} className="mt-1 capitalize">
@@ -151,7 +196,13 @@ export function CustomerDetail() {
           </div>
           <div>
             <p className="text-xs uppercase text-muted-foreground">Organization</p>
-            <p className="mt-1 truncate font-mono text-xs">{data.organization_id || "—"}</p>
+            {data.organization_id ? (
+              <Link to="/organizations/$orgId" params={{ orgId: data.organization_id }} className="mt-1 block text-sm text-accent hover:underline">
+                {orgName.get(data.organization_id) || <CopyableId id={data.organization_id} />}
+              </Link>
+            ) : (
+              <p className="mt-1 text-sm text-muted-foreground">—</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -168,6 +219,11 @@ export function CustomerDetail() {
                 <Badge variant="outline" className="capitalize">{data.subscription.plan}</Badge>
                 <span className="text-muted-foreground">{data.subscription.status}</span>
                 <span className="text-muted-foreground">/ {data.subscription.interval}</span>
+                {data.subscription.current_period_end && (
+                  <span className="text-muted-foreground">
+                    renews {new Date(data.subscription.current_period_end).toLocaleDateString()}
+                  </span>
+                )}
                 {data.subscription.cancel_at_period_end && (
                   <Badge variant="warning">Cancels at period end</Badge>
                 )}
@@ -179,7 +235,7 @@ export function CustomerDetail() {
             <Can permission="billing.manage">
               <div className="flex flex-wrap items-end gap-3 border-t border-border pt-4">
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Override plan</p>
+                  <p className="text-xs text-muted-foreground">Plan</p>
                   <Select value={plan || data.plan} onChange={(e) => setPlan(e.target.value)} className="w-40">
                     {PLANS.map((p) => (
                       <option key={p} value={p}>
@@ -188,9 +244,16 @@ export function CustomerDetail() {
                     ))}
                   </Select>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Apply as</p>
+                  <Select value={billingMode} onChange={(e) => setBillingMode(e.target.value as "comp" | "charge")} className="w-56">
+                    <option value="comp">Comp — no charge (free)</option>
+                    <option value="charge">Charge — bill via Stripe (prorated)</option>
+                  </Select>
+                </div>
                 <Button
                   size="sm"
-                  onClick={() => changePlan.mutate(plan || data.plan)}
+                  onClick={() => changePlan.mutate({ newPlan: plan || data.plan, mode: billingMode })}
                   disabled={changePlan.isPending}
                 >
                   {changePlan.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -213,6 +276,7 @@ export function CustomerDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Date</TableHead>
                     <TableHead>Invoice</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
@@ -221,6 +285,9 @@ export function CustomerDetail() {
                 <TableBody>
                   {data.invoices.map((inv) => (
                     <TableRow key={inv.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        {inv.created_at ? new Date(inv.created_at).toLocaleString() : "—"}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">
                         {inv.hosted_invoice_url ? (
                           <a href={inv.hosted_invoice_url} target="_blank" rel="noopener" className="text-accent hover:underline">
@@ -279,8 +346,9 @@ export function CustomerDetail() {
                             variant="ghost"
                             className="text-destructive"
                             onClick={() => deleteBrand.mutate(b.id)}
+                            disabled={deleteBrand.isPending}
                           >
-                            Delete
+                            {deleteBrand.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Delete"}
                           </Button>
                         </Can>
                       </TableCell>
@@ -304,9 +372,28 @@ export function CustomerDetail() {
               {impersonate.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Impersonate customer
             </Button>
+            <Can permission="customers.delete">
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  confirm.open({
+                    title: `Delete ${data.full_name || data.email}?`,
+                    description: "Permanently deletes their login and all associated data. This cannot be undone.",
+                    confirmLabel: "Delete customer",
+                    destructive: true,
+                    onConfirm: async () => { await deleteCustomer.mutateAsync(); },
+                  })
+                }
+                disabled={deleteCustomer.isPending}
+              >
+                {deleteCustomer.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Delete customer
+              </Button>
+            </Can>
           </CardContent>
         </Card>
       )}
+      {confirm.element}
     </div>
   );
 }

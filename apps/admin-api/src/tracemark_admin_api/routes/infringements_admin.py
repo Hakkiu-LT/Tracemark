@@ -1,7 +1,7 @@
 """Admin edit of individual infringements and their evidence items (incl. AI override)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api.clients import customer_sb
@@ -28,6 +28,7 @@ class UpdateEvidenceRequest(BaseModel):
 @router.patch("/infringements/{infringement_id}")
 def update_infringement(
     infringement_id: str,
+    request: Request,
     payload: UpdateInfringementRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -41,7 +42,7 @@ def update_infringement(
     sb.table("infringements").update(updates).eq("id", infringement_id).execute()
     write_audit_log(
         staff, "infringements.edit", target_type="infringement", target_id=infringement_id,
-        metadata={"changes": updates},
+        metadata={"changes": updates}, ip=request.client.host if request.client else None,
     )
     return {"success": True}
 
@@ -49,6 +50,7 @@ def update_infringement(
 @router.patch("/evidence/{evidence_id}")
 def update_evidence(
     evidence_id: str,
+    request: Request,
     payload: UpdateEvidenceRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
@@ -62,6 +64,7 @@ def update_evidence(
         raise HTTPException(status_code=400, detail="No fields to update")
     sb.table("evidence_items").update(updates).eq("id", evidence_id).execute()
     write_audit_log(
-        staff, "evidence.edit", target_type="evidence", target_id=evidence_id, metadata={"changes": updates}
+        staff, "evidence.edit", target_type="evidence", target_id=evidence_id, metadata={"changes": updates},
+        ip=request.client.host if request.client else None,
     )
     return {"success": True}

@@ -24,6 +24,7 @@ from tracemark_api.services.geo import (
 
 # Import usage tracker components
 from tracemark_api.services.api_usage_tracker import tracker, call_with_tracking, ApiLimitError
+from tracemark_api.services import scraper_health
 
 # Import unified scraper
 from tracemark_api.services.unified_scraper import UnifiedScraper, UnifiedScrapeResult, SCRAPE_STATIC, SCRAPE_JS
@@ -1639,7 +1640,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_amazon(c=country):
                     try:
-                        res = await asyncio.to_thread(self.amazon.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("amazon", c, lambda: asyncio.to_thread(self.amazon.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["amazon"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] Amazon rate limit reached for {c}: {e}")
@@ -1653,7 +1654,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_ebay(c=country):
                     try:
-                        res = await asyncio.to_thread(self.ebay.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("ebay", c, lambda: asyncio.to_thread(self.ebay.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["ebay"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] eBay rate limit reached for {c}: {e}")
@@ -1667,7 +1668,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_alibaba(c=country):
                     try:
-                        res = await asyncio.to_thread(self.alibaba.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("alibaba", c, lambda: asyncio.to_thread(self.alibaba.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["alibaba"][c] = res
                     except Exception as e:
                         print(f"[MarketplaceScraper] Alibaba search failed for {c}: {e}")
@@ -1678,7 +1679,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_etsy(c=country):
                     try:
-                        res = await asyncio.to_thread(self.etsy.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("etsy", c, lambda: asyncio.to_thread(self.etsy.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["etsy"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] Etsy rate limit reached for {c}: {e}")
@@ -1692,7 +1693,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_google_shopping(c=country):
                     try:
-                        res = await asyncio.to_thread(self.google_shopping.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("google_shopping", c, lambda: asyncio.to_thread(self.google_shopping.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["google_shopping"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] Google Shopping rate limit reached for {c}: {e}")
@@ -1706,7 +1707,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_aliexpress(c=country):
                     try:
-                        res = await asyncio.to_thread(self.aliexpress.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("aliexpress", c, lambda: asyncio.to_thread(self.aliexpress.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["aliexpress"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] AliExpress rate limit reached for {c}: {e}")
@@ -1720,7 +1721,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_shopify(c=country):
                     try:
-                        res = await asyncio.to_thread(self.shopify.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("shopify", c, lambda: asyncio.to_thread(self.shopify.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["shopify"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] Shopify rate limit reached for {c}: {e}")
@@ -1734,7 +1735,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_facebook_marketplace(c=country):
                     try:
-                        res = await asyncio.to_thread(self.facebook_marketplace.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("facebook_marketplace", c, lambda: asyncio.to_thread(self.facebook_marketplace.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["facebook_marketplace"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] Facebook Marketplace rate limit reached for {c}: {e}")
@@ -1748,7 +1749,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_tiktok(c=country):
                     try:
-                        res = await asyncio.to_thread(self.tiktok.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("tiktok", c, lambda: asyncio.to_thread(self.tiktok.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["social"]["tiktok"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] TikTok rate limit reached for {c}: {e}")
@@ -1762,7 +1763,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_instagram(c=country):
                     try:
-                        res = await asyncio.to_thread(self.instagram.search, brand_name, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("instagram", c, lambda: asyncio.to_thread(self.instagram.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["social"]["instagram"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] Instagram rate limit reached for {c}: {e}")
@@ -1777,10 +1778,10 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_google_ads(c=country):
                     try:
-                        serp_page = await asyncio.to_thread(
+                        serp_page = await scraper_health.probe("google_ads", c, lambda: asyncio.to_thread(
                             self.serp.search_google_ads_page,
                             brand_name, caller_id=caller_id, country=c,
-                        )
+                        ), brand_name=brand_name, caller_id=caller_id)
                         merged = list(serp_page.get("ads", []))
                         merged.extend(serp_page.get("shopping", []))
                         merged.extend(serp_page.get("local_ads", []))
@@ -1798,7 +1799,7 @@ class MarketplaceScraper:
             for country in countries:
                 async def wrap_meta_ads(c=country):
                     try:
-                        res = await asyncio.to_thread(self.meta_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id, country=c)
+                        res = await scraper_health.probe("meta_ads", c, lambda: asyncio.to_thread(self.meta_ads.search, brand_name, official_advertisers=official_advertisers, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["ads"]["meta"][c] = res
                     except ApiLimitError as e:
                         print(f"[MarketplaceScraper] Meta Ads rate limit reached for {c}: {e}")

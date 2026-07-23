@@ -19,9 +19,14 @@ import { OrganizationDetail } from "@/pages/OrganizationDetail";
 import { Cases } from "@/pages/Cases";
 import { CaseDetail } from "@/pages/CaseDetail";
 import { Staff } from "@/pages/Staff";
+import { StaffDetail } from "@/pages/StaffDetail";
 import { MonitoringApi } from "@/pages/MonitoringApi";
 import { MonitoringResources } from "@/pages/MonitoringResources";
 import { Audit } from "@/pages/Audit";
+import { Brands } from "@/pages/Brands";
+import { Integrations } from "@/pages/Integrations";
+import { ScraperHealth } from "@/pages/ScraperHealth";
+import { ScraperHealthDetail } from "@/pages/ScraperHealthDetail";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
@@ -86,6 +91,7 @@ const customerDetailRoute = createRoute({
 const casesRoute = createRoute({ getParentRoute: () => appRoute, path: "/cases", component: Cases });
 const caseDetailRoute = createRoute({ getParentRoute: () => appRoute, path: "/cases/$caseId", component: CaseDetail });
 const staffRoute = createRoute({ getParentRoute: () => appRoute, path: "/staff", component: Staff });
+const staffDetailRoute = createRoute({ getParentRoute: () => appRoute, path: "/staff/$staffId", component: StaffDetail });
 const monitoringApiRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/monitoring/api",
@@ -97,6 +103,10 @@ const monitoringResourcesRoute = createRoute({
   component: MonitoringResources,
 });
 const auditRoute = createRoute({ getParentRoute: () => appRoute, path: "/audit", component: Audit });
+const brandsRoute = createRoute({ getParentRoute: () => appRoute, path: "/brands", component: Brands });
+const integrationsRoute = createRoute({ getParentRoute: () => appRoute, path: "/integrations", component: Integrations });
+const scraperHealthRoute = createRoute({ getParentRoute: () => appRoute, path: "/monitoring/scrapers", component: ScraperHealth });
+const scraperHealthDetailRoute = createRoute({ getParentRoute: () => appRoute, path: "/monitoring/scrapers/$platform", component: ScraperHealthDetail });
 
 const routeTree = rootRoute.addChildren([
   signInRoute,
@@ -110,9 +120,14 @@ const routeTree = rootRoute.addChildren([
     casesRoute,
     caseDetailRoute,
     staffRoute,
+    staffDetailRoute,
     monitoringApiRoute,
     monitoringResourcesRoute,
     auditRoute,
+    brandsRoute,
+    integrationsRoute,
+    scraperHealthRoute,
+    scraperHealthDetailRoute,
   ]),
 ]);
 

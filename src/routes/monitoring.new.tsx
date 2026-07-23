@@ -28,7 +28,7 @@ import { REGIONS } from "@/lib/regions";
 export const Route = createFileRoute("/monitoring/new")({
   head: () => ({
     meta: [
-      { title: "Add Asset — Tracemark" },
+      { title: "Add Asset — HAKKIU" },
       { name: "description", content: "Register a new trademark or brand asset for continuous monitoring." },
     ],
   }),

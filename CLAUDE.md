@@ -1,4 +1,4 @@
-# Tracemark — project instructions
+# HAKKIU — project instructions
 
 Trademark monitoring SaaS. Monorepo:
 - `src/` — customer web app (TanStack Start, Cloudflare Workers).
@@ -7,7 +7,11 @@ Trademark monitoring SaaS. Monorepo:
 - `apps/admin-api/` — Admin Portal backend (FastAPI). Reads/writes the SAME Supabase
   project as customers via the service-role key; staff auth via `staff_accounts`.
 - Supabase migrations live in `supabase/migrations/` (apply with `supabase db push` —
-  CLI is linked to the real Tracemark project; the MCP points at a different DB).
+  CLI is linked to the real HAKKIU project; the MCP points at a different DB).
+- **ONE shared `.env` at the repo root** for the whole monorepo. Backends load it via
+  `load_dotenv(find_dotenv())`; the admin frontend reads it via Vite `envDir`; the
+  customer app (repo root) reads it natively. Only `VITE_*` vars are exposed to browsers.
+  Do NOT create per-app `.env` files.
 
 ## ⚠️ MANDATORY RULE — Admin Portal parity for every feature
 
@@ -37,3 +41,39 @@ staff support, test, and control everything customers do. Full context: `docs/.r
 - admin FE: `cd apps/admin && npm run dev` (→ :8082)
 - customer FE: `npm run dev` (root → :8080)
 - After changing admin-api/main-api code, RESTART the uvicorn process (no --reload).
+
+## ⚠️ MANDATORY RULE — Update tracking files after every session
+
+**After every coding session and after every planning conversation, you MUST update these three files to reflect the current state of the project:**
+
+1. **`plan.md`** (repo root) — Current active plan: what we are building right now, why, and how. Update it when the approach changes or a new feature is being planned.
+2. **`todo.md`** (repo root) — Task checklist: tick off completed items, add new ones discovered during work. Always keep it accurate to what is actually done vs. still needed.
+3. **`docs/.roadmap/roadmap.md`** — Mark items ✅ Done when fully complete (customer app + admin portal both wired). Keep ⚠️ Partial when only one side is done.
+
+**When to update:**
+- End of every session: mark completed tasks in `todo.md`, update `plan.md` if direction changed.
+- After planning a new feature: write the plan into `plan.md` and add tasks to `todo.md`.
+- After a feature is 100% done (both sides): mark ✅ in `roadmap.md`.
+
+Why: these files are the single source of truth for where the project stands. Without them, each new session starts from scratch trying to re-derive what was done.
+
+## ⚠️ MANDATORY RULE — Commit and push format
+
+**When the user says "commit and push" (or "commit", "push"), you MUST:**
+
+1. **Commit title** — one concise line (max 72 chars) describing WHAT changed. Use imperative mood: "Add bulk case actions and takedown stats", not "Added" or "Adding".
+2. **Commit body** — bullet list describing every meaningful change: which files, what was added/changed/fixed, and why (the motivation). Group by area (Backend / Frontend / Config). Skip obvious boilerplate.
+3. **Push** to the current branch immediately after committing.
+
+Example body format:
+```
+Backend:
+- routes/cases.py: add PATCH /cases/bulk endpoint (Mark Reviewed / Dismiss / Escalate)
+- routes/stats.py: new GET /stats/takedowns aggregate endpoint
+
+Frontend:
+- Cases.tsx: checkbox column + sticky bulk action bar, keyed by case ID
+- Dashboard.tsx: 3 takedown KPI cards (pending / sent / acknowledged)
+```
+
+Why: descriptive commits make it easy to understand what happened in each session when reviewing git log later.
