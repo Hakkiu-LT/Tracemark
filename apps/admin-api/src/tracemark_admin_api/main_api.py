@@ -94,3 +94,15 @@ def set_plan(org_id: str, plan: str, mode: str = "comp") -> Any:
 
 def cancel_subscription(org_id: str, cancel: bool) -> Any:
     return _request("POST", "/internal/billing/cancel", json={"org_id": org_id, "cancel": cancel})
+
+
+def get_entitlement_override(org_id: str) -> Any:
+    return _request("GET", f"/internal/orgs/{org_id}/entitlement-override")
+
+
+def set_entitlement_override(org_id: str, payload: dict) -> Any:
+    return _request("PUT", f"/internal/orgs/{org_id}/entitlement-override", json=payload)
+
+
+def clear_entitlement_override(org_id: str) -> Any:
+    return _request("DELETE", f"/internal/orgs/{org_id}/entitlement-override")

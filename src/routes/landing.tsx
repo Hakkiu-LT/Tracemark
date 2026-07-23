@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { ShieldCheck, ArrowRight } from "lucide-react";
 import { HeroV3 } from "@/components/landing/hero-v3";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Workflow } from "@/components/landing/workflow";
@@ -8,6 +7,7 @@ import { Coverage } from "@/components/landing/coverage";
 import { Features } from "@/components/landing/features";
 import { ExposureCalculator } from "@/components/landing/exposure-calculator";
 import { Button } from "@/components/ui/button";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 
 export const Route = createFileRoute("/landing")({
   head: () => ({
@@ -78,15 +78,22 @@ function LandingPage() {
       {/* VERCEL STYLE FOOTER */}
       <footer className="border-t border-border/60 bg-background py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 text-xs text-muted-foreground sm:flex-row">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <HakkiuLogo className="h-5 text-foreground" />
             <span>· Automated Brand Enforcement</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+            <Link to="/auth/sign-in" className="hover:text-foreground transition-colors">Login</Link>
+            <span>·</span>
+            <span className="cursor-pointer hover:text-foreground transition-colors">Privacy Policy</span>
+            <span>·</span>
+            <span className="cursor-pointer hover:text-foreground transition-colors">Terms</span>
+            <span>·</span>
             <span className="flex items-center gap-1.5 font-mono text-[11px]">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               All Systems Operational
             </span>
+            <span>·</span>
             <span>© {new Date().getFullYear()} HAKKIU, Inc.</span>
           </div>
         </div>

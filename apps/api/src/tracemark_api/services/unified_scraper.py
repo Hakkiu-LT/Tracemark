@@ -32,6 +32,7 @@ from tracemark_api.services.api_usage_tracker import (
     call_with_tracking,
     ApiLimitError,
 )
+from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
 
 # ---------------------------------------------------------------------------
 # Shared browser-like request headers
@@ -201,6 +202,10 @@ def detect_requires_javascript(url: str, timeout: float = 5.0) -> bool:
     5. ``<noscript>`` tag containing a "please enable JavaScript" message
     6. Low text-to-HTML ratio (< 10 %)
     """
+    try:
+        validate_ssrf_url(url)
+    except SSRFError:
+        return False
     try:
         resp = requests.get(url, headers=_HEADERS, timeout=timeout, allow_redirects=True)
         if resp.status_code in (403, 429, 503) or resp.status_code != 200:
@@ -420,6 +425,17 @@ class UnifiedScraper:
         Fetch ``url`` with a plain HTTP GET and convert HTML → Markdown.
         Tracked under the ``html_scraper`` key (local resources, no API cost).
         """
+        try:
+            validate_ssrf_url(url)
+        except SSRFError as e:
+            return UnifiedScrapeResult(
+                url=url,
+                title=None,
+                markdown="",
+                success=False,
+                error_message=f"SSRF blocked: {e}",
+                scraper_used=SCRAPE_STATIC,
+            )
         try:
             resp: requests.Response = call_with_tracking(
                 "html_scraper",

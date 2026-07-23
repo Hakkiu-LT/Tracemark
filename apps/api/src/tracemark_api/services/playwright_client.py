@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import os
 from concurrent.futures import ThreadPoolExecutor
+from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
 
 # Thread pool dedicated to Playwright (sync API must run outside the asyncio loop)
 _playwright_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="playwright")
@@ -49,6 +50,12 @@ def take_local_screenshot(url: str) -> bytes | None:
       sync_playwright never conflicts with asyncio.
     Returns raw PNG bytes or None on failure.
     """
+    try:
+        validate_ssrf_url(url)
+    except SSRFError as e:
+        print(f"[Playwright] Rejected unsafe URL {url}: {e}")
+        return None
+
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:

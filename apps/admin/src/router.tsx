@@ -27,6 +27,7 @@ import { Brands } from "@/pages/Brands";
 import { Integrations } from "@/pages/Integrations";
 import { ScraperHealth } from "@/pages/ScraperHealth";
 import { ScraperHealthDetail } from "@/pages/ScraperHealthDetail";
+import { Leads } from "@/pages/Leads";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
@@ -107,6 +108,7 @@ const brandsRoute = createRoute({ getParentRoute: () => appRoute, path: "/brands
 const integrationsRoute = createRoute({ getParentRoute: () => appRoute, path: "/integrations", component: Integrations });
 const scraperHealthRoute = createRoute({ getParentRoute: () => appRoute, path: "/monitoring/scrapers", component: ScraperHealth });
 const scraperHealthDetailRoute = createRoute({ getParentRoute: () => appRoute, path: "/monitoring/scrapers/$platform", component: ScraperHealthDetail });
+const leadsRoute = createRoute({ getParentRoute: () => appRoute, path: "/leads", component: Leads });
 
 const routeTree = rootRoute.addChildren([
   signInRoute,
@@ -128,6 +130,7 @@ const routeTree = rootRoute.addChildren([
     integrationsRoute,
     scraperHealthRoute,
     scraperHealthDetailRoute,
+    leadsRoute,
   ]),
 ]);
 

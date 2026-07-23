@@ -10,10 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ReviewRouteImport } from './routes/review'
+import { Route as RequestDemoRouteImport } from './routes/request-demo'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as MonitoringRouteImport } from './routes/monitoring'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ConfigureRouteImport } from './routes/configure'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CasesRouteImport } from './routes/cases'
@@ -40,6 +43,16 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestDemoRoute = RequestDemoRouteImport.update({
+  id: '/request-demo',
+  path: '/request-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlansRoute = PlansRouteImport.update({
   id: '/plans',
   path: '/plans',
@@ -58,6 +71,11 @@ const LandingRoute = LandingRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfigureRoute = ConfigureRouteImport.update({
+  id: '/configure',
+  path: '/configure',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientsRoute = ClientsRouteImport.update({
@@ -167,10 +185,13 @@ export interface FileRoutesByFullPath {
   '/cases': typeof CasesRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
+  '/configure': typeof ConfigureRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
+  '/request-demo': typeof RequestDemoRoute
+  '/review': typeof ReviewRoute
   '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -194,10 +215,13 @@ export interface FileRoutesByTo {
   '/cases': typeof CasesRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
+  '/configure': typeof ConfigureRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
+  '/request-demo': typeof RequestDemoRoute
+  '/review': typeof ReviewRoute
   '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -222,10 +246,13 @@ export interface FileRoutesById {
   '/cases': typeof CasesRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/clients': typeof ClientsRoute
+  '/configure': typeof ConfigureRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/plans': typeof PlansRoute
+  '/request-demo': typeof RequestDemoRoute
+  '/review': typeof ReviewRoute
   '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -251,10 +278,13 @@ export interface FileRouteTypes {
     | '/cases'
     | '/checkout'
     | '/clients'
+    | '/configure'
     | '/dashboard'
     | '/landing'
     | '/monitoring'
     | '/plans'
+    | '/request-demo'
+    | '/review'
     | '/settings'
     | '/auth/callback'
     | '/auth/sign-in'
@@ -278,10 +308,13 @@ export interface FileRouteTypes {
     | '/cases'
     | '/checkout'
     | '/clients'
+    | '/configure'
     | '/dashboard'
     | '/landing'
     | '/monitoring'
     | '/plans'
+    | '/request-demo'
+    | '/review'
     | '/settings'
     | '/auth/callback'
     | '/auth/sign-in'
@@ -305,10 +338,13 @@ export interface FileRouteTypes {
     | '/cases'
     | '/checkout'
     | '/clients'
+    | '/configure'
     | '/dashboard'
     | '/landing'
     | '/monitoring'
     | '/plans'
+    | '/request-demo'
+    | '/review'
     | '/settings'
     | '/auth/callback'
     | '/auth/sign-in'
@@ -333,10 +369,13 @@ export interface RootRouteChildren {
   CasesRoute: typeof CasesRouteWithChildren
   CheckoutRoute: typeof CheckoutRoute
   ClientsRoute: typeof ClientsRoute
+  ConfigureRoute: typeof ConfigureRoute
   DashboardRoute: typeof DashboardRoute
   LandingRoute: typeof LandingRoute
   MonitoringRoute: typeof MonitoringRouteWithChildren
   PlansRoute: typeof PlansRoute
+  RequestDemoRoute: typeof RequestDemoRoute
+  ReviewRoute: typeof ReviewRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
@@ -354,6 +393,20 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request-demo': {
+      id: '/request-demo'
+      path: '/request-demo'
+      fullPath: '/request-demo'
+      preLoaderRoute: typeof RequestDemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plans': {
@@ -382,6 +435,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configure': {
+      id: '/configure'
+      path: '/configure'
+      fullPath: '/configure'
+      preLoaderRoute: typeof ConfigureRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients': {
@@ -597,10 +657,13 @@ const rootRouteChildren: RootRouteChildren = {
   CasesRoute: CasesRouteWithChildren,
   CheckoutRoute: CheckoutRoute,
   ClientsRoute: ClientsRoute,
+  ConfigureRoute: ConfigureRoute,
   DashboardRoute: DashboardRoute,
   LandingRoute: LandingRoute,
   MonitoringRoute: MonitoringRouteWithChildren,
   PlansRoute: PlansRoute,
+  RequestDemoRoute: RequestDemoRoute,
+  ReviewRoute: ReviewRoute,
   SettingsRoute: SettingsRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,

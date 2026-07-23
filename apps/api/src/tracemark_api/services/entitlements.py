@@ -79,6 +79,19 @@ PLAN_ENTITLEMENTS: dict[str, Entitlement] = {
         advanced_reports=False,
         real_time_scans=False,
     ),
+    # Self-Serve base: unlocks the platform. Actual brand/platform/domain limits
+    # come from the TM / marketplace / domain add-ons the customer purchased.
+    "self_serve": Entitlement(
+        plan="self_serve",
+        brands=0,           # set by addon_self_serve_tm_{n}
+        platforms=1,        # Amazon included; marketplace add-on expands this
+        regions=UNLIMITED,
+        domain_tracking=False,  # enabled by addon_self_serve_domain
+        managed_takedown=False,
+        api_access=False,
+        advanced_reports=True,  # branded PDF reports included
+        real_time_scans=False,  # daily monitoring
+    ),
     "starter": Entitlement(
         plan="starter",
         brands=1,
@@ -142,6 +155,11 @@ _ADDON_REGION = "addon_region"
 _ADDON_DOMAINS = "addon_domains"
 _ADDON_REPORTS = "addon_reports"
 
+# Self-serve add-on keys.
+_SELF_SERVE_TM_KEYS = {f"addon_self_serve_tm_{n}": n for n in range(1, 6)}
+_ADDON_SS_MARKETPLACE = "addon_self_serve_marketplace"
+_ADDON_SS_DOMAIN = "addon_self_serve_domain"
+
 
 def base_entitlement(plan: str | None) -> Entitlement:
     """Base entitlement for a plan key, defaulting to the free tier."""
@@ -169,8 +187,25 @@ def compute_entitlements(
 
     changes: dict = {}
 
-    # Extra brands stack onto the base cap (unless already unlimited).
-    if ent.brands is not None and quantities.get(_ADDON_BRAND):
+    # ── Self-Serve add-ons ────────────────────────────────────────────────────
+    # TM tier (mutually exclusive): one key maps to an absolute brand count.
+    for tm_key, tm_count in _SELF_SERVE_TM_KEYS.items():
+        if quantities.get(tm_key):
+            changes["brands"] = tm_count
+            break
+
+    # Marketplace: 1 (Amazon, always in base) + number of extra platforms purchased.
+    if quantities.get(_ADDON_SS_MARKETPLACE):
+        changes["platforms"] = 1 + quantities[_ADDON_SS_MARKETPLACE]
+
+    # Domain protection toggle.
+    if quantities.get(_ADDON_SS_DOMAIN):
+        changes["domain_tracking"] = True
+
+    # ── Legacy add-ons ────────────────────────────────────────────────────────
+    # Extra brands stack onto the base cap (unless already unlimited or already
+    # set by a self_serve TM add-on above).
+    if "brands" not in changes and ent.brands is not None and quantities.get(_ADDON_BRAND):
         changes["brands"] = ent.brands + quantities[_ADDON_BRAND]
 
     # Extra regions stack onto the base cap (unless already unlimited).
@@ -245,26 +280,73 @@ def _addons_for_org(org_id: str) -> list[dict]:
     return res.data or []
 
 
+def _override_for_org(org_id: str) -> dict | None:
+    """Admin-set per-org entitlement overrides (Pro/Enterprise custom deals)."""
+    sb = get_supabase()
+    try:
+        res = (
+            sb.table("org_entitlement_overrides")
+            .select("brands_override,platforms_override,regions_override,"
+                    "domain_tracking,managed_takedown,api_access,advanced_reports,real_time_scans")
+            .eq("organization_id", org_id)
+            .maybe_single()
+            .execute()
+        )
+        return res.data if res and res.data else None
+    except Exception:
+        return None
+
+
+def _apply_entitlement_override(ent: Entitlement, override: dict) -> Entitlement:
+    """Apply non-null override fields on top of plan+addon computed entitlements.
+
+    Numeric overrides: -1 means unlimited (stored as None in Entitlement).
+    Boolean overrides: only replace when explicitly set.
+    """
+    changes: dict = {}
+    for field, key in (("brands", "brands_override"), ("platforms", "platforms_override"), ("regions", "regions_override")):
+        val = override.get(key)
+        if val is not None:
+            changes[field] = UNLIMITED if val < 0 else val
+    for flag in ("domain_tracking", "managed_takedown", "api_access", "advanced_reports", "real_time_scans"):
+        val = override.get(flag)
+        if val is not None:
+            changes[flag] = bool(val)
+    return replace(ent, **changes) if changes else ent
+
+
 def resolve_entitlements_for_org(org_id: str) -> tuple[str, Entitlement]:
-    """Return (plan, effective Entitlement) for an org."""
+    """Return (plan, effective Entitlement) for an org.
+
+    Effective = plan base + purchased add-ons + admin override (if any).
+    Admin overrides let staff set custom limits for Pro/Enterprise without
+    touching Stripe or modifying plan definitions in code.
+    """
     plan = _active_plan_for_org(org_id)
-    return plan, compute_entitlements(plan, _addons_for_org(org_id))
+    ent = compute_entitlements(plan, _addons_for_org(org_id))
+    override = _override_for_org(org_id)
+    if override:
+        ent = _apply_entitlement_override(ent, override)
+    return plan, ent
 
 
 def resolve_entitlements_for_user(user_id: str) -> tuple[str, str, Entitlement]:
     """Return (org_id, plan, effective Entitlement) for a user, based on their org's
-    active subscription. (Admin/staff access is handled entirely by the separate admin
-    portal now — it no longer affects customer entitlements.)"""
+    active subscription. Users with is_admin=True automatically resolve to enterprise."""
     sb = get_supabase()
     res = (
         sb.table("profiles")
-        .select("organization_id")
+        .select("organization_id, is_admin")
         .eq("id", user_id)
         .maybe_single()
         .execute()
     )
     profile_data = res.data if (res and res.data) else {}
     org_id = profile_data.get("organization_id") or user_id
+
+    if profile_data.get("is_admin"):
+        ent = compute_entitlements("enterprise", [])
+        return org_id, "enterprise", ent
 
     plan, ent = resolve_entitlements_for_org(org_id)
     return org_id, plan, ent

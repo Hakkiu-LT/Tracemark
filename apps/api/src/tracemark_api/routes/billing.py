@@ -443,6 +443,133 @@ def get_subscription(current_user=Depends(get_current_user)):
     }
 
 
+# ── Guest checkout (pay first, create account after) ─────────────────────────
+
+class GuestSubscribeRequest(BaseModel):
+    email: str
+    plan: str
+    interval: str = "month"
+    addons: list[AddonInput] = []
+
+
+class ActivateRequest(BaseModel):
+    stripe_subscription_id: str
+
+
+def _get_or_create_stripe_customer_for_email(email: str) -> str:
+    """Find or create a Stripe customer purely by email, no Supabase lookup."""
+    s = _stripe()
+    result = _do_stripe(s.Customer.search, query=f"email:'{email}'", limit=1)
+    customers = (result.get("data") or []) if isinstance(result, dict) else (getattr(result, "data", None) or [])
+    for c in customers:
+        meta = (c.get("metadata") or {}) if isinstance(c, dict) else (getattr(c, "metadata", None) or {})
+        # Only reuse guest customers — skip ones already linked to a Supabase org.
+        if not meta.get("organization_id"):
+            return c["id"] if isinstance(c, dict) else c.id
+    customer = _do_stripe(s.Customer.create, email=email, metadata={"guest": "true"})
+    return customer["id"] if isinstance(customer, dict) else customer.id
+
+
+@router.post("/guest-subscribe")
+def guest_subscribe(body: GuestSubscribeRequest):
+    """Create a Stripe subscription without authentication.
+
+    Returns a client_secret so the frontend can confirm payment via Stripe Elements.
+    After the user pays, they create their Supabase account and call /billing/activate
+    to bind the subscription to their profile.
+    """
+    email = (body.email or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email address")
+    if body.plan not in SELF_SERVE_PLANS:
+        raise HTTPException(status_code=400, detail=f"Plan '{body.plan}' is not self-serve")
+    if body.interval not in _VALID_INTERVALS:
+        raise HTTPException(status_code=400, detail="interval must be 'month' or 'year'")
+
+    s = _stripe()
+    try:
+        items = [{"price": get_plan_price_id(body.plan, body.interval)}]
+        for addon in body.addons:
+            if addon.key not in SUBSCRIPTION_ADDONS:
+                raise HTTPException(status_code=400, detail=f"Unknown add-on '{addon.key}'")
+            items.append({
+                "price": get_addon_price_id(addon.key),
+                "quantity": normalize_addon_quantity(addon.key, addon.quantity),
+            })
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    customer_id = _get_or_create_stripe_customer_for_email(email)
+
+    subscription = _do_stripe(
+        s.Subscription.create,
+        customer=customer_id,
+        items=items,
+        payment_behavior="default_incomplete",
+        payment_settings={"save_default_payment_method": "on_subscription"},
+        expand=["latest_invoice.confirmation_secret"],
+        metadata={"guest_email": email, "plan": body.plan, "guest": "true"},
+    )
+    sub = _as_dict(subscription)
+
+    invoice = sub.get("latest_invoice") or {}
+    confirmation = invoice.get("confirmation_secret") or {}
+    client_secret = confirmation.get("client_secret")
+    if not client_secret:
+        raise HTTPException(status_code=500, detail="Stripe did not return a client secret")
+
+    return {"subscription_id": sub.get("id"), "client_secret": client_secret}
+
+
+@router.post("/activate")
+def activate_subscription(body: ActivateRequest, current_user=Depends(get_current_user)):
+    """Link a guest Stripe subscription to the newly-authenticated user.
+
+    Called from /billing/success after the user creates their Supabase account.
+    The subscription's guest_email metadata must match the authenticated user's email.
+    """
+    s = _stripe()
+    sb = get_supabase()
+
+    # Expand items so _sync_subscription_to_db can write subscription_addons rows.
+    sub = _as_dict(_do_stripe(s.Subscription.retrieve, body.stripe_subscription_id, expand=["items"]))
+    metadata = sub.get("metadata") or {}
+    guest_email = (metadata.get("guest_email") or "").lower()
+
+    if guest_email != (current_user.email or "").lower():
+        raise HTTPException(
+            status_code=403,
+            detail="Subscription email does not match your account email",
+        )
+
+    org_id = _billing_org_id(current_user.id)
+    customer_id = sub.get("customer")
+    if isinstance(customer_id, dict):
+        customer_id = customer_id.get("id")
+
+    # Link Stripe customer to this org so future webhooks can resolve the org.
+    _do_stripe(
+        s.Customer.modify,
+        customer_id,
+        metadata={"organization_id": org_id},
+    )
+    sb.table("org_settings").upsert(
+        {
+            "organization_id": org_id,
+            "stripe_customer_id": customer_id,
+            "notification_email": current_user.email or "",
+        },
+        on_conflict="organization_id",
+    ).execute()
+
+    # Full sync: writes subscriptions + subscription_addons + reconciles brand locks.
+    # This is what activates the purchased TM/marketplace/domain add-ons so the
+    # customer's brand and scan limits reflect exactly what they paid for.
+    _sync_subscription_to_db(sub, org_id)
+
+    return {"status": "activated"}
+
+
 @router.get("/invoices")
 def get_invoices(current_user=Depends(get_current_user)):
     sb = get_supabase()
@@ -544,6 +671,8 @@ async def stripe_webhook(request: Request):
     via the signature header, and we need the raw request body to verify it."""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing stripe-signature header")
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
     if not webhook_secret:
         raise HTTPException(status_code=503, detail="Webhook secret not configured")
@@ -590,8 +719,69 @@ async def stripe_webhook(request: Request):
         org_id = _org_from_customer(obj.get("customer"))
         if org_id:
             _upsert_invoice(obj, org_id)
+            if event_type == "invoice.payment_failed":
+                _send_dunning_email(obj, org_id, attempt=1)
 
     return {"received": True}
+
+
+# ── Dunning email ────────────────────────────────────────────────────────────
+
+def _send_dunning_email(invoice: dict, org_id: str, attempt: int = 1) -> None:
+    """Send a payment-failed dunning email to the org's notification email."""
+    try:
+        from tracemark_api.services.notifications import _recipient_for_org
+        from tracemark_api.services.email import send_email
+        from tracemark_api.services.email_templates import payment_failed_html
+        import os
+
+        recipient = _recipient_for_org(org_id)
+        if not recipient:
+            return
+
+        # Resolve user name from profile
+        sb = get_supabase()
+        profile = (
+            sb.table("profiles")
+            .select("full_name, plan")
+            .eq("organization_id", org_id)
+            .eq("is_admin", True)
+            .limit(1)
+            .execute()
+        )
+        user_name = "there"
+        plan_name = "HAKKIU"
+        if profile and profile.data:
+            full = profile.data[0].get("full_name") or ""
+            user_name = full.split()[0] if full.strip() else "there"
+            plan_name = (profile.data[0].get("plan") or "HAKKIU").replace("_", " ").title()
+
+        amount_cents = invoice.get("amount_due", 0)
+        currency = (invoice.get("currency") or "eur").upper()
+        amount_display = f"{currency} {amount_cents / 100:.2f}"
+
+        days_map = {1: 7, 2: 4, 3: 1}
+        days_until_pause = days_map.get(attempt, 7)
+
+        app_url = os.environ.get("CUSTOMER_APP_URL", "https://hakkiu.com").rstrip("/")
+        billing_url = f"{app_url}/settings/billing"
+
+        html = payment_failed_html(
+            user_name=user_name,
+            attempt=attempt,
+            plan_name=plan_name,
+            amount_display=amount_display,
+            billing_url=billing_url,
+            days_until_pause=days_until_pause,
+        )
+        subject_map = {
+            1: f"Payment didn't go through — update your card for {plan_name}",
+            2: f"Reminder: payment still pending for {plan_name}",
+            3: f"Last notice: {plan_name} monitoring pauses in {days_until_pause} day{'s' if days_until_pause != 1 else ''}",
+        }
+        send_email(to=recipient, subject=subject_map.get(attempt, subject_map[1]), html=html)
+    except Exception as exc:
+        print(f"[Billing] Failed to send dunning email (attempt {attempt}) for org {org_id}: {exc}")
 
 
 # ── DB sync helpers ──────────────────────────────────────────────────────────

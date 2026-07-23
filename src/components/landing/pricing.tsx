@@ -10,16 +10,21 @@ import {
   DollarSign,
   CalendarDays,
   ShieldCheck,
-  ArrowRight,
+  Shield,
+  Globe,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { StarBorder } from "./star-border";
-
-// Brand-blue comet over a neutral grey resting border on the assurance bar.
-const STAR_COLOR = "oklch(0.64 0.2 255)";
-const STAR_TRACK = "var(--border)";
+import { RequestPricingModal } from "./request-pricing-modal";
 
 const ACCENT = "oklch(0.58 0.18 255)";
 
@@ -70,78 +75,60 @@ interface Plan {
   blurb: string;
   features: string[];
   cta: string;
-  to: string;
+  to?: string;
+  onClick?: () => void;
   tone?: Tone; // accent for icons + CTA (defaults to blue)
   badge?: { label: string; icon: LucideIcon }; // highlights the card with a border + ribbon
   featured?: boolean; // lifts the card on desktop
   starBorder?: boolean; // wraps card in purple glowing star border
 }
 
-const PLANS: Plan[] = [
+const ASSURANCES = [
+  { icon: Shield, label: "No setup fees" },
+  { icon: Globe, label: "EU-based infrastructure" },
+  { icon: Sparkles, label: "Cancel anytime" },
+];
+
+const FAQ_ITEMS = [
   {
-    name: "Growth",
-    icon: Users,
-    audience: "For growing brand teams",
-    price: "$249",
-    period: "/mo",
-    blurb: "For scaling e-commerce and brand teams.",
-    features: [
-      "5 brands monitored",
-      "All 12 platforms covered",
-      "Daily automated AI scans",
-      "Auto-generated takedown notices",
-      "Priority email support",
-    ],
-    cta: "Start monitoring",
-    to: "/dashboard",
-    tone: "blue",
+    q: "Can I cancel anytime?",
+    a: "Yes. All plans are monthly with no lock-in. Cancel from your billing settings and you won't be charged again.",
   },
   {
-    name: "Pro",
-    icon: Rocket,
-    audience: "For established brands & IP teams",
-    price: "$599",
-    period: "/mo",
-    blurb: "Real-time brand protection with domain tracking.",
-    features: [
-      "20 brands monitored",
-      "All 12 platforms + Domain tracking",
-      "Real-time AI monitoring & alerts",
-      "Auto-generated DMCA & C&D docs",
-      "Dedicated account manager",
-    ],
-    cta: "Start monitoring",
-    to: "/dashboard",
-    tone: "blue",
-    badge: { label: "Most popular", icon: Star },
-    featured: true,
+    q: "What counts as a takedown notice?",
+    a: "One notice is one formal copyright or trademark infringement notice dispatched to a marketplace or registrar. Notice drafting and generation is unlimited on all plans.",
   },
   {
-    name: "Enterprise",
-    icon: Scale,
-    audience: "For enterprise & law firms",
-    price: "Custom",
-    blurb: "Managed brand enforcement with custom SLA.",
-    features: [
-      "Unlimited brands & monitoring",
-      "Court-ready evidence & legal dossiers",
-      "Dedicated crawling infrastructure",
-      "Custom SSO/SAML & full API access",
-      "Dedicated IP specialist & 99.9% SLA",
-    ],
-    cta: "Book a demo",
-    to: "/plans",
-    tone: "violet",
-    badge: { label: "Enterprise SLA", icon: Sparkles },
-    starBorder: true,
+    q: "Is Amazon included?",
+    a: "Yes. Amazon monitoring is active on all plans at no extra cost, alongside 11 other major marketplaces.",
+  },
+  {
+    q: "What is the difference between Pro and Enterprise?",
+    a: "Pro is self-serve with access to all 12 platforms and real-time scanning. Enterprise adds full custom scraping infrastructure, dedicated account specialists, and custom SSO/SAML integrations.",
   },
 ];
 
-const ASSURANCES: { icon: LucideIcon; label: string }[] = [
-  { icon: DollarSign, label: "No setup fees" },
-  { icon: CalendarDays, label: "Cancel anytime" },
-  { icon: ShieldCheck, label: "Enterprise-grade security" },
-];
+function PricingFAQ() {
+  return (
+    <div className="mx-auto mt-16 max-w-2xl">
+      <h3 className="text-center text-lg font-semibold tracking-tight text-foreground">
+        Frequently asked questions
+      </h3>
+      <Accordion type="single" collapsible className="mt-6 divide-y divide-border rounded-xl border border-border px-6 bg-card">
+        {FAQ_ITEMS.map((item, i) => (
+          <AccordionItem key={i} value={`faq-${i}`} className="border-none">
+            <AccordionTrigger className="text-sm font-medium hover:no-underline py-4 text-foreground">
+              {item.q}
+            </AccordionTrigger>
+            <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+              {item.a}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </div>
+  );
+}
 
 /** Fires once when the element first scrolls into view. */
 function useInView<T extends HTMLElement>(threshold = 0.2) {
@@ -199,7 +186,7 @@ function PlanCardContent({ plan, index, inView }: { plan: Plan; index: number; i
       )}
 
       <div>
-        <h3 className="font-display text-2xl font-bold tracking-tight">{plan.name}</h3>
+        <h3 className="font-display text-2xl font-bold tracking-tight text-foreground">{plan.name}</h3>
 
         <div
           className={cn(
@@ -213,7 +200,7 @@ function PlanCardContent({ plan, index, inView }: { plan: Plan; index: number; i
         </div>
 
         <div className="mt-5 flex items-baseline gap-1.5">
-          <span className="font-display text-4xl font-extrabold tracking-tight">{plan.price}</span>
+          <span className="font-display text-4xl font-extrabold tracking-tight text-foreground">{plan.price}</span>
           {plan.period && (
             <span className="text-sm font-medium text-muted-foreground">{plan.period}</span>
           )}
@@ -225,7 +212,7 @@ function PlanCardContent({ plan, index, inView }: { plan: Plan; index: number; i
 
         <ul className="space-y-3.5">
           {plan.features.map((feature) => (
-            <li key={feature} className="flex items-start gap-3 text-sm font-medium">
+            <li key={feature} className="flex items-start gap-3 text-sm font-medium text-foreground">
               <CheckCircle2 className={cn("mt-0.5 h-4 w-4 shrink-0", t.text)} strokeWidth={2.25} />
               <span>{feature}</span>
             </li>
@@ -233,13 +220,23 @@ function PlanCardContent({ plan, index, inView }: { plan: Plan; index: number; i
         </ul>
       </div>
 
-      <Button
-        asChild
-        variant={plan.featured ? "default" : "outline"}
-        className={cn("mt-8 w-full h-11 text-sm font-semibold rounded-xl cursor-pointer", plan.featured ? t.solid : t.outline)}
-      >
-        <Link to={plan.to}>{plan.cta}</Link>
-      </Button>
+      {plan.onClick ? (
+        <Button
+          onClick={plan.onClick}
+          variant={plan.featured ? "default" : "outline"}
+          className={cn("mt-8 w-full h-11 text-sm font-semibold rounded-xl cursor-pointer", plan.featured ? t.solid : t.outline)}
+        >
+          {plan.cta}
+        </Button>
+      ) : (
+        <Button
+          asChild
+          variant={plan.featured ? "default" : "outline"}
+          className={cn("mt-8 w-full h-11 text-sm font-semibold rounded-xl cursor-pointer", plan.featured ? t.solid : t.outline)}
+        >
+          <Link to={plan.to ?? "/dashboard"}>{plan.cta}</Link>
+        </Button>
+      )}
     </div>
   );
 }
@@ -263,6 +260,67 @@ function PlanCard({ plan, index, inView }: { plan: Plan; index: number; inView: 
 
 export function Pricing() {
   const { ref, inView } = useInView<HTMLElement>();
+  const [modalTier, setModalTier] = useState<"professional" | "enterprise" | null>(null);
+
+  const PLANS: Plan[] = [
+    {
+      name: "Growth",
+      icon: Users,
+      audience: "For growing brand teams",
+      price: "$249",
+      period: "/mo",
+      blurb: "For scaling e-commerce and brand teams.",
+      features: [
+        "5 brands monitored",
+        "All 12 platforms covered",
+        "Daily automated AI scans",
+        "Auto-generated takedown notices",
+        "Priority email support",
+      ],
+      cta: "Start monitoring",
+      to: "/dashboard",
+      tone: "blue",
+    },
+    {
+      name: "Pro",
+      icon: Rocket,
+      audience: "For established brands & IP teams",
+      price: "$599",
+      period: "/mo",
+      blurb: "Real-time brand protection with domain tracking.",
+      features: [
+        "20 brands monitored",
+        "All 12 platforms + Domain tracking",
+        "Real-time AI monitoring & alerts",
+        "Auto-generated DMCA & C&D docs",
+        "Dedicated account manager",
+      ],
+      cta: "Start monitoring",
+      to: "/dashboard",
+      tone: "blue",
+      badge: { label: "Most popular", icon: Star },
+      featured: true,
+    },
+    {
+      name: "Enterprise",
+      icon: Scale,
+      audience: "For enterprise & law firms",
+      price: "Custom",
+      blurb: "Managed brand enforcement with custom SLA.",
+      features: [
+        "Unlimited brands & monitoring",
+        "Court-ready evidence & legal dossiers",
+        "Dedicated crawling infrastructure",
+        "Custom SSO/SAML & full API access",
+        "Dedicated IP specialist & 99.9% SLA",
+      ],
+      cta: "Request Pricing",
+      onClick: () => setModalTier("enterprise"),
+      tone: "violet",
+      badge: { label: "Enterprise SLA", icon: Sparkles },
+      starBorder: true,
+    },
+  ];
 
   return (
     <section
@@ -295,7 +353,28 @@ export function Pricing() {
             <PlanCard key={plan.name} plan={plan} index={i} inView={inView} />
           ))}
         </div>
+
+        {/* Assurance bar */}
+        <div className="mt-16 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
+          {ASSURANCES.map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {/* FAQ Section */}
+        <PricingFAQ />
       </div>
+
+      <RequestPricingModal
+        open={modalTier !== null}
+        onOpenChange={(open) => {
+          if (!open) setModalTier(null);
+        }}
+        tier={modalTier ?? "enterprise"}
+      />
     </section>
   );
 }
