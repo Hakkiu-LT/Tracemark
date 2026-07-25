@@ -82,6 +82,10 @@ export interface InfringementFeedItem {
   screenshot_url: string | null;
   flagged_at: string;
   created_at: string;
+  updated_at?: string | null;
+  brand_name?: string | null;
+  client_id?: string | null;
+  case_status?: string | null;
   case_updated_at?: string;
   detection_region?: string | null;
 }
@@ -95,6 +99,7 @@ export function getInfringements(params?: {
   risk_level?: string;
   status?: string;
   platform?: string;
+  client_id?: string;
   limit?: number;
   offset?: number;
 }): Promise<InfringementsResponse> {
