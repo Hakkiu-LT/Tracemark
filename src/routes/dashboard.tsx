@@ -8,7 +8,6 @@ import { InfringementAlertFeed } from "@/components/cases/InfringementAlertFeed"
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell, Legend } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { getInfringements } from "@/lib/api";
-import { fetchCaseHistory } from "@/lib/supabase";
 import { ClientBillingCard } from "@/components/ClientBillingCard";
 import { cn } from "@/lib/utils";
 import { getRegionForId, getMacroRegionForCountry } from "@/lib/regions";
@@ -23,31 +22,22 @@ export const Route = createFileRoute("/dashboard")({
   component: Dashboard,
 });
 
+/** Per-copycat status groups (one infringement row = one copycat case). */
+const AWAITING_REVIEW_STATUSES = new Set(["flagged", "active"]);
+const RESOLVED_STATUSES = new Set(["resolved", "complete", "completed"]);
+const DECLINED_STATUSES = new Set(["declined", "dismissed", "safe"]);
+
 function Dashboard() {
   const marks = useScopedMarks();
   const persona = useStore((s) => s.persona);
   const [selectedMacroRegion, setSelectedMacroRegion] = useState("ALL");
 
-  // Fetch actual live database cases via Supabase
-  const { data: dbCasesData } = useQuery({
-    queryKey: ["dashboard_cases", persona],
-    queryFn: () => fetchCaseHistory(100, persona),
-  });
-  const cases = dbCasesData ?? [];
-
-  // Fetch actual live database infringements for platform distribution
+  // Fetch live per-copycat infringements — dashboard stats count copycats, not scans.
   const { data: dbInfringementsData } = useQuery({
     queryKey: ["dashboard_infringements"],
-    queryFn: () => getInfringements({ limit: 100 }),
+    queryFn: () => getInfringements({ limit: 200 }),
   });
   const infringements = dbInfringementsData?.items ?? [];
-
-  const filteredCases = cases.filter((c) => {
-    if (selectedMacroRegion === "ALL") return true;
-    const cCode = getRegionForId(c.id);
-    const mReg = getMacroRegionForCountry(cCode);
-    return mReg === selectedMacroRegion;
-  });
 
   const filteredInfringements = infringements.filter((i) => {
     if (selectedMacroRegion === "ALL") return true;
@@ -56,43 +46,37 @@ function Dashboard() {
     return mReg === selectedMacroRegion;
   });
 
-  const active = filteredCases.filter(
-    (c) => c.status === "pending" || c.status === "analyzing" || c.status === "reviewed" || c.status === "active"
-  ).length;
-  
-  // Successful takedowns: status is complete, completed, or resolved
-  const successfulTakedowns = filteredCases.filter(
-    (c) => c.status === "complete" || c.status === "completed" || c.status === "resolved"
-  ).length;
+  const active = filteredInfringements.filter((i) => AWAITING_REVIEW_STATUSES.has(i.status)).length;
 
-  // Declined takedowns
-  const declinedTakedowns = filteredCases.filter((c) => c.status === "declined").length;
+  // Successful takedowns: copycat marked resolved/complete
+  const successfulTakedowns = filteredInfringements.filter((i) => RESOLVED_STATUSES.has(i.status)).length;
 
-  // Success rate is calculated over the cases that have been resolved/finalized (complete or declined)
+  // Declined/dismissed copycats
+  const declinedTakedowns = filteredInfringements.filter((i) => DECLINED_STATUSES.has(i.status)).length;
+
+  // Success rate is calculated over the copycats that have been resolved/finalized (complete or declined)
   const totalResolved = successfulTakedowns + declinedTakedowns;
   const successRate = totalResolved > 0 ? Math.round((successfulTakedowns / totalResolved) * 100) : 100;
 
-  // Compute real success rate trend over the last 30 days using cases
+  // Compute real success rate trend over the last 30 days using per-copycat rows
   const trend = Array.from({ length: 30 }, (_, i) => {
     // Generate dates from 29 days ago to today
     const dayDate = new Date();
     dayDate.setDate(dayDate.getDate() - (29 - i));
     dayDate.setHours(23, 59, 59, 999);
 
-    // Get all cases created or updated to resolved/declined up to this day
-    const historicalCases = filteredCases.filter((item) => {
-      const isResolved = item.status === "complete" || item.status === "completed" || item.status === "resolved" || item.status === "declined";
-      const caseDate = new Date(
-        (isResolved && item.updated_at) ? item.updated_at : item.created_at
+    // Get all copycats detected or resolved up to this day
+    const historicalItems = filteredInfringements.filter((item) => {
+      const isFinal = RESOLVED_STATUSES.has(item.status) || DECLINED_STATUSES.has(item.status);
+      const itemDate = new Date(
+        (isFinal && item.updated_at) ? item.updated_at : (item.flagged_at || item.created_at)
       );
-      return caseDate <= dayDate;
+      return itemDate <= dayDate;
     });
 
     // Count completes/resolved vs declined up to this day
-    const completes = historicalCases.filter(
-      (item) => item.status === "complete" || item.status === "completed" || item.status === "resolved"
-    ).length;
-    const declineds = historicalCases.filter((item) => item.status === "declined").length;
+    const completes = historicalItems.filter((item) => RESOLVED_STATUSES.has(item.status)).length;
+    const declineds = historicalItems.filter((item) => DECLINED_STATUSES.has(item.status)).length;
 
     const historicalResolved = completes + declineds;
     const rate = historicalResolved > 0 ? Math.round((completes / historicalResolved) * 100) : 100;

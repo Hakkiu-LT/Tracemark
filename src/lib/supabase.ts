@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 import type {
   CheckBrandResponse,
   DecisionResponse,
@@ -18,7 +18,7 @@ const supabaseKey =
 /**
  * Frontend Supabase client using the publishable (anon) key.
  *
- * Used for two things: (1) Supabase Auth — sign-in/sign-up, session persistence,
+ * Used for two things: (1) Supabase Auth â€” sign-in/sign-up, session persistence,
  * and reading the current user's profile; (2) READ-ONLY access to case history /
  * case detail. All case/decision/takedown writes still go through the FastAPI
  * backend, which uses the service-role key.
@@ -30,7 +30,7 @@ const isValidUrl = (url: string | undefined): boolean => {
 
 // Secure cookie storage: moves auth tokens from localStorage to cookies with
 // Secure + SameSite=Strict flags. Cookies are still JS-readable (not httpOnly)
-// — full httpOnly would require a server-side session proxy.
+// â€” full httpOnly would require a server-side session proxy.
 const secureCookieStorage = {
   getItem: (key: string): string | null => {
     if (typeof document === "undefined") return null;
@@ -58,7 +58,7 @@ export const supabase =
       })
     : null;
 
-/** A row from the `profiles` table — extra user metadata beyond auth.users. */
+/** A row from the `profiles` table â€” extra user metadata beyond auth.users. */
 export interface Profile {
   id: string;
   full_name: string | null;
@@ -162,7 +162,7 @@ function mapTakedown(row: TakedownRow): TakedownReport {
   };
 }
 
-/** Lightweight row for the case list — one row per brand check. */
+/** Lightweight row for the case list â€” one row per brand check. */
 export interface CaseSummary {
   id: string;
   brand_name: string;
@@ -266,6 +266,45 @@ export async function fetchCaseFromSupabase(
     takedown_reports: (data.takedown_reports ?? []).map(mapTakedown),
     detection_region: data.detection_region || null,
   };
+}
+
+/**
+ * Delete a single infringement (one copycat case) and its screenshot.
+ * Related evidence_items/documents rows cascade in the database.
+ * The parent scan case and its other copycats are left untouched.
+ */
+export async function deleteInfringementFromSupabase(infringementId: string): Promise<boolean> {
+  if (!supabase) return false;
+
+  try {
+    const { data } = await supabase
+      .from("infringements")
+      .select("screenshot_url")
+      .eq("id", infringementId)
+      .maybeSingle<{ screenshot_url: string | null }>();
+
+    const url = data?.screenshot_url;
+    if (url) {
+      const marker = "/evidence-screenshots/";
+      const idx = url.indexOf(marker);
+      if (idx !== -1) {
+        const path = url.slice(idx + marker.length);
+        if (path) {
+          const { error: storageError } = await supabase.storage
+            .from("evidence-screenshots")
+            .remove([path]);
+          if (storageError) {
+            console.error("[Storage Cleanup] Failed to delete screenshot:", storageError);
+          }
+        }
+      }
+    }
+  } catch (cleanupErr) {
+    console.error("[Storage Cleanup] Error deleting infringement screenshot:", cleanupErr);
+  }
+
+  const { error } = await supabase.from("infringements").delete().eq("id", infringementId);
+  return !error;
 }
 
 /**

@@ -1,11 +1,48 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-23 (session 12 — Resend email plan researched and written)
+> Last updated: 2026-07-25 (session 14 — per-copycat cases frontend split)
 
 ---
 
-## 🔴 CURRENT FOCUS — Billing workflow + landing page
+## 🔴 CURRENT FOCUS — Per-copycat cases in the customer frontend (branch `feature/per-copycat-cases`)
+
+**Goal:** one scan still creates ONE `cases` row + ONE AI prompt in the backend
+(cost saving — scan pipeline completely unchanged), but the customer frontend
+shows **one case per copycat** (each item the scan found) instead of one case
+bundling all copycats. The data already exists: `persist_all_infringements()`
+writes one `infringements` row per copycat after every scan.
+
+**Decisions (confirmed with user):**
+- Per-copycat rows link to the existing per-infringement detail page `/cases/$id`.
+- Status actions are per-copycat (existing `PATCH /infringements/{id}/status`),
+  managed independently — scan-level actions on `/monitoring/$caseId` stay untouched.
+- Scope: `/cases` list + dashboard KPIs/trend count copycats instead of scans.
+
+**Backend changes (`apps/api` — scan pipeline untouched):**
+- `routes/infringements.py`: stop overriding the item status with the parent case
+  status in GET list/detail (return `case_status` separately); stop cascading item
+  status updates to the parent case in PATCH; expose `brand_name`, `client_id`,
+  `updated_at` on each item.
+- New migration `20260725000001_infringements_updated_at.sql`: `updated_at` column
+  + reuse of the `update_updated_at()` trigger (needed for per-copycat resolution
+  trends on the dashboard). **Apply with `supabase db push`.**
+
+**Frontend changes (`src/`):**
+- `/cases` list: one row per copycat from `GET /infringements` (platform,
+  source_url, per-item risk/status, confidence = match_score); row →
+  `/cases/$infringementId`; per-row delete removes just that infringement.
+- Dashboard: "Active infringements" / "Successful takedowns" / success-rate trend
+  computed from per-copycat rows instead of scan cases.
+- `InfringementAlertFeed` rows link to the per-copycat detail page.
+
+**Admin parity:** already satisfied — admin case detail lists per-case
+infringements and `infringements_admin.py` PATCH edits them with audit log.
+No new admin work needed.
+
+---
+
+## Billing workflow + landing page (previous focus)
 
 ### What was audited this session (session 11)
 

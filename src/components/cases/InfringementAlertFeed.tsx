@@ -323,15 +323,12 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
                 const detectDate = new Date(item.flagged_at || item.created_at);
                 const timeString = detectDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                 const dateString = detectDate.toLocaleDateString([], { month: "short", day: "numeric" });
-                
-                // Construct details link
-                const targetCaseId = item.case_id || item.id;
-                
+
                 return (
                   <Link
                     key={item.id}
-                    to="/monitoring/$caseId"
-                    params={{ caseId: targetCaseId }}
+                    to="/cases/$caseId"
+                    params={{ caseId: item.id }}
                     className="flex items-center gap-4 p-4 transition-colors hover:bg-muted/50 group"
                   >
                     {/* Platform Emblem */}
@@ -384,7 +381,7 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
                     <div className="flex items-center gap-2">
                       <div className="hidden text-right md:block">
                         <p className="text-xs text-muted-foreground">Case reference</p>
-                        <p className="text-xs font-mono font-medium">{targetCaseId.slice(0, 8)}</p>
+                        <p className="text-xs font-mono font-medium">{item.id.slice(0, 8)}</p>
                       </div>
                       <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>

@@ -22,7 +22,8 @@ import {
   PaginationNext,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { fetchCaseHistory, deleteCaseFromSupabase, type CaseSummary } from "@/lib/supabase";
+import { getInfringements, type InfringementFeedItem } from "@/lib/api";
+import { deleteInfringementFromSupabase } from "@/lib/supabase";
 
 import { RiskBadge } from "@/components/risk-badge";
 import { Button } from "@/components/ui/button";
@@ -51,19 +52,40 @@ function pageItems(current: number, total: number): (number | "ellipsis")[] {
 }
 
 const RISK_ORDER: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-const ACTION_ORDER: Record<string, number> = { TAKEDOWN: 3, MONITOR: 2, DISMISS: 1 };
-const STATUS_ORDER: Record<string, number> = { pending: 1, analyzing: 2, complete: 3, error: 4 };
+const STATUS_ORDER: Record<string, number> = {
+  flagged: 1,
+  active: 2,
+  analyzing: 3,
+  pending: 4,
+  reviewed: 5,
+  escalated: 6,
+  resolved: 7,
+  complete: 7,
+  completed: 7,
+  safe: 8,
+  dismissed: 8,
+  declined: 9,
+  error: 10,
+};
 
 const STATUS_STYLES: Record<string, string> = {
+  flagged: "bg-risk-med/10 text-risk-med border-risk-med/30",
+  active: "bg-risk-med/10 text-risk-med border-risk-med/30",
   pending: "bg-muted text-muted-foreground border-border",
   analyzing: "bg-risk-med/10 text-risk-med border-risk-med/30",
+  reviewed: "bg-success/10 text-success border-success/30",
+  escalated: "bg-accent/10 text-accent border-accent/30",
   complete: "bg-success/10 text-success border-success/30",
   completed: "bg-success/10 text-success border-success/30",
-  error: "bg-risk-high/10 text-risk-high border-risk-high/30",
+  resolved: "bg-success/10 text-success border-success/30",
   safe: "bg-success/10 text-success border-success/30",
   dismissed: "bg-success/10 text-success border-success/30",
-  resolved: "bg-success/10 text-success border-success/30",
+  declined: "bg-risk-high/10 text-risk-high border-risk-high/30",
+  error: "bg-risk-high/10 text-risk-high border-risk-high/30",
 };
+
+/** Per-copycat rows still awaiting triage. */
+const PENDING_STATUSES = new Set(["flagged", "active"]);
 
 function CaseStatusBadge({ status }: { status: string }) {
   const label = (status === "complete" || status === "completed" || status === "resolved") ? "completed" : status;
@@ -74,7 +96,7 @@ function CaseStatusBadge({ status }: { status: string }) {
         STATUS_STYLES[label] ?? "bg-muted text-muted-foreground border-border",
       )}
     >
-      {label}
+      {label.replace(/_/g, " ")}
     </span>
   );
 }
@@ -140,7 +162,7 @@ function CasesLayout() {
 }
 
 function CasesList() {
-  const [all, setAll] = useState<CaseSummary[]>([]);
+  const [all, setAll] = useState<InfringementFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Restore the saved view only when returning from a case detail; otherwise start fresh.
@@ -164,10 +186,16 @@ function CasesList() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchCaseHistory(50, persona, activeClientId)
-      .then((history) => {
+    // One row per copycat: the backend persists an infringement per detected item,
+    // so the list shows each copycat as its own case while scans stay a single
+    // case + single AI prompt in the backend.
+    getInfringements({
+      limit: 200,
+      client_id: persona === "law_firm" && activeClientId ? activeClientId : undefined,
+    })
+      .then((res) => {
         if (!cancelled) {
-          setAll(history);
+          setAll(res.items);
           setLoading(false);
         }
       })
@@ -182,11 +210,11 @@ function CasesList() {
     };
   }, [persona, activeClientId]);
 
-  const handleDeleteCase = async (caseId: string) => {
+  const handleDeleteCase = async (infringementId: string) => {
     try {
-      const ok = await deleteCaseFromSupabase(caseId);
+      const ok = await deleteInfringementFromSupabase(infringementId);
       if (!ok) throw new Error("Could not complete delete operation.");
-      setAll((prev) => prev.filter((c) => c.id !== caseId));
+      setAll((prev) => prev.filter((c) => c.id !== infringementId));
       toast.success("Case deleted successfully");
     } catch (err: any) {
       console.error("Failed to delete case:", err);
@@ -194,20 +222,20 @@ function CasesList() {
     }
   };
 
-  const renderCaseRow = (c: CaseSummary) => {
-    const cCode = getRegionForId(c.id);
+  const renderCaseRow = (c: InfringementFeedItem) => {
+    const cCode = getRegionForId(c.case_id || c.id);
     const country = COUNTRY_BY_CODE[cCode];
     const macroReg = getMacroRegionForCountry(cCode);
     return (
       <TableRow key={c.id} className="group cursor-pointer">
         <TableCell>
           <Link
-            to="/monitoring/$caseId"
+            to="/cases/$caseId"
             params={{ caseId: c.id }}
             className="flex flex-col min-w-0"
           >
             <span className="truncate text-sm font-medium flex items-center gap-1.5">
-              {c.brand_name}
+              {c.brand_name ?? "Unknown brand"}
               <span
                 className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-muted border border-border/40 text-[9px] text-muted-foreground font-medium font-sans"
                 title={`${macroReg} (${country?.name || cCode}) Proxy Location`}
@@ -216,29 +244,23 @@ function CasesList() {
                 <span>{cCode}</span>
               </span>
             </span>
-            <span className="truncate text-xs text-muted-foreground font-mono">
-              {c.id.slice(0, 8)}
+            <span className="truncate text-xs text-muted-foreground font-mono" title={c.source_url}>
+              {c.source_url}
             </span>
           </Link>
         </TableCell>
+        <TableCell className="text-sm capitalize">{c.platform.replace(/_/g, " ")}</TableCell>
         <TableCell>
-          {c.risk_level ? (
-            <RiskBadge risk={c.risk_level.toLowerCase() as "high" | "medium" | "low"} />
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
+          <RiskBadge risk={c.risk_level.toLowerCase() as "high" | "medium" | "low"} />
         </TableCell>
-        <TableCell className="text-sm">{c.recommended_action ?? "—"}</TableCell>
         <TableCell>
           <CaseStatusBadge status={c.status} />
         </TableCell>
         <TableCell className="text-sm text-muted-foreground">
-          {new Date(c.created_at).toLocaleDateString()}
+          {new Date(c.flagged_at || c.created_at).toLocaleDateString()}
         </TableCell>
         <TableCell className="text-right font-mono text-sm">
-          {c.confidence_score != null
-            ? `${Math.round(c.confidence_score * 100)}%`
-            : "—"}
+          {`${Math.round(c.match_score * 100)}%`}
         </TableCell>
         <TableCell className="text-center">
           <div className="flex items-center justify-center gap-2">
@@ -248,7 +270,7 @@ function CasesList() {
               asChild
               className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
             >
-              <Link to="/monitoring/$caseId" params={{ caseId: c.id }}>
+              <Link to="/cases/$caseId" params={{ caseId: c.id }}>
                 See Case
               </Link>
             </Button>
@@ -327,34 +349,39 @@ function CasesList() {
 
   const filtered = all
     .filter((c) => riskFilter.length === 0 || riskFilter.includes(c.risk_level ?? ""))
-    .filter((c) => !search || c.brand_name.toLowerCase().includes(search.toLowerCase()))
+    .filter(
+      (c) =>
+        !search ||
+        (c.brand_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        c.source_url.toLowerCase().includes(search.toLowerCase()),
+    )
     .filter((c) => statusFilter.length === 0 || statusFilter.includes(c.status))
-    .filter((c) => inDateRange(c.created_at, dateRange))
-    .filter((c) => (c.confidence_score ?? 0) * 100 >= minConfidence)
+    .filter((c) => inDateRange(c.flagged_at || c.created_at, dateRange))
+    .filter((c) => (c.match_score ?? 0) * 100 >= minConfidence)
     .filter((c) => {
       if (selectedMacroRegion === "ALL") return true;
-      const cCode = getRegionForId(c.id);
+      const cCode = getRegionForId(c.case_id || c.id);
       const mReg = getMacroRegionForCountry(cCode);
       return mReg === selectedMacroRegion;
     })
     .sort((a, b) => {
       let cmp = 0;
-      if (sortBy === "brand") cmp = a.brand_name.localeCompare(b.brand_name);
+      if (sortBy === "brand") cmp = (a.brand_name ?? "").localeCompare(b.brand_name ?? "");
+      else if (sortBy === "platform") cmp = a.platform.localeCompare(b.platform);
       else if (sortBy === "risk")
         cmp = (RISK_ORDER[a.risk_level ?? ""] ?? 0) - (RISK_ORDER[b.risk_level ?? ""] ?? 0);
-      else if (sortBy === "action")
-        cmp =
-          (ACTION_ORDER[a.recommended_action ?? ""] ?? 0) -
-          (ACTION_ORDER[b.recommended_action ?? ""] ?? 0);
       else if (sortBy === "status")
         cmp = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
-      else if (sortBy === "confidence") cmp = (a.confidence_score ?? 0) - (b.confidence_score ?? 0);
-      else cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      else if (sortBy === "confidence") cmp = (a.match_score ?? 0) - (b.match_score ?? 0);
+      else
+        cmp =
+          new Date(a.flagged_at || a.created_at).getTime() -
+          new Date(b.flagged_at || b.created_at).getTime();
       return sortDir === "asc" ? cmp : -cmp;
     });
 
-  const pendingCases = filtered.filter((c) => c.status === "pending" || c.status === "analyzing");
-  const otherCases = filtered.filter((c) => c.status !== "pending" && c.status !== "analyzing");
+  const pendingCases = filtered.filter((c) => PENDING_STATUSES.has(c.status));
+  const otherCases = filtered.filter((c) => !PENDING_STATUSES.has(c.status));
 
   const totalPages = Math.max(1, Math.ceil(otherCases.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -389,7 +416,7 @@ function CasesList() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Cases</h1>
-          <p className="text-sm text-muted-foreground">Every brand check, organized by risk.</p>
+          <p className="text-sm text-muted-foreground">Every detected copycat as its own case, organized by risk.</p>
         </div>
         <div className="bg-muted/50 border border-border px-4 py-2.5 rounded-lg flex items-center gap-3 text-xs text-muted-foreground max-w-md shadow-sm">
           <Info className="h-4 w-4 text-accent shrink-0" />
@@ -424,7 +451,7 @@ function CasesList() {
         <div className="relative w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by brand…"
+            placeholder="Search by brand or URL…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 pr-9"
@@ -523,9 +550,9 @@ function CasesList() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <SortableHead field="brand" label="Brand" />
+                    <SortableHead field="brand" label="Brand / Copycat" />
+                    <SortableHead field="platform" label="Platform" />
                     <SortableHead field="risk" label="Risk" />
-                    <SortableHead field="action" label="Action" />
                     <SortableHead field="status" label="Status" />
                     <SortableHead field="date" label="Detected" />
                     <SortableHead
@@ -554,9 +581,9 @@ function CasesList() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <SortableHead field="brand" label="Brand" />
+                  <SortableHead field="brand" label="Brand / Copycat" />
+                  <SortableHead field="platform" label="Platform" />
                   <SortableHead field="risk" label="Risk" />
-                  <SortableHead field="action" label="Action" />
                   <SortableHead field="status" label="Status" />
                   <SortableHead field="date" label="Detected" />
                   <SortableHead
@@ -600,7 +627,7 @@ function CasesList() {
                     >
                       {filtered.length === 0 && (riskActive || statusActive || dateActive || confActive || search)
                         ? "No cases match your filters."
-                        : "No cases in triage history."}
+                        : "No copycats detected yet — run a scan to find them."}
                     </TableCell>
                   </TableRow>
                 )}
