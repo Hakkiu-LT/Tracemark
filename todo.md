@@ -1,7 +1,28 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-23 (session 13 — lead forms email notifications fully wired)
+> Last updated: 2026-07-25 (session 14 — per-copycat cases frontend split)
+
+---
+
+## 🔴 ACTIVE — Per-copycat cases in customer frontend (branch `feature/per-copycat-cases`)
+
+Backend scan → single case + single AI prompt stays unchanged; frontend shows one case per copycat.
+- [x] Migration `20260725000001_infringements_updated_at.sql` — `updated_at` column + trigger; **applied to live DB via `supabase db push`** (project re-linked in this session)
+- [x] Backend `routes/infringements.py` — return item's own status (`case_status` separate, no override), no cascade to parent case on PATCH, expose `brand_name`/`client_id`/`updated_at`
+- [x] Frontend `src/lib/api.ts` — extend `InfringementFeedItem`, `client_id` param on `getInfringements`
+- [x] `/cases` list — one row per copycat (platform, URL, per-item risk/status/confidence), row → `/cases/$infringementId`, per-row delete
+- [x] Dashboard — KPIs + 30-day success-rate trend count copycats instead of scans
+- [x] `InfringementAlertFeed` — rows link to per-copycat detail `/cases/$id`
+- [x] Verify: frontend tsc clean + backend pytest 233 passed
+- [x] Commit + push (end of session)
+
+## ✅ FIXED — Multi-region scans only scraped one country (session 14 follow-up)
+- [x] `check_brand` now forwards `target_regions` to `scrape_evidence` (was silently dropped → scraper defaulted to US only)
+- [x] Migration `20260725000002_infringements_detection_region.sql` — **applied to live DB**
+- [x] `persist_infringement` saves per-item `detection_region`; `GET /infringements` prefers item region over case region
+- [x] Frontend region chips/filters use real `detection_region` (hash fallback for legacy rows) — was showing arbitrary country from ID hash
+- [x] Verified: pytest 233 passed, tsc clean
 
 ---
 
