@@ -141,6 +141,8 @@ def persist_infringement(
                 "status": "flagged",
                 "screenshot_url": screenshot_url,
                 "client_id": client_id,
+                # Country this item was actually scraped from (multi-region scans).
+                "detection_region": getattr(item, "detection_region", None),
             },
             on_conflict="case_id,source_url",
         )

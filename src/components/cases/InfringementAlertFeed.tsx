@@ -133,7 +133,7 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
     .filter((i) => inDateRange(i.flagged_at || i.created_at, dateRange))
     .filter((i) => {
       if (!regionFilter || regionFilter === "ALL") return true;
-      const cCode = getRegionForId(i.case_id || i.id);
+      const cCode = i.detection_region || getRegionForId(i.case_id || i.id);
       const mReg = getMacroRegionForCountry(cCode);
       return mReg === regionFilter;
     });
@@ -350,7 +350,7 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
                           {item.platform}
                         </span>
                         {(() => {
-                          const cCode = getRegionForId(item.case_id || item.id);
+                          const cCode = item.detection_region || getRegionForId(item.case_id || item.id);
                           const conf = COUNTRY_BY_CODE[cCode];
                           return (
                             <span
