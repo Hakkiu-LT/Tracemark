@@ -13,6 +13,23 @@ shows **one case per copycat** (each item the scan found) instead of one case
 bundling all copycats. The data already exists: `persist_all_infringements()`
 writes one `infringements` row per copycat after every scan.
 
+### 🐛 Bug fixed this session — multi-region scans only scraped ONE country
+
+User report: selecting multiple countries in the scan UI only used one (e.g. DE).
+Root cause chain (all fixed):
+1. `check_brand` never forwarded `payload.target_regions` to `scrape_evidence()` →
+   `gather_evidence` default `countries=["US"]` → `batch_detect` fanned out over a
+   single country regardless of the UI selection. **Fix:** pass normalized
+   `countries=[r.upper() for r in target_regions] or ["US"]`.
+2. Case stored only `detection_region = target_regions[0]` while scraping ran US-only.
+3. Per-item `detection_region` (correctly stamped by `gather_evidence`) was never
+   persisted → **new migration `20260725000002`** adds `infringements.detection_region`
+   (applied to live DB); `persist_infringement` now saves it; `GET /infringements`
+   prefers the item's own region with the case's as fallback.
+4. Frontend region chips used `getRegionForId()` — a pure hash of the row ID showing
+   an arbitrary country (this is why "Germany" appeared). Now all chips/filters use
+   the real `detection_region`, hash only as legacy-row fallback.
+
 **Decisions (confirmed with user):**
 - Per-copycat rows link to the existing per-infringement detail page `/cases/$id`.
 - Status actions are per-copycat (existing `PATCH /infringements/{id}/status`),

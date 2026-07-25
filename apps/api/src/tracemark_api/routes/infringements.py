@@ -103,7 +103,9 @@ def _flatten_case_fields(row: dict) -> dict:
     flattened["brand_name"] = case_info.get("brand_name")
     flattened["case_status"] = case_info.get("status")
     flattened["case_updated_at"] = case_info.get("updated_at")
-    if case_info.get("detection_region") is not None:
+    # Prefer the item's own per-copycat region (multi-region scans); fall back
+    # to the parent case's region for rows persisted before that column existed.
+    if not flattened.get("detection_region"):
         flattened["detection_region"] = case_info.get("detection_region")
     return flattened
 

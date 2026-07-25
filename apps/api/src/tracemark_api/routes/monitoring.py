@@ -270,12 +270,16 @@ async def check_brand(
 
     try:
         # --- Step 1: scrape first, before touching the database ---
+        # Fan scrapers out across every selected region (normalized to ISO
+        # uppercase); previously target_regions was never forwarded, so the
+        # scraper silently fell back to its single-country ["US"] default.
         evidence = await scrape_evidence(
             payload.brand_name,
             payload.platforms,
             payload.official_advertisers or None,
             caller_id=caller_id,
             official_domains=payload.official_domains or None,
+            countries=[r.upper() for r in payload.target_regions if r.strip()] or ["US"],
         )
 
         # --- Step 1b: run Tier 0 deterministic funnel ---

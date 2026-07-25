@@ -223,7 +223,9 @@ function CasesList() {
   };
 
   const renderCaseRow = (c: InfringementFeedItem) => {
-    const cCode = getRegionForId(c.case_id || c.id);
+    // Prefer the real detection region; fall back to the legacy hash for rows
+    // persisted before per-copycat regions were stored.
+    const cCode = c.detection_region || getRegionForId(c.case_id || c.id);
     const country = COUNTRY_BY_CODE[cCode];
     const macroReg = getMacroRegionForCountry(cCode);
     return (
@@ -360,7 +362,7 @@ function CasesList() {
     .filter((c) => (c.match_score ?? 0) * 100 >= minConfidence)
     .filter((c) => {
       if (selectedMacroRegion === "ALL") return true;
-      const cCode = getRegionForId(c.case_id || c.id);
+      const cCode = c.detection_region || getRegionForId(c.case_id || c.id);
       const mReg = getMacroRegionForCountry(cCode);
       return mReg === selectedMacroRegion;
     })

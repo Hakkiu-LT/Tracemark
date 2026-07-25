@@ -41,7 +41,7 @@ function Dashboard() {
 
   const filteredInfringements = infringements.filter((i) => {
     if (selectedMacroRegion === "ALL") return true;
-    const cCode = getRegionForId(i.case_id || i.id);
+    const cCode = i.detection_region || getRegionForId(i.case_id || i.id);
     const mReg = getMacroRegionForCountry(cCode);
     return mReg === selectedMacroRegion;
   });
