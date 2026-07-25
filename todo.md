@@ -1,7 +1,21 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-23 (session 13 — lead forms email notifications fully wired)
+> Last updated: 2026-07-25 (session 14 — per-copycat cases frontend split)
+
+---
+
+## 🔴 ACTIVE — Per-copycat cases in customer frontend (branch `feature/per-copycat-cases`)
+
+Backend scan → single case + single AI prompt stays unchanged; frontend shows one case per copycat.
+- [ ] Migration `20260725000001_infringements_updated_at.sql` — `updated_at` column + trigger; **⚠️ file created — run `supabase db push` to apply** (frontend degrades gracefully without it)
+- [x] Backend `routes/infringements.py` — return item's own status (`case_status` separate, no override), no cascade to parent case on PATCH, expose `brand_name`/`client_id`/`updated_at`
+- [x] Frontend `src/lib/api.ts` — extend `InfringementFeedItem`, `client_id` param on `getInfringements`
+- [x] `/cases` list — one row per copycat (platform, URL, per-item risk/status/confidence), row → `/cases/$infringementId`, per-row delete
+- [x] Dashboard — KPIs + 30-day success-rate trend count copycats instead of scans
+- [x] `InfringementAlertFeed` — rows link to per-copycat detail `/cases/$id`
+- [x] Verify: frontend tsc clean + backend pytest 233 passed
+- [ ] Commit + push (end of session)
 
 ---
 

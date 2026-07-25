@@ -1,6 +1,6 @@
 import type { DateRange } from "react-day-picker";
 
-export type SortField = "brand" | "risk" | "action" | "status" | "date" | "confidence";
+export type SortField = "brand" | "platform" | "risk" | "status" | "date" | "confidence";
 export type SortDir = "asc" | "desc";
 
 /** The Cases list view, persisted for the session so it survives a case-detail round-trip. */

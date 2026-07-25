@@ -22,6 +22,10 @@ class InfringementItem(BaseModel):
     screenshot_url: str | None
     flagged_at: str
     created_at: str
+    updated_at: str | None = None
+    brand_name: str | None = None
+    client_id: str | None = None
+    case_status: str | None = None
     case_updated_at: str | None = None
     detection_region: str | None = None
 
@@ -69,7 +73,7 @@ def _infringement_or_404(infringement_id: str, org_id: str | None, user_id: str,
     Returns 404 (not 403) to avoid leaking existence of other orgs' data."""
     res = (
         sb.table("infringements")
-        .select("*, cases!inner(organization_id, user_id, detection_region, status, updated_at)")
+        .select("*, cases!inner(organization_id, user_id, brand_name, detection_region, status, updated_at)")
         .eq("id", infringement_id)
         .maybe_single()
         .execute()
@@ -88,6 +92,22 @@ def _infringement_or_404(infringement_id: str, org_id: str | None, user_id: str,
     return row
 
 
+def _flatten_case_fields(row: dict) -> dict:
+    """Lift joined case fields onto the infringement row (non-mutating copy).
+
+    The item keeps its OWN status (per-copycat management); the parent scan
+    case's status is exposed separately as ``case_status``.
+    """
+    case_info = row.get("cases") or {}
+    flattened = {k: v for k, v in row.items() if k != "cases"}
+    flattened["brand_name"] = case_info.get("brand_name")
+    flattened["case_status"] = case_info.get("status")
+    flattened["case_updated_at"] = case_info.get("updated_at")
+    if case_info.get("detection_region") is not None:
+        flattened["detection_region"] = case_info.get("detection_region")
+    return flattened
+
+
 @router.get("", response_model=InfringementsResponse)
 def list_infringements(
     risk_level: str | None = Query(None, description="HIGH, MEDIUM or LOW"),
@@ -104,7 +124,7 @@ def list_infringements(
 
     query = (
         sb.table("infringements")
-        .select("*, cases!inner(organization_id, user_id, status, updated_at)", count="exact")
+        .select("*, cases!inner(organization_id, user_id, brand_name, detection_region, status, updated_at)", count="exact")
         .order("flagged_at", desc=True)
         .limit(limit)
         .offset(offset)
@@ -131,13 +151,9 @@ def list_infringements(
 
     result = query.execute()
 
-    # Flatten cases status and updated_at
-    items = []
-    for row in (result.data or []):
-        case_info = row.get("cases") or {}
-        row["status"] = case_info.get("status") or row.get("status")
-        row["case_updated_at"] = case_info.get("updated_at")
-        items.append(row)
+    # Lift joined case fields (brand_name, case_status, …) onto each item.
+    # The item keeps its own per-copycat status.
+    items = [_flatten_case_fields(row) for row in (result.data or [])]
 
     return InfringementsResponse(
         items=items,
@@ -150,15 +166,10 @@ def get_infringement(
     infringement_id: str,
     profile: CurrentProfile = Depends(get_current_profile),
 ) -> InfringementItem:
-    """Return a single infringement by id."""
+    """Return a single infringement by id (with its own per-copycat status)."""
     sb = get_supabase()
     data = _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
-
-    cases_data = data.get("cases") or {}
-    data["detection_region"] = cases_data.get("detection_region")
-    data["status"] = cases_data.get("status") or data.get("status")
-    data["case_updated_at"] = cases_data.get("updated_at")
-    return data
+    return _flatten_case_fields(data)
 
 
 @router.get("/{infringement_id}/evidence", response_model=list[EvidenceItem])
@@ -190,11 +201,16 @@ def update_infringement_status(
     payload: UpdateStatusRequest,
     profile: CurrentProfile = Depends(get_current_profile),
 ) -> InfringementItem:
-    """Update the status of an infringement."""
+    """Update the status of a single infringement (per-copycat).
+
+    The parent scan case is intentionally NOT updated — each copycat is managed
+    independently in the customer frontend; scan-level status changes happen on
+    the scan-result page via the monitoring routes.
+    """
     sb = get_supabase()
     # Verify ownership via parent case (prevents cross-tenant status writes).
     _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
-        
+
     updates = {"status": payload.status}
     if payload.decline_reason is not None:
         updates["decline_reason"] = payload.decline_reason
@@ -217,30 +233,11 @@ def update_infringement_status(
             print(f"[Infringements] Decline reason fallback: {payload.decline_reason}")
         else:
             raise e
-    
+
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to update status")
-        
-    updated_inf = result.data[0]
-    
-    # Cascade status update to the linked case (trigger will set updated_at to now)
-    case_id = updated_inf.get("case_id")
-    if case_id:
-        case_updates = {"status": payload.status}
-        if payload.decline_reason is not None:
-            case_updates["decline_reason"] = payload.decline_reason
-        try:
-            case_res = (
-                sb.table("cases")
-                .update(case_updates)
-                .eq("id", case_id)
-                .select("status, updated_at")
-                .execute()
-            )
-            if case_res.data:
-                updated_inf["status"] = case_res.data[0].get("status") or updated_inf["status"]
-                updated_inf["case_updated_at"] = case_res.data[0].get("updated_at")
-        except Exception as e_case:
-            print(f"[Infringements] Failed to sync case status: {e_case}")
-            
-    return updated_inf
+
+    # Return the fully hydrated item (brand_name, case_status, detection_region…)
+    # so clients can refresh their cache with a single consistent shape.
+    updated = _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
+    return _flatten_case_fields(updated)

@@ -328,7 +328,7 @@ Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables
 *Refining frontend views to present copycats as individual, actionable cases to maximize user engagement and streamline enforcement workflows.*
 
 ### Frontend
-- **Decouple Scan Results into Individual UI Cases** | ❌ Missing | Adapt the dashboard feed and details pages so that each detected copycat (drawn from the `infringements` table) is displayed as an independent, individual "case/alert." This will increase user alert density and allow the user to execute direct actions (takedown, escalation, whitelist, dismiss) on a per-copycat basis, while maintaining a single, cost-efficient scan execution on the backend.
+- **Decouple Scan Results into Individual UI Cases** | ✅ Done | `/cases` list now shows one case per copycat (from `GET /infringements`), with per-item platform/URL/risk/status/confidence, per-row delete, and rows linking to the per-copycat detail `/cases/$id`. Dashboard KPIs + 30-day success-rate trend count copycats instead of scans; the live alert feed links to per-copycat details. Backend scan stays a single case + single AI prompt. Supporting changes: `GET/PATCH /infringements` return the item's own status (`case_status` separate, no cascade to parent case), expose `brand_name`/`client_id`/`updated_at`; migration `20260725000001` adds `infringements.updated_at` + trigger. Admin parity already existed (admin case detail lists infringements; `infringements_admin.py` PATCH with audit log).
 - **Patrick's Frontend Review Items** | ❌ Missing | Implement UI cleanups and adjustments as advised by Patrick.
 
 ### Backend
