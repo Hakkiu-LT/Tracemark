@@ -19,8 +19,8 @@ if "SUPABASE_SERVICE_ROLE_KEY" not in os.environ and "SUPABASE_SECRET_KEY" in os
 
 @pytest.mark.integration
 def test_supabase_credentials():
-    url = os.environ.get("VITE_SUPABASE_URL") or os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    url = os.environ.get("SUPABASE_URL") or os.environ.get("VITE_SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SECRET_KEY")
     
     assert url is not None, "SUPABASE_URL / VITE_SUPABASE_URL environment variable is not defined in .env"
     assert key is not None, "SUPABASE_SECRET_KEY / SUPABASE_SERVICE_ROLE_KEY environment variable is not defined in .env"
