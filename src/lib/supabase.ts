@@ -28,32 +28,19 @@ const isValidUrl = (url: string | undefined): boolean => {
   return url.startsWith("http://") || url.startsWith("https://");
 };
 
-// Secure cookie storage: moves auth tokens from localStorage to cookies with
-// Secure + SameSite=Strict flags. Cookies are still JS-readable (not httpOnly)
-// â€” full httpOnly would require a server-side session proxy.
-const secureCookieStorage = {
-  getItem: (key: string): string | null => {
-    if (typeof document === "undefined") return null;
-    const encoded = encodeURIComponent(key).replace(/[+.*]/g, "\\$&");
-    const match = document.cookie.match(new RegExp(`(?:^|; )${encoded}=([^;]*)`));
-    return match ? decodeURIComponent(match[1]) : null;
-  },
-  setItem: (key: string, value: string): void => {
-    if (typeof document === "undefined") return;
-    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; path=/; max-age=604800; Secure; SameSite=Strict`;
-  },
-  removeItem: (key: string): void => {
-    if (typeof document === "undefined") return;
-    document.cookie = `${encodeURIComponent(key)}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict`;
-  },
-};
-
+// Session persistence uses Supabase's default localStorage. A previous custom
+// single-cookie storage broke auth: a full Supabase session (JWT + refresh token
+// + user) routinely exceeds the browser's ~4 KB single-cookie limit, so the cookie
+// was silently dropped/truncated and getSession() could not restore the token —
+// which surfaced as API calls sent with NO Authorization header. XSS token theft
+// is mitigated by the app's CSP headers.
 export const supabase =
   isValidUrl(supabaseUrl) && supabaseKey
     ? createClient(supabaseUrl!, supabaseKey, {
         auth: {
-          storage: secureCookieStorage,
           storageKey: "hakkiu-auth",
+          persistSession: true,
+          autoRefreshToken: true,
         },
       })
     : null;

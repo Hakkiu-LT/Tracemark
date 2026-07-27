@@ -6,29 +6,13 @@ import { createClient } from "@supabase/supabase-js";
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
-// Secure cookie storage: moves auth tokens from localStorage to cookies with
-// Secure + SameSite=Strict flags.
-const secureCookieStorage = {
-  getItem: (key: string): string | null => {
-    if (typeof document === "undefined") return null;
-    const encoded = encodeURIComponent(key).replace(/[+.*]/g, "\\$&");
-    const match = document.cookie.match(new RegExp(`(?:^|; )${encoded}=([^;]*)`));
-    return match ? decodeURIComponent(match[1]) : null;
-  },
-  setItem: (key: string, value: string): void => {
-    if (typeof document === "undefined") return;
-    document.cookie = `${encodeURIComponent(key)}=${encodeURIComponent(value)}; path=/; max-age=604800; Secure; SameSite=Strict`;
-  },
-  removeItem: (key: string): void => {
-    if (typeof document === "undefined") return;
-    document.cookie = `${encodeURIComponent(key)}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict`;
-  },
-};
-
+// Session persistence uses Supabase's default localStorage. A previous custom
+// single-cookie storage broke auth: a full Supabase session exceeds the browser's
+// ~4 KB single-cookie limit, so the cookie was silently dropped and getSession()
+// could not restore the token (API calls went out with no Authorization header).
 export const supabase = createClient(url, anonKey, {
   auth: {
     storageKey: "tracemark-admin-auth",
-    storage: secureCookieStorage,
     persistSession: true,
     autoRefreshToken: true,
   },
