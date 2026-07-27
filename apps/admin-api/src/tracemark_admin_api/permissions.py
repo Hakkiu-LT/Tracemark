@@ -14,15 +14,13 @@ from __future__ import annotations
 # Namespaced as "<resource>.<action>".
 PERMISSIONS: dict[str, str] = {
     "customers.view": "View customer list and detail",
+    "customers.create": "Create a new customer dashboard login",
     "customers.edit": "Edit customer profile / workspace type",
     "customers.delete": "Delete customers (destructive)",
     "customers.impersonate": "Log in as a customer (destructive)",
     "brands.view": "View all brands across every org",
     "brands.edit": "Edit any brand",
     "brands.delete": "Delete any brand",
-    "billing.view": "View subscriptions and invoices",
-    "billing.manage": "Change plans, cancel/modify subscriptions",
-    "entitlements.manage": "Set custom per-org limits (brands/platforms/features) for Pro/Enterprise deals",
     "resources.view": "System metrics (CPU/RAM) and API usage",
     "scraper_health.view": "Per-platform scraper health (success rate, latency, failures)",
     "integrations.manage": "Meta token exchange and integration keys",
@@ -48,9 +46,8 @@ ROLE_PRESETS: dict[str, set[str]] = {
     },
     "sales": {
         "customers.view",
+        "customers.create",
         "customers.edit",
-        "billing.view",
-        "billing.manage",
         "brands.view",
         "leads.view",
         "leads.edit",

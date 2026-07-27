@@ -459,8 +459,8 @@ function SuccessScreen({ form }: { form: FormData }) {
           </Link>
         </Button>
         <Button asChild variant="outline" className="h-12 gap-2 rounded-xl border-white/20 text-white hover:bg-white/10 px-6">
-          <Link to="/plans">
-            See pricing
+          <Link to="/landing" hash="features">
+            Explore features
           </Link>
         </Button>
       </div>

@@ -7,7 +7,6 @@ from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, 
 from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
 from tracemark_api.services.database import get_supabase, create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
 from tracemark_api.services.evidence_scorer import score_evidence
-from tracemark_api.services.entitlements import resolve_detection_depth, DetectionDepth
 from tracemark_api.services.persistence import persist_all_infringements, persist_scored_evidence_item
 from tracemark_api.services.detection_funnel import run_tier0_and_filter, run_tier1, filter_evidence_by_scored
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
@@ -67,12 +66,6 @@ def _assert_takedown_in_org(sb, takedown_id: str, org_id: str) -> dict:
     if case_info.get("organization_id") != org_id:
         raise HTTPException(status_code=404, detail=f"Takedown report with ID {takedown_id} not found")
     return row
-
-
-def _require_paid_plan(profile: CurrentProfile) -> None:
-    """Require an active paid subscription before triggering real scrapes."""
-    if (profile.plan or "free").lower() == "free":
-        raise HTTPException(status_code=402, detail="Active paid plan required to run scrapes. Upgrade to continue.")
 
 
 @router.post("/analyze", response_model=MonitorResponse)
@@ -137,7 +130,6 @@ async def gather_evidence_endpoint(
     payload: GatherEvidenceRequest,
     profile: CurrentProfile = Depends(get_current_profile),
 ) -> Evidence:
-    _require_paid_plan(profile)
     caller_id = profile.email or profile.id
     try:
         evidence = await scrape_evidence(
@@ -168,7 +160,6 @@ async def check_ads_endpoint(
     Detect ad hijacking: unauthorized Google/Meta ads using a brand name to steal traffic.
     Whitelist official page names via official_advertisers (e.g. ["Orbio World", "Orbio Official"]).
     """
-    _require_paid_plan(profile)
     caller_id = profile.email or profile.id
     try:
         return await check_ads_hijacking(
@@ -190,65 +181,6 @@ class CheckBrandRequest(BaseModel):
     client_id: str | None = None
 
 
-def _enforce_scan_entitlements(profile: CurrentProfile, payload: CheckBrandRequest) -> None:
-    """Reject a scan that asks for more than the caller's plan allows, with a
-    clear upsell message. The frontend gates the same limits in the UI; this is
-    the authoritative server-side check (and guards direct API callers)."""
-    ent = profile.entitlements
-
-    platforms = payload.platforms or []
-    if ent.exceeds_platforms(len(platforms)):
-        raise HTTPException(
-            status_code=402,
-            detail=(
-                f"Your {profile.plan} plan can scan {ent.platforms} platform"
-                f"{'s' if (ent.platforms or 0) != 1 else ''} per check. "
-                "Upgrade to Growth or higher to scan all platforms."
-            ),
-        )
-
-    if "domains" in platforms and not ent.domain_tracking:
-        raise HTTPException(
-            status_code=402,
-            detail=(
-                "Domain tracking isn't included in your plan. Add the 'Domain "
-                "tracking' add-on or upgrade to Pro to monitor look-alike domains."
-            ),
-        )
-
-    regions = payload.target_regions or []
-    if ent.exceeds_regions(len(regions)):
-        raise HTTPException(
-            status_code=402,
-            detail=(
-                f"Your {profile.plan} plan includes {ent.regions} scan region"
-                f"{'s' if (ent.regions or 0) != 1 else ''}. "
-                "Add the 'Additional regions' add-on to scan more markets."
-            ),
-        )
-
-
-def _reject_if_brand_locked(org_id: str, brand_name: str) -> None:
-    """Frozen (downgrade-excess) brands can't be scanned until re-activated."""
-    sb = get_supabase()
-    res = (
-        sb.table("brands")
-        .select("status")
-        .eq("organization_id", org_id)
-        .eq("brand_name", brand_name)
-        .execute()
-    )
-    rows = res.data or []
-    if rows and all(r.get("status") == "locked" for r in rows):
-        raise HTTPException(
-            status_code=402,
-            detail=(
-                "This brand is locked on your current plan. Upgrade or free up a "
-                "brand slot to resume monitoring it."
-            ),
-        )
-
-
 @router.post("/check-brand")
 @limiter.limit("5/hour")
 async def check_brand(
@@ -260,11 +192,8 @@ async def check_brand(
     A case is only created in the database if copycats are actually found."""
     caller_id = profile.email or profile.id or "system"
 
-    # Enforce plan entitlements before spending any scraping budget.
-    _enforce_scan_entitlements(profile, payload)
-    await asyncio.to_thread(_reject_if_brand_locked, profile.organization_id, payload.brand_name)
-
-    detection_depth: DetectionDepth = resolve_detection_depth(profile.entitlements)
+    # Every logged-in user gets the full detection funnel.
+    detection_depth = "tier2"
     organization_id = profile.organization_id
     detection_region = payload.target_regions[0] if payload.target_regions else "US"
 

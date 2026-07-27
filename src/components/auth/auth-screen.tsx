@@ -101,7 +101,7 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
         variant="outline"
         className="absolute right-6 top-6 z-30 h-11 border-border/60 bg-background/50 px-5 text-sm text-muted-foreground backdrop-blur hover:bg-background/70 hover:text-foreground sm:right-10"
       >
-        <Link to="/plans">← Back to plans</Link>
+        <Link to="/landing">← Back to home</Link>
       </Button>
 
       <div className="grid flex-1 lg:grid-cols-[1.6fr_1fr]">
@@ -321,8 +321,8 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
             ) : (
               <p className="mt-8 text-center text-sm text-muted-foreground">
                 No account yet?{" "}
-                <Link to="/plans" className="font-semibold text-foreground transition-colors hover:text-accent">
-                  Purchase a plan to get started
+                <Link to="/request-demo" className="font-semibold text-foreground transition-colors hover:text-accent">
+                  Book a demo to get started
                 </Link>
               </p>
             )}

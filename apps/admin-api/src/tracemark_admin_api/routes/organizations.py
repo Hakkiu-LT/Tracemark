@@ -1,4 +1,4 @@
-"""Company-centric admin views: organizations, their members, usage, and billing.
+"""Company-centric admin views: organizations, their members, and usage.
 
 An "organization" is a customer company. Its members are rows in organization_members
 (the access/grouping layer); a member's billing anchor stays on profiles.organization_id.
@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from tracemark_admin_api import main_api
 from tracemark_admin_api.clients import admin_sb, customer_sb
 from tracemark_admin_api.dependencies import StaffPrincipal, require_permission
 from tracemark_admin_api.services.audit import write_audit_log
@@ -42,10 +41,8 @@ class OrgRow(BaseModel):
     name: str | None
     industry: str | None
     persona: str | None
-    plan: str
     member_count: int
     brand_count: int
-    mrr: int
 
 
 class Member(BaseModel):
@@ -53,31 +50,16 @@ class Member(BaseModel):
     email: str
     full_name: str | None
     org_role: str
-    plan: str
 
 
 class OrgDetail(OrgRow):
     members: list[Member]
     brands: list[dict]
-    subscription: dict | None
-    invoices: list[dict]
 
 
 class UpdateOrgRequest(BaseModel):
     name: str | None = None
     industry: str | None = None
-
-
-class EntitlementOverrideRequest(BaseModel):
-    brands_override: int | None = None       # -1 = unlimited; None = don't change
-    platforms_override: int | None = None
-    regions_override: int | None = None
-    domain_tracking: bool | None = None
-    managed_takedown: bool | None = None
-    api_access: bool | None = None
-    advanced_reports: bool | None = None
-    real_time_scans: bool | None = None
-    note: str | None = None
 
 
 class AddMemberRequest(BaseModel):
@@ -97,11 +79,8 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
 
     orgs = sb.table("organizations").select("id, name, industry").limit(1000).execute().data or []
     members = sb.table("organization_members").select("organization_id, user_id").limit(5000).execute().data or []
-    profiles = sb.table("profiles").select("id, organization_id, plan").limit(1000).execute().data or []
     org_settings = sb.table("org_settings").select("organization_id, persona").limit(1000).execute().data or []
     brands = sb.table("brands").select("organization_id").limit(5000).execute().data or []
-    clients = sb.table("clients").select("organization_id, mrr").limit(5000).execute().data or []
-    subs = sb.table("subscriptions").select("organization_id, plan, status").limit(1000).execute().data or []
 
     members_by_org: dict[str, int] = {}
     for m in members:
@@ -112,16 +91,6 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
         if oid:
             brands_by_org[oid] = brands_by_org.get(oid, 0) + 1
     persona_by_org = {r["organization_id"]: r.get("persona") for r in org_settings}
-    plan_by_org = {p["organization_id"]: p.get("plan", "free") for p in profiles if p.get("organization_id")}
-    # Active subscription plan wins over the mirrored profiles.plan.
-    for s in subs:
-        if s.get("status") in ("active", "trialing", "past_due") and s.get("plan"):
-            plan_by_org[s["organization_id"]] = s["plan"]
-    mrr_by_org: dict[str, int] = {}
-    for c in clients:
-        oid = c.get("organization_id")
-        if oid:
-            mrr_by_org[oid] = mrr_by_org.get(oid, 0) + int(c.get("mrr") or 0)
 
     out: list[OrgRow] = []
     for o in orgs:
@@ -133,10 +102,8 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
                 name=o.get("name"),
                 industry=o.get("industry"),
                 persona=persona_by_org.get(o["id"]),
-                plan=plan_by_org.get(o["id"], "free"),
                 member_count=members_by_org.get(o["id"], 0),
                 brand_count=brands_by_org.get(o["id"], 0),
-                mrr=mrr_by_org.get(o["id"], 0),
             )
         )
     out.sort(key=lambda r: (r.name or "").lower())
@@ -161,7 +128,7 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
         sb.table("organization_members").select("user_id, role").eq("organization_id", org_id).execute().data
         or []
     )
-    prof_rows = sb.table("profiles").select("id, full_name, plan").execute().data or []
+    prof_rows = sb.table("profiles").select("id, full_name").execute().data or []
     prof_by_id = {p["id"]: p for p in prof_rows}
     members = [
         Member(
@@ -169,7 +136,6 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
             email=emails.get(m["user_id"], "unknown@example.com"),
             full_name=(prof_by_id.get(m["user_id"]) or {}).get("full_name"),
             org_role=m.get("role", "member"),
-            plan=(prof_by_id.get(m["user_id"]) or {}).get("plan", "free"),
         )
         for m in membership
     ]
@@ -177,82 +143,21 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
     persona = (
         sb.table("org_settings").select("persona").eq("organization_id", org_id).maybe_single().execute()
     )
-    sub_res = (
-        sb.table("subscriptions").select("*").eq("organization_id", org_id)
-        .order("created_at", desc=True).limit(1).execute()
-    )
-    subscription = sub_res.data[0] if sub_res.data else None
-    invoices = (
-        sb.table("invoices").select("*").eq("organization_id", org_id)
-        .order("created_at", desc=True).execute().data or []
-    )
-    plan = subscription["plan"] if (subscription and subscription.get("status") in ("active", "trialing", "past_due")) else None
-    if not plan:
-        anyprof = next((p for p in prof_rows if p["id"] in {m["user_id"] for m in membership}), None)
-        plan = (anyprof or {}).get("plan", "free")
-    clients = sb.table("clients").select("mrr").eq("organization_id", org_id).execute().data or []
-    mrr = sum(int(c.get("mrr") or 0) for c in clients)
     brands = (
         sb.table("brands").select("*").eq("organization_id", org_id)
         .order("created_at", desc=True).execute().data or []
     )
 
-    can_view_billing = staff.has("billing.view")
     return OrgDetail(
         id=org["id"],
         name=org.get("name"),
         industry=org.get("industry"),
         persona=(persona.data or {}).get("persona") if persona else None,
-        plan=plan,
         member_count=len(members),
         brand_count=len(brands),
-        mrr=mrr,
         members=members,
         brands=brands,
-        subscription=subscription if can_view_billing else None,
-        invoices=invoices if can_view_billing else [],
     )
-
-
-# ── usage (everything vs limits) ──────────────────────────────────────────────
-@router.get("/{org_id}/usage")
-def organization_usage(org_id: str, staff: StaffPrincipal = Depends(require_permission("customers.view"))):
-    sb = customer_sb()
-    _org_or_404(org_id)
-
-    ent = main_api.get_entitlements(org_id)  # {plan, entitlements:{...}, addons:[...]}
-    limits = ent.get("entitlements", {})
-
-    brands = sb.table("brands").select("id, target_regions").eq("organization_id", org_id).execute().data or []
-    case_count = _count("cases", "organization_id", org_id)
-    case_ids = [c["id"] for c in (sb.table("cases").select("id").eq("organization_id", org_id).execute().data or [])]
-    infr_count = 0
-    if case_ids:
-        infr_count = (
-            sb.table("infringements").select("id", count="exact").in_("case_id", case_ids).execute().count or 0
-        )
-    regions_used = sorted({r for b in brands for r in (b.get("target_regions") or [])})
-
-    return {
-        "plan": ent.get("plan"),
-        "limits": limits,
-        "addons": ent.get("addons", []),
-        "usage": {
-            "brands": len(brands),
-            "brands_limit": limits.get("brands"),
-            "cases": case_count,
-            "infringements": infr_count,
-            "regions_used": len(regions_used),
-            "regions": regions_used,
-            "regions_limit": limits.get("regions"),
-            "platforms_limit": limits.get("platforms"),
-            "domain_tracking": limits.get("domain_tracking"),
-            "managed_takedown": limits.get("managed_takedown"),
-            "api_access": limits.get("api_access"),
-            "advanced_reports": limits.get("advanced_reports"),
-            "real_time_scans": limits.get("real_time_scans"),
-        },
-    }
 
 
 # ── edit + members ────────────────────────────────────────────────────────────
@@ -344,61 +249,3 @@ def remove_member(
         ip=request.client.host if request.client else None,
     )
     return {"success": True}
-
-
-# ── Entitlement overrides (Pro/Enterprise custom limits) ──────────────────────
-
-@router.get("/{org_id}/entitlement-override")
-def get_org_entitlement_override(
-    org_id: str,
-    staff: StaffPrincipal = Depends(require_permission("entitlements.manage")),
-):
-    """Read the current admin entitlement override for an org."""
-    _org_or_404(org_id)
-    return main_api.get_entitlement_override(org_id)
-
-
-@router.put("/{org_id}/entitlement-override")
-def set_org_entitlement_override(
-    org_id: str,
-    request: Request,
-    payload: EntitlementOverrideRequest,
-    staff: StaffPrincipal = Depends(require_permission("entitlements.manage")),
-):
-    """Set or update custom entitlement limits for a Pro/Enterprise org.
-
-    Any field left null is ignored (keeps existing value). Use -1 for unlimited
-    on numeric fields. After saving, brand locks are reconciled automatically.
-    """
-    _org_or_404(org_id)
-    # Pass all 8 override fields (including null) so the main API can clear individual
-    # fields back to "inherit from plan+addons". Note is optional — only include if set.
-    data = payload.model_dump(exclude={"note"})
-    if payload.note is not None:
-        data["note"] = payload.note
-    result = main_api.set_entitlement_override(org_id, data)
-    write_audit_log(
-        staff, "organizations.set_entitlement_override",
-        target_type="organization", target_id=org_id, target_org_id=org_id,
-        metadata={"overrides": data},
-        ip=request.client.host if request.client else None,
-    )
-    return result
-
-
-@router.delete("/{org_id}/entitlement-override")
-def clear_org_entitlement_override(
-    org_id: str,
-    request: Request,
-    staff: StaffPrincipal = Depends(require_permission("entitlements.manage")),
-):
-    """Remove all custom overrides for an org (reverts to plan+addon limits)."""
-    _org_or_404(org_id)
-    result = main_api.clear_entitlement_override(org_id)
-    write_audit_log(
-        staff, "organizations.clear_entitlement_override",
-        target_type="organization", target_id=org_id, target_org_id=org_id,
-        metadata={},
-        ip=request.client.host if request.client else None,
-    )
-    return result

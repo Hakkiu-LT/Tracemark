@@ -360,7 +360,19 @@ sandbox first, then live.
 
 ---
 
-## Current focus: Production deployment to Hetzner (domain hakkiu.com)
+## Current focus (2026-07-27): Book-a-demo pivot — pricing/Stripe fully removed
+
+**Business model change:** no self-serve pricing/Stripe anywhere. The public site shows only
+"Book a demo" / "Contact sales" (lead capture → `/leads`). After a demo, STAFF create customer
+dashboard logins via the Admin Portal (`POST /customers` → `sb.auth.admin.create_user`, gated by
+`customers.create`, audit-logged). Access is purely login-based — **all plan/subscription/
+entitlement gating removed** across customer FE, main API, and admin. Any logged-in user gets
+full access (this also removes the old `RequirePaidPlan` gate that bounced users to `/plans`).
+DB billing tables are left unused (no destructive migration). Deployed live via manual
+`git pull && docker compose up -d --build` on the server (auto-deploy still pending Gabriel's
+GitHub secrets). Follow-up: disable public sign-ups in Supabase Auth. See `todo.md` for details.
+
+## Prior focus: Production deployment to Hetzner (domain hakkiu.com) — LIVE
 
 Decision (confirmed this session): **everything runs on the Hetzner server** (incl. the
 customer frontend), **automatic deploy** via GitHub Actions, **Caddy** for reverse proxy +

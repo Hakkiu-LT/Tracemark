@@ -13,7 +13,6 @@ from tracemark_admin_api.routes.staff import router as staff_router
 from tracemark_admin_api.routes.customers import router as customers_router
 from tracemark_admin_api.routes.organizations import router as organizations_router
 from tracemark_admin_api.routes.brands_admin import router as brands_router
-from tracemark_admin_api.routes.billing_admin import router as billing_router
 from tracemark_admin_api.routes.resources import router as resources_router
 from tracemark_admin_api.routes.meta import router as meta_router
 from tracemark_admin_api.routes.audit import router as audit_router
@@ -43,7 +42,6 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(staff_router, prefix="/api/v1")
 app.include_router(customers_router, prefix="/api/v1")
 app.include_router(organizations_router, prefix="/api/v1")
-app.include_router(billing_router, prefix="/api/v1")
 app.include_router(brands_router, prefix="/api/v1")
 app.include_router(resources_router, prefix="/api/v1")
 app.include_router(meta_router, prefix="/api/v1")

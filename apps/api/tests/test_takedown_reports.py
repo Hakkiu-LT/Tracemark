@@ -13,11 +13,9 @@ FAKE_ORG_ID = "fake-org"
 @pytest.fixture(autouse=True)
 def override_auth():
     from tracemark_api.dependencies import get_current_profile, CurrentProfile
-    from tracemark_api.services.entitlements import compute_entitlements
     profile = CurrentProfile(
         id="fake-id", email="fake@tracemark.io",
         organization_id=FAKE_ORG_ID,
-        plan="enterprise", entitlements=compute_entitlements("enterprise", []),
     )
     app.dependency_overrides[get_current_profile] = lambda: profile
     yield

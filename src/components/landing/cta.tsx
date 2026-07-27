@@ -119,7 +119,7 @@ export function CTA() {
                 variant="outline"
                 className="border-white/25 bg-white/5 text-white hover:border-white/40 hover:bg-white/10 hover:text-white dark:border-slate-300 dark:bg-transparent dark:text-slate-900 dark:hover:bg-slate-100 dark:hover:text-slate-900"
               >
-                <Link to="/plans">
+                <Link to="/request-demo">
                   Book a demo
                   <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
