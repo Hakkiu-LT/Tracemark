@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { HeroV3 } from "@/components/landing/hero-v3";
 import { LandingNav } from "@/components/landing/landing-nav";
@@ -7,7 +6,6 @@ import { Workflow } from "@/components/landing/workflow";
 import { Coverage } from "@/components/landing/coverage";
 import { Features } from "@/components/landing/features";
 import { ExposureCalculator } from "@/components/landing/exposure-calculator";
-import { TalkToSalesModal } from "@/components/landing/talk-to-sales-modal";
 import { Button } from "@/components/ui/button";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 
@@ -32,12 +30,8 @@ export const Route = createFileRoute("/landing")({
 });
 
 function LandingPage() {
-  const [salesOpen, setSalesOpen] = useState(false);
-
   return (
     <div className="min-h-screen bg-background text-foreground antialiased selection:bg-foreground selection:text-background">
-      <TalkToSalesModal open={salesOpen} onOpenChange={setSalesOpen} />
-
       {/* TOP NAV */}
       <LandingNav />
 
@@ -70,12 +64,14 @@ function LandingPage() {
             monitoring needs.
           </p>
           <Button
+            asChild
             size="lg"
-            onClick={() => setSalesOpen(true)}
             className="mt-8 h-12 gap-2 rounded-lg bg-foreground px-8 text-sm font-semibold text-background shadow-md hover:bg-foreground/90 transition-all cursor-pointer"
           >
-            Book a demo
-            <ArrowRight className="h-4 w-4" />
+            <Link to="/request-demo">
+              Book a demo
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </Button>
         </div>
       </div>
