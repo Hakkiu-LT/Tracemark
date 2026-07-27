@@ -556,54 +556,6 @@ def first_detection_html(
     return _base(content, preheader=f"First scan complete — {detection_count} potential infringement{plural} found for {brand_name}")
 
 
-def payment_failed_html(
-    *,
-    user_name: str,
-    attempt: int,
-    plan_name: str,
-    amount_display: str,
-    billing_url: str,
-    days_until_pause: int,
-) -> str:
-    urgency_map = {
-        1: (f"Your payment for HAKKIU didn't go through — quick fix needed", _DARK),
-        2: (f"Reminder: payment still pending — update in {days_until_pause} days", "#d97706"),
-        3: (f"Last notice: monitoring pauses in {days_until_pause} day{'s' if days_until_pause != 1 else ''}", "#dc2626"),
-    }
-    headline, headline_color = urgency_map.get(attempt, urgency_map[1])
-
-    content = f"""
-<h2 style="margin:0 0 4px;font-size:20px;color:{headline_color};">{headline}</h2>
-<p style="margin:0 0 20px;color:{_MUTED};font-size:14px;">
-  Hi {user_name}, we couldn't process your payment for the <strong>{plan_name}</strong> plan ({amount_display}).
-</p>
-
-<table width="100%" cellpadding="0" cellspacing="0"
-       style="border:1px solid #fde68a;border-radius:6px;background:#fffbeb;">
-  <tr>
-    <td style="padding:16px;">
-      <p style="margin:0;font-size:14px;color:#92400e;">
-        <strong>What happens next:</strong> Your monitoring will be paused in
-        <strong>{days_until_pause} day{'s' if days_until_pause != 1 else ''}</strong> unless payment is updated.
-        Active takedowns will not be affected.
-      </p>
-    </td>
-  </tr>
-</table>
-
-{_divider()}
-<p style="margin:0 0 4px;font-size:14px;color:{_TEXT};font-weight:600;">Fix it in 30 seconds</p>
-<p style="margin:0;font-size:14px;color:{_TEXT};">
-  Update your payment method — your subscription will resume automatically.
-</p>
-{_btn("Update Payment Method", billing_url, "#d97706")}
-<p style="margin:20px 0 0;font-size:13px;color:{_MUTED};">
-  If you have questions, reply to this email and we'll help sort it out.
-</p>
-"""
-    return _base(content, preheader=f"Action needed: payment for {plan_name} subscription")
-
-
 def new_lead_html(
     *,
     source: str | None,

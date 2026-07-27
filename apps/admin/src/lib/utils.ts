@@ -24,9 +24,6 @@ export function ensureAbsoluteUrl(url: string | null | undefined): string {
 }
 
 export const ACTION_LABELS: Record<string, string> = {
-  "billing.cancel": "Subscription cancelled",
-  "billing.plan_change": "Plan changed",
-  "billing.resume": "Subscription resumed",
   "brands.asset_add": "Brand photo uploaded",
   "brands.asset_delete": "Brand photo removed",
   "brands.delete": "Brand deleted",
@@ -34,6 +31,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "cases.bulk_edit": "Bulk-updated cases",
   "cases.delete": "Case deleted",
   "cases.edit": "Case edited",
+  "customer.create": "Customer login created",
   "customers.delete": "Customer deleted",
   "customers.edit": "Customer edited",
   "customers.impersonate": "Customer impersonated",
@@ -46,8 +44,6 @@ export const ACTION_LABELS: Record<string, string> = {
   "organizations.edit": "Company edited",
   "organizations.remove_member": "Member removed",
   "organizations.update_member": "Member role updated",
-  "organizations.set_entitlement_override": "Custom limits set",
-  "organizations.clear_entitlement_override": "Custom limits cleared",
   "staff.create": "Staff created",
   "staff.delete": "Staff deleted",
   "staff.set_permissions": "Permissions changed",

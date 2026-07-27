@@ -64,14 +64,12 @@ export function HeroV3() {
           {/* Action Buttons */}
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Button
-              asChild
               size="lg"
+              onClick={() => setSalesOpen(true)}
               className="h-12 rounded-lg bg-foreground px-7 text-sm font-semibold text-background shadow-md transition-all hover:bg-foreground/90 hover:shadow-lg cursor-pointer"
             >
-              <Link to="/auth/sign-up" className="flex items-center gap-2">
-                Start Free Trial
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              Book a demo
+              <ArrowRight className="h-4 w-4" />
             </Button>
 
             <Button
@@ -80,15 +78,15 @@ export function HeroV3() {
               variant="outline"
               className="h-12 rounded-lg border-border/80 bg-background px-7 text-sm font-medium text-foreground transition-all hover:bg-muted cursor-pointer"
             >
-              <Link to="/plans" className="flex items-center gap-2">
+              <Link to="/auth/sign-in" className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-emerald-500" />
-                Compare Plans
+                Sign in
               </Link>
             </Button>
           </div>
 
           <p className="mt-4 text-xs text-muted-foreground">
-            Need to talk first?{" "}
+            Already have questions?{" "}
             <button
               onClick={() => setSalesOpen(true)}
               className="font-medium text-foreground underline underline-offset-2 hover:no-underline cursor-pointer"

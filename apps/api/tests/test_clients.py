@@ -3,7 +3,6 @@ import pytest
 from fastapi.testclient import TestClient
 from tracemark_api.main import app
 from tracemark_api.dependencies import get_current_profile, CurrentProfile
-from tracemark_api.services.entitlements import compute_entitlements
 
 client = TestClient(app)
 
@@ -15,8 +14,6 @@ def override_auth():
         id="550e8400-e29b-41d4-a716-446655440000",
         email="gabo.seqq@gmail.com",
         organization_id=FAKE_ORG_ID,
-        plan="enterprise",
-        entitlements=compute_entitlements("enterprise", []),
     )
     app.dependency_overrides[get_current_profile] = lambda: profile
     yield

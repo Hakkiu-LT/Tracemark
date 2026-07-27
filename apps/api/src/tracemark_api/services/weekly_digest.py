@@ -14,18 +14,20 @@ _APP_URL = os.environ.get("EMAIL_BASE_URL", "https://hakkiu.com").rstrip("/")
 
 
 def _active_orgs() -> list[dict]:
-    """Return orgs that have an active subscription and a notification email."""
+    """Return every org that has a resolvable notification email.
+
+    Access is login-based (no plans/subscriptions), so the digest targets all
+    customer orgs — the notification email comes from org_settings, falling back
+    to the org's admin profile.
+    """
     try:
         from tracemark_api.services.database import get_supabase
         sb = get_supabase()
 
-        subs = (
-            sb.table("subscriptions")
-            .select("organization_id")
-            .eq("status", "active")
-            .execute()
-        )
-        org_ids = [r["organization_id"] for r in (subs.data or []) if r.get("organization_id")]
+        profs = sb.table("profiles").select("organization_id").execute()
+        org_ids = sorted({
+            r["organization_id"] for r in (profs.data or []) if r.get("organization_id")
+        })
         if not org_ids:
             return []
 

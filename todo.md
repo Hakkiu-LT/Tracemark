@@ -1,7 +1,23 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-25 (session 14 — per-copycat cases frontend split)
+> Last updated: 2026-07-27 (session 15 — pricing/Stripe removal + book-a-demo pivot)
+
+---
+
+## ✅ DONE — Remove pricing/Stripe/plan-gating → book-a-demo model (2026-07-27)
+
+Product pivot: no pricing/Stripe anywhere; site shows only "Book a demo" / "Contact sales".
+Staff create dashboard logins via admin. Access = having a login (NO plan/entitlement checks).
+
+- [x] **Customer FE (`src/`)** — deleted stripe.ts, billing.ts, entitlements.ts, plans/checkout/review/configure/billing.success/billing.cancel/settings.billing routes, pricing.tsx, ClientBillingCard. Removed `RequirePaidPlan` gate in `__root.tsx` (was bouncing logged-in users to /plans). Removed billing endpoints/types from api.ts, entitlement caps in monitoring.new. Landing CTAs → "Book a demo" (TalkToSalesModal). Removed @stripe/* deps. tsc + build clean.
+- [x] **Main API (`apps/api`)** — deleted billing.py, billing_config.py, entitlements.py, seed_stripe.py, test_billing/test_entitlements. Removed `_require_paid_plan`/`_enforce_scan_entitlements`/`_reject_if_brand_locked` gates; `CurrentProfile` now = user+org only; removed internal billing/entitlement endpoints; removed stripe dep; weekly_digest targets all orgs (not subscriptions). import OK, 203 tests pass.
+- [x] **Admin (`apps/admin` + `apps/admin-api`)** — deleted billing_admin.py; removed plan/subscription/MRR/entitlement-override UI + endpoints + `billing.*`/`entitlements.manage` permissions; removed orphaned `/organizations/{id}/usage` + `get_entitlements` proxy. import + build clean.
+- [x] **NEW — staff can create customer logins** — `POST /customers` (`sb.auth.admin.create_user`, email_confirm), permission `customers.create` (parity in permissions.py + permissions.ts), audit-logged; "Create customer" button + dialog on Customers.tsx.
+- [x] DB: no destructive migration — subscriptions/subscription_addons/invoices/org_entitlement_overrides/stripe_events tables left unused (safe/reversible).
+- [ ] **Deploy to server** so the live dashboard stops redirecting to pricing: `cd /opt/hakkiu && git pull && docker compose up -d --build`.
+- [ ] Supabase → Auth → **disable public sign-ups** (staff-created logins only; otherwise anyone can self-register and get full access).
+- [ ] Optional later: drop unused billing tables + `profiles.plan` protection trigger via migration; remove now-unused `VITE_STRIPE_PUBLISHABLE_KEY` build arg in compose/Dockerfile.
 
 ---
 

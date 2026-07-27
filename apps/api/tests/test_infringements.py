@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 from tracemark_api.main import app
 from tracemark_api.dependencies import get_current_profile, CurrentProfile
-from tracemark_api.services.entitlements import compute_entitlements
 
 FAKE_ORG_ID = "fake-org"
 FAKE_USER_ID = "fake-id"
@@ -17,8 +16,6 @@ FAKE_PROFILE = CurrentProfile(
     id=FAKE_USER_ID,
     email="test@example.com",
     organization_id=FAKE_ORG_ID,
-    plan="enterprise",
-    entitlements=compute_entitlements("enterprise", []),
 )
 
 SAMPLE_INFRINGEMENT = {
