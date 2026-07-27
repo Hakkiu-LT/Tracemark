@@ -1,7 +1,30 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-25 (session 14 — per-copycat cases frontend split)
+> Last updated: 2026-07-27 (session 16 — book-demo form enrichment + nav cleanup)
+
+---
+
+## 🟢 LAST SESSION (16) — Enrich book-a-demo form so we know the prospect before the call
+
+**Goal:** the book-a-demo flow now qualifies the prospect deeply so sales can prep
+before the demo. The `/request-demo` wizard grew 4→6 steps and captures, on top of the
+old name/email/company/brand-count/message: **role, phone, website, markets (regions),
+brand names, marketplaces where they see abuse, primary goals, and current solution.**
+Only website + role are required (low-friction, high-value); everything else optional.
+
+- **Data path (unchanged plumbing):** POST `/api/v1/leads` → `sales_leads` table. Added 8
+  nullable columns via migration `20260727000001_sales_leads_v3.sql`. The other two
+  `/leads` sources (Talk-to-sales modal, legacy pricing modal) still work — new fields
+  are optional.
+- **Notifications (already existed, now richer):** every submit inserts the row AND emails
+  `LEADS_NOTIFY_EMAILS` staff via Resend (`new_lead_html`), which now shows all new fields;
+  the row is visible + manageable in the admin portal at `/leads` (new fields shown inline +
+  in an expandable detail row).
+- **Nav cleanup:** removed "Sign in" from the landing nav; right side is now "Talk to sales"
+  (quick modal) + "Book a demo" (routes to the enriched `/request-demo` wizard).
+- ✅ **Migration applied to live DB** — `supabase db push` (2026-07-27); `sales_leads`
+  now has all 8 new columns, so the enriched form works end-to-end.
 
 ---
 
@@ -360,7 +383,19 @@ sandbox first, then live.
 
 ---
 
-## Current focus: Production deployment to Hetzner (domain hakkiu.com)
+## Current focus (2026-07-27): Book-a-demo pivot — pricing/Stripe fully removed
+
+**Business model change:** no self-serve pricing/Stripe anywhere. The public site shows only
+"Book a demo" / "Contact sales" (lead capture → `/leads`). After a demo, STAFF create customer
+dashboard logins via the Admin Portal (`POST /customers` → `sb.auth.admin.create_user`, gated by
+`customers.create`, audit-logged). Access is purely login-based — **all plan/subscription/
+entitlement gating removed** across customer FE, main API, and admin. Any logged-in user gets
+full access (this also removes the old `RequirePaidPlan` gate that bounced users to `/plans`).
+DB billing tables are left unused (no destructive migration). Deployed live via manual
+`git pull && docker compose up -d --build` on the server (auto-deploy still pending Gabriel's
+GitHub secrets). Follow-up: disable public sign-ups in Supabase Auth. See `todo.md` for details.
+
+## Prior focus: Production deployment to Hetzner (domain hakkiu.com) — LIVE
 
 Decision (confirmed this session): **everything runs on the Hetzner server** (incl. the
 customer frontend), **automatic deploy** via GitHub Actions, **Caddy** for reverse proxy +
@@ -380,6 +415,18 @@ so `vite preview` does NOT run workerd). We self-host by running the built worke
 `.dockerignore` secret-leak fix, `.env.production.example`, `.github/workflows/deploy.yml`,
 `scripts/backup.sh`. Remaining work is on the server (DNS, hardening, secrets, first deploy) —
 those need the user's credentials and are documented step-by-step in `docs/DEPLOYMENT.md`.
+
+**Fixed (env pass-through gap):** `docker-compose.yml` originally listed only AI/scraping vars
+under `api`/`admin-api` `environment:`, and since `.env` is `.dockerignore`'d there was no
+`env_file:`, so Stripe billing (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_*`),
+Resend email (`RESEND_API_KEY`, `EMAIL_FROM`) and `CUSTOMER_APP_URL` would have been UNSET in
+the containers — silently breaking billing + email in prod. Added `env_file: - .env` to both API
+services (the explicit `environment:` block still wins for the name remaps). Also added
+`VITE_STRIPE_PUBLISHABLE_KEY` as a frontend build arg (`src/Dockerfile` + compose) — required by
+`src/lib/stripe.ts` for customer Stripe checkout.
+
+**Open server-side gotcha:** the deploy workflow runs `git fetch/reset` on the server, so the
+private repo needs pull access there (deploy key or PAT) — not yet spelled out in the runbook.
 
 **Trade-off noted:** `wrangler dev` self-host is fine for MVP; scaling later → `wrangler deploy`
 to real Cloudflare (one command) and drop the `frontend` container.

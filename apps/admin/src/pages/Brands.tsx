@@ -35,7 +35,6 @@ interface BrandRow {
 interface OrgRow {
   id: string;
   name: string | null;
-  plan: string;
 }
 
 export function Brands() {

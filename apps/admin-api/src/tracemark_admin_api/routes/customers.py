@@ -1,7 +1,7 @@
 """Customer management across ALL organizations (service-role, bypasses RLS).
 
-List/detail migrate the old main-API /admin/users logic; edit/delete are new
-full-control actions. Plan changes and subscription actions live in billing_admin.py.
+List/detail migrate the old main-API /admin/users logic; create/edit/delete are
+new full-control actions.
 """
 from __future__ import annotations
 
@@ -27,15 +27,19 @@ class CustomerRow(BaseModel):
     email: str
     full_name: str | None
     organization_id: str | None
-    plan: str
     is_admin: bool
     persona: str | None = None
 
 
 class CustomerDetail(CustomerRow):
     brands: list[dict]
-    subscription: dict | None
-    invoices: list[dict]
+
+
+class CreateCustomerRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str | None = None
+    organization_id: str | None = None  # optional: attach to an existing org
 
 
 class UpdateCustomerRequest(BaseModel):
@@ -57,13 +61,13 @@ def _persona_by_org(sb) -> dict[str, str | None]:
 
 @router.get("", response_model=list[CustomerRow])
 def list_customers(staff: StaffPrincipal = Depends(require_permission("customers.view"))):
-    """Every registered customer with email, plan, org and workspace persona."""
+    """Every registered customer with email, org and workspace persona."""
     sb = customer_sb()
     emails = _email_map(sb)
     personas = _persona_by_org(sb)
     profiles = (
         sb.table("profiles")
-        .select("id, full_name, organization_id, plan, is_admin")
+        .select("id, full_name, organization_id, is_admin")
         .limit(1000)
         .execute()
         .data
@@ -78,12 +82,76 @@ def list_customers(staff: StaffPrincipal = Depends(require_permission("customers
                 email=emails.get(p["id"], "unknown@example.com"),
                 full_name=p.get("full_name"),
                 organization_id=org_id,
-                plan=p.get("plan", "free"),
                 is_admin=bool(p.get("is_admin", False)),
                 persona=personas.get(org_id) if org_id else None,
             )
         )
     return out
+
+
+@router.post("", response_model=CustomerRow)
+def create_customer(
+    request: Request,
+    payload: CreateCustomerRequest,
+    staff: StaffPrincipal = Depends(require_permission("customers.create")),
+):
+    """Create a customer dashboard login (auth user) in the customer Supabase project.
+
+    A DB trigger auto-creates the matching profiles row. If organization_id is given,
+    the profile is anchored to that org and a membership row is attached the same way
+    the org-membership endpoints do.
+    """
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    sb = customer_sb()
+
+    # 1. Optionally validate the target org up front.
+    if payload.organization_id:
+        org = (
+            sb.table("organizations").select("id").eq("id", payload.organization_id)
+            .maybe_single().execute()
+        )
+        if not org or not org.data:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+    # 2. Create the auth user (email confirmed, no confirmation email).
+    try:
+        created = sb.auth.admin.create_user(
+            {
+                "email": payload.email,
+                "password": payload.password,
+                "email_confirm": True,
+            }
+        )
+        new_id = created.user.id
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Could not create auth user: {exc}")
+
+    # 3. Populate name / org on the trigger-created profile, and attach membership.
+    prof_updates: dict = {}
+    if payload.full_name is not None:
+        prof_updates["full_name"] = payload.full_name
+    if payload.organization_id:
+        prof_updates["organization_id"] = payload.organization_id
+    if prof_updates:
+        sb.table("profiles").update(prof_updates).eq("id", new_id).execute()
+    if payload.organization_id:
+        sb.table("organization_members").upsert(
+            {"organization_id": payload.organization_id, "user_id": new_id, "role": "member"},
+            on_conflict="organization_id,user_id",
+        ).execute()
+
+    write_audit_log(
+        staff,
+        "customer.create",
+        target_type="customer",
+        target_id=new_id,
+        target_org_id=payload.organization_id,
+        metadata={"email": payload.email, "organization_id": payload.organization_id},
+        ip=request.client.host if request.client else None,
+    )
+    return _row_after_update(sb, new_id)
 
 
 @router.get("/{user_id}", response_model=CustomerDetail)
@@ -101,46 +169,20 @@ def get_customer(
     emails = _email_map(sb)
     personas = _persona_by_org(sb)
 
-    # Billing is anchored on organization_id, falling back to the user's own id for
-    # single-member accounts (mirrors the main API's _billing_org_id behavior).
-    billing_anchor = org_id or user_id
-
     brands = (
         sb.table("brands").select("*").eq("organization_id", org_id).execute().data
         if org_id
         else []
     ) or []
-    sub_res = (
-        sb.table("subscriptions")
-        .select("*")
-        .eq("organization_id", billing_anchor)
-        .order("created_at", desc=True)
-        .limit(1)
-        .execute()
-    )
-    subscription = sub_res.data[0] if sub_res.data else None
-    invoices = (
-        sb.table("invoices")
-        .select("*")
-        .eq("organization_id", billing_anchor)
-        .order("created_at", desc=True)
-        .execute()
-        .data
-        or []
-    )
 
-    can_view_billing = staff.has("billing.view")
     return CustomerDetail(
         id=p["id"],
         email=emails.get(p["id"], "unknown@example.com"),
         full_name=p.get("full_name"),
         organization_id=org_id,
-        plan=p.get("plan", "free"),
         is_admin=bool(p.get("is_admin", False)),
         persona=personas.get(org_id) if org_id else None,
         brands=brands,
-        subscription=subscription if can_view_billing else None,
-        invoices=invoices if can_view_billing else [],
     )
 
 
@@ -158,7 +200,7 @@ def update_customer(
     sb = customer_sb()
     prof = (
         sb.table("profiles")
-        .select("full_name, organization_id, plan, is_admin")
+        .select("full_name, organization_id, is_admin")
         .eq("id", user_id)
         .maybe_single()
         .execute()
@@ -223,7 +265,6 @@ def _row_after_update(sb, user_id: str) -> CustomerRow:
         email=emails.get(p["id"], "unknown@example.com"),
         full_name=p.get("full_name"),
         organization_id=org_id,
-        plan=p.get("plan", "free"),
         is_admin=bool(p.get("is_admin", False)),
         persona=personas.get(org_id) if org_id else None,
     )

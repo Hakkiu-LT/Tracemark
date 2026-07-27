@@ -8,7 +8,6 @@ import { InfringementAlertFeed } from "@/components/cases/InfringementAlertFeed"
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell, Legend } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { getInfringements } from "@/lib/api";
-import { ClientBillingCard } from "@/components/ClientBillingCard";
 import { cn } from "@/lib/utils";
 import { getRegionForId, getMacroRegionForCountry } from "@/lib/regions";
 
@@ -183,12 +182,6 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {persona === "law_firm" && (
-        <div className="grid grid-cols-1 gap-4">
-          <ClientBillingCard />
-        </div>
-      )}
 
       <InfringementAlertFeed regionFilter={selectedMacroRegion} />
     </div>

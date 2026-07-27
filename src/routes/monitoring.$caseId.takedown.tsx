@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
 import { fetchCaseFromSupabase, supabase } from "@/lib/supabase";
-import { updateTakedownReport, sendTakedownEmail, chargeManagedTakedown } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { updateTakedownReport, sendTakedownEmail } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,7 +24,6 @@ import {
   Save,
   CloudUpload,
   Download,
-  Gavel,
 } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -71,51 +69,6 @@ function MethodBadge({ method }: { method: TakedownReport["submission_method"] }
       <Icon className="h-3 w-3" />
       {cfg.label}
     </span>
-  );
-}
-
-// Optional paid add-on (Pro & Agency): let our team submit + follow up on this
-// takedown for a one-off $500 fee, billed to the card on file. Idempotent per report.
-function ManagedTakedownAction({ report }: { report: TakedownReport }) {
-  const { profile } = useAuth();
-  const [charging, setCharging] = useState(false);
-  const [requested, setRequested] = useState(false);
-
-  // Managed takedown is available only on Pro and Agency tiers.
-  if (profile?.plan !== "pro" && profile?.plan !== "agency") return null;
-
-  const handleRequest = async () => {
-    setCharging(true);
-    try {
-      await chargeManagedTakedown(report.id!);
-      setRequested(true);
-      toast.success("Managed takedown requested", {
-        description:
-          "Our team will submit and follow up. A $500 fee was added to your next invoice.",
-      });
-    } catch (e) {
-      toast.error("Could not request managed takedown", {
-        description: e instanceof Error ? e.message : undefined,
-      });
-    } finally {
-      setCharging(false);
-    }
-  };
-
-  return (
-    <Button
-      onClick={handleRequest}
-      disabled={charging || requested}
-      variant="outline"
-      className="w-full border-amber-500/30 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600"
-    >
-      {charging ? (
-        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-      ) : (
-        <Gavel className="h-4 w-4 mr-2" />
-      )}
-      {requested ? "Managed takedown requested" : "Let us handle it — $500"}
-    </Button>
   );
 }
 
@@ -192,7 +145,6 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
           )}
           {report.status === "sent" ? "Marked as Sent" : "Mark as Sent"}
         </Button>
-        <ManagedTakedownAction report={report} />
       </div>
     );
   }
@@ -232,7 +184,6 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
         )}
         {report.status === "sent" ? "Sent" : "Send email directly"}
       </Button>
-      <ManagedTakedownAction report={report} />
     </div>
   );
 }

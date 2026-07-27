@@ -27,9 +27,17 @@ interface FormData {
   type: DemoType | null;
   firstName: string;
   lastName: string;
+  role: string;
   email: string;
+  phone: string;
   company: string;
+  website: string;
+  regions: string[];
   brandCount: string;
+  brandNames: string;
+  marketplaces: string[];
+  currentSolution: string;
+  primaryGoal: string[];
   message: string;
 }
 
@@ -42,7 +50,26 @@ const BRAND_COUNT_OPTIONS = [
   { value: "20+",   label: "20+ brands" },
 ];
 
-const TOTAL_STEPS = 4; // type → name → email → company
+const REGION_OPTIONS = [
+  "North America", "Europe", "UK", "Asia-Pacific",
+  "Latin America", "Middle East & Africa", "Global",
+];
+
+const MARKETPLACE_OPTIONS = [
+  "Amazon", "eBay", "Alibaba", "AliExpress", "DHgate", "Temu",
+  "Etsy", "Walmart", "Shopify stores", "Social media", "Standalone websites", "Other",
+];
+
+const CURRENT_SOLUTION_OPTIONS = [
+  "Nothing yet", "In-house team", "Law firm / agency", "Another software tool", "Other",
+];
+
+const PRIMARY_GOAL_OPTIONS = [
+  "Counterfeit products", "Unauthorized sellers", "Trademark / logo abuse",
+  "Marketplace takedowns", "Domain / website abuse", "Social media impersonation",
+];
+
+const TOTAL_STEPS = 6; // type → you → contact → company → brands → needs
 
 function RequestDemoPage() {
   const [step, setStep] = useState(0);
@@ -56,9 +83,17 @@ function RequestDemoPage() {
     type: null,
     firstName: "",
     lastName: "",
+    role: "",
     email: "",
+    phone: "",
     company: "",
+    website: "",
+    regions: [],
     brandCount: "",
+    brandNames: "",
+    marketplaces: [],
+    currentSolution: "",
+    primaryGoal: [],
     message: "",
   });
 
@@ -68,9 +103,11 @@ function RequestDemoPage() {
 
   function canAdvance() {
     if (step === 0) return form.type !== null;
-    if (step === 1) return form.firstName.trim() !== "" && form.lastName.trim() !== "";
+    if (step === 1) return form.firstName.trim() !== "" && form.lastName.trim() !== "" && form.role.trim() !== "";
     if (step === 2) return form.email.trim() !== "" && form.email.includes("@");
-    if (step === 3) return form.company.trim() !== "" && form.brandCount !== "";
+    if (step === 3) return form.company.trim() !== "" && form.website.trim() !== "";
+    if (step === 4) return form.brandCount !== "";
+    if (step === 5) return true; // final step — everything here is optional
     return false;
   }
 
@@ -108,9 +145,17 @@ function RequestDemoPage() {
           source: "request_demo",
           first_name: form.firstName,
           last_name: form.lastName,
+          role: form.role,
           email: form.email,
+          phone: form.phone || undefined,
           company: form.company,
+          website: form.website,
+          regions: form.regions.length ? form.regions : undefined,
           brand_count_range: form.brandCount,
+          brand_names: form.brandNames || undefined,
+          marketplaces: form.marketplaces.length ? form.marketplaces : undefined,
+          current_solution: form.currentSolution || undefined,
+          primary_goal: form.primaryGoal.length ? form.primaryGoal : undefined,
           message: form.message || undefined,
         }),
       });
@@ -125,9 +170,11 @@ function RequestDemoPage() {
     }
   }
 
-  // Allow Enter key to advance
+  // Allow Enter key to advance (but not from a textarea — Shift already excluded)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "TEXTAREA") return;
       if (e.key === "Enter" && !e.shiftKey && !submitted) {
         if (canAdvance()) advance();
       }
@@ -159,7 +206,7 @@ function RequestDemoPage() {
       )}
 
       {/* Main content */}
-      <div className="flex flex-1 items-center justify-center px-6">
+      <div className="flex flex-1 items-center justify-center px-6 py-10">
         {submitted ? (
           <SuccessScreen form={form} />
         ) : (
@@ -239,7 +286,7 @@ function StepContent({
   loading: boolean;
   error: string | null;
 }) {
-  const isLastStep = step === 3;
+  const isLastStep = step === TOTAL_STEPS - 1;
 
   return (
     <div className="space-y-8">
@@ -247,6 +294,8 @@ function StepContent({
       {step === 1 && <Step1 form={form} patch={patch} />}
       {step === 2 && <Step2 form={form} patch={patch} />}
       {step === 3 && <Step3 form={form} patch={patch} />}
+      {step === 4 && <Step4 form={form} patch={patch} />}
+      {step === 5 && <Step5 form={form} patch={patch} />}
 
       {error && (
         <p className="text-sm text-red-400">{error}</p>
@@ -289,7 +338,7 @@ function Step0({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) 
 
   return (
     <div>
-      <QuestionLabel n={1} total={4} />
+      <QuestionLabel n={1} />
       <h2 className="mt-3 font-display text-3xl font-bold leading-snug md:text-4xl">
         How can we help you today?
       </h2>
@@ -327,7 +376,7 @@ function Step0({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) 
   );
 }
 
-// ── Step 1 — Name ─────────────────────────────────────────────────────────────
+// ── Step 1 — Name + role ──────────────────────────────────────────────────────
 
 function Step1({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) => void }) {
   const firstRef = useRef<HTMLInputElement>(null);
@@ -335,7 +384,7 @@ function Step1({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) 
 
   return (
     <div>
-      <QuestionLabel n={2} total={4} />
+      <QuestionLabel n={2} />
       <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">
         Let's start with your name
       </h2>
@@ -354,32 +403,12 @@ function Step1({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) 
           required
         />
       </div>
-    </div>
-  );
-}
-
-// ── Step 2 — Email ────────────────────────────────────────────────────────────
-
-function Step2({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) => void }) {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => { ref.current?.focus(); }, []);
-
-  return (
-    <div>
-      <QuestionLabel n={3} total={4} />
-      <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">
-        What's your business email?
-      </h2>
-      <p className="mt-2 text-white/60">
-        By clicking OK, your data will be used to respond to your request.
-      </p>
-      <div className="mt-8">
+      <div className="mt-4">
+        <FieldLabel>Your role</FieldLabel>
         <DemoInput
-          ref={ref}
-          type="email"
-          placeholder="name@company.com"
-          value={form.email}
-          onChange={(v) => patch({ email: v })}
+          placeholder="e.g. Brand Manager, Legal Counsel, Founder"
+          value={form.role}
+          onChange={(v) => patch({ role: v })}
           required
         />
       </div>
@@ -387,7 +416,48 @@ function Step2({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) 
   );
 }
 
-// ── Step 3 — Company details ──────────────────────────────────────────────────
+// ── Step 2 — Email + phone ──────────────────────────────────────────────────────
+
+function Step2({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+
+  return (
+    <div>
+      <QuestionLabel n={3} />
+      <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">
+        How can we reach you?
+      </h2>
+      <p className="mt-2 text-white/60">
+        By clicking OK, your data will be used to respond to your request.
+      </p>
+      <div className="mt-8 space-y-4">
+        <div>
+          <FieldLabel>Business email</FieldLabel>
+          <DemoInput
+            ref={ref}
+            type="email"
+            placeholder="name@company.com"
+            value={form.email}
+            onChange={(v) => patch({ email: v })}
+            required
+          />
+        </div>
+        <div>
+          <FieldLabel optional>Phone number</FieldLabel>
+          <DemoInput
+            type="tel"
+            placeholder="+1 555 000 0000"
+            value={form.phone}
+            onChange={(v) => patch({ phone: v })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Step 3 — Company + website + regions ────────────────────────────────────────
 
 function Step3({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) => void }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -395,42 +465,126 @@ function Step3({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) 
 
   return (
     <div>
-      <QuestionLabel n={4} total={4} />
+      <QuestionLabel n={4} />
       <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">
-        Tell us about your brand
+        Tell us about your company
       </h2>
       <div className="mt-8 space-y-4">
-        <DemoInput
-          ref={ref}
-          placeholder="Company name"
-          value={form.company}
-          onChange={(v) => patch({ company: v })}
-          required
-        />
         <div>
-          <p className="mb-2 text-sm font-medium text-white/70">Number of brands you protect</p>
-          <div className="flex flex-wrap gap-2">
-            {BRAND_COUNT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => patch({ brandCount: opt.value })}
-                className={cn(
-                  "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
-                  form.brandCount === opt.value
-                    ? "border-[oklch(0.58_0.18_255)] bg-[oklch(0.58_0.18_255)]/15 text-white"
-                    : "border-white/20 bg-white/5 text-white/70 hover:border-white/40",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <FieldLabel>Company name</FieldLabel>
+          <DemoInput
+            ref={ref}
+            placeholder="Company name"
+            value={form.company}
+            onChange={(v) => patch({ company: v })}
+            required
+          />
         </div>
-        <DemoTextarea
-          placeholder="Anything specific we should know? (optional)"
-          value={form.message}
-          onChange={(v) => patch({ message: v })}
-        />
+        <div>
+          <FieldLabel>Website</FieldLabel>
+          <DemoInput
+            type="text"
+            placeholder="company.com"
+            value={form.website}
+            onChange={(v) => patch({ website: v })}
+            required
+          />
+          <p className="mt-1.5 text-xs text-white/40">
+            Helps us research your brand before the call.
+          </p>
+        </div>
+        <div>
+          <FieldLabel optional>Markets you sell in</FieldLabel>
+          <ChipGroup
+            options={REGION_OPTIONS.map((r) => ({ value: r, label: r }))}
+            selected={form.regions}
+            multi
+            onToggle={(v) => patch({ regions: toggle(form.regions, v) })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Step 4 — Brands ─────────────────────────────────────────────────────────────
+
+function Step4({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) => void }) {
+  return (
+    <div>
+      <QuestionLabel n={5} />
+      <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">
+        Tell us about your brands
+      </h2>
+      <div className="mt-8 space-y-5">
+        <div>
+          <FieldLabel>Number of brands you protect</FieldLabel>
+          <ChipGroup
+            options={BRAND_COUNT_OPTIONS}
+            selected={form.brandCount ? [form.brandCount] : []}
+            onToggle={(v) => patch({ brandCount: v })}
+          />
+        </div>
+        <div>
+          <FieldLabel optional>Brand / product names</FieldLabel>
+          <DemoInput
+            placeholder="e.g. Acme, Acme Pro, SuperWidget"
+            value={form.brandNames}
+            onChange={(v) => patch({ brandNames: v })}
+          />
+          <p className="mt-1.5 text-xs text-white/40">
+            We can pre-scan these before your demo.
+          </p>
+        </div>
+        <div>
+          <FieldLabel optional>Where do you see infringement?</FieldLabel>
+          <ChipGroup
+            options={MARKETPLACE_OPTIONS.map((m) => ({ value: m, label: m }))}
+            selected={form.marketplaces}
+            multi
+            onToggle={(v) => patch({ marketplaces: toggle(form.marketplaces, v) })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Step 5 — Needs ───────────────────────────────────────────────────────────────
+
+function Step5({ form, patch }: { form: FormData; patch: (u: Partial<FormData>) => void }) {
+  return (
+    <div>
+      <QuestionLabel n={6} />
+      <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">
+        What are you trying to solve?
+      </h2>
+      <div className="mt-8 space-y-5">
+        <div>
+          <FieldLabel optional>Primary goals</FieldLabel>
+          <ChipGroup
+            options={PRIMARY_GOAL_OPTIONS.map((g) => ({ value: g, label: g }))}
+            selected={form.primaryGoal}
+            multi
+            onToggle={(v) => patch({ primaryGoal: toggle(form.primaryGoal, v) })}
+          />
+        </div>
+        <div>
+          <FieldLabel optional>How do you handle this today?</FieldLabel>
+          <ChipGroup
+            options={CURRENT_SOLUTION_OPTIONS.map((s) => ({ value: s, label: s }))}
+            selected={form.currentSolution ? [form.currentSolution] : []}
+            onToggle={(v) => patch({ currentSolution: v })}
+          />
+        </div>
+        <div>
+          <FieldLabel optional>Anything specific we should know?</FieldLabel>
+          <DemoTextarea
+            placeholder="Context, timeline, specific concerns…"
+            value={form.message}
+            onChange={(v) => patch({ message: v })}
+          />
+        </div>
       </div>
     </div>
   );
@@ -459,8 +613,8 @@ function SuccessScreen({ form }: { form: FormData }) {
           </Link>
         </Button>
         <Button asChild variant="outline" className="h-12 gap-2 rounded-xl border-white/20 text-white hover:bg-white/10 px-6">
-          <Link to="/plans">
-            See pricing
+          <Link to="/landing" hash="features">
+            Explore features
           </Link>
         </Button>
       </div>
@@ -470,12 +624,58 @@ function SuccessScreen({ form }: { form: FormData }) {
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
-function QuestionLabel({ n, total }: { n: number; total: number }) {
+function toggle(arr: string[], value: string): string[] {
+  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+}
+
+function QuestionLabel({ n }: { n: number }) {
   return (
     <div className="flex items-center gap-2">
       <span className="font-mono text-sm font-bold text-[oklch(0.58_0.18_255)]">{n}</span>
       <span className="font-mono text-sm text-white/30">→</span>
-      <span className="text-xs text-white/30">{n} of {total}</span>
+      <span className="text-xs text-white/30">{n} of {TOTAL_STEPS}</span>
+    </div>
+  );
+}
+
+function FieldLabel({ children, optional }: { children: React.ReactNode; optional?: boolean }) {
+  return (
+    <p className="mb-2 text-sm font-medium text-white/70">
+      {children}
+      {optional && <span className="ml-1.5 text-xs font-normal text-white/30">(optional)</span>}
+    </p>
+  );
+}
+
+function ChipGroup({
+  options, selected, onToggle, multi,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  multi?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2" role={multi ? "group" : "radiogroup"}>
+      {options.map((opt) => {
+        const active = selected.includes(opt.value);
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onToggle(opt.value)}
+            className={cn(
+              "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
+              active
+                ? "border-[oklch(0.58_0.18_255)] bg-[oklch(0.58_0.18_255)]/15 text-white"
+                : "border-white/20 bg-white/5 text-white/70 hover:border-white/40",
+            )}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

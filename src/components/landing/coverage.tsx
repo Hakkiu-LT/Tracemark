@@ -65,7 +65,7 @@ export function Coverage() {
 
         <div className="mt-10 flex items-center justify-center">
           <Link
-            to="/plans"
+            to="/request-demo"
             className="inline-flex items-center gap-2 text-xs font-semibold text-foreground transition-all hover:text-muted-foreground"
           >
             Explore enterprise channel coverage rules

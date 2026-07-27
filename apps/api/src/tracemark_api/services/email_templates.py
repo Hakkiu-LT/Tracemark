@@ -556,54 +556,6 @@ def first_detection_html(
     return _base(content, preheader=f"First scan complete — {detection_count} potential infringement{plural} found for {brand_name}")
 
 
-def payment_failed_html(
-    *,
-    user_name: str,
-    attempt: int,
-    plan_name: str,
-    amount_display: str,
-    billing_url: str,
-    days_until_pause: int,
-) -> str:
-    urgency_map = {
-        1: (f"Your payment for HAKKIU didn't go through — quick fix needed", _DARK),
-        2: (f"Reminder: payment still pending — update in {days_until_pause} days", "#d97706"),
-        3: (f"Last notice: monitoring pauses in {days_until_pause} day{'s' if days_until_pause != 1 else ''}", "#dc2626"),
-    }
-    headline, headline_color = urgency_map.get(attempt, urgency_map[1])
-
-    content = f"""
-<h2 style="margin:0 0 4px;font-size:20px;color:{headline_color};">{headline}</h2>
-<p style="margin:0 0 20px;color:{_MUTED};font-size:14px;">
-  Hi {user_name}, we couldn't process your payment for the <strong>{plan_name}</strong> plan ({amount_display}).
-</p>
-
-<table width="100%" cellpadding="0" cellspacing="0"
-       style="border:1px solid #fde68a;border-radius:6px;background:#fffbeb;">
-  <tr>
-    <td style="padding:16px;">
-      <p style="margin:0;font-size:14px;color:#92400e;">
-        <strong>What happens next:</strong> Your monitoring will be paused in
-        <strong>{days_until_pause} day{'s' if days_until_pause != 1 else ''}</strong> unless payment is updated.
-        Active takedowns will not be affected.
-      </p>
-    </td>
-  </tr>
-</table>
-
-{_divider()}
-<p style="margin:0 0 4px;font-size:14px;color:{_TEXT};font-weight:600;">Fix it in 30 seconds</p>
-<p style="margin:0;font-size:14px;color:{_TEXT};">
-  Update your payment method — your subscription will resume automatically.
-</p>
-{_btn("Update Payment Method", billing_url, "#d97706")}
-<p style="margin:20px 0 0;font-size:13px;color:{_MUTED};">
-  If you have questions, reply to this email and we'll help sort it out.
-</p>
-"""
-    return _base(content, preheader=f"Action needed: payment for {plan_name} subscription")
-
-
 def new_lead_html(
     *,
     source: str | None,
@@ -614,6 +566,14 @@ def new_lead_html(
     company: str | None,
     brand_count_range: str | None,
     message: str | None,
+    role: str | None = None,
+    website: str | None = None,
+    phone: str | None = None,
+    regions: list[str] | None = None,
+    brand_names: str | None = None,
+    marketplaces: list[str] | None = None,
+    current_solution: str | None = None,
+    primary_goal: list[str] | None = None,
 ) -> str:
     source_labels = {
         "pricing_modal": "Request Pricing (Pricing page)",
@@ -637,13 +597,30 @@ def new_lead_html(
             f'</tr>'
         )
 
+    def website_link(url: str) -> str:
+        href = url if url.startswith(("http://", "https://")) else f"https://{url}"
+        return f'<a href="{href}" style="color:{_BRAND_COLOR};">{url}</a>'
+
+    website_val = website_link(website) if website else None
+    regions_val = ", ".join(regions) if regions else None
+    marketplaces_val = ", ".join(marketplaces) if marketplaces else None
+    primary_goal_val = ", ".join(primary_goal) if primary_goal else None
+
     rows = [
         row("Source", source_label),
         row("Tier", tier_label),
         row("Name", name_line if (first_name or last_name) else "<em>—</em>"),
+        row("Role", role or "<em>—</em>"),
         row("Email", f'<a href="mailto:{email}" style="color:{_BRAND_COLOR};">{email}</a>'),
+        row("Phone", phone or "<em>—</em>"),
         row("Company", company or "<em>—</em>"),
-        row("Brands", brand_count_range or "<em>—</em>"),
+        row("Website", website_val or "<em>—</em>"),
+        row("Regions", regions_val or "<em>—</em>"),
+        row("Brands (count)", brand_count_range or "<em>—</em>"),
+        row("Brands (names)", brand_names or "<em>—</em>"),
+        row("Marketplaces", marketplaces_val or "<em>—</em>"),
+        row("Primary goal", primary_goal_val or "<em>—</em>"),
+        row("Current solution", current_solution or "<em>—</em>"),
     ]
     if message:
         rows.append(row("Message", f'<span style="white-space:pre-wrap;">{message}</span>'))

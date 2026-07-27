@@ -57,9 +57,6 @@ export function LandingNav() {
             <Link to="/landing" hash="how" className="transition-colors hover:text-foreground">
               How it works
             </Link>
-            <Link to="/plans" className="transition-colors hover:text-foreground">
-              Pricing
-            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <Button
@@ -78,11 +75,11 @@ export function LandingNav() {
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Button asChild variant="ghost" className="h-8 text-xs font-medium text-muted-foreground hover:text-foreground">
-              <Link to="/auth/sign-in">Sign in</Link>
-            </Button>
-            <Button asChild className="h-8 rounded-md bg-foreground px-3.5 text-xs font-medium text-background hover:bg-foreground/90 transition-all shadow-sm">
-              <Link to="/auth/sign-up">Deploy Brand Defense</Link>
+            <Button
+              asChild
+              className="h-8 rounded-md bg-foreground px-3.5 text-xs font-medium text-background hover:bg-foreground/90 transition-all shadow-sm cursor-pointer"
+            >
+              <Link to="/request-demo">Book a demo</Link>
             </Button>
           </div>
         </div>

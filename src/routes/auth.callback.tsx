@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { activateSubscription } from "@/lib/api";
 import { HakkiuMark } from "@/components/hakkiu-mark";
 
 export const Route = createFileRoute("/auth/callback")({
@@ -26,18 +25,6 @@ function CallbackPage() {
           toast.error(error.message);
           navigate({ to: "/auth/sign-in", replace: true });
           return;
-        }
-      }
-
-      // After guest checkout with email confirmation: the success page stored the
-      // Stripe subscription ID here so we can activate it once the session exists.
-      const pendingSubId = localStorage.getItem("pending_subscription_id");
-      if (pendingSubId) {
-        localStorage.removeItem("pending_subscription_id");
-        try {
-          await activateSubscription({ stripe_subscription_id: pendingSubId });
-        } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Could not activate subscription — contact support.");
         }
       }
 

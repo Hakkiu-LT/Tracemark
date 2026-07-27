@@ -1,13 +1,8 @@
-"""Monitored brands ("marks") CRUD, with plan-limit enforcement.
+"""Monitored brands ("marks") CRUD.
 
-Brands are the unit that plan tiers cap ("1 brand", "5 brands", "20 brands").
-Persisting them here — instead of only in the browser's Zustand store — gives
-the server an authoritative count so ``POST /brands`` can refuse to create more
-than the caller's entitlement allows (base plan + ``addon_brand`` quantity).
-
-Slot accounting: ``active`` and ``on_hold`` brands consume a slot; ``locked``
-brands (the excess frozen by a downgrade) do not — see services/entitlements.py
-and the reconcile step in routes/billing.py.
+Brands are persisted server-side (not only in the browser's Zustand store) so the
+API is the authoritative source. Every logged-in user can create and monitor an
+unlimited number of brands — there are no plan limits.
 """
 from __future__ import annotations
 
@@ -48,9 +43,6 @@ def _send_welcome_email(profile) -> None:
     except Exception as exc:
         print(f"[Brands] Failed to send welcome email: {exc}")
 
-# Statuses that occupy a plan slot (locked = excess, doesn't count).
-_SLOT_STATUSES = ("active", "on_hold")
-
 
 class BrandCreate(BaseModel):
     brand_name: str
@@ -76,14 +68,14 @@ class BrandUpdate(BaseModel):
     official_advertisers: list[str] | None = None
 
 
-def _count_active_brands(org_id: str) -> int:
-    """How many brands currently occupy a plan slot for this org."""
+def _count_brands(org_id: str) -> int:
+    """How many brands this org currently has (used only to detect the first
+    brand so we send the welcome email once)."""
     sb = get_supabase()
     res = (
         sb.table("brands")
         .select("id", count="exact")
         .eq("organization_id", org_id)
-        .in_("status", list(_SLOT_STATUSES))
         .execute()
     )
     if getattr(res, "count", None) is not None:
@@ -109,7 +101,8 @@ def _brand_or_404(org_id: str, brand_id: str) -> dict:
 
 @router.get("")
 def list_brands(profile: CurrentProfile = Depends(get_current_profile)):
-    """All brands for the caller's org, plus current usage vs. the plan limit."""
+    """All brands for the caller's org. There is no plan limit — usage is the
+    total brand count and the limit is unlimited (``null``)."""
     sb = get_supabase()
     res = (
         sb.table("brands")
@@ -119,11 +112,9 @@ def list_brands(profile: CurrentProfile = Depends(get_current_profile)):
         .execute()
     )
     brands = res.data or []
-    limit = profile.entitlements.brands
-    used = sum(1 for b in brands if b.get("status") in _SLOT_STATUSES)
     return {
         "brands": brands,
-        "usage": {"used": used, "limit": limit},
+        "usage": {"used": len(brands), "limit": None},
     }
 
 
@@ -131,17 +122,7 @@ def list_brands(profile: CurrentProfile = Depends(get_current_profile)):
 def create_brand(
     body: BrandCreate, profile: CurrentProfile = Depends(get_current_profile)
 ):
-    ent = profile.entitlements
-    used = _count_active_brands(profile.organization_id)
-    if ent.brand_limit_reached(used):
-        raise HTTPException(
-            status_code=402,
-            detail=(
-                f"Your {profile.plan} plan includes {ent.brands} "
-                f"brand{'s' if (ent.brands or 0) != 1 else ''}. "
-                "Add the 'Extra brands' add-on or upgrade your plan to monitor more."
-            ),
-        )
+    used = _count_brands(profile.organization_id)
 
     sb = get_supabase()
     payload = {
@@ -192,19 +173,8 @@ def update_brand(
             updates[field] = val
 
     if body.status is not None:
-        if body.status not in ("active", "locked", "on_hold"):
+        if body.status != "active":
             raise HTTPException(status_code=400, detail=f"Invalid status '{body.status}'")
-        # Re-activating a locked brand must respect the current plan limit.
-        if body.status == "active" and existing.get("status") == "locked":
-            ent = profile.entitlements
-            if ent.brand_limit_reached(_count_active_brands(profile.organization_id)):
-                raise HTTPException(
-                    status_code=402,
-                    detail=(
-                        f"Your {profile.plan} plan is at its brand limit "
-                        f"({ent.brands}). Upgrade or remove a brand to unlock this one."
-                    ),
-                )
         updates["status"] = body.status
 
     if not updates:

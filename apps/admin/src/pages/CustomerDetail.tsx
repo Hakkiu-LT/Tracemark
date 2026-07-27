@@ -18,7 +18,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Select,
   Skeleton,
   Table,
   TableBody,
@@ -34,34 +33,14 @@ interface Brand {
   status: string;
   website: string | null;
 }
-interface Subscription {
-  plan: string;
-  status: string;
-  interval: string;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-}
-interface Invoice {
-  id: string;
-  amount_due: number;
-  currency: string;
-  status: string;
-  hosted_invoice_url: string | null;
-  created_at: string | null;
-}
 interface CustomerDetail {
   id: string;
   email: string;
   full_name: string | null;
   organization_id: string | null;
-  plan: string;
   persona: string | null;
   brands: Brand[];
-  subscription: Subscription | null;
-  invoices: Invoice[];
 }
-
-const PLANS = ["free", "starter", "growth", "pro", "agency", "enterprise"];
 
 export function CustomerDetail() {
   const { userId } = useParams({ strict: false }) as { userId: string };
@@ -69,8 +48,6 @@ export function CustomerDetail() {
   const navigate = useNavigate();
   const { staff } = useAuth();
   const confirm = useConfirm();
-  const [plan, setPlan] = useState<string>("");
-  const [billingMode, setBillingMode] = useState<"comp" | "charge">("comp");
   const [editing, setEditing] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -82,32 +59,6 @@ export function CustomerDetail() {
     queryFn: () => adminFetch<{ id: string; name: string | null }[]>("/organizations"),
   });
   const orgName = new Map((orgs ?? []).map((o) => [o.id, o.name]));
-
-  const changePlan = useMutation({
-    mutationFn: ({ newPlan, mode }: { newPlan: string; mode: "comp" | "charge" }) =>
-      adminFetch(`/customers/${userId}/plan`, {
-        method: "PUT",
-        body: JSON.stringify({ plan: newPlan, mode }),
-      }),
-    onSuccess: () => {
-      toast.success("Plan updated");
-      qc.invalidateQueries({ queryKey: ["customer", userId] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const cancelSub = useMutation({
-    mutationFn: (cancel: boolean) =>
-      adminFetch(`/customers/${userId}/cancel-subscription`, {
-        method: "POST",
-        body: JSON.stringify({ cancel }),
-      }),
-    onSuccess: () => {
-      toast.success("Subscription updated");
-      qc.invalidateQueries({ queryKey: ["customer", userId] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const impersonate = useMutation({
     mutationFn: () => adminFetch<{ action_link: string }>(`/customers/${userId}/impersonate`, { method: "POST" }),
@@ -168,7 +119,7 @@ export function CustomerDetail() {
         <CustomerEditDialog
           customer={{
             id: data.id, full_name: data.full_name, email: data.email,
-            persona: data.persona, plan: data.plan, organization_id: data.organization_id,
+            persona: data.persona, organization_id: data.organization_id,
           }}
           onClose={() => setEditing(false)}
         />
@@ -179,16 +130,10 @@ export function CustomerDetail() {
         <CardHeader>
           <CardTitle>Overview</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-4">
+        <CardContent className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs uppercase text-muted-foreground">ID</p>
             <div className="mt-1"><CopyableId id={data.id} length={12} /></div>
-          </div>
-          <div>
-            <p className="text-xs uppercase text-muted-foreground">Plan</p>
-            <Badge variant={data.plan === "free" ? "secondary" : "success"} className="mt-1 capitalize">
-              {data.plan}
-            </Badge>
           </div>
           <div>
             <p className="text-xs uppercase text-muted-foreground">Workspace</p>
@@ -206,111 +151,6 @@ export function CustomerDetail() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Billing */}
-      <Can permission="billing.view">
-        <Card>
-          <CardHeader>
-            <CardTitle>Billing</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {data.subscription ? (
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <Badge variant="outline" className="capitalize">{data.subscription.plan}</Badge>
-                <span className="text-muted-foreground">{data.subscription.status}</span>
-                <span className="text-muted-foreground">/ {data.subscription.interval}</span>
-                {data.subscription.current_period_end && (
-                  <span className="text-muted-foreground">
-                    renews {new Date(data.subscription.current_period_end).toLocaleDateString()}
-                  </span>
-                )}
-                {data.subscription.cancel_at_period_end && (
-                  <Badge variant="warning">Cancels at period end</Badge>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No active subscription.</p>
-            )}
-
-            <Can permission="billing.manage">
-              <div className="flex flex-wrap items-end gap-3 border-t border-border pt-4">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Plan</p>
-                  <Select value={plan || data.plan} onChange={(e) => setPlan(e.target.value)} className="w-40">
-                    {PLANS.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Apply as</p>
-                  <Select value={billingMode} onChange={(e) => setBillingMode(e.target.value as "comp" | "charge")} className="w-56">
-                    <option value="comp">Comp — no charge (free)</option>
-                    <option value="charge">Charge — bill via Stripe (prorated)</option>
-                  </Select>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => changePlan.mutate({ newPlan: plan || data.plan, mode: billingMode })}
-                  disabled={changePlan.isPending}
-                >
-                  {changePlan.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Apply plan
-                </Button>
-                {data.subscription && !data.subscription.cancel_at_period_end && (
-                  <Button size="sm" variant="destructive" onClick={() => cancelSub.mutate(true)}>
-                    Cancel subscription
-                  </Button>
-                )}
-                {data.subscription?.cancel_at_period_end && (
-                  <Button size="sm" variant="outline" onClick={() => cancelSub.mutate(false)}>
-                    Resume subscription
-                  </Button>
-                )}
-              </div>
-            </Can>
-
-            {data.invoices.length > 0 && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.invoices.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                        {inv.created_at ? new Date(inv.created_at).toLocaleString() : "—"}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {inv.hosted_invoice_url ? (
-                          <a href={inv.hosted_invoice_url} target="_blank" rel="noopener" className="text-accent hover:underline">
-                            {inv.id.slice(0, 14)}…
-                          </a>
-                        ) : (
-                          `${inv.id.slice(0, 14)}…`
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {(inv.amount_due / 100).toFixed(2)} {inv.currency.toUpperCase()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={inv.status === "paid" ? "success" : "secondary"}>{inv.status}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </Can>
 
       {/* Brands */}
       <Can permission="brands.view">

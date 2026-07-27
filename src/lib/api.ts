@@ -171,109 +171,7 @@ export function testEmailNotification(
   });
 }
 
-// ── Billing ──────────────────────────────────────────────────────────────────
-
-export interface AddonSelection {
-  key: string;
-  quantity: number;
-}
-
-export interface SubscriptionInfo {
-  plan: string;
-  status: string;
-  interval?: "month" | "year";
-  current_period_end?: string | null;
-  cancel_at_period_end?: boolean;
-  addons: AddonSelection[];
-}
-
-export interface InvoiceRecord {
-  id: string;
-  stripe_invoice_id: string | null;
-  amount_due: number;
-  currency: string;
-  status: string;
-  hosted_invoice_url: string | null;
-  invoice_pdf: string | null;
-  created_at: string;
-}
-
-/** Start a subscription and get back the PaymentIntent client_secret for Elements. */
-export function createSubscription(payload: {
-  plan: string;
-  interval: "month" | "year";
-  addons?: AddonSelection[];
-}): Promise<{ subscription_id: string; client_secret: string }> {
-  return apiFetch("/billing/create-subscription", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-/** Change plan/interval or reconcile add-on quantities on the active subscription. */
-export function updateSubscription(payload: {
-  plan?: string;
-  interval?: "month" | "year";
-  addons?: AddonSelection[];
-}): Promise<{ status: string; plan: string; interval: string }> {
-  return apiFetch("/billing/update-subscription", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-/** Guest checkout: start a subscription without auth; user creates account after payment. */
-export function guestSubscribe(payload: {
-  email: string;
-  plan: string;
-  interval: "month" | "year";
-  addons?: AddonSelection[];
-}): Promise<{ subscription_id: string; client_secret: string }> {
-  return apiFetch("/billing/guest-subscribe", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-/** After the guest creates their Supabase account, bind the subscription to their profile. */
-export function activateSubscription(payload: {
-  stripe_subscription_id: string;
-}): Promise<{ status: string }> {
-  return apiFetch("/billing/activate", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function cancelSubscription(cancel: boolean): Promise<{ cancel_at_period_end: boolean }> {
-  return apiFetch("/billing/cancel-subscription", {
-    method: "POST",
-    body: JSON.stringify({ cancel }),
-  });
-}
-
-export function getSubscription(): Promise<SubscriptionInfo> {
-  return apiFetch<SubscriptionInfo>("/billing/subscription");
-}
-
-export function getInvoices(): Promise<InvoiceRecord[]> {
-  return apiFetch<InvoiceRecord[]>("/billing/invoices");
-}
-
-/** Open the Stripe Billing Portal (manage payment method / cancel externally). */
-export function createPortalSession(): Promise<{ url: string }> {
-  return apiFetch("/billing/create-portal-session", { method: "POST" });
-}
-
-/** Phase F: bill a one-off $500 fee for a successful managed takedown. */
-export function chargeManagedTakedown(takedownId?: string): Promise<{ invoice_item_id: string }> {
-  return apiFetch("/billing/charge-managed-takedown", {
-    method: "POST",
-    body: JSON.stringify({ takedown_id: takedownId ?? null }),
-  });
-}
-
-// ── Brands (server-persisted monitored brands, with plan-limit enforcement) ───
+// ── Brands (server-persisted monitored brands) ───────────────────────────────
 
 export interface BrandRecord {
   id: string;
@@ -312,8 +210,7 @@ export function getBrands(): Promise<BrandsResponse> {
   return apiFetch<BrandsResponse>("/brands");
 }
 
-/** Create a server brand. Throws (402) with an upsell message when the plan's
- * brand limit is reached — surface the error to the user. */
+/** Create a server-persisted monitored brand. */
 export function createBrand(payload: {
   brand_name: string;
   website?: string | null;

@@ -36,11 +36,6 @@ interface AuditRow {
   action: string;
   created_at: string;
 }
-interface OrgRow {
-  id: string;
-  plan: string;
-  mrr: number;
-}
 interface TakedownStats {
   counts: Record<string, number>;
   total: number;
@@ -50,8 +45,8 @@ const OPEN_STATUSES = new Set(["pending", "analyzing", "reviewed", "active", "es
 const ATTENTION_STATUSES = new Set(["pending", "error"]);
 
 export function Dashboard() {
-  const { data: orgs } = useQuery({ queryKey: ["organizations"], queryFn: () => adminFetch<OrgRow[]>("/organizations") });
-  const { data: customers } = useQuery({ queryKey: ["customers"], queryFn: () => adminFetch<{ plan: string }[]>("/customers") });
+  const { data: orgs } = useQuery({ queryKey: ["organizations"], queryFn: () => adminFetch<{ id: string }[]>("/organizations") });
+  const { data: customers } = useQuery({ queryKey: ["customers"], queryFn: () => adminFetch<{ id: string }[]>("/customers") });
   const { data: brands } = useQuery({ queryKey: ["brands"], queryFn: () => adminFetch<unknown[]>("/brands") });
   const { data: cases, isLoading } = useQuery({ queryKey: ["cases"], queryFn: () => adminFetch<CaseRow[]>("/cases") });
   const { data: audit } = useQuery({ queryKey: ["audit-log"], queryFn: () => adminFetch<AuditRow[]>("/audit-log?limit=8") });
@@ -61,19 +56,12 @@ export function Dashboard() {
   const highRisk = (cases ?? []).filter((c) => c.risk_level === "HIGH" && OPEN_STATUSES.has(c.status));
   const recent = (cases ?? []).filter((c) => ATTENTION_STATUSES.has(c.status)).slice(0, 8);
 
-  const totalMrr = (orgs ?? []).reduce((s, o) => s + (o.mrr || 0), 0);
-  const payingOrgs = (orgs ?? []).filter((o) => o.plan !== "free").length;
-  const freeOrgs = (orgs ?? []).filter((o) => o.plan === "free").length;
-
   const kpis = [
     { label: "Companies", value: orgs?.length ?? 0, icon: Building2, to: "/organizations" },
     { label: "Customers", value: customers?.length ?? 0, icon: Users, to: "/customers" },
     { label: "Brands", value: brands?.length ?? 0, icon: Package, to: "/brands" },
     { label: "Open cases", value: openCases.length, icon: FileWarning, to: "/cases" },
     { label: "High-risk open", value: highRisk.length, icon: AlertTriangle, to: "/cases", alert: highRisk.length > 0 },
-    { label: "MRR", value: `$${totalMrr}`, icon: Users, to: "/organizations" },
-    { label: "Paying orgs", value: payingOrgs, icon: Building2, to: "/organizations" },
-    { label: "Free orgs", value: freeOrgs, icon: Building2, to: "/organizations" },
     { label: "Pending takedowns", value: tdStats?.counts.pending ?? 0, icon: Clock, to: "/cases" },
     { label: "Sent takedowns", value: tdStats?.counts.sent ?? 0, icon: Send, to: "/cases" },
     { label: "Ack'd takedowns", value: tdStats?.counts.acknowledged ?? 0, icon: CheckCircle2, to: "/cases" },

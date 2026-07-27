@@ -1,7 +1,90 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-25 (session 14 — per-copycat cases frontend split)
+> Last updated: 2026-07-27 (session 16 — book-demo form enrichment + nav cleanup)
+
+---
+
+## ✅ DONE — Google Analytics (GA4) (2026-07-27, session 17)
+
+- [x] `src/routes/__root.tsx` — gtag.js snippet in `RootShell` `<head>` (GA4 property
+  `G-PH8369N5PD`), SSR-rendered site-wide + hydrated client-side.
+- [x] `Caddyfile` (live prod CSP) — allow `googletagmanager.com` in `script-src` and GA
+  collect endpoints (`google-analytics.com`, `*.analytics.google.com`) in `connect-src`.
+- [x] `public/_headers` — same CSP additions (kept in sync for Cloudflare deploys).
+- [x] Verified `npm run build` bakes gtag into both server + client bundles.
+
+---
+
+## ✅ DONE — SEO/crawler discovery files (2026-07-27, session 17)
+
+Goal: help search + AI crawlers discover public marketing pages while keeping the
+authenticated app, admin and auth flows out of the index.
+
+- [x] `public/robots.txt` — allow public pages (`/`, `/landing`, `/request-demo`),
+  disallow `/dashboard`, `/cases`, `/monitoring`, `/clients`, `/settings`, `/auth/`,
+  `/legacy/`; explicit welcome rules for GPTBot / ClaudeBot / PerplexityBot /
+  OAI-SearchBot / Google-Extended; points to sitemap.
+- [x] `public/sitemap.xml` — canonical URLs for `/landing` + `/request-demo` on hakkiu.com.
+- [x] `public/llms.txt` — llmstxt.org-format product summary, features, audience, pricing
+  note and links to public pages.
+- [x] Verified `npm run build` copies all three into `dist/client/` root (served at
+  `/robots.txt` etc. by the Cloudflare Workers assets binding, incl. self-hosted workerd).
+
+---
+
+## 🟡 DONE (code) — Enrich book-a-demo form + nav cleanup (2026-07-27, session 16)
+
+Goal: capture much more about a prospect BEFORE the demo so the team can prepare;
+confirm admin + email notifications fire; clean up the top nav.
+
+- [x] **DB migration** `20260727000001_sales_leads_v3.sql` — add nullable columns to
+  `sales_leads`: `role`, `website`, `phone`, `regions text[]`, `brand_names`,
+  `marketplaces text[]`, `current_solution`, `primary_goal text[]`.
+  ✅ **Applied to live DB** via `supabase db push` (2026-07-27).
+- [x] **Customer form** `src/routes/request-demo.tsx` — wizard expanded 4→6 steps.
+  New fields: role + phone + website (website & role REQUIRED, rest optional),
+  regions (multi), brand names (text), marketplaces (multi), primary goals (multi),
+  current solution (single). Reusable `ChipGroup` for single/multi; Enter-to-advance
+  now ignores textarea. tsc clean.
+- [x] **Backend** `apps/api/.../routes/leads.py` — `LeadRequest` + insert extended with the
+  8 new fields (all optional; call-request/pricing forms unaffected).
+- [x] **Email** `apps/api/.../services/email_templates.py::new_lead_html` — staff notification
+  now lists role, phone, website (linked), regions, brand names, marketplaces, primary goals,
+  current solution. Notification already fires to `LEADS_NOTIFY_EMAILS` on every submit. ✅
+- [x] **Admin parity** `apps/admin/src/pages/Leads.tsx` — rows show role/phone (Contact) +
+  website link (Company); expandable detail row shows regions, brand names, marketplaces,
+  primary goals, current solution, full message. Reads via existing `select("*")` — no
+  admin-api change needed. tsc clean.
+- [x] **Nav** `src/components/landing/landing-nav.tsx` — removed "Sign in"; kept "Talk to sales"
+  (quick modal) + "Book a demo" (now → `/request-demo` enriched wizard, was opening sales modal).
+- [x] **Apply migration to live DB** (`supabase db push`) — done 2026-07-27.
+- [x] **Deployed to prod** (commit `c4ac3b4`) — manual SSH to Hetzner as `deploy@116.202.8.87`
+  (`git reset --hard origin/main` + `docker compose build && up -d`); all 4 domains 200,
+  `/request-demo` serves the enriched wizard. Includes the Talk-to-sales modal restyle.
+- [ ] Optional: E2E test one submission (verify row in admin `/leads` + staff email).
+
+⚠️ **CI auto-deploy is broken** — the GitHub `Deploy` workflow fails on every push with
+`Error: missing server host`: the repo has **no** `SSH_*` secrets. Fix = set
+`SSH_HOST=116.202.8.87`, `SSH_USER=deploy`, `SSH_PORT=22`, `SSH_KEY=<~/.ssh/hakkiu priv key>`
+via `gh secret set`. Until then every prod deploy must be run manually over SSH.
+
+---
+
+## ✅ DONE — Remove pricing/Stripe/plan-gating → book-a-demo model (2026-07-27)
+
+Product pivot: no pricing/Stripe anywhere; site shows only "Book a demo" / "Contact sales".
+Staff create dashboard logins via admin. Access = having a login (NO plan/entitlement checks).
+
+- [x] **Customer FE (`src/`)** — deleted stripe.ts, billing.ts, entitlements.ts, plans/checkout/review/configure/billing.success/billing.cancel/settings.billing routes, pricing.tsx, ClientBillingCard. Removed `RequirePaidPlan` gate in `__root.tsx` (was bouncing logged-in users to /plans). Removed billing endpoints/types from api.ts, entitlement caps in monitoring.new. Landing CTAs → "Book a demo" (TalkToSalesModal). Removed @stripe/* deps. tsc + build clean.
+- [x] **Main API (`apps/api`)** — deleted billing.py, billing_config.py, entitlements.py, seed_stripe.py, test_billing/test_entitlements. Removed `_require_paid_plan`/`_enforce_scan_entitlements`/`_reject_if_brand_locked` gates; `CurrentProfile` now = user+org only; removed internal billing/entitlement endpoints; removed stripe dep; weekly_digest targets all orgs (not subscriptions). import OK, 203 tests pass.
+- [x] **Admin (`apps/admin` + `apps/admin-api`)** — deleted billing_admin.py; removed plan/subscription/MRR/entitlement-override UI + endpoints + `billing.*`/`entitlements.manage` permissions; removed orphaned `/organizations/{id}/usage` + `get_entitlements` proxy. import + build clean.
+- [x] **NEW — staff can create customer logins** — `POST /customers` (`sb.auth.admin.create_user`, email_confirm), permission `customers.create` (parity in permissions.py + permissions.ts), audit-logged; "Create customer" button + dialog on Customers.tsx.
+- [x] DB: no destructive migration — subscriptions/subscription_addons/invoices/org_entitlement_overrides/stripe_events tables left unused (safe/reversible).
+- [x] **Deployed to server** (commit 8742239) — verified live: `/plans` 404, `/api/v1/billing/subscription` 404, all 5 domains 200. Dashboard no longer redirects to pricing.
+- [x] **Fix auth session storage** (commit a52f19d) — the M13 custom single-cookie storage broke login (session > 4KB cookie limit → getSession() null → API calls sent with no Authorization header → "Failed to load infringements"). Reverted both apps to Supabase default localStorage; redeployed; verified infringements load. See [[project_security_hardening_2026_07]] (M13 reverted).
+- [ ] Supabase → Auth → **disable public sign-ups** (staff-created logins only; otherwise anyone can self-register and get full access — the plan gate that used to limit this is gone).
+- [ ] Optional later: drop unused billing tables + `profiles.plan` protection trigger via migration; remove now-unused `VITE_STRIPE_PUBLISHABLE_KEY` build arg in compose/Dockerfile.
 
 ---
 
@@ -258,6 +341,7 @@ Backend scan → single case + single AI prompt stays unchanged; frontend shows 
 - [x] Dockerize API, admin-api, admin frontend, customer frontend (all 4 Dockerfiles exist)
 - [x] Customer `src/Dockerfile` — rewritten from `bun run dev` → production build + `wrangler dev --local` (workerd). Verified: built worker serves SSR HTTP 200. glibc base for workerd.
 - [x] `docker-compose.yml` — Caddy service + `caddy_data`/`caddy_config` volumes + frontend VITE_* build args added
+- [x] **Fix compose env pass-through gap** — added `env_file: - .env` to `api` + `admin-api` (Stripe billing / Resend email / CUSTOMER_APP_URL were UNSET before → would silently break billing + email in prod). Added `VITE_STRIPE_PUBLISHABLE_KEY` build arg to frontend (`src/Dockerfile` + compose) — needed by `src/lib/stripe.ts`. Validated with `docker compose config`.
 - [x] `Caddyfile` — 4 subdomains (hakkiu.com, admin/api/admin-api.hakkiu.com) + www→apex redirect + auto Let's Encrypt + customer CSP/security headers (api.tracemark.ai→api.hakkiu.com)
 - [x] `.dockerignore` — excludes `.env`, `.wrangler`, `dist` from customer image (secret-leak fix)
 - [x] `.env.production.example` — production URLs/CORS for hakkiu.com + secret placeholders
@@ -265,15 +349,20 @@ Backend scan → single case + single AI prompt stays unchanged; frontend shows 
 - [x] `scripts/backup.sh` — nightly pg_dump → local + Hetzner Storage Box, 14-day rotation
 - [x] `docs/DEPLOYMENT.md` — full server-hardening runbook (deploy user, SSH keys-only, ufw, fail2ban, unattended-upgrades, docker) + DNS + first deploy + external-service wiring + verification
 
-### User must run (needs their credentials — instructions in docs/DEPLOYMENT.md)
-- [ ] DNS: A records (@, www, admin, api, admin-api) → 116.202.8.87 (+ AAAA for IPv6)
-- [ ] Server hardening: deploy user, SSH keys-only, ufw (80/443/SSH), fail2ban, unattended-upgrades, Docker
-- [ ] Clone to `/opt/hakkiu`, create `.env` from `.env.production.example`, fill secrets (Stripe LIVE keys)
-- [ ] First deploy: `docker compose build && up -d`; confirm Caddy issues certs
-- [ ] GitHub repo secrets: SSH_HOST / SSH_USER / SSH_KEY (+ SSH_PORT) for the deploy workflow
-- [ ] Stripe webhook → https://api.hakkiu.com/api/v1/billing/webhook; Supabase Auth Site/Redirect URLs
-- [ ] Backups: install postgresql-client, set DATABASE_URL, add cron
-- [ ] Verification checklist (all 5 hostnames load over HTTPS; scan + Stripe checkout work)
+### Server deploy — DONE (2026-07-27, live on Hetzner CCX13 116.202.8.87)
+- [x] DNS (Hostinger): A `@`/`api`/`admin`/`admin-api` → 116.202.8.87; `www` CNAME→apex; TTL 60–300. No AAAA (IPv4-only, avoids LE IPv6 issues).
+- [x] Server hardening: `deploy` user + passwordless sudo; SSH keys-only (`00-hardening.conf` drop-in overrides cloud-init; root login + passwords OFF); ufw (22/80/443); fail2ban; unattended-upgrades; 4G swap; Docker 29.6 + Compose v5.3.
+- [x] Repo pull access: classic GitHub PAT (`repo` scope) via `credential.helper store` (user is collaborator, no repo-admin).
+- [x] `.env` on server: scp'd from local working .env, then sed'd URLs/CORS → hakkiu.com + added `SUPABASE_SECRET_KEY` (compose maps service-role from it). Stripe left as placeholders (no LIVE — moving to book-a-demo model).
+- [x] First deploy: `docker compose build` (4 images) + `up -d`; **Caddy obtained all 5 LE certs**. External HTTPS verified: apex 200, www 301→apex, api+admin-api `/health` 200, admin SPA 200.
+
+### Remaining (post-deploy)
+- [ ] **Supabase Auth URLs** — Site URL `https://hakkiu.com`; Redirect URLs `https://hakkiu.com/**`, `https://admin.hakkiu.com/**`; enable Confirm email. (Needed for sign-in/email links on the new domain.)
+- [ ] Functional test: sign in on customer app → run a scan (proves API + Supabase + scraping end-to-end).
+- [ ] Backups: `apt install postgresql-client`, set `DATABASE_URL` in .env, cron `15 3 * * * /opt/hakkiu/scripts/backup.sh`.
+- [ ] (Deferred — needs SuperGabSq repo-admin) GitHub Actions auto-deploy secrets: SSH_HOST / SSH_USER / SSH_KEY (+ SSH_PORT). Until then: manual deploy = `git pull && docker compose up -d --build`.
+- [ ] (Skipped) Stripe webhook — no LIVE Stripe in book-a-demo model.
+- [ ] Optional: set `GOOGLE_SERP_API` / `SEARCHCANS_API` in .env (currently blank → those scraper sources inactive).
 
 ---
 
