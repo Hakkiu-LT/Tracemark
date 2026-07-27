@@ -1,7 +1,30 @@
 # HAKKIU — Active Plan
 
 > Update this file after every session or planning conversation.
-> Last updated: 2026-07-25 (session 14 — per-copycat cases frontend split)
+> Last updated: 2026-07-27 (session 16 — book-demo form enrichment + nav cleanup)
+
+---
+
+## 🟢 LAST SESSION (16) — Enrich book-a-demo form so we know the prospect before the call
+
+**Goal:** the book-a-demo flow now qualifies the prospect deeply so sales can prep
+before the demo. The `/request-demo` wizard grew 4→6 steps and captures, on top of the
+old name/email/company/brand-count/message: **role, phone, website, markets (regions),
+brand names, marketplaces where they see abuse, primary goals, and current solution.**
+Only website + role are required (low-friction, high-value); everything else optional.
+
+- **Data path (unchanged plumbing):** POST `/api/v1/leads` → `sales_leads` table. Added 8
+  nullable columns via migration `20260727000001_sales_leads_v3.sql`. The other two
+  `/leads` sources (Talk-to-sales modal, legacy pricing modal) still work — new fields
+  are optional.
+- **Notifications (already existed, now richer):** every submit inserts the row AND emails
+  `LEADS_NOTIFY_EMAILS` staff via Resend (`new_lead_html`), which now shows all new fields;
+  the row is visible + manageable in the admin portal at `/leads` (new fields shown inline +
+  in an expandable detail row).
+- **Nav cleanup:** removed "Sign in" from the landing nav; right side is now "Talk to sales"
+  (quick modal) + "Book a demo" (routes to the enriched `/request-demo` wizard).
+- ✅ **Migration applied to live DB** — `supabase db push` (2026-07-27); `sales_leads`
+  now has all 8 new columns, so the enriched form works end-to-end.
 
 ---
 

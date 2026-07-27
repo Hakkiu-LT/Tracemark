@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Fragment, useState } from "react";
+import { Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { adminFetch } from "@/lib/api";
@@ -34,6 +34,15 @@ interface Lead {
   message: string | null;
   status: "pending" | "contacted" | "closed";
   created_at: string;
+  // Pre-demo qualification fields (from the /request-demo wizard)
+  role: string | null;
+  website: string | null;
+  phone: string | null;
+  regions: string[] | null;
+  brand_names: string | null;
+  marketplaces: string[] | null;
+  current_solution: string | null;
+  primary_goal: string[] | null;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -62,8 +71,17 @@ function fmtDate(s: string) {
 export function Leads() {
   const [statusFilter, setStatusFilter] = useState("");
   const [tierFilter, setTierFilter]     = useState("");
+  const [expanded, setExpanded]         = useState<Set<string>>(new Set());
   const canEdit = usePermission("leads.edit");
   const qc = useQueryClient();
+
+  function toggleExpanded(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   const params = new URLSearchParams();
   if (statusFilter) params.set("status", statusFilter);
@@ -138,6 +156,7 @@ export function Leads() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Source</TableHead>
@@ -151,27 +170,46 @@ export function Leads() {
               <TableBody>
                 {(data ?? []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canEdit ? 8 : 7} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={canEdit ? 9 : 8} className="py-10 text-center text-muted-foreground">
                       No leads found.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  (data ?? []).map((lead) => (
-                    <TableRow key={lead.id}>
+                  (data ?? []).map((lead) => {
+                    const isOpen = expanded.has(lead.id);
+                    return (
+                    <Fragment key={lead.id}>
+                    <TableRow
+                      className="cursor-pointer"
+                      onClick={() => toggleExpanded(lead.id)}
+                    >
+                      <TableCell className="text-muted-foreground">
+                        {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </TableCell>
                       <TableCell>
                         <div className="font-medium">
                           {lead.first_name || lead.last_name
                             ? `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim()
                             : <span className="text-muted-foreground">—</span>}
                         </div>
+                        {lead.role && <div className="text-xs text-muted-foreground">{lead.role}</div>}
                         <div className="text-xs text-muted-foreground">{lead.email}</div>
-                        {lead.message && (
-                          <div className="mt-1 max-w-xs truncate text-xs text-muted-foreground" title={lead.message}>
-                            {lead.message}
-                          </div>
+                        {lead.phone && <div className="text-xs text-muted-foreground">{lead.phone}</div>}
+                      </TableCell>
+                      <TableCell>
+                        <div>{lead.company ?? <span className="text-muted-foreground">—</span>}</div>
+                        {lead.website && (
+                          <a
+                            href={lead.website.startsWith("http") ? lead.website : `https://${lead.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {lead.website}
+                          </a>
                         )}
                       </TableCell>
-                      <TableCell>{lead.company ?? <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {lead.source ? (SOURCE_LABELS[lead.source] ?? lead.source) : "—"}
                       </TableCell>
@@ -188,7 +226,7 @@ export function Leads() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{fmtDate(lead.created_at)}</TableCell>
                       {canEdit && (
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex justify-end gap-2">
                             {lead.status === "pending" && (
                               <Button
@@ -218,13 +256,54 @@ export function Leads() {
                         </TableCell>
                       )}
                     </TableRow>
-                  ))
+                    {isOpen && (
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell></TableCell>
+                        <TableCell colSpan={canEdit ? 8 : 7} className="py-4">
+                          <LeadDetails lead={lead} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </Fragment>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function LeadDetails({ lead }: { lead: Lead }) {
+  const items: { label: string; value: React.ReactNode }[] = [
+    { label: "Role", value: lead.role },
+    { label: "Phone", value: lead.phone },
+    { label: "Markets", value: lead.regions?.length ? lead.regions.join(", ") : null },
+    { label: "Brand names", value: lead.brand_names },
+    { label: "Marketplaces", value: lead.marketplaces?.length ? lead.marketplaces.join(", ") : null },
+    { label: "Primary goals", value: lead.primary_goal?.length ? lead.primary_goal.join(", ") : null },
+    { label: "Current solution", value: lead.current_solution },
+  ];
+
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((it) => (
+          <div key={it.label}>
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{it.label}</div>
+            <div>{it.value || <span className="text-muted-foreground">—</span>}</div>
+          </div>
+        ))}
+      </div>
+      {lead.message && (
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Message</div>
+          <div className="whitespace-pre-wrap">{lead.message}</div>
+        </div>
+      )}
     </div>
   );
 }

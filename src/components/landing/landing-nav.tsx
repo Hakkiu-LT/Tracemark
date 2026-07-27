@@ -75,14 +75,11 @@ export function LandingNav() {
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Button asChild variant="ghost" className="h-8 text-xs font-medium text-muted-foreground hover:text-foreground">
-              <Link to="/auth/sign-in">Sign in</Link>
-            </Button>
             <Button
-              onClick={() => setSalesOpen(true)}
+              asChild
               className="h-8 rounded-md bg-foreground px-3.5 text-xs font-medium text-background hover:bg-foreground/90 transition-all shadow-sm cursor-pointer"
             >
-              Book a demo
+              <Link to="/request-demo">Book a demo</Link>
             </Button>
           </div>
         </div>
