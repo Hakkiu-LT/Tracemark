@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   ShieldCheck,
-  Zap,
   CheckCircle2,
   AlertTriangle,
   FileText,
@@ -64,23 +63,13 @@ export function HeroV3() {
           {/* Action Buttons */}
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Button
-              size="lg"
-              onClick={() => setSalesOpen(true)}
-              className="h-12 rounded-lg bg-foreground px-7 text-sm font-semibold text-background shadow-md transition-all hover:bg-foreground/90 hover:shadow-lg cursor-pointer"
-            >
-              Book a demo
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-
-            <Button
               asChild
               size="lg"
-              variant="outline"
-              className="h-12 rounded-lg border-border/80 bg-background px-7 text-sm font-medium text-foreground transition-all hover:bg-muted cursor-pointer"
+              className="h-12 rounded-lg bg-foreground px-7 text-sm font-semibold text-background shadow-md transition-all hover:bg-foreground/90 hover:shadow-lg cursor-pointer"
             >
-              <Link to="/auth/sign-in" className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-emerald-500" />
-                Sign in
+              <Link to="/request-demo" className="flex items-center gap-2">
+                Book a demo
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>

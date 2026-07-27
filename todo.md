@@ -31,7 +31,15 @@ confirm admin + email notifications fire; clean up the top nav.
 - [x] **Nav** `src/components/landing/landing-nav.tsx` — removed "Sign in"; kept "Talk to sales"
   (quick modal) + "Book a demo" (now → `/request-demo` enriched wizard, was opening sales modal).
 - [x] **Apply migration to live DB** (`supabase db push`) — done 2026-07-27.
+- [x] **Deployed to prod** (commit `c4ac3b4`) — manual SSH to Hetzner as `deploy@116.202.8.87`
+  (`git reset --hard origin/main` + `docker compose build && up -d`); all 4 domains 200,
+  `/request-demo` serves the enriched wizard. Includes the Talk-to-sales modal restyle.
 - [ ] Optional: E2E test one submission (verify row in admin `/leads` + staff email).
+
+⚠️ **CI auto-deploy is broken** — the GitHub `Deploy` workflow fails on every push with
+`Error: missing server host`: the repo has **no** `SSH_*` secrets. Fix = set
+`SSH_HOST=116.202.8.87`, `SSH_USER=deploy`, `SSH_PORT=22`, `SSH_KEY=<~/.ssh/hakkiu priv key>`
+via `gh secret set`. Until then every prod deploy must be run manually over SSH.
 
 ---
 
