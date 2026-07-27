@@ -258,6 +258,7 @@ Backend scan → single case + single AI prompt stays unchanged; frontend shows 
 - [x] Dockerize API, admin-api, admin frontend, customer frontend (all 4 Dockerfiles exist)
 - [x] Customer `src/Dockerfile` — rewritten from `bun run dev` → production build + `wrangler dev --local` (workerd). Verified: built worker serves SSR HTTP 200. glibc base for workerd.
 - [x] `docker-compose.yml` — Caddy service + `caddy_data`/`caddy_config` volumes + frontend VITE_* build args added
+- [x] **Fix compose env pass-through gap** — added `env_file: - .env` to `api` + `admin-api` (Stripe billing / Resend email / CUSTOMER_APP_URL were UNSET before → would silently break billing + email in prod). Added `VITE_STRIPE_PUBLISHABLE_KEY` build arg to frontend (`src/Dockerfile` + compose) — needed by `src/lib/stripe.ts`. Validated with `docker compose config`.
 - [x] `Caddyfile` — 4 subdomains (hakkiu.com, admin/api/admin-api.hakkiu.com) + www→apex redirect + auto Let's Encrypt + customer CSP/security headers (api.tracemark.ai→api.hakkiu.com)
 - [x] `.dockerignore` — excludes `.env`, `.wrangler`, `dist` from customer image (secret-leak fix)
 - [x] `.env.production.example` — production URLs/CORS for hakkiu.com + secret placeholders
@@ -268,6 +269,7 @@ Backend scan → single case + single AI prompt stays unchanged; frontend shows 
 ### User must run (needs their credentials — instructions in docs/DEPLOYMENT.md)
 - [ ] DNS: A records (@, www, admin, api, admin-api) → 116.202.8.87 (+ AAAA for IPv6)
 - [ ] Server hardening: deploy user, SSH keys-only, ufw (80/443/SSH), fail2ban, unattended-upgrades, Docker
+- [ ] Give the server pull access to the private repo (deploy key or PAT) — `deploy.yml` runs `git fetch/reset` on the box
 - [ ] Clone to `/opt/hakkiu`, create `.env` from `.env.production.example`, fill secrets (Stripe LIVE keys)
 - [ ] First deploy: `docker compose build && up -d`; confirm Caddy issues certs
 - [ ] GitHub repo secrets: SSH_HOST / SSH_USER / SSH_KEY (+ SSH_PORT) for the deploy workflow

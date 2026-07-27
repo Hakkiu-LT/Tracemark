@@ -279,11 +279,11 @@ Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables
 *Transitioning from local/development setups to a highly secure, high-performance, cost-effective dedicated server hosting architecture on Hetzner.*
 
 ### Infrastructure
-- **Hetzner CCX13 Instance Provisioning** | ❌ Missing | Deploy and configure a dedicated vCPU cloud instance (CCX13: 2 dedicated vCPUs, 8 GB RAM) running Ubuntu Server.
-- **Dockerized Container Architecture** | ❌ Missing | Package backend (FastAPI/Uvicorn), frontend (Vite/Nginx static build), and auxiliary services into Docker images managed by a production-ready `docker-compose.yml`.
-- **Caddy/Nginx Reverse Proxy & SSL Auto-Renewal** | ❌ Missing | Configure Caddy or Nginx with automated Let's Encrypt SSL/TLS certificates and security header hardening.
-- **CI/CD Deployment Pipelines** | ❌ Missing | Establish GitHub Actions workflow to run lint, test, build Docker images, push to registry, and trigger a zero-downtime rolling update on the CCX13 instance.
-- **Automated DB & Storage Backups** | ❌ Missing | Schedule periodic database and storage bucket snapshots stored offsite on Hetzner Storage Boxes.
+- **Hetzner CCX13 Instance Provisioning** | ❌ Missing | Deploy and configure a dedicated vCPU cloud instance (CCX13: 2 dedicated vCPUs, 8 GB RAM) running Ubuntu Server. *Server-side; runbook in `docs/DEPLOYMENT.md §2`.*
+- **Dockerized Container Architecture** | ⚠️ Partial | All 4 Dockerfiles + `docker-compose.yml` (Caddy, volumes, env_file/build-args) ready in repo and `docker compose config`-validated. Pending: first `docker compose up -d` on the server.
+- **Caddy/Nginx Reverse Proxy & SSL Auto-Renewal** | ⚠️ Partial | `Caddyfile` written for all 5 hostnames + security headers + auto Let's Encrypt. Pending: DNS records + first cert issuance on the server.
+- **CI/CD Deployment Pipelines** | ⚠️ Partial | `.github/workflows/ci.yml` + `deploy.yml` (SSH auto-deploy after green CI) in repo. Pending: GitHub repo secrets (`SSH_*`) + server pull access (deploy key/PAT).
+- **Automated DB & Storage Backups** | ⚠️ Partial | `scripts/backup.sh` (nightly pg_dump → local + Hetzner Storage Box, 14-day rotation) ready. Pending: install `postgresql-client`, set `DATABASE_URL`, add cron on the server.
 
 ---
 
