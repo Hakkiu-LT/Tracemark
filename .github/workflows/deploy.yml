@@ -36,6 +36,9 @@ jobs:
             echo "→ Rebuilding + restarting containers…"
             docker compose build
             docker compose up -d
+            echo "→ Reloading Caddy (bind-mounted Caddyfile isn't picked up by up -d)…"
+            docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile \
+              || docker compose restart caddy
             echo "→ Pruning old images…"
             docker image prune -f
             echo "✓ Deploy complete."

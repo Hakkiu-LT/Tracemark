@@ -96,7 +96,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+        {/* Google Analytics (gtag.js) — GA4 property G-PH8369N5PD */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-PH8369N5PD" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-PH8369N5PD');`,
+          }}
+        />
+      </head>
       <body>
         {children}
         <Scripts />

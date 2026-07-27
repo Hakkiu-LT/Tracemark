@@ -5,6 +5,34 @@
 
 ---
 
+## ✅ DONE — Google Analytics (GA4) (2026-07-27, session 17)
+
+- [x] `src/routes/__root.tsx` — gtag.js snippet in `RootShell` `<head>` (GA4 property
+  `G-PH8369N5PD`), SSR-rendered site-wide + hydrated client-side.
+- [x] `Caddyfile` (live prod CSP) — allow `googletagmanager.com` in `script-src` and GA
+  collect endpoints (`google-analytics.com`, `*.analytics.google.com`) in `connect-src`.
+- [x] `public/_headers` — same CSP additions (kept in sync for Cloudflare deploys).
+- [x] Verified `npm run build` bakes gtag into both server + client bundles.
+
+---
+
+## ✅ DONE — SEO/crawler discovery files (2026-07-27, session 17)
+
+Goal: help search + AI crawlers discover public marketing pages while keeping the
+authenticated app, admin and auth flows out of the index.
+
+- [x] `public/robots.txt` — allow public pages (`/`, `/landing`, `/request-demo`),
+  disallow `/dashboard`, `/cases`, `/monitoring`, `/clients`, `/settings`, `/auth/`,
+  `/legacy/`; explicit welcome rules for GPTBot / ClaudeBot / PerplexityBot /
+  OAI-SearchBot / Google-Extended; points to sitemap.
+- [x] `public/sitemap.xml` — canonical URLs for `/landing` + `/request-demo` on hakkiu.com.
+- [x] `public/llms.txt` — llmstxt.org-format product summary, features, audience, pricing
+  note and links to public pages.
+- [x] Verified `npm run build` copies all three into `dist/client/` root (served at
+  `/robots.txt` etc. by the Cloudflare Workers assets binding, incl. self-hosted workerd).
+
+---
+
 ## 🟡 DONE (code) — Enrich book-a-demo form + nav cleanup (2026-07-27, session 16)
 
 Goal: capture much more about a prospect BEFORE the demo so the team can prepare;
