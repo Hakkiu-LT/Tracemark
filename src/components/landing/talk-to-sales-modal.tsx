@@ -90,32 +90,32 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-sm sm:rounded-2xl">
         {submitted ? (
           <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[oklch(0.55_0.22_300)]/10">
-              <CheckCircle2 className="h-7 w-7 text-[oklch(0.55_0.22_300)]" strokeWidth={2} />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 ring-1 ring-accent/20">
+              <CheckCircle2 className="h-7 w-7 text-accent" strokeWidth={2} />
             </div>
             <div>
-              <p className="text-lg font-semibold">We'll be in touch</p>
+              <p className="font-display text-lg font-semibold">We'll be in touch</p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Expect a call within 1 business day.
               </p>
             </div>
-            <Button variant="outline" onClick={() => handleClose(false)} className="mt-2 w-full">
+            <Button variant="outline" onClick={() => handleClose(false)} className="mt-2 h-11 w-full rounded-lg">
               Close
             </Button>
           </div>
         ) : (
           <>
-            <DialogHeader className="text-center pb-2">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[oklch(0.55_0.22_300)]/10">
-                <Phone className="h-5 w-5 text-[oklch(0.55_0.22_300)]" strokeWidth={2} />
+            <DialogHeader className="items-center pb-1 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 ring-1 ring-accent/20">
+                <Phone className="h-5 w-5 text-accent" strokeWidth={2} />
               </div>
-              <DialogTitle className="text-xl font-semibold">
+              <DialogTitle className="font-display text-xl font-semibold tracking-tight">
                 Receive a free call from us
               </DialogTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-muted-foreground">
                 We'll connect you with the right person.
               </p>
             </DialogHeader>
@@ -125,7 +125,7 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
                 <Label htmlFor="ts-phone">Phone number</Label>
                 <div className="flex gap-2">
                   <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className="w-[110px] shrink-0">
+                    <SelectTrigger className="h-11 w-[110px] shrink-0 rounded-lg">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -143,7 +143,7 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="612 34567"
-                    className="flex-1"
+                    className="h-11 flex-1 rounded-lg"
                   />
                 </div>
               </div>
@@ -157,6 +157,7 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@company.com"
+                  className="h-11 rounded-lg"
                 />
               </div>
 
@@ -165,7 +166,7 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full font-semibold bg-[oklch(0.55_0.22_300)] text-white hover:bg-[oklch(0.50_0.22_300)]"
+                className="h-11 w-full rounded-lg bg-accent font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-accent/90"
               >
                 {loading ? (
                   <>
