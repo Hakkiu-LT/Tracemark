@@ -381,6 +381,18 @@ so `vite preview` does NOT run workerd). We self-host by running the built worke
 `scripts/backup.sh`. Remaining work is on the server (DNS, hardening, secrets, first deploy) —
 those need the user's credentials and are documented step-by-step in `docs/DEPLOYMENT.md`.
 
+**Fixed (env pass-through gap):** `docker-compose.yml` originally listed only AI/scraping vars
+under `api`/`admin-api` `environment:`, and since `.env` is `.dockerignore`'d there was no
+`env_file:`, so Stripe billing (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_*`),
+Resend email (`RESEND_API_KEY`, `EMAIL_FROM`) and `CUSTOMER_APP_URL` would have been UNSET in
+the containers — silently breaking billing + email in prod. Added `env_file: - .env` to both API
+services (the explicit `environment:` block still wins for the name remaps). Also added
+`VITE_STRIPE_PUBLISHABLE_KEY` as a frontend build arg (`src/Dockerfile` + compose) — required by
+`src/lib/stripe.ts` for customer Stripe checkout.
+
+**Open server-side gotcha:** the deploy workflow runs `git fetch/reset` on the server, so the
+private repo needs pull access there (deploy key or PAT) — not yet spelled out in the runbook.
+
 **Trade-off noted:** `wrangler dev` self-host is fine for MVP; scaling later → `wrangler deploy`
 to real Cloudflare (one command) and drop the `frontend` container.
 
