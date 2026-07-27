@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -7,15 +7,12 @@ import {
   useRouterState,
   HeadContent,
   Scripts,
-  useNavigate,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { Toaster } from "@/components/ui/sonner";
-import { AuthProvider, RequireAuth, useAuth } from "@/lib/auth";
-import { getSubscription } from "@/lib/api";
+import { AuthProvider, RequireAuth } from "@/lib/auth";
 
 import appCss from "../styles.css?url";
 
@@ -27,13 +24,7 @@ const PUBLIC_PATHS = new Set([
   "/auth/sign-in",
   "/auth/sign-up",
   "/auth/callback",
-  "/plans",
-  "/configure",
   "/request-demo",
-  "/review",
-  "/checkout",
-  "/billing/success",
-  "/billing/cancel",
 ]);
 
 function NotFoundComponent() {
@@ -105,50 +96,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+        {/* Google Analytics (gtag.js) — GA4 property G-PH8369N5PD */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-PH8369N5PD" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-PH8369N5PD');`,
+          }}
+        />
+      </head>
       <body>
         {children}
         <Scripts />
       </body>
     </html>
   );
-}
-
-// Routes that need auth but NOT a paid subscription (billing / checkout flows)
-const BILLING_PATHS = ["/checkout", "/billing", "/settings"];
-
-function RequirePaidPlan({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isExempt = BILLING_PATHS.some((p) => pathname.startsWith(p));
-
-  const { data: sub, isLoading } = useQuery({
-    queryKey: ["billing_subscription"],
-    queryFn: getSubscription,
-    retry: 1,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const ACTIVE = new Set(["active", "trialing", "past_due"]);
-  const isPaid = sub && ACTIVE.has(sub.status);
-
-  useEffect(() => {
-    if (!isLoading && !isPaid && !isExempt) {
-      navigate({ to: "/plans", replace: true });
-    }
-  }, [isLoading, isPaid, isExempt, navigate]);
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <span className="text-sm text-muted-foreground">Loading…</span>
-      </div>
-    );
-  }
-
-  if (!isPaid && !isExempt) return null;
-
-  return <>{children}</>;
 }
 
 function RootComponent() {
@@ -166,20 +132,18 @@ function RootComponent() {
           </>
         ) : (
           <RequireAuth>
-            <RequirePaidPlan>
-              <SidebarProvider>
-                <div className="flex min-h-screen w-full">
-                  <AppSidebar />
-                  <SidebarInset className="flex min-w-0 flex-1 flex-col">
-                    <AppHeader />
-                    <main className="flex-1 p-4 md:p-6">
-                      <Outlet />
-                    </main>
-                  </SidebarInset>
-                </div>
-                <Toaster />
-              </SidebarProvider>
-            </RequirePaidPlan>
+            <SidebarProvider>
+              <div className="flex min-h-screen w-full">
+                <AppSidebar />
+                <SidebarInset className="flex min-w-0 flex-1 flex-col">
+                  <AppHeader />
+                  <main className="flex-1 p-4 md:p-6">
+                    <Outlet />
+                  </main>
+                </SidebarInset>
+              </div>
+              <Toaster />
+            </SidebarProvider>
           </RequireAuth>
         )}
       </AuthProvider>

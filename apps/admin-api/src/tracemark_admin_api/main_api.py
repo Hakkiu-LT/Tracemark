@@ -50,10 +50,6 @@ def get_usage_stats() -> Any:
     return _request("GET", "/internal/usage-stats")
 
 
-def get_entitlements(org_id: str) -> Any:
-    return _request("GET", f"/internal/entitlements/{org_id}")
-
-
 def send_takedown_email(takedown_id: str) -> Any:
     return _request("POST", f"/internal/takedowns/{takedown_id}/send-email")
 
@@ -86,23 +82,3 @@ def upload_brand_asset(brand_id: str, asset_type: str, filename: str, content_ty
 
 def delete_brand_asset(brand_id: str, asset_id: str) -> Any:
     return _request("DELETE", f"/internal/brands/{brand_id}/assets/{asset_id}")
-
-
-def set_plan(org_id: str, plan: str, mode: str = "comp") -> Any:
-    return _request("POST", "/internal/billing/set-plan", json={"org_id": org_id, "plan": plan, "mode": mode})
-
-
-def cancel_subscription(org_id: str, cancel: bool) -> Any:
-    return _request("POST", "/internal/billing/cancel", json={"org_id": org_id, "cancel": cancel})
-
-
-def get_entitlement_override(org_id: str) -> Any:
-    return _request("GET", f"/internal/orgs/{org_id}/entitlement-override")
-
-
-def set_entitlement_override(org_id: str, payload: dict) -> Any:
-    return _request("PUT", f"/internal/orgs/{org_id}/entitlement-override", json=payload)
-
-
-def clear_entitlement_override(org_id: str) -> Any:
-    return _request("DELETE", f"/internal/orgs/{org_id}/entitlement-override")

@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   ShieldCheck,
-  Zap,
   CheckCircle2,
   AlertTriangle,
   FileText,
@@ -68,27 +67,15 @@ export function HeroV3() {
               size="lg"
               className="h-12 rounded-lg bg-foreground px-7 text-sm font-semibold text-background shadow-md transition-all hover:bg-foreground/90 hover:shadow-lg cursor-pointer"
             >
-              <Link to="/auth/sign-up" className="flex items-center gap-2">
-                Start Free Trial
+              <Link to="/request-demo" className="flex items-center gap-2">
+                Book a demo
                 <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="h-12 rounded-lg border-border/80 bg-background px-7 text-sm font-medium text-foreground transition-all hover:bg-muted cursor-pointer"
-            >
-              <Link to="/plans" className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-emerald-500" />
-                Compare Plans
               </Link>
             </Button>
           </div>
 
           <p className="mt-4 text-xs text-muted-foreground">
-            Need to talk first?{" "}
+            Already have questions?{" "}
             <button
               onClick={() => setSalesOpen(true)}
               className="font-medium text-foreground underline underline-offset-2 hover:no-underline cursor-pointer"

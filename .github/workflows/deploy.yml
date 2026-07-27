@@ -36,6 +36,11 @@ jobs:
             echo "→ Rebuilding + restarting containers…"
             docker compose build
             docker compose up -d
+            echo "→ Restarting Caddy to apply Caddyfile changes…"
+            # `caddy reload` reports success (exit 0) but does NOT reliably re-apply a
+            # changed bind-mounted Caddyfile here, so a full restart is used instead
+            # (a ~1s TLS blip is acceptable for config changes).
+            docker compose restart caddy
             echo "→ Pruning old images…"
             docker image prune -f
             echo "✓ Deploy complete."

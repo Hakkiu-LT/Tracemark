@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ShieldCheck, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { HeroV3 } from "@/components/landing/hero-v3";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Workflow } from "@/components/landing/workflow";
@@ -50,25 +50,26 @@ function LandingPage() {
       {/* BRAND EXPOSURE CALCULATOR */}
       <ExposureCalculator />
 
-      {/* COMPARE PLANS AND PRICING CTA */}
+      {/* BOOK A DEMO CTA */}
       <div className="border-t border-border/60 bg-muted/20 py-24 text-center">
         <div className="mx-auto max-w-4xl px-6 flex flex-col items-center">
           <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             READY TO DEPLOY BRAND DEFENSE?
           </p>
           <h3 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            Plans built for brand teams and IP professionals.
+            Built for brand teams and IP professionals.
           </h3>
           <p className="mt-4 max-w-xl text-base text-muted-foreground">
-            Start protecting your brand today with flexible plans tailored to your monitoring volume.
+            See HAKKIU in action. Book a demo and our team will tailor brand protection to your
+            monitoring needs.
           </p>
           <Button
             asChild
             size="lg"
             className="mt-8 h-12 gap-2 rounded-lg bg-foreground px-8 text-sm font-semibold text-background shadow-md hover:bg-foreground/90 transition-all cursor-pointer"
           >
-            <Link to="/plans">
-              Compare Plans & Pricing
+            <Link to="/request-demo">
+              Book a demo
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

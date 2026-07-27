@@ -1,0 +1,46 @@
+# HAKKIU
+
+> HAKKIU is an AI-powered trademark and brand-protection platform that monitors online
+> marketplaces, social commerce, app stores, domain registries and the open web 24/7 to
+> detect counterfeits, trademark abuse and unauthorized sellers — then captures forensic,
+> legal-grade evidence and automates 1-click takedown notices. Tagline: "Protect your brand
+> at internet speed." Built for brand-protection teams and IP law firms.
+
+## What HAKKIU does
+
+- **24/7 multi-channel surveillance** — continuous AI crawlers scan 12+ global marketplaces,
+  social commerce platforms, app stores and domain registries (Amazon, Shopify, eBay,
+  Alibaba, AliExpress, Etsy, Instagram, Facebook, TikTok, YouTube, Google Shopping, app
+  stores and web domains).
+- **AI visual & text matching** — computer-vision and NLP models compare listings against
+  your official trademark registry to catch modified logos, typosquatting and evasive copy,
+  with 0–100% threat scoring.
+- **Forensic evidence dossiers** — auto-archives high-resolution screenshots, page HTML,
+  WHOIS records and cryptographic (SHA-256) timestamps, ready for legal review.
+- **1-click enforcement** — automated DMCA and trademark notice generation dispatched to
+  marketplace legal portals (Amazon Brand Registry, Shopify, Google DMCA, domain registrars).
+- **Audit log, resolution tracking and ROI reporting** — full history of every detection and
+  takedown, plus authorized-seller whitelisting and logo fingerprinting.
+
+## Who it is for
+
+Brand owners and in-house brand-protection teams, and intellectual-property (IP) law firms.
+Typical roles: Brand Manager, Legal Counsel, Founder.
+
+## Pricing
+
+Pricing is not published on the site. It is provided on request after a product demo or a
+sales consultation. There are no self-serve plans or per-detection / per-takedown charges.
+
+## Public pages
+
+- [Home / product overview](https://hakkiu.com/landing): Main marketing page — hero, coverage
+  channels, how it works, platform features and brand exposure calculator.
+- [Request a demo](https://hakkiu.com/request-demo): Book a product demo or a sales call via a
+  short qualification form (the primary way to get started).
+
+## Notes
+
+- Accounts are provisioned by HAKKIU staff after a demo; self-serve signup is disabled.
+- The authenticated customer app (dashboard, cases, monitoring, clients, settings) and admin
+  areas are private and are intentionally excluded from crawling and this file.

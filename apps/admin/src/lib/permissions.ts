@@ -4,15 +4,13 @@
 
 export const PERMISSIONS = {
   "customers.view": "View customer list and detail",
+  "customers.create": "Create a new customer dashboard login",
   "customers.edit": "Edit customer profile / workspace type",
   "customers.delete": "Delete customers (destructive)",
   "customers.impersonate": "Log in as a customer (destructive)",
   "brands.view": "View all brands across every org",
   "brands.edit": "Edit any brand",
   "brands.delete": "Delete any brand",
-  "billing.view": "View subscriptions and invoices",
-  "billing.manage": "Change plans, cancel/modify subscriptions",
-  "entitlements.manage": "Set custom per-org limits (brands/platforms/features) for Pro/Enterprise deals",
   "resources.view": "System metrics (CPU/RAM) and API usage",
   "scraper_health.view": "Per-platform scraper health (success rate, latency, failures)",
   "integrations.manage": "Meta token exchange and integration keys",
@@ -30,7 +28,7 @@ export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
   dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view"],
-  sales: ["customers.view", "customers.edit", "billing.view", "billing.manage", "brands.view", "leads.view", "leads.edit"],
+  sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(
     (p) => p !== "customers.delete" && p !== "customers.impersonate",
