@@ -266,16 +266,20 @@ Backend scan → single case + single AI prompt stays unchanged; frontend shows 
 - [x] `scripts/backup.sh` — nightly pg_dump → local + Hetzner Storage Box, 14-day rotation
 - [x] `docs/DEPLOYMENT.md` — full server-hardening runbook (deploy user, SSH keys-only, ufw, fail2ban, unattended-upgrades, docker) + DNS + first deploy + external-service wiring + verification
 
-### User must run (needs their credentials — instructions in docs/DEPLOYMENT.md)
-- [ ] DNS: A records (@, www, admin, api, admin-api) → 116.202.8.87 (+ AAAA for IPv6)
-- [ ] Server hardening: deploy user, SSH keys-only, ufw (80/443/SSH), fail2ban, unattended-upgrades, Docker
-- [ ] Give the server pull access to the private repo (deploy key or PAT) — `deploy.yml` runs `git fetch/reset` on the box
-- [ ] Clone to `/opt/hakkiu`, create `.env` from `.env.production.example`, fill secrets (Stripe LIVE keys)
-- [ ] First deploy: `docker compose build && up -d`; confirm Caddy issues certs
-- [ ] GitHub repo secrets: SSH_HOST / SSH_USER / SSH_KEY (+ SSH_PORT) for the deploy workflow
-- [ ] Stripe webhook → https://api.hakkiu.com/api/v1/billing/webhook; Supabase Auth Site/Redirect URLs
-- [ ] Backups: install postgresql-client, set DATABASE_URL, add cron
-- [ ] Verification checklist (all 5 hostnames load over HTTPS; scan + Stripe checkout work)
+### Server deploy — DONE (2026-07-27, live on Hetzner CCX13 116.202.8.87)
+- [x] DNS (Hostinger): A `@`/`api`/`admin`/`admin-api` → 116.202.8.87; `www` CNAME→apex; TTL 60–300. No AAAA (IPv4-only, avoids LE IPv6 issues).
+- [x] Server hardening: `deploy` user + passwordless sudo; SSH keys-only (`00-hardening.conf` drop-in overrides cloud-init; root login + passwords OFF); ufw (22/80/443); fail2ban; unattended-upgrades; 4G swap; Docker 29.6 + Compose v5.3.
+- [x] Repo pull access: classic GitHub PAT (`repo` scope) via `credential.helper store` (user is collaborator, no repo-admin).
+- [x] `.env` on server: scp'd from local working .env, then sed'd URLs/CORS → hakkiu.com + added `SUPABASE_SECRET_KEY` (compose maps service-role from it). Stripe left as placeholders (no LIVE — moving to book-a-demo model).
+- [x] First deploy: `docker compose build` (4 images) + `up -d`; **Caddy obtained all 5 LE certs**. External HTTPS verified: apex 200, www 301→apex, api+admin-api `/health` 200, admin SPA 200.
+
+### Remaining (post-deploy)
+- [ ] **Supabase Auth URLs** — Site URL `https://hakkiu.com`; Redirect URLs `https://hakkiu.com/**`, `https://admin.hakkiu.com/**`; enable Confirm email. (Needed for sign-in/email links on the new domain.)
+- [ ] Functional test: sign in on customer app → run a scan (proves API + Supabase + scraping end-to-end).
+- [ ] Backups: `apt install postgresql-client`, set `DATABASE_URL` in .env, cron `15 3 * * * /opt/hakkiu/scripts/backup.sh`.
+- [ ] (Deferred — needs SuperGabSq repo-admin) GitHub Actions auto-deploy secrets: SSH_HOST / SSH_USER / SSH_KEY (+ SSH_PORT). Until then: manual deploy = `git pull && docker compose up -d --build`.
+- [ ] (Skipped) Stripe webhook — no LIVE Stripe in book-a-demo model.
+- [ ] Optional: set `GOOGLE_SERP_API` / `SEARCHCANS_API` in .env (currently blank → those scraper sources inactive).
 
 ---
 
