@@ -15,8 +15,9 @@ Staff create dashboard logins via admin. Access = having a login (NO plan/entitl
 - [x] **Admin (`apps/admin` + `apps/admin-api`)** — deleted billing_admin.py; removed plan/subscription/MRR/entitlement-override UI + endpoints + `billing.*`/`entitlements.manage` permissions; removed orphaned `/organizations/{id}/usage` + `get_entitlements` proxy. import + build clean.
 - [x] **NEW — staff can create customer logins** — `POST /customers` (`sb.auth.admin.create_user`, email_confirm), permission `customers.create` (parity in permissions.py + permissions.ts), audit-logged; "Create customer" button + dialog on Customers.tsx.
 - [x] DB: no destructive migration — subscriptions/subscription_addons/invoices/org_entitlement_overrides/stripe_events tables left unused (safe/reversible).
-- [ ] **Deploy to server** so the live dashboard stops redirecting to pricing: `cd /opt/hakkiu && git pull && docker compose up -d --build`.
-- [ ] Supabase → Auth → **disable public sign-ups** (staff-created logins only; otherwise anyone can self-register and get full access).
+- [x] **Deployed to server** (commit 8742239) — verified live: `/plans` 404, `/api/v1/billing/subscription` 404, all 5 domains 200. Dashboard no longer redirects to pricing.
+- [x] **Fix auth session storage** (commit a52f19d) — the M13 custom single-cookie storage broke login (session > 4KB cookie limit → getSession() null → API calls sent with no Authorization header → "Failed to load infringements"). Reverted both apps to Supabase default localStorage; redeployed; verified infringements load. See [[project_security_hardening_2026_07]] (M13 reverted).
+- [ ] Supabase → Auth → **disable public sign-ups** (staff-created logins only; otherwise anyone can self-register and get full access — the plan gate that used to limit this is gone).
 - [ ] Optional later: drop unused billing tables + `profiles.plan` protection trigger via migration; remove now-unused `VITE_STRIPE_PUBLISHABLE_KEY` build arg in compose/Dockerfile.
 
 ---
