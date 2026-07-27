@@ -278,12 +278,12 @@ Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables
 ## 12. Startup Production Hosting (Hetzner CCX13 Deployment)
 *Transitioning from local/development setups to a highly secure, high-performance, cost-effective dedicated server hosting architecture on Hetzner.*
 
-### Infrastructure
-- **Hetzner CCX13 Instance Provisioning** | ❌ Missing | Deploy and configure a dedicated vCPU cloud instance (CCX13: 2 dedicated vCPUs, 8 GB RAM) running Ubuntu Server. *Server-side; runbook in `docs/DEPLOYMENT.md §2`.*
-- **Dockerized Container Architecture** | ⚠️ Partial | All 4 Dockerfiles + `docker-compose.yml` (Caddy, volumes, env_file/build-args) ready in repo and `docker compose config`-validated. Pending: first `docker compose up -d` on the server.
-- **Caddy/Nginx Reverse Proxy & SSL Auto-Renewal** | ⚠️ Partial | `Caddyfile` written for all 5 hostnames + security headers + auto Let's Encrypt. Pending: DNS records + first cert issuance on the server.
-- **CI/CD Deployment Pipelines** | ⚠️ Partial | `.github/workflows/ci.yml` + `deploy.yml` (SSH auto-deploy after green CI) in repo. Pending: GitHub repo secrets (`SSH_*`) + server pull access (deploy key/PAT).
-- **Automated DB & Storage Backups** | ⚠️ Partial | `scripts/backup.sh` (nightly pg_dump → local + Hetzner Storage Box, 14-day rotation) ready. Pending: install `postgresql-client`, set `DATABASE_URL`, add cron on the server.
+### Infrastructure — LIVE on Hetzner CCX13 (116.202.8.87) as of 2026-07-27
+- **Hetzner CCX13 Instance Provisioning** | ✅ Done | Ubuntu 24.04 provisioned + hardened: `deploy` user, SSH keys-only (root+password login off), ufw (22/80/443), fail2ban, unattended-upgrades, 4G swap, Docker 29.6 + Compose v5.3.
+- **Dockerized Container Architecture** | ✅ Done | 4 images built + running via `docker-compose.yml` (api, admin-api, frontend/workerd, admin/nginx) + Caddy; env_file loads root `.env`; json-file log rotation (10m×3) on all services.
+- **Caddy Reverse Proxy & SSL Auto-Renewal** | ✅ Done | Caddy obtained Let's Encrypt certs for all 5 hostnames (hakkiu.com, www, api, admin, admin-api); www→apex 301; auto-renew via `caddy_data` volume. External HTTPS verified (apex 200, both `/health` 200, admin SPA 200).
+- **CI/CD Deployment Pipelines** | ⚠️ Partial | `ci.yml` + `deploy.yml` (SSH auto-deploy after green CI) in repo. Server pulls via classic PAT. Pending: repo-admin (SuperGabSq) must add `SSH_*` Actions secrets to enable auto-deploy; until then manual `git pull && docker compose up -d --build`.
+- **Automated DB & Storage Backups** | ⚠️ Partial | `scripts/backup.sh` ready on server. Pending: install `postgresql-client`, set `DATABASE_URL`, add nightly cron.
 
 ---
 
