@@ -165,38 +165,12 @@ function MonitoringScanResultPage() {
             <span className="font-mono">{caseId}</span>
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => handleUpdateStatus("safe")}
-            className="flex items-center gap-2"
-          >
-            {updating === "safe" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-success" />
-            ) : (
-              <ShieldCheck className="h-4 w-4 text-success" />
-            )}
-            Safe
-          </Button>
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => handleUpdateStatus("analyzing")}
-            className="flex items-center gap-2"
-          >
-            {updating === "analyzing" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
-            ) : (
-              <RefreshCw className="h-4 w-4 text-amber-500" />
-            )}
-            Analyzing
-          </Button>
+        <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
             disabled={updating !== null}
             onClick={() => handleUpdateStatus("escalated")}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 border-accent/40 text-accent hover:bg-accent/10"
           >
             {updating === "escalated" ? (
               <Loader2 className="h-4 w-4 animate-spin text-accent" />
@@ -205,32 +179,84 @@ function MonitoringScanResultPage() {
             )}
             Escalate to Counsel
           </Button>
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => handleUpdateStatus("complete")}
-            className="flex items-center gap-2"
-          >
-            {updating === "complete" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-success" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-success" />
-            )}
-            Complete
-          </Button>
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => setShowDeclineDialog(true)}
-            className="flex items-center gap-2"
-          >
-            {updating === "declined" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
-            ) : (
-              <XCircle className="h-4 w-4 text-destructive" />
-            )}
-            Declined
-          </Button>
+
+          {/* Workflow Stage 1: Pending -> Analyze */}
+          {(result.status === "pending" || result.status === "flagged" || !result.status) && (
+            <Button
+              disabled={updating !== null}
+              onClick={() => handleUpdateStatus("analyzing")}
+              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-sm cursor-pointer"
+            >
+              {updating === "analyzing" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Analyze
+            </Button>
+          )}
+
+          {/* Workflow Stage 2: Analyzing -> Complete OR Decline */}
+          {(result.status === "analyzing" || result.status === "active") && (
+            <>
+              <Button
+                disabled={updating !== null}
+                onClick={() => handleUpdateStatus("complete")}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm cursor-pointer"
+              >
+                {updating === "complete" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Complete
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={updating !== null}
+                onClick={() => setShowDeclineDialog(true)}
+                className="flex items-center gap-2 shadow-sm cursor-pointer"
+              >
+                {updating === "declined" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4" />
+                )}
+                Declined
+              </Button>
+            </>
+          )}
+
+          {/* Terminal / Processed States: Option to Re-analyze */}
+          {(result.status === "complete" || result.status === "completed" || result.status === "resolved" || result.status === "declined" || result.status === "safe") && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={updating !== null}
+              onClick={() => handleUpdateStatus("analyzing")}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Re-analyze
+            </Button>
+          )}
+
+          {/* Safe shortcut */}
+          {result.status !== "safe" && (
+            <Button
+              variant="outline"
+              disabled={updating !== null}
+              onClick={() => handleUpdateStatus("safe")}
+              className="flex items-center gap-2"
+            >
+              {updating === "safe" ? (
+                <Loader2 className="h-4 w-4 animate-spin text-success" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 text-success" />
+              )}
+              Safe
+            </Button>
+          )}
           <Button asChild>
             <Link to="/monitoring/$caseId/takedown" params={{ caseId }}>
               <FileText className="h-4 w-4 mr-2" />
