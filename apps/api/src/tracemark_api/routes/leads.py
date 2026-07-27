@@ -42,6 +42,15 @@ class LeadRequest(BaseModel):
     company: str | None = None
     brand_count_range: str | None = None
     message: str | None = None
+    # Pre-demo qualification fields (captured by the /request-demo wizard)
+    role: str | None = None             # job title / role
+    website: str | None = None          # company website / domain
+    phone: str | None = None            # optional phone number
+    regions: list[str] | None = None    # markets they sell in
+    brand_names: str | None = None      # free-text list of brands to protect
+    marketplaces: list[str] | None = None   # marketplaces where they see abuse
+    current_solution: str | None = None      # how they handle it today
+    primary_goal: list[str] | None = None    # what they want to solve
 
 
 def _send_lead_notification(lead: LeadRequest) -> None:
@@ -58,6 +67,14 @@ def _send_lead_notification(lead: LeadRequest) -> None:
             company=lead.company,
             brand_count_range=lead.brand_count_range,
             message=lead.message,
+            role=lead.role,
+            website=lead.website,
+            phone=lead.phone,
+            regions=lead.regions,
+            brand_names=lead.brand_names,
+            marketplaces=lead.marketplaces,
+            current_solution=lead.current_solution,
+            primary_goal=lead.primary_goal,
         )
         subject = f"New {lead.tier.capitalize()} Lead — {lead.email}"
         for recipient in _NOTIFY_EMAILS:
@@ -90,6 +107,14 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
         "company": payload.company or None,
         "brand_count_range": payload.brand_count_range or None,
         "message": payload.message,
+        "role": payload.role or None,
+        "website": payload.website or None,
+        "phone": payload.phone or None,
+        "regions": payload.regions or None,
+        "brand_names": payload.brand_names or None,
+        "marketplaces": payload.marketplaces or None,
+        "current_solution": payload.current_solution or None,
+        "primary_goal": payload.primary_goal or None,
     }).execute()
 
     _send_lead_notification(payload)

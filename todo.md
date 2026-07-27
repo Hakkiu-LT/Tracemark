@@ -1,7 +1,37 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-27 (session 15 — pricing/Stripe removal + book-a-demo pivot)
+> Last updated: 2026-07-27 (session 16 — book-demo form enrichment + nav cleanup)
+
+---
+
+## 🟡 DONE (code) — Enrich book-a-demo form + nav cleanup (2026-07-27, session 16)
+
+Goal: capture much more about a prospect BEFORE the demo so the team can prepare;
+confirm admin + email notifications fire; clean up the top nav.
+
+- [x] **DB migration** `20260727000001_sales_leads_v3.sql` — add nullable columns to
+  `sales_leads`: `role`, `website`, `phone`, `regions text[]`, `brand_names`,
+  `marketplaces text[]`, `current_solution`, `primary_goal text[]`.
+  ✅ **Applied to live DB** via `supabase db push` (2026-07-27).
+- [x] **Customer form** `src/routes/request-demo.tsx` — wizard expanded 4→6 steps.
+  New fields: role + phone + website (website & role REQUIRED, rest optional),
+  regions (multi), brand names (text), marketplaces (multi), primary goals (multi),
+  current solution (single). Reusable `ChipGroup` for single/multi; Enter-to-advance
+  now ignores textarea. tsc clean.
+- [x] **Backend** `apps/api/.../routes/leads.py` — `LeadRequest` + insert extended with the
+  8 new fields (all optional; call-request/pricing forms unaffected).
+- [x] **Email** `apps/api/.../services/email_templates.py::new_lead_html` — staff notification
+  now lists role, phone, website (linked), regions, brand names, marketplaces, primary goals,
+  current solution. Notification already fires to `LEADS_NOTIFY_EMAILS` on every submit. ✅
+- [x] **Admin parity** `apps/admin/src/pages/Leads.tsx` — rows show role/phone (Contact) +
+  website link (Company); expandable detail row shows regions, brand names, marketplaces,
+  primary goals, current solution, full message. Reads via existing `select("*")` — no
+  admin-api change needed. tsc clean.
+- [x] **Nav** `src/components/landing/landing-nav.tsx` — removed "Sign in"; kept "Talk to sales"
+  (quick modal) + "Book a demo" (now → `/request-demo` enriched wizard, was opening sales modal).
+- [x] **Apply migration to live DB** (`supabase db push`) — done 2026-07-27.
+- [ ] Optional: E2E test one submission (verify row in admin `/leads` + staff email).
 
 ---
 

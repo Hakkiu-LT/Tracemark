@@ -566,6 +566,14 @@ def new_lead_html(
     company: str | None,
     brand_count_range: str | None,
     message: str | None,
+    role: str | None = None,
+    website: str | None = None,
+    phone: str | None = None,
+    regions: list[str] | None = None,
+    brand_names: str | None = None,
+    marketplaces: list[str] | None = None,
+    current_solution: str | None = None,
+    primary_goal: list[str] | None = None,
 ) -> str:
     source_labels = {
         "pricing_modal": "Request Pricing (Pricing page)",
@@ -589,13 +597,30 @@ def new_lead_html(
             f'</tr>'
         )
 
+    def website_link(url: str) -> str:
+        href = url if url.startswith(("http://", "https://")) else f"https://{url}"
+        return f'<a href="{href}" style="color:{_BRAND_COLOR};">{url}</a>'
+
+    website_val = website_link(website) if website else None
+    regions_val = ", ".join(regions) if regions else None
+    marketplaces_val = ", ".join(marketplaces) if marketplaces else None
+    primary_goal_val = ", ".join(primary_goal) if primary_goal else None
+
     rows = [
         row("Source", source_label),
         row("Tier", tier_label),
         row("Name", name_line if (first_name or last_name) else "<em>—</em>"),
+        row("Role", role or "<em>—</em>"),
         row("Email", f'<a href="mailto:{email}" style="color:{_BRAND_COLOR};">{email}</a>'),
+        row("Phone", phone or "<em>—</em>"),
         row("Company", company or "<em>—</em>"),
-        row("Brands", brand_count_range or "<em>—</em>"),
+        row("Website", website_val or "<em>—</em>"),
+        row("Regions", regions_val or "<em>—</em>"),
+        row("Brands (count)", brand_count_range or "<em>—</em>"),
+        row("Brands (names)", brand_names or "<em>—</em>"),
+        row("Marketplaces", marketplaces_val or "<em>—</em>"),
+        row("Primary goal", primary_goal_val or "<em>—</em>"),
+        row("Current solution", current_solution or "<em>—</em>"),
     ]
     if message:
         rows.append(row("Message", f'<span style="white-space:pre-wrap;">{message}</span>'))
