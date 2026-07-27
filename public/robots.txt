@@ -1,0 +1,82 @@
+# robots.txt for HAKKIU (https://hakkiu.com)
+# Public marketing pages are open to all crawlers.
+# Authenticated app, auth flows and legacy pages are blocked.
+
+User-agent: *
+Allow: /$
+Allow: /landing
+Allow: /request-demo
+
+# Private / authenticated application — never index
+Disallow: /dashboard
+Disallow: /cases
+Disallow: /monitoring
+Disallow: /clients
+Disallow: /settings
+
+# Auth & utility pages — no SEO value
+Disallow: /auth/
+Disallow: /legacy/
+
+# AI / LLM crawlers are explicitly welcome on public content
+User-agent: GPTBot
+Allow: /
+Disallow: /dashboard
+Disallow: /cases
+Disallow: /monitoring
+Disallow: /clients
+Disallow: /settings
+Disallow: /auth/
+Disallow: /legacy/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /dashboard
+Disallow: /cases
+Disallow: /monitoring
+Disallow: /clients
+Disallow: /settings
+Disallow: /auth/
+Disallow: /legacy/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /dashboard
+Disallow: /cases
+Disallow: /monitoring
+Disallow: /clients
+Disallow: /settings
+Disallow: /auth/
+Disallow: /legacy/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /dashboard
+Disallow: /cases
+Disallow: /monitoring
+Disallow: /clients
+Disallow: /settings
+Disallow: /auth/
+Disallow: /legacy/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /dashboard
+Disallow: /cases
+Disallow: /monitoring
+Disallow: /clients
+Disallow: /settings
+Disallow: /auth/
+Disallow: /legacy/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /dashboard
+Disallow: /cases
+Disallow: /monitoring
+Disallow: /clients
+Disallow: /settings
+Disallow: /auth/
+Disallow: /legacy/
+
+Sitemap: https://hakkiu.com/sitemap.xml
