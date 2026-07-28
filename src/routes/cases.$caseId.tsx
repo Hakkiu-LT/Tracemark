@@ -485,7 +485,7 @@ function CaseDetail() {
               ) : (
                 <div className="w-full h-full rounded border border-border bg-card shadow-sm relative overflow-hidden group">
                   <BoundingBoxOverlay
-                    src={latestEvidence?.screenshot_url ?? "../../images/evidence01.png"}
+                    src={latestEvidence?.screenshot_url ?? i.screenshot_url ?? "../../images/evidence01.png"}
                     boxes={boxes}
                     reviews={reviews}
                     onReview={setReview}
@@ -496,9 +496,11 @@ function CaseDetail() {
               <div className="absolute bottom-6 right-6 bg-foreground text-background font-mono text-[11px] px-3 py-1.5 rounded opacity-90 shadow-lg border border-border/30 flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5" />
                 CAPTURE:{" "}
-                {latestEvidence 
+                {latestEvidence
                   ? new Date(latestEvidence.captured_at).toISOString().slice(0, 19) + "Z"
-                  : "N/A"}
+                  : i.screenshot_url
+                    ? new Date(i.created_at).toISOString().slice(0, 19) + "Z"
+                    : "N/A"}
               </div>
             </div>
             <div className="px-4 py-2 border-t border-border bg-muted/20">
