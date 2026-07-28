@@ -1,7 +1,22 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-28 (session 21 — legal/company footer pages + footer redesign + LinkedIn)
+> Last updated: 2026-07-28 (session 23 — error-status illustrations)
+
+---
+
+## 🖼️ Error illustrations (2026-07-28)
+
+Show a per-status illustration + the exact HTTP code whenever a load fails.
+Bucket (1xx…5xx or "signal lost" = no response) picks the image; code shown as text.
+
+- [x] `src/lib/api.ts` — new `ApiError` class carries `.status` from non-2xx responses.
+- [x] `src/lib/error-status.ts` — `getErrorStatus`/`getErrorBucket`/`getMessage`; network-failure → "signal lost".
+- [x] `src/components/error-state.tsx` — central `<ErrorState>` (page/block/inline variants), retry button.
+- [x] Wired: `__root.tsx` boundary, `notification-delivery-log`, `InfringementAlertFeed`, `cases.tsx`, `cases.$caseId.tsx`.
+- [x] `src/images/errors/` — 6 real 1024×1024 PNGs installed (1xx/2xx/3xx/4xx/5xx/signal-lost.png).
+- [x] `tsc --noEmit` clean; `npm run build` ✓ (all 6 images emitted as bundle assets).
+- [ ] Admin-portal parity: the admin FE (`apps/admin`) has its own error UIs — port `<ErrorState>` there too if desired.
 
 ---
 
@@ -35,8 +50,19 @@ Full plan: `security-remediation-plan-2026-07-28.md`. 5-subagent deep audit + ma
 - [x] L1 — `clients.py` billing cases count org-scoped (test updated).
 - Migration `20260728000003` validated on throwaway PG16 (exit 0). Backend: 206 pass, 1 pre-existing unrelated fail.
 
+**🚨 CRITICAL PROD RLS DRIFT (found during 003 push, 2026-07-28):**
+- `supabase db dump` of LIVE prod revealed 4 core tables were CROSS-TENANT OPEN in production
+  (files said scoped; reality had broad `allow_all_authenticated`): `evidence`, `takedown_reports`,
+  `decisions` (broad-only), `infringements` (broad + scoped → broad wins), `cases` (`cases_own` with
+  `user_id IS NULL` leak). `migration list` was in-sync yet the DB did NOT match the files.
+- [x] Migration `20260728000003` REWRITTEN into a full reconciliation (drop all broad policies +
+  create scoped evidence/takedown/decisions + H4 WITH CHECK on cases/infringements + H7 brands).
+- [x] VALIDATED on throwaway PG16 w/ real prod policies + synthetic 2-org data: before=leak (sees 2),
+  after=own-only (1 each) + cross-tenant=0 + embeds work. Exit 0.
+
 **STILL PENDING (needs deploy / staging / user):**
-- [ ] Push migration `20260728000003` to prod (`supabase db push`) — awaiting authorization.
+- [ ] Push migration `20260728000003` to prod (`supabase db push`) — RISK CHANGED (now drops broad
+  READ policies), re-authorization needed. Smoke-test app right after; rollback = re-add broad policies.
 - [ ] C5 — `evidence-screenshots` private + signed URLs: investigated (see plan) → **NO-GO for blind prod**
   (breaks `<img>` display + email links + admin-api needs its own signer). Needs staging pass + email-link
   strategy decision before deploy. Full implementation plan captured from subagent.
