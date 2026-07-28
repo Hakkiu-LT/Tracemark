@@ -11,7 +11,6 @@ import {
   Music2,
   Package,
   Youtube,
-  Play,
   ArrowRight,
 } from "lucide-react";
 
@@ -28,7 +27,6 @@ const CHANNELS = [
   { name: "AliExpress", icon: Package },
   { name: "App Stores", icon: Apple },
   { name: "YouTube", icon: Youtube },
-  { name: "Google Shopping", icon: Play },
 ];
 
 export function Coverage() {
