@@ -80,7 +80,10 @@ Full plan: `security-remediation-plan-2026-07-28.md`. 5-subagent deep audit + ma
   bucket public=False, public URL→400 (cache-busted), signed URL→200. **USER: visual smoke-test the
   screenshots in-app (cases detail, evidence dialog, admin case detail) to confirm end-to-end render;
   rollback = `UPDATE storage.buckets SET public=true WHERE id='evidence-screenshots'`.**
-- [ ] C1 finish — purge leaked key from git history (filter-repo/BFG) + confirm old key revoked in Supabase (user-only).
+- [x] C1 DONE (2026-07-28) — old key REVOKED (prod REST → 401, dead); HEAD redacted; full git history
+  rewritten via `git filter-repo` (literal → `sb_secret_***REVOKED***`) across all commits+branches,
+  force-pushed; fresh clone = 0 occurrences. Backup at `../Tracemark-backup.git`. ⚠️ Other devs must
+  re-clone/hard-reset; Hetzner deploy self-heals on next `git reset --hard origin/main`.
 - [ ] M10 — docker-compose per-service env: assessed NO-GO (too risky for the gain; keep env_file).
 - [ ] L9 — admin list_users/limit(1000) pagination: deferred (low priority until customer count grows).
 
