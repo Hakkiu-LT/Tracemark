@@ -109,12 +109,12 @@ export function HeroV3() {
                 </div>
                 <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-3 py-1 text-xs text-muted-foreground font-mono">
                   <Lock className="h-3 w-3 text-emerald-500" />
-                  <span>app.hakkiu.com/live-monitoring</span>
+                  <span>app.hakkiu.com/monitoring</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    ACTIVE SURVEILLANCE
+                    LIVE ALERTS
                   </span>
                 </div>
               </div>
@@ -127,114 +127,143 @@ export function HeroV3() {
                     <div className="flex items-center gap-2">
                       <Search className="h-4 w-4 text-muted-foreground" />
                       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Real-Time Infringement Detections
+                        Live Infringement Alert Feed
                       </span>
                     </div>
                     <span className="text-xs font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                      4 suspicious listings flagged
+                      4 active cases flagged
                     </span>
                   </div>
 
                   {/* Listing Cards */}
-                  <div className="space-y-3 font-sans">
-                    {/* Item 1 */}
-                    <div className="flex items-start justify-between rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-xs transition-all hover:border-rose-500/50">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                          <AlertTriangle className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 font-medium text-foreground">
-                            <span>Amazon US</span>
-                            <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
-                              Counterfeit (99.4% match)
-                            </span>
-                          </div>
-                          <p className="mt-1 text-muted-foreground font-mono text-[11px]">
-                            ASIN: B089X2KL9 | Seller: ApexDiscounts_Store
-                          </p>
-                        </div>
+                  <div className="space-y-2.5 font-sans">
+                    {/* Item 1 - Amazon */}
+                    <div className="flex items-center gap-3 rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-xs transition-all hover:border-rose-500/50">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                        AM
                       </div>
-                      <span className="font-mono text-[10px] text-muted-foreground">2m ago</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300 uppercase">
+                            HIGH RISK
+                          </span>
+                          <span className="inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            🇺🇸 US
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            • 2m ago
+                          </span>
+                          <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 capitalize">
+                            flagged
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate font-medium text-foreground text-xs">
+                          https://www.amazon.com/dp/B089X2KL9
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground font-mono mt-0.5">
+                          Match: Counterfeit (Score: 99.4%) • Seller: ApexDiscounts
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Item 2 */}
-                    <div className="flex items-start justify-between rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs transition-all hover:border-amber-500/50">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                          <Sparkles className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 font-medium text-foreground">
-                            <span>Shopify Domain</span>
-                            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                              Trademark Typosquatting
-                            </span>
-                          </div>
-                          <p className="mt-1 text-muted-foreground font-mono text-[11px]">
-                            URL: get-hakkiu-official-shop.com
-                          </p>
-                        </div>
+                    {/* Item 2 - Shopify */}
+                    <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs transition-all hover:border-amber-500/50">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                        SH
                       </div>
-                      <span className="font-mono text-[10px] text-muted-foreground">8m ago</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300 uppercase">
+                            HIGH RISK
+                          </span>
+                          <span className="inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            🇬🇧 GB
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            • 8m ago
+                          </span>
+                          <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 capitalize">
+                            flagged
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate font-medium text-foreground text-xs">
+                          https://get-hakkiu-official-shop.com
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground font-mono mt-0.5">
+                          Match: Trademark Typosquatting (Score: 94.2%)
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Item 3 */}
-                    <div className="flex items-start justify-between rounded-lg border border-border/60 bg-muted/20 p-3 text-xs">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                          <ShieldCheck className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 font-medium text-foreground">
-                            <span>Instagram Ads</span>
-                            <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                              Takedown Dispatched
-                            </span>
-                          </div>
-                          <p className="mt-1 text-muted-foreground font-mono text-[11px]">
-                            Handle: @cheap_hakkiu_outlet
-                          </p>
-                        </div>
+                    {/* Item 3 - Instagram */}
+                    <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-pink-500/30 bg-pink-500/10 text-pink-600 dark:text-pink-400 font-bold text-xs">
+                        IG
                       </div>
-                      <span className="font-mono text-[10px] text-muted-foreground">15m ago</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 uppercase">
+                            MEDIUM
+                          </span>
+                          <span className="inline-flex items-center gap-0.5 rounded border border-border/50 bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            🇪🇺 EU
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            • 15m ago
+                          </span>
+                          <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 capitalize">
+                            takedown_sent
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate font-medium text-foreground text-xs">
+                          instagram.com/p/C9x8a2b1c
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground font-mono mt-0.5">
+                          Match: Brand Asset Usage (Score: 88.0%)
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Right Column: Case Details & Takedown Action */}
+                {/* Right Column: Case Enforcement Details */}
                 <div className="p-5 lg:col-span-5 bg-muted/10 space-y-4">
                   <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Evidence Dossier #TRC-8942
-                    </span>
-                    <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background">
-                      Ready to Enforce
+                    <div>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                        Case #case_8f9a2b1c
+                      </span>
+                      <span className="text-[11px] text-muted-foreground font-mono">Mark: HAKKIU®</span>
+                    </div>
+                    <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      Ready for Takedown
                     </span>
                   </div>
 
-                  <div className="space-y-2.5 text-xs">
-                    <div className="flex justify-between rounded bg-muted/40 p-2 font-mono">
-                      <span className="text-muted-foreground">Target URL:</span>
-                      <span className="font-semibold text-foreground">amazon.com/dp/B089X...</span>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between items-center rounded bg-background border border-border/50 p-2 font-mono">
+                      <span className="text-muted-foreground text-[11px]">Platform:</span>
+                      <span className="font-semibold text-foreground text-[11px]">Amazon US</span>
                     </div>
-                    <div className="flex justify-between rounded bg-muted/40 p-2 font-mono">
-                      <span className="text-muted-foreground">Cryptographic Hash:</span>
-                      <span className="text-foreground">sha256:e3b0c44298fc...</span>
+                    <div className="flex justify-between items-center rounded bg-background border border-border/50 p-2 font-mono">
+                      <span className="text-muted-foreground text-[11px]">Risk Score:</span>
+                      <span className="text-rose-600 dark:text-rose-400 font-semibold text-[11px]">99.4% (High Risk)</span>
                     </div>
-                    <div className="flex justify-between rounded bg-muted/40 p-2 font-mono">
-                      <span className="text-muted-foreground">DMCA Payload:</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Verified Legal Packet</span>
+                    <div className="flex justify-between items-center rounded bg-background border border-border/50 p-2 font-mono">
+                      <span className="text-muted-foreground text-[11px]">Evidence Hash:</span>
+                      <span className="text-foreground text-[11px]">sha256:e3b0c44...</span>
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-border/60 bg-background p-3.5 text-xs space-y-2">
+                  <div className="rounded-lg border border-border/60 bg-background p-3.5 text-xs space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-foreground">Automated Enforcement</span>
-                      <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">1-Click Dispatch</span>
+                      <span className="font-semibold text-foreground">1-Click Legal Takedown</span>
+                      <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                        Auto-Form Fill
+                      </span>
                     </div>
                     <p className="text-[11px] leading-relaxed text-muted-foreground">
-                      Submits formal copyright/trademark takedown directly to Amazon Legal IP Portal with cryptographically hashed evidence.
+                      Dispatches formatted DMCA notice & evidence bundle directly to platform IP Portal.
                     </p>
                     <Button size="sm" className="w-full h-8 gap-1.5 bg-foreground text-background text-xs font-semibold hover:bg-foreground/90 cursor-pointer">
                       <FileText className="h-3.5 w-3.5" />

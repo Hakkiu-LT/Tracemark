@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -44,8 +45,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <Link to="/landing" className="flex items-center gap-2 px-2 py-3">
+      <SidebarHeader className={cn("border-b border-sidebar-border", collapsed && "p-0 flex items-center justify-center")}>
+        <Link
+          to="/landing"
+          className={cn(
+            "flex items-center gap-2 py-3 transition-all",
+            collapsed ? "w-full justify-center px-0" : "px-2"
+          )}
+        >
           {collapsed ? (
             <HakkiuMark className="h-7 w-7 shrink-0 text-sidebar-primary" />
           ) : (
