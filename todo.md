@@ -73,9 +73,13 @@ Full plan: `security-remediation-plan-2026-07-28.md`. 5-subagent deep audit + ma
   redeploy. admin-api /health=200 restored. LESSON: always commit uv.lock with any pyproject dep change.
 
 **STILL PENDING (needs deploy / staging / user):
-- [ ] C5 — `evidence-screenshots` private + signed URLs: investigated (see plan) → **NO-GO for blind prod**
-  (breaks `<img>` display + email links + admin-api needs its own signer). Needs staging pass + email-link
-  strategy decision before deploy. Full implementation plan captured from subagent.
+- [x] C5 — `evidence-screenshots` bucket now PRIVATE + signed URLs. DONE + deployed (2026-07-28,
+  user-authorized). Backend signer (`sign_screenshot_url` accepts bare paths + legacy URLs), API
+  read-signing, new `POST /infringements/screenshots/sign`, admin-api signer, frontend wiring, email
+  links to app instead of expiring URLs. Migration `20260728000004` applied. VERIFIED on prod:
+  bucket public=False, public URL→400 (cache-busted), signed URL→200. **USER: visual smoke-test the
+  screenshots in-app (cases detail, evidence dialog, admin case detail) to confirm end-to-end render;
+  rollback = `UPDATE storage.buckets SET public=true WHERE id='evidence-screenshots'`.**
 - [ ] C1 finish — purge leaked key from git history (filter-repo/BFG) + confirm old key revoked in Supabase (user-only).
 - [ ] M10 — docker-compose per-service env: assessed NO-GO (too risky for the gain; keep env_file).
 - [ ] L9 — admin list_users/limit(1000) pagination: deferred (low priority until customer count grows).
