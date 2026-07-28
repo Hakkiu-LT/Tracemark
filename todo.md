@@ -1,7 +1,41 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-27 (session 16 — book-demo form enrichment + nav cleanup)
+> Last updated: 2026-07-28 (session 18 — admin company creation + portal health audit)
+
+---
+
+## ✅ DONE — Create company + users from Admin Portal (2026-07-28, session 18)
+
+Motivation: after a demo, staff must be able to onboard a customer entirely from the
+admin portal. Previously there was NO way to create a new company — you could only
+create a login and attach it to a PRE-EXISTING org. Gap closed.
+
+- [x] `apps/admin-api/.../routes/organizations.py` — new `POST /organizations`
+  (`create_organization`, permission `customers.create`): creates the owner auth user
+  (DB trigger auto-makes org+profile+owner-membership), then brands the org
+  (name/industry), sets owner full_name, upserts `org_settings`
+  (notification_email + persona). Calls `write_audit_log("organizations.create")`.
+- [x] `apps/admin/src/pages/Organizations.tsx` — "New company" button + `CreateOrgDialog`
+  (company name, industry, workspace type, owner email/password/full name); navigates to
+  the new company on success. Gated by `<Can permission="customers.create">`.
+- [x] `apps/admin/src/pages/OrganizationDetail.tsx` — "Create user" button + `CreateUserDialog`
+  (POST `/customers` with `organization_id` preset) so staff add NEW logins directly
+  inside a company without hunting UUIDs. Old UUID-based add kept as "Add existing".
+- [x] Verified end-to-end against live Supabase (create company + owner + 2nd user →
+  all rows correct → full auto-cleanup, no residue). TS `tsc --noEmit` clean; admin-api
+  restarted; route registered + auth-guarded (401 on bad token) + CORS allows PATCH.
+
+### Findings from portal health audit (session 18)
+- [x] "Failed to fetch" on Sales Leads is NOT a code bug — `GET/PATCH /leads` exist,
+  CORS allows PATCH, permissions in sync, `sales_leads` table exists. Prod-only network/env
+  symptom (transient PATCH failure or leftover toast). If it recurs: DevTools → Network.
+- [ ] LOW: `OrganizationDetail` "Add existing" still needs a raw UUID — replace with a
+  user search-select (backed by `/search` or `/customers`). Non-blocking.
+- [ ] LOW: verify prod admin-api has `staff_accounts`/`staff_permissions`/`admin_audit_log`
+  applied, else `/staff/me` + `write_audit_log` 500 (portal-wide login failure risk).
+- [ ] LOW: `routes/auth.py` `_DEFAULT_RESET_ORIGIN` = `admin.hakkiu.com` but canonical is
+  `admin.tracemark.ai`; harmless (SignIn passes `window.location.origin`) — align later.
 
 ---
 

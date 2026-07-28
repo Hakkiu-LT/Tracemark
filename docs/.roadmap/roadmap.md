@@ -236,6 +236,7 @@ remain (non-destructive; drop later via a forward migration if desired).
 ### Backend
 - **User Organization & Groups Schema Migration** | ✅ Done | `organizations` + `organization_members` (roles owner/admin/member) migration `20260720000014`; safe backfill preserving the billing anchor (org.id = user id for single-member); `handle_new_user` creates org + owner membership on signup.
 - **Organization-Scoped API Routing** | ⚠️ Partial | Entitlements/billing anchor on `organization_id` (unchanged). Member management exposed via **admin portal** (`/organizations/{id}/members`). Customer-app org-scoped middleware not reworked.
+- **Admin: Create company + owner login** | ✅ Done | `POST /organizations` (admin-api, perm `customers.create`) creates the owner auth user (trigger builds org+profile+owner-membership), brands the org (name/industry), sets persona/notification_email via `org_settings`, audit-logged. UI: "New company" dialog on Companies page + "Create user" dialog inside a company (session 18, 2026-07-28). Verified E2E against live DB with cleanup.
 - **Member Invitation API & SMTP Invites** | ❌ Missing | (Fazė F) Customer-side invite endpoints + activation tokens + SMTP. Staff can add members from admin today.
 
 ### Frontend

@@ -55,6 +55,7 @@ export function OrganizationDetail() {
   const [name, setName] = useState("");
   const [brandEdit, setBrandEdit] = useState<OrgDetail["brands"][number] | null>(null);
   const [addingMember, setAddingMember] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["organization", orgId],
@@ -146,11 +147,18 @@ export function OrganizationDetail() {
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Users ({data.members.length})</CardTitle>
-          <Can permission="customers.edit">
-            <Button size="sm" variant="outline" onClick={() => setAddingMember(true)}>
-              <Plus className="h-4 w-4" /> Add member
-            </Button>
-          </Can>
+          <div className="flex gap-2">
+            <Can permission="customers.create">
+              <Button size="sm" onClick={() => setCreatingUser(true)}>
+                <Plus className="h-4 w-4" /> Create user
+              </Button>
+            </Can>
+            <Can permission="customers.edit">
+              <Button size="sm" variant="outline" onClick={() => setAddingMember(true)}>
+                <Plus className="h-4 w-4" /> Add existing
+              </Button>
+            </Can>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -273,6 +281,17 @@ export function OrganizationDetail() {
           </CardContent>
         </Card>
       </Can>
+
+      {creatingUser && (
+        <CreateUserDialog
+          orgId={orgId}
+          onClose={() => setCreatingUser(false)}
+          onCreated={() => {
+            setCreatingUser(false);
+            qc.invalidateQueries({ queryKey: ["organization", orgId] });
+          }}
+        />
+      )}
 
       {addingMember && (
         <AddMemberDialog
@@ -465,6 +484,59 @@ function BrandEditDialog({
             </label>
           </div>
         </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// Creates a brand-new login (Supabase auth user) already attached to this company.
+function CreateUserDialog({ orgId, onClose, onCreated }: { orgId: string; onClose: () => void; onCreated: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+
+  const create = useMutation({
+    mutationFn: () => {
+      const body: Record<string, unknown> = {
+        email: email.trim(),
+        password,
+        organization_id: orgId,
+      };
+      if (fullName.trim()) body.full_name = fullName.trim();
+      return adminFetch("/customers", { method: "POST", body: JSON.stringify(body) });
+    },
+    onSuccess: () => { toast.success("User login created in this company"); onCreated(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const canSubmit = email.trim().length > 3 && password.length >= 8;
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Create user"
+      description="Creates a new dashboard login already attached to this company."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => create.mutate()} disabled={create.isPending || !canSubmit}>
+            {create.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Create
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-1.5">
+        <Label>Email</Label>
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@example.com" />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Password <span className="text-xs text-muted-foreground">(min 8 characters)</span></Label>
+        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Full name <span className="text-xs text-muted-foreground">(optional)</span></Label>
+        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="—" />
       </div>
     </Dialog>
   );

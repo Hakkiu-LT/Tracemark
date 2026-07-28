@@ -62,6 +62,16 @@ class UpdateOrgRequest(BaseModel):
     industry: str | None = None
 
 
+class CreateOrgRequest(BaseModel):
+    """Create a new customer company together with its first (owner) login."""
+    name: str
+    industry: str | None = None
+    persona: str = "brand_owner"  # "brand_owner" | "law_firm"
+    owner_email: str
+    owner_password: str
+    owner_full_name: str | None = None
+
+
 class AddMemberRequest(BaseModel):
     user_id: str
     role: str = "member"
@@ -108,6 +118,77 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
         )
     out.sort(key=lambda r: (r.name or "").lower())
     return out
+
+
+# ── create ────────────────────────────────────────────────────────────────────
+@router.post("", response_model=OrgDetail, status_code=201)
+def create_organization(
+    request: Request,
+    payload: CreateOrgRequest,
+    staff: StaffPrincipal = Depends(require_permission("customers.create")),
+):
+    """Create a new customer company AND its owner login in one step.
+
+    Creating the owner auth user fires the DB trigger (handle_new_user) that
+    auto-creates the organization (id = owner's user id), the profile, and an
+    'owner' membership row. We then brand those trigger-created rows with the
+    company name / industry / persona so the company is immediately usable.
+    """
+    if payload.persona not in ("brand_owner", "law_firm"):
+        raise HTTPException(status_code=400, detail="persona must be brand_owner or law_firm")
+    if not payload.name.strip():
+        raise HTTPException(status_code=400, detail="Company name is required")
+    if len(payload.owner_password) < 8:
+        raise HTTPException(status_code=400, detail="Owner password must be at least 8 characters")
+
+    sb = customer_sb()
+
+    # 1. Create the owner auth user (email confirmed, no confirmation email).
+    #    The DB trigger creates organizations/profiles/organization_members for us.
+    try:
+        created = sb.auth.admin.create_user(
+            {"email": payload.owner_email, "password": payload.owner_password, "email_confirm": True}
+        )
+        owner_id = created.user.id
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Could not create owner login: {exc}")
+
+    # The trigger anchors the personal org id to the owner's user id.
+    org_id = owner_id
+
+    # 2. Brand the trigger-created organization.
+    sb.table("organizations").update(
+        {
+            "name": payload.name.strip(),
+            "industry": payload.industry,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).eq("id", org_id).execute()
+
+    # 3. Owner display name (profile already exists via the trigger).
+    if payload.owner_full_name:
+        sb.table("profiles").update({"full_name": payload.owner_full_name}).eq("id", owner_id).execute()
+
+    # 4. Org settings — notification_email is NOT NULL; persona defaults to brand_owner.
+    sb.table("org_settings").upsert(
+        {
+            "organization_id": org_id,
+            "notification_email": payload.owner_email,
+            "persona": payload.persona,
+        },
+        on_conflict="organization_id",
+    ).execute()
+
+    write_audit_log(
+        staff, "organizations.create", target_type="organization", target_id=org_id,
+        target_org_id=org_id,
+        metadata={
+            "name": payload.name, "industry": payload.industry, "persona": payload.persona,
+            "owner_email": payload.owner_email, "owner_id": owner_id,
+        },
+        ip=request.client.host if request.client else None,
+    )
+    return get_organization(org_id, staff)
 
 
 # ── detail ──────────────────────────────────────────────────────────────────
