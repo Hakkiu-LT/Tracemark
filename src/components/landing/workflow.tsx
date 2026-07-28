@@ -1,92 +1,155 @@
-import { ShieldCheck, Search, Zap, CheckCircle2, ArrowRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import {
+  ArrowRight,
+  UploadCloud,
+  ScanLine,
+  Gavel,
+  CheckCircle2,
+  type LucideIcon,
+} from "lucide-react";
+import { BlueprintOverlay } from "./blueprint";
+import { Reveal } from "./reveal";
+import { useLeadModals } from "./lead-modals";
 
-const WORKFLOW_STEPS = [
+type Step = {
+  step: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  detail: string[];
+};
+
+const STEPS: Step[] = [
   {
     step: "01",
-    title: "Connect Brand & Register Trademarks",
+    icon: UploadCloud,
+    title: "Connect your brand",
     description:
-      "Import your brand assets, registered trademarks, logos, and authorized reseller parameters in under 2 minutes.",
-    features: ["Instant trademark registry import", "Logo fingerprinting & vector matching", "Authorized seller whitelist"],
+      "Import registered trademarks, logos, and authorized sellers in minutes — no engineering required.",
+    detail: ["Trademark registry import", "Logo fingerprinting", "Authorized-seller allowlist"],
   },
   {
     step: "02",
-    title: "Continuous AI Monitoring & Verification",
+    icon: ScanLine,
+    title: "Detect and verify",
     description:
-      "Our AI engines continuously scan global marketplaces, web domains, and social media channels to flag counterfeits.",
-    features: ["Real-time threat scoring (0-100%)", "Tamper-evident screenshot capturing", "WHOIS & domain owner lookup"],
+      "AI continuously scans channels, scores each match, and captures tamper-evident evidence.",
+    detail: ["Real-time match scoring", "Sealed screenshot + HTML", "WHOIS & owner lookup"],
   },
   {
     step: "03",
-    title: "1-Click Takedown & Resolution Tracking",
+    icon: Gavel,
+    title: "Enforce and resolve",
     description:
-      "Dispatch cryptographically verified takedown notices directly to marketplace legal portals and track resolution.",
-    features: ["Automated DMCA & IP notice generation", "Direct API integration with platforms", "Full audit log & ROI reporting"],
+      "Dispatch cryptographically verified notices to legal portals and track every case to close.",
+    detail: [
+      "Automated DMCA & IP notices",
+      "Direct platform dispatch",
+      "Full audit log & reporting",
+    ],
   },
 ];
 
 export function Workflow() {
+  const { openDemo, openSales } = useLeadModals();
+
   return (
-    <section id="how" className="relative border-b border-border/60 bg-muted/10 py-24 scroll-mt-14">
+    <section
+      id="how"
+      className="technical-paper relative scroll-mt-16 border-b border-border/60 py-20 md:py-24"
+    >
+      <BlueprintOverlay variant="how" />
+
       <div className="relative mx-auto max-w-6xl px-6">
-        {/* Section Header */}
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            HOW TRACEMARK WORKS
-          </p>
-          <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl md:text-5xl">
-            From threat detection to resolution in 3 simple steps.
-          </h2>
-          <p className="mt-4 text-base text-muted-foreground sm:text-lg">
-            No complex integration required. Deploy automated brand protection in minutes.
-          </p>
-        </div>
-
-        {/* 3 Step Cards Layout (Vercel Style) */}
-        <div className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-3">
-          {WORKFLOW_STEPS.map((item) => (
-            <div
-              key={item.step}
-              className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:border-foreground/40 hover:shadow-md"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-3xl font-extrabold tracking-tight text-muted-foreground/60 transition-colors group-hover:text-foreground">
-                    {item.step}
-                  </span>
-                  <span className="h-2 w-2 rounded-full bg-border transition-colors group-hover:bg-emerald-500" />
-                </div>
-                <h3 className="mt-6 font-display text-xl font-bold tracking-tight text-foreground">
-                  {item.title}
-                </h3>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  {item.description}
-                </p>
-              </div>
-
-              <div className="mt-8 border-t border-border/60 pt-4">
-                <ul className="space-y-2 text-xs font-medium text-foreground">
-                  {item.features.map((feat) => (
-                    <li key={feat} className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                      <span>{feat}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-14 flex items-center justify-center">
-          <Link
-            to="/request-demo"
-            className="inline-flex items-center gap-2 rounded-lg bg-foreground px-6 py-3 text-xs font-semibold text-background shadow-md transition-all hover:bg-foreground/90"
+        <div className="max-w-2xl">
+          <Reveal
+            as="p"
+            className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
           >
-            Book a Demo
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+            How HAKKIU works
+          </Reveal>
+          <Reveal
+            as="h2"
+            delay={60}
+            className="mt-4 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl"
+          >
+            From brand asset to enforced takedown.
+          </Reveal>
+          <Reveal as="p" delay={120} className="mt-4 text-base text-muted-foreground">
+            A continuous workflow your team can audit at every step.
+          </Reveal>
         </div>
+
+        {/* Process datum: a horizontal line links the three stations on desktop. */}
+        <div className="relative mt-16">
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-8 top-5 hidden h-px bg-border md:block"
+          />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {STEPS.map((s, i) => {
+              const Icon = s.icon;
+              return (
+                <Reveal
+                  key={s.step}
+                  delay={i * 90}
+                  className="group relative flex flex-col rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/40 hover:shadow-md"
+                >
+                  {/* Ghost step number */}
+                  <span className="pointer-events-none absolute right-4 top-2 select-none font-display text-6xl font-extrabold leading-none tracking-tight text-foreground/[0.04]">
+                    {s.step}
+                  </span>
+
+                  <div className="relative flex items-center gap-3">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-background text-foreground shadow-sm transition-colors group-hover:border-foreground/30">
+                      <Icon className="h-5 w-5" strokeWidth={2} />
+                    </span>
+                    <span className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Step {s.step}
+                    </span>
+                  </div>
+
+                  <h3 className="relative mt-5 font-display text-xl font-bold tracking-tight text-foreground">
+                    {s.title}
+                  </h3>
+                  <p className="relative mt-2.5 text-sm leading-relaxed text-muted-foreground">
+                    {s.description}
+                  </p>
+
+                  <ul className="relative mt-6 space-y-2 border-t border-border/60 pt-4 text-xs font-medium text-foreground">
+                    {s.detail.map((d) => (
+                      <li key={d} className="flex items-center gap-2">
+                        <CheckCircle2
+                          className="h-3.5 w-3.5 shrink-0"
+                          style={{ color: "var(--mint, #18c889)" }}
+                        />
+                        {d}
+                      </li>
+                    ))}
+                  </ul>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Conversion after the sequence */}
+        <Reveal delay={120} className="mt-12 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={openDemo}
+            className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-foreground px-6 py-3 text-sm font-semibold text-background shadow-md transition-all hover:bg-foreground/90"
+          >
+            Book a demo
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </button>
+          <button
+            type="button"
+            onClick={openSales}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:border-foreground/40 hover:bg-muted"
+          >
+            Talk to sales
+          </button>
+        </Reveal>
       </div>
     </section>
   );

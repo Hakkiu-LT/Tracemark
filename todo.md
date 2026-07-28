@@ -1,7 +1,100 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-28 (session 24 — real platform logos)
+> Last updated: 2026-07-28 (session 27 — landing "technical-paper" redesign)
+
+---
+
+## 🎨 Landing page "technical-paper" redesign (2026-07-28, session 27)
+
+Rebuilt `/landing` to the reference mockups in `~/Desktop/redisign` (technical-paper surface,
+graphite type, black CTAs, mint accents, two inverse dark sections). All lead/analytics/link
+logic preserved.
+
+- [x] CSS system in `src/styles.css` — `.technical-paper` (light) + `.technical-paper--dark`
+  (24px dot matrix + faint blueprint guides), `--mint #18c889`, responsive grid density
+  (24/22/18px), `hakkiu-scan` / `hakkiu-draw` / `hakkiu-packet` keyframes, all disabled under
+  `prefers-reduced-motion`.
+- [x] Shared primitives: `reveal.tsx` (`useInView` + `usePrefersReducedMotion` + `<Reveal>`
+  once-only, transform/opacity, reduced-motion safe), `blueprint.tsx` (per-section aria-hidden
+  SVG overlays), `product-window.tsx` (solid live-monitoring mock reused by hero + proof).
+- [x] Hero (`hero-v3.tsx`) — technical-paper, "Protect your brand at internet speed.", Book a
+  demo + Talk to sales, trust bullets, product window with single mint scan line.
+- [x] NEW `product-proof.tsx` — "See an infringement move from detection to takedown." detect →
+  verify → enforce flow + monitoring metrics strip.
+- [x] Coverage (`coverage.tsx`) — inverse dark surface, "Every market. Every channel. One
+  watchlist.", 12 channel tiles (diagonal reveal wave), "12 channels monitored · 24/7 active".
+- [x] How it works (`workflow.tsx`) — "From brand asset to enforced takedown.", 3 steps on a
+  process datum line with ghost step numbers; Book a demo + Talk to sales.
+- [x] Platform architecture (`features/index.tsx`) — central HAKKIU engine + 4 modules with
+  scalable SVG connectors (draw-in + one mint data packet); responsive stacked fallback.
+- [x] Risk calculator (`exposure-calculator.tsx`) — kept ALL log-scale math/state; new
+  two-column layout: light controls + inverse dark result panel ("Elevated exposure",
+  exposure vectors, Get a tailored plan / Talk to sales).
+- [x] NEW `final-cta.tsx` — inverse dark "Choose the next step for your brand." two paths
+  (mint-highlighted Book a demo + Talk to sales) + trust bar. Replaced the old inline CTA.
+- [x] Footer (`footer.tsx`) — "Keep your brand within reach." CTA strip + Product / Company /
+  Legal columns (all real links kept, incl. hash anchors) + bottom rail (Legal notice, Cookie
+  settings, Vilnius, Lithuania).
+- [x] Nav (`landing-nav.tsx`) — links Platform / Coverage / How it works / Security; kept
+  sticky-scroll, theme toggle, Talk to sales + Book a demo, all hooked to `useLeadModals()`.
+- [x] `routes/landing.tsx` — reordered 8 sections, added ProductProof + FinalCTA, removed inline CTA.
+- [x] Validated: `tsc --noEmit` clean, ESLint clean on landing files (2 non-blocking
+  react-refresh HMR warnings), `vite build` succeeds. Dev route serves HTTP 200 with correct SSR head.
+- [ ] Pending manual QA (owner): visual pass at desktop/tablet/mobile widths; both modals
+  open → validate → submit → success → close; keyboard + Escape + reduced-motion.
+- Note: old unused files left untouched — `cta.tsx`, `dot-field.tsx`, `features/{detection,case,radar}-panel.tsx`, `features/radar.tsx` (not imported by the new landing).
+
+---
+
+## 📩 Book-a-demo & Talk-to-sales modal redesign (2026-07-28, session 26)
+
+New compact modals matching the provided mockups, with an animated "thank you" success
+state and an auto-confirmation email to the lead.
+
+- [x] Added illustrations → `public/thank-you-booking-demo.webp`, `public/thank-you-contacting-us.webp`.
+- [x] `src/components/landing/lead-success.tsx` — shared animated success view (illustration →
+  title → subtitle → green badge → "Back to HAKKIU" → inbox note; `motion-safe` `animate-in`).
+- [x] `src/components/landing/book-demo-modal.tsx` — compact modal (First/Last, Work email,
+  Company, Company website, "What would you like to protect?" select, optional notes). Posts
+  `source=request_demo`, `tier=professional`; fires GA4 `generate_lead`.
+- [x] Rewrote `talk-to-sales-modal.tsx` to the mockup (First/Last, Work email, Company,
+  "I'm interested in" select, "How can we help?"). Posts `source=call_request`, `tier=enterprise`.
+- [x] `src/components/landing/lead-modals.tsx` — `LeadModalsProvider` + `useLeadModals()` hook
+  mounted once at `__root`; both modals open from anywhere without navigation. Auto-opens on
+  `?book=demo|sales` and strips the param.
+- [x] Retired the `/request-demo` 6-step wizard → `beforeLoad` redirect to `/landing?book=demo`
+  (keeps old links / bookmarks / campaigns working).
+- [x] Wired every trigger to the hook: hero, nav, landing CTA, cta.tsx, footer, workflow,
+  coverage. (about / contact / auth-screen keep the `/request-demo` link → redirect fallback.)
+- [x] Backend: `lead_confirmation_html()` (demo vs sales copy) + `_send_lead_confirmation()` now
+  emails the lead after submit; friendlier staff-notification subject/labels per source.
+- [x] Admin parity: `apps/admin/src/pages/Leads.tsx` `SOURCE_LABELS` → "Book a demo" / "Talk to
+  sales" / "Pricing enquiry" (same `sales_leads` table already viewable/editable in admin).
+- [x] Robust API error display: `src/lib/api-error.ts` normalises FastAPI string vs Pydantic
+  array `detail` (fixes the `[object Object]` message on 422). Added Radix `DialogTitle`/
+  `DialogDescription` (incl. sr-only on the success view) to clear the a11y console warning.
+- [x] Follow-up tweaks (post-review): enlarged success illustration (`h-36` → `h-52`); added a
+  required **Phone number** field to Talk-to-sales (sent as `phone`; already stored + shown in
+  staff email and admin lead detail).
+- [x] Made the lead endpoint's anti-spam rate limit env-configurable (`LEADS_RATE_LIMIT`,
+  default `3/hour`) so local form testing isn't blocked by 429s after a few submits.
+- [x] Design polish (subagent-planned): replaced success illustrations with tight-cropped
+  LANDSCAPE webp (was 640² squares w/ baked-in white padding); `lead-success.tsx` now renders
+  them `h-auto w-64` (no square distortion) with tighter spacing.
+- [~] Tried an inline-SVG success art (theme-adaptive) but reverted at owner request; then
+  owner supplied TWO webp variants per illustration (black art for light, white art for dark).
+- [x] Theme-adaptive success illustrations via owner-supplied assets: `public/thank-you-*-black.webp`
+  (light) + `-white.webp` (dark). `LeadSuccess` now takes `illustrationLight`/`illustrationDark`
+  and renders both `<img>`s, toggled purely by CSS (`block dark:hidden` / `hidden dark:block`)
+  off the `.dark` class on `<html>` — no JS, no flash. Solves the dark-on-dark visibility issue.
+- [x] Email ↔ form parity: `new_lead_html` now renders ONLY submitted fields (conditional rows,
+  no empty "—" rows) — verified Book-a-demo shows Source/Tier/Name/Email/Company/Website/Primary
+  goal/Message; Talk-to-sales shows Source/Tier/Name/Email/Phone/Company/Message. Also fixed a
+  latent `{_MUTED}` unescaped-placeholder bug in the old name fallback.
+- [x] `tsc --noEmit` clean; `vite build` ✓; backend templates render + import OK.
+- [ ] Manual visual QA in a browser (dev servers) — not run this session to avoid triggering
+  live Resend emails on submit (RESEND key is live).
 
 ---
 

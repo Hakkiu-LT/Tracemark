@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -17,24 +19,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle2, Loader2, Phone } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
+import { trackLead } from "@/lib/analytics";
+import { apiErrorMessage } from "@/lib/api-error";
+import { LeadSuccess } from "./lead-success";
 
 const BASE =
   typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
     ? import.meta.env.VITE_API_URL
     : "http://localhost:8000/api/v1";
 
-const COUNTRY_CODES = [
-  { code: "+370", flag: "🇱🇹", label: "LT +370" },
-  { code: "+1",   flag: "🇺🇸", label: "US +1" },
-  { code: "+44",  flag: "🇬🇧", label: "GB +44" },
-  { code: "+49",  flag: "🇩🇪", label: "DE +49" },
-  { code: "+33",  flag: "🇫🇷", label: "FR +33" },
-  { code: "+48",  flag: "🇵🇱", label: "PL +48" },
-  { code: "+46",  flag: "🇸🇪", label: "SE +46" },
-  { code: "+31",  flag: "🇳🇱", label: "NL +31" },
-  { code: "+34",  flag: "🇪🇸", label: "ES +34" },
-  { code: "+39",  flag: "🇮🇹", label: "IT +39" },
+const INTEREST_OPTIONS = [
+  "Pricing & plans",
+  "Platform demo",
+  "Enterprise / high volume",
+  "Partnership",
+  "Something else",
 ];
 
 interface TalkToSalesModalProps {
@@ -43,33 +43,48 @@ interface TalkToSalesModalProps {
 }
 
 export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) {
-  const [countryCode, setCountryCode] = useState("+370");
-  const [phone, setPhone] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [phone, setPhone] = useState("");
+  const [interest, setInterest] = useState("");
+  const [help, setHelp] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!interest) {
+      setError("Please tell us what you're interested in.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
+      const message = `Interested in: ${interest}\n\n${help}`.trim();
       const res = await fetch(`${BASE}/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tier: "enterprise",
           source: "call_request",
+          first_name: firstName,
+          last_name: lastName,
           email,
-          message: `Sales call request. Phone: ${countryCode}${phone}`,
+          company,
+          phone,
+          message,
         }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.detail || `Error ${res.status}`);
+        throw new Error(apiErrorMessage(data, res.status));
       }
       setSubmitted(true);
+      // GA4 conversion — fires only if the visitor consented to analytics.
+      trackLead({ source: "call_request", leadType: "sales" });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
@@ -79,85 +94,144 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
 
   function handleClose(v: boolean) {
     if (!v) {
-      setPhone("");
-      setEmail("");
-      setCountryCode("+370");
-      setError(null);
-      setSubmitted(false);
+      setTimeout(() => {
+        setFirstName("");
+        setLastName("");
+        setEmail("");
+        setCompany("");
+        setPhone("");
+        setInterest("");
+        setHelp("");
+        setError(null);
+        setSubmitted(false);
+      }, 200);
     }
     onOpenChange(v);
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-sm sm:rounded-2xl">
+      <DialogContent
+        className={submitted ? "sm:max-w-[560px] sm:rounded-3xl" : "sm:max-w-lg sm:rounded-2xl"}
+      >
         {submitted ? (
-          <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 ring-1 ring-accent/20">
-              <CheckCircle2 className="h-7 w-7 text-accent" strokeWidth={2} />
-            </div>
-            <div>
-              <p className="font-display text-lg font-semibold">We'll be in touch</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Expect a call within 1 business day.
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => handleClose(false)} className="mt-2 h-11 w-full rounded-lg">
-              Close
-            </Button>
-          </div>
+          <LeadSuccess
+            illustrationLight="/thank-you-contacting-us-black.webp"
+            illustrationDark="/thank-you-contacting-us-white.webp"
+            illustrationAlt="Message received"
+            title="Thank you for contacting us"
+            subtitle="Your message has been received. Our team will get back to you within one business day."
+            badge="Message delivered"
+            onClose={() => handleClose(false)}
+          />
         ) : (
           <>
-            <DialogHeader className="items-center pb-1 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 ring-1 ring-accent/20">
-                <Phone className="h-5 w-5 text-accent" strokeWidth={2} />
-              </div>
-              <DialogTitle className="font-display text-xl font-semibold tracking-tight">
-                Receive a free call from us
+            <DialogHeader className="space-y-2 pb-1 text-left">
+              <DialogTitle className="font-display text-2xl font-semibold tracking-tight">
+                Talk to sales
               </DialogTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                We'll connect you with the right person.
-              </p>
+              <DialogDescription className="text-sm text-muted-foreground">
+                Tell us what you need and our team will get back to you.
+              </DialogDescription>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-0.5 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-emerald-500" />
+                  Typically replies within one business day
+                </span>
+              </div>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="ts-phone">Phone number</Label>
-                <div className="flex gap-2">
-                  <Select value={countryCode} onValueChange={setCountryCode}>
-                    <SelectTrigger className="h-11 w-[110px] shrink-0 rounded-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COUNTRY_CODES.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
-                          {c.flag} {c.code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ts-first">First name</Label>
                   <Input
-                    id="ts-phone"
+                    id="ts-first"
                     required
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="612 34567"
-                    className="h-11 flex-1 rounded-lg"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Jane"
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ts-last">Last name</Label>
+                  <Input
+                    id="ts-last"
+                    required
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Doe"
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ts-email">Work email</Label>
+                  <Input
+                    id="ts-email"
+                    required
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="jane@company.com"
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ts-company">Company</Label>
+                  <Input
+                    id="ts-company"
+                    required
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    placeholder="Company name"
+                    className="h-11 rounded-lg"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="ts-email">Business email</Label>
+                <Label htmlFor="ts-phone">Phone number</Label>
                 <Input
-                  id="ts-email"
+                  id="ts-phone"
                   required
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+370 600 00000"
                   className="h-11 rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="ts-interest">I'm interested in</Label>
+                <Select value={interest} onValueChange={setInterest} required>
+                  <SelectTrigger id="ts-interest" className="h-11 w-full rounded-lg">
+                    <SelectValue placeholder="Select an option" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INTEREST_OPTIONS.map((o) => (
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="ts-help">How can we help?</Label>
+                <textarea
+                  id="ts-help"
+                  required
+                  value={help}
+                  onChange={(e) => setHelp(e.target.value)}
+                  rows={3}
+                  placeholder="Tell us about your brand protection needs…"
+                  className="w-full resize-none rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
                 />
               </div>
 
@@ -166,19 +240,26 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
               <Button
                 type="submit"
                 disabled={loading}
-                className="h-11 w-full rounded-lg bg-accent font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-accent/90"
+                className="h-11 w-full rounded-lg bg-foreground font-semibold text-background shadow-sm transition-colors hover:bg-foreground/90"
               >
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending…
                   </>
                 ) : (
-                  "Call me now"
+                  "Send message"
                 )}
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">
-                By submitting, you agree to be contacted by our sales team.
+                By submitting, you agree to our{" "}
+                <Link
+                  to="/legal/privacy"
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  Privacy Policy
+                </Link>
+                .
               </p>
             </form>
           </>
