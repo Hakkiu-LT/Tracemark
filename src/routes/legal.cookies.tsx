@@ -85,10 +85,12 @@ function CookiesPage() {
 
       <h2>4. Your consent and how to manage it</h2>
       <p>
-        Non-essential (analytics) cookies are set only with your consent. You can accept or reject
-        them, and you can withdraw consent at any time — through your browser settings and, where
-        available, our on-site cookie preferences control. Rejecting analytics cookies does not
-        affect access to the site.
+        Non-essential (analytics) cookies are set only with your consent. When consent is required,
+        we show a cookie banner on your first visit with equally prominent <strong>"Accept all"</strong>{" "}
+        and <strong>"Reject all"</strong> options, plus a "Customise" panel to choose per category.
+        Analytics is off until you opt in. You can change or withdraw your choice at any time using
+        the <strong>"Cookie settings"</strong> link in the site footer. Rejecting analytics cookies
+        does not affect your access to the site.
       </p>
 
       <h2>5. Do Not Track / Global Privacy Control</h2>

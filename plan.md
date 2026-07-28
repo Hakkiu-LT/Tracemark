@@ -2,7 +2,7 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-28 (session 24 — real platform logos replacing letter placeholders)
+> Last updated: 2026-07-28 (session 25 — cookie consent banner + Google Consent Mode v2, GA4 now consent-gated)
 
 ---
 

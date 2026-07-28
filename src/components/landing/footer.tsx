@@ -2,8 +2,9 @@ import { Link } from "@tanstack/react-router";
 import { Linkedin } from "lucide-react";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { COMPANY, copyrightLine } from "@/lib/company";
+import { openCookieSettings } from "@/lib/consent";
 
-type FooterLink = { label: string; to?: string; href?: string };
+type FooterLink = { label: string; to?: string; href?: string; onClick?: () => void };
 
 const COMPANY_LINKS: FooterLink[] = [
   { label: "About", to: "/about" },
@@ -21,6 +22,7 @@ const LEGAL_LINKS: FooterLink[] = [
   { label: "Sub-processors", to: "/legal/subprocessors" },
   { label: "Trust & Security", to: "/legal/security" },
   { label: "Legal Notice / Imprint", to: "/legal/imprint" },
+  { label: "Cookie settings", onClick: openCookieSettings },
 ];
 
 function FooterColumn({ title, links }: { title: string; links: FooterLink[] }) {
@@ -34,6 +36,14 @@ function FooterColumn({ title, links }: { title: string; links: FooterLink[] }) 
               <Link to={l.to} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
                 {l.label}
               </Link>
+            ) : l.onClick ? (
+              <button
+                type="button"
+                onClick={l.onClick}
+                className="text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {l.label}
+              </button>
             ) : (
               <a
                 href={l.href}

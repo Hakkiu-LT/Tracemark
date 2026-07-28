@@ -13,6 +13,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorState } from "@/components/error-state";
+import { ConsentManager } from "@/components/consent/consent-banner";
 import { AuthProvider, RequireAuth } from "@/lib/auth";
 
 import appCss from "../styles.css?url";
@@ -108,14 +109,26 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
-        {/* Google Analytics (gtag.js) — GA4 property G-PH8369N5PD */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-PH8369N5PD" />
+        {/*
+          Google Consent Mode v2 — default state. This runs FIRST, before any
+          Google tag, and denies everything (EU ePrivacy "prior consent" rule).
+          gtag.js itself is NOT loaded here — it is injected only after the user
+          grants analytics consent (see src/lib/consent.ts + ConsentManager).
+        */}
         <script
           dangerouslySetInnerHTML={{
             __html: `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-PH8369N5PD');`,
+gtag('consent', 'default', {
+  ad_storage: 'denied',
+  ad_user_data: 'denied',
+  ad_personalization: 'denied',
+  analytics_storage: 'denied',
+  functionality_storage: 'denied',
+  personalization_storage: 'denied',
+  security_storage: 'granted',
+  wait_for_update: 500
+});`,
           }}
         />
       </head>
@@ -156,6 +169,7 @@ function RootComponent() {
             </SidebarProvider>
           </RequireAuth>
         )}
+        <ConsentManager />
       </AuthProvider>
     </QueryClientProvider>
   );

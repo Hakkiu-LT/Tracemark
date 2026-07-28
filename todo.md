@@ -126,10 +126,15 @@ Full plan: `security-remediation-plan-2026-07-28.md`. 5-subagent deep audit + ma
   legal entity name, legal form, registration code (juridinio asmens kodas), registered address,
   VAT number, phone. One place updates all pages (Imprint auto-reveals the rows).
 - [ ] **USER ACTION — lawyer review** of all legal pages before relying on them (templates, not advice).
-- [ ] **RECOMMENDED (compliance gap) — :** GA4 is live-firing; EU ePrivacy
-  requires prior consent for analytics cookies. Need a CMP/banner with Google Consent Mode v2
-  (default denied) that blocks GA4 until opt-in, + "Reject all" as easy as "Accept all". Cookie
-  Policy page is written; the banner itself is a separate feature (not yet built).
+- [x] **Cookie consent banner + Google Consent Mode v2 (session 25)** — GA4 no longer fires
+  unconditionally. `<head>` sets `gtag('consent','default', …)` all-denied (Basic mode); gtag.js
+  is injected only after opt-in (`src/lib/consent.ts`). Region-gated via Cloudflare `cf-ipcountry`
+  (`src/lib/consent-region.ts` server fn) — banner shows only in EEA/UK; elsewhere analytics is
+  auto-enabled. Banner (`src/components/consent/consent-banner.tsx`) has equal-prominence "Reject
+  all" / "Accept all" + "Customise" toggle; choice persisted in localStorage (proof of consent);
+  GPC/Do-Not-Track honoured as reject; footer "Cookie settings" re-opens it. GA ID moved to
+  `VITE_GA_MEASUREMENT_ID`. Cookie Policy copy updated to match. (No admin-portal parity: consent
+  lives client-side in localStorage, not in customer DB.)
 
 ### Book-a-demo / auth
 
