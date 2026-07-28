@@ -25,6 +25,16 @@ const PUBLIC_PATHS = new Set([
   "/auth/sign-up",
   "/auth/callback",
   "/request-demo",
+  "/about",
+  "/contact",
+  "/legal/privacy",
+  "/legal/terms",
+  "/legal/cookies",
+  "/legal/acceptable-use",
+  "/legal/dpa",
+  "/legal/subprocessors",
+  "/legal/security",
+  "/legal/imprint",
 ]);
 
 function NotFoundComponent() {

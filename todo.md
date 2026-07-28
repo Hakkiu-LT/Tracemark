@@ -1,12 +1,34 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-28 (session 20 — Book-a-demo/auth: signup hardening, config.toml,
-> drop-billing migration written, demo-form E2E verified)
+> Last updated: 2026-07-28 (session 21 — legal/company footer pages + footer redesign + LinkedIn)
 
 ---
 
 ## 🔴 OPEN — Follow-ups from recent sessions
+
+### Legal / company pages (session 21 — built; USER ACTIONS remain)
+- [x] Wrote 10 footer pages: `/about`, `/contact`, `/legal/{privacy,terms,cookies,acceptable-use,
+  dpa,subprocessors,security,imprint}` — GDPR Art 13+14, Art 28 DPA, cookie table, EU imprint.
+  Researched via 3 subagents (legal/compliance + competitor footers + codebase map).
+- [x] New footer component (`src/components/landing/footer.tsx`) with all legal links + **LinkedIn
+  icon/link** (linkedin.com/company/hakkiu); shared `LegalLayout`; added to sitemap.xml + robots.txt.
+  tsc + `npm run build` clean; all route chunks generated.
+- [x] Requisite placeholders removed (session 21) — company registration fields (entity/code/
+  address/VAT/phone) are blank in `company.ts` and the pages omit them; Imprint shows "will be
+  published once finalized" instead of placeholders.
+- [ ] **USER ACTION — create email aliases** (forwards): `privacy@`, `legal@`, `security@`,
+  `support@` `hakkiu.com` (the pages now reference these; `info@` is used for general enquiries).
+- [ ] **USER ACTION — add company requisites** in `src/lib/company.ts` once incorporation is final:
+  legal entity name, legal form, registration code (juridinio asmens kodas), registered address,
+  VAT number, phone. One place updates all pages (Imprint auto-reveals the rows).
+- [ ] **USER ACTION — lawyer review** of all legal pages before relying on them (templates, not advice).
+- [ ] **RECOMMENDED (compliance gap) — cookie consent banner:** GA4 is live-firing; EU ePrivacy
+  requires prior consent for analytics cookies. Need a CMP/banner with Google Consent Mode v2
+  (default denied) that blocks GA4 until opt-in, + "Reject all" as easy as "Accept all". Cookie
+  Policy page is written; the banner itself is a separate feature (not yet built).
+
+### Book-a-demo / auth
 
 ### Book-a-demo / auth
 - [x] **Frontend hardened to sign-in only** (session 20) — removed the dead-but-live

@@ -280,6 +280,8 @@ still returned by `GET /me`).
 - **SEO Optimization & Sitemap Generation** | ✅ Done | (session 17) `public/robots.txt` (allow public pages, disallow app/auth, explicit AI-crawler rules), `public/sitemap.xml` (`/landing` + `/request-demo`), `public/llms.txt` product summary. All copied into `dist/client/` on build.
 - **Google Search Console (GSC) Verification** | ❌ Missing | Complete DNS-level site verification to monitor Google Search indexing, organic keyword queries, search impressions, and click-through rates.
 - **Conversion Tracking & Funnel Auditing** | ❌ Missing | Wire custom GA4 events to track lead conversions (e.g., demo requested, lead submitted).
+- **Legal & company footer pages** | ⚠️ Built, pending fill-in (session 21) | 10 pages: `/about`, `/contact`, `/legal/{privacy,terms,cookies,acceptable-use,dpa,subprocessors,security,imprint}`. GDPR Art 13+14 privacy, Art 28 DPA, cookie table, EU imprint. New `footer.tsx` (all legal links + LinkedIn icon → linkedin.com/company/hakkiu), shared `LegalLayout`, `src/lib/company.ts` single-source constants; added to sitemap.xml + robots.txt. **Remaining:** fill real company facts in `company.ts` (entity/reg-code/address/VAT), create `privacy@`/`legal@`/`security@`/`support@` aliases, lawyer review.
+- **Cookie consent banner (GA4)** | ❌ Missing (compliance gap) | GA4 fires without prior consent; EU ePrivacy requires a CMP/banner with Google Consent Mode v2 (default denied) blocking analytics until opt-in. Cookie Policy page written; banner not yet built.
 
 ---
 

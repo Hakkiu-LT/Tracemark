@@ -6,6 +6,9 @@ User-agent: *
 Allow: /$
 Allow: /landing
 Allow: /request-demo
+Allow: /about
+Allow: /contact
+Allow: /legal/
 
 # Private / authenticated application — never index
 Disallow: /dashboard

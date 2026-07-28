@@ -2,7 +2,7 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-28 (session 20 — Book-a-demo/auth hardening + demo-form E2E)
+> Last updated: 2026-07-28 (session 21 — legal/company footer pages + footer redesign + LinkedIn)
 
 ---
 
@@ -50,6 +50,13 @@ the layer that acts on them. Pure business logic on existing data — no new scr
 ---
 
 ## Loose follow-ups before/alongside the next feature
+
+- **Legal/company pages (session 21)** — built 10 footer pages (About, Contact + 8 legal:
+  Privacy/Terms/Cookies/AUP/DPA/Sub-processors/Security/Imprint), new footer with LinkedIn, wired
+  to sitemap/robots. Remaining USER ACTIONS: fill real company facts in `src/lib/company.ts`
+  (entity name, reg code, address, VAT), create `privacy@`/`legal@`/`security@`/`support@` aliases,
+  lawyer review, and **build a GA4 cookie-consent banner** (Consent Mode v2) — the one real
+  compliance gap left.
 
 - **Supabase Auth → disable public sign-ups** — code+config done (session 20): `auth-screen.tsx`
   is sign-in only, `config.toml` `enable_signup=false`. ⚠️ **Still needs the prod Dashboard toggle**

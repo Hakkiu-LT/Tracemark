@@ -14,14 +14,24 @@ import { Route as RequestDemoRouteImport } from './routes/request-demo'
 import { Route as MonitoringRouteImport } from './routes/monitoring'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CasesRouteImport } from './routes/cases'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsClientsRouteImport } from './routes/settings.clients'
 import { Route as MonitoringNewRouteImport } from './routes/monitoring.new'
 import { Route as MonitoringCaseIdRouteImport } from './routes/monitoring.$caseId'
+import { Route as LegalTermsRouteImport } from './routes/legal.terms'
+import { Route as LegalSubprocessorsRouteImport } from './routes/legal.subprocessors'
+import { Route as LegalSecurityRouteImport } from './routes/legal.security'
+import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
+import { Route as LegalImprintRouteImport } from './routes/legal.imprint'
+import { Route as LegalDpaRouteImport } from './routes/legal.dpa'
+import { Route as LegalCookiesRouteImport } from './routes/legal.cookies'
+import { Route as LegalAcceptableUseRouteImport } from './routes/legal.acceptable-use'
 import { Route as LegacySignupRouteImport } from './routes/legacy/signup'
 import { Route as LegacyLoginRouteImport } from './routes/legacy/login'
 import { Route as CasesCaseIdRouteImport } from './routes/cases.$caseId'
@@ -56,6 +66,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientsRoute = ClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
@@ -64,6 +79,11 @@ const ClientsRoute = ClientsRouteImport.update({
 const CasesRoute = CasesRouteImport.update({
   id: '/cases',
   path: '/cases',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -95,6 +115,46 @@ const MonitoringCaseIdRoute = MonitoringCaseIdRouteImport.update({
   id: '/$caseId',
   path: '/$caseId',
   getParentRoute: () => MonitoringRoute,
+} as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalSubprocessorsRoute = LegalSubprocessorsRouteImport.update({
+  id: '/legal/subprocessors',
+  path: '/legal/subprocessors',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalSecurityRoute = LegalSecurityRouteImport.update({
+  id: '/legal/security',
+  path: '/legal/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalImprintRoute = LegalImprintRouteImport.update({
+  id: '/legal/imprint',
+  path: '/legal/imprint',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalDpaRoute = LegalDpaRouteImport.update({
+  id: '/legal/dpa',
+  path: '/legal/dpa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalCookiesRoute = LegalCookiesRouteImport.update({
+  id: '/legal/cookies',
+  path: '/legal/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalAcceptableUseRoute = LegalAcceptableUseRouteImport.update({
+  id: '/legal/acceptable-use',
+  path: '/legal/acceptable-use',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const LegacySignupRoute = LegacySignupRouteImport.update({
   id: '/legacy/signup',
@@ -140,8 +200,10 @@ const CasesCaseIdTakedownRoute = CasesCaseIdTakedownRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/cases': typeof CasesRouteWithChildren
   '/clients': typeof ClientsRoute
+  '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
@@ -153,6 +215,14 @@ export interface FileRoutesByFullPath {
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
+  '/legal/acceptable-use': typeof LegalAcceptableUseRoute
+  '/legal/cookies': typeof LegalCookiesRoute
+  '/legal/dpa': typeof LegalDpaRoute
+  '/legal/imprint': typeof LegalImprintRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/security': typeof LegalSecurityRoute
+  '/legal/subprocessors': typeof LegalSubprocessorsRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/settings/clients': typeof SettingsClientsRoute
@@ -163,8 +233,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/cases': typeof CasesRouteWithChildren
   '/clients': typeof ClientsRoute
+  '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
@@ -176,6 +248,14 @@ export interface FileRoutesByTo {
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
+  '/legal/acceptable-use': typeof LegalAcceptableUseRoute
+  '/legal/cookies': typeof LegalCookiesRoute
+  '/legal/dpa': typeof LegalDpaRoute
+  '/legal/imprint': typeof LegalImprintRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/security': typeof LegalSecurityRoute
+  '/legal/subprocessors': typeof LegalSubprocessorsRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/settings/clients': typeof SettingsClientsRoute
@@ -187,8 +267,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/cases': typeof CasesRouteWithChildren
   '/clients': typeof ClientsRoute
+  '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
@@ -200,6 +282,14 @@ export interface FileRoutesById {
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
+  '/legal/acceptable-use': typeof LegalAcceptableUseRoute
+  '/legal/cookies': typeof LegalCookiesRoute
+  '/legal/dpa': typeof LegalDpaRoute
+  '/legal/imprint': typeof LegalImprintRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/security': typeof LegalSecurityRoute
+  '/legal/subprocessors': typeof LegalSubprocessorsRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/monitoring/$caseId': typeof MonitoringCaseIdRouteWithChildren
   '/monitoring/new': typeof MonitoringNewRoute
   '/settings/clients': typeof SettingsClientsRoute
@@ -212,8 +302,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/cases'
     | '/clients'
+    | '/contact'
     | '/dashboard'
     | '/landing'
     | '/monitoring'
@@ -225,6 +317,14 @@ export interface FileRouteTypes {
     | '/cases/$caseId'
     | '/legacy/login'
     | '/legacy/signup'
+    | '/legal/acceptable-use'
+    | '/legal/cookies'
+    | '/legal/dpa'
+    | '/legal/imprint'
+    | '/legal/privacy'
+    | '/legal/security'
+    | '/legal/subprocessors'
+    | '/legal/terms'
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/settings/clients'
@@ -235,8 +335,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/cases'
     | '/clients'
+    | '/contact'
     | '/dashboard'
     | '/landing'
     | '/monitoring'
@@ -248,6 +350,14 @@ export interface FileRouteTypes {
     | '/cases/$caseId'
     | '/legacy/login'
     | '/legacy/signup'
+    | '/legal/acceptable-use'
+    | '/legal/cookies'
+    | '/legal/dpa'
+    | '/legal/imprint'
+    | '/legal/privacy'
+    | '/legal/security'
+    | '/legal/subprocessors'
+    | '/legal/terms'
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/settings/clients'
@@ -258,8 +368,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/cases'
     | '/clients'
+    | '/contact'
     | '/dashboard'
     | '/landing'
     | '/monitoring'
@@ -271,6 +383,14 @@ export interface FileRouteTypes {
     | '/cases/$caseId'
     | '/legacy/login'
     | '/legacy/signup'
+    | '/legal/acceptable-use'
+    | '/legal/cookies'
+    | '/legal/dpa'
+    | '/legal/imprint'
+    | '/legal/privacy'
+    | '/legal/security'
+    | '/legal/subprocessors'
+    | '/legal/terms'
     | '/monitoring/$caseId'
     | '/monitoring/new'
     | '/settings/clients'
@@ -282,8 +402,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   CasesRoute: typeof CasesRouteWithChildren
   ClientsRoute: typeof ClientsRoute
+  ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   LandingRoute: typeof LandingRoute
   MonitoringRoute: typeof MonitoringRouteWithChildren
@@ -294,6 +416,14 @@ export interface RootRouteChildren {
   AuthSignUpRoute: typeof AuthSignUpRoute
   LegacyLoginRoute: typeof LegacyLoginRoute
   LegacySignupRoute: typeof LegacySignupRoute
+  LegalAcceptableUseRoute: typeof LegalAcceptableUseRoute
+  LegalCookiesRoute: typeof LegalCookiesRoute
+  LegalDpaRoute: typeof LegalDpaRoute
+  LegalImprintRoute: typeof LegalImprintRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalSecurityRoute: typeof LegalSecurityRoute
+  LegalSubprocessorsRoute: typeof LegalSubprocessorsRoute
+  LegalTermsRoute: typeof LegalTermsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -333,6 +463,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clients': {
       id: '/clients'
       path: '/clients'
@@ -345,6 +482,13 @@ declare module '@tanstack/react-router' {
       path: '/cases'
       fullPath: '/cases'
       preLoaderRoute: typeof CasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -388,6 +532,62 @@ declare module '@tanstack/react-router' {
       fullPath: '/monitoring/$caseId'
       preLoaderRoute: typeof MonitoringCaseIdRouteImport
       parentRoute: typeof MonitoringRoute
+    }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/subprocessors': {
+      id: '/legal/subprocessors'
+      path: '/legal/subprocessors'
+      fullPath: '/legal/subprocessors'
+      preLoaderRoute: typeof LegalSubprocessorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/security': {
+      id: '/legal/security'
+      path: '/legal/security'
+      fullPath: '/legal/security'
+      preLoaderRoute: typeof LegalSecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/imprint': {
+      id: '/legal/imprint'
+      path: '/legal/imprint'
+      fullPath: '/legal/imprint'
+      preLoaderRoute: typeof LegalImprintRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/dpa': {
+      id: '/legal/dpa'
+      path: '/legal/dpa'
+      fullPath: '/legal/dpa'
+      preLoaderRoute: typeof LegalDpaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/cookies': {
+      id: '/legal/cookies'
+      path: '/legal/cookies'
+      fullPath: '/legal/cookies'
+      preLoaderRoute: typeof LegalCookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/acceptable-use': {
+      id: '/legal/acceptable-use'
+      path: '/legal/acceptable-use'
+      fullPath: '/legal/acceptable-use'
+      preLoaderRoute: typeof LegalAcceptableUseRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/legacy/signup': {
       id: '/legacy/signup'
@@ -513,8 +713,10 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   CasesRoute: CasesRouteWithChildren,
   ClientsRoute: ClientsRoute,
+  ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   LandingRoute: LandingRoute,
   MonitoringRoute: MonitoringRouteWithChildren,
@@ -525,6 +727,14 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSignUpRoute: AuthSignUpRoute,
   LegacyLoginRoute: LegacyLoginRoute,
   LegacySignupRoute: LegacySignupRoute,
+  LegalAcceptableUseRoute: LegalAcceptableUseRoute,
+  LegalCookiesRoute: LegalCookiesRoute,
+  LegalDpaRoute: LegalDpaRoute,
+  LegalImprintRoute: LegalImprintRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalSecurityRoute: LegalSecurityRoute,
+  LegalSubprocessorsRoute: LegalSubprocessorsRoute,
+  LegalTermsRoute: LegalTermsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
