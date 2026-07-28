@@ -60,12 +60,17 @@ _local_dev_origins = [
     "http://localhost:8082",
     "http://localhost:5173",
     "http://localhost:3000",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:8082",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "https://hakkiu.com",
+    "https://www.hakkiu.com",
+    "https://api.hakkiu.com",
+    "https://admin.hakkiu.com",
 ]
-# In production only the explicit ALLOWED_ORIGINS are trusted; localhost is
-# dev-only. (Mirrors how admin-api gates its origin list.)
-_allowed_origins = (
-    _production_origins if _is_production else _local_dev_origins + _production_origins
-)
+
+_allowed_origins = list(dict.fromkeys(_local_dev_origins + _production_origins))
 
 app.add_middleware(
     CORSMiddleware,

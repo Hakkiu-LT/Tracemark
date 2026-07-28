@@ -174,9 +174,9 @@ function CaseDetail() {
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case "analyzing":
       case "active":
-      case "flagged":
-        return "Awaiting Action";
+        return "In Analysis";
       case "escalated":
         return "Escalated to Counsel";
       case "takedown_sent":
@@ -184,16 +184,37 @@ function CaseDetail() {
       case "resolved":
       case "complete":
       case "completed":
-        return "Completed";
+        return "Complete";
       case "safe":
       case "dismissed":
         return "Marked as Safe";
       case "declined":
-        return "Declined";
+        return "Rejected";
       case "error":
         return "Capture Failed";
       default:
-        return "Awaiting Action";
+        return "Flagged";
+    }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "analyzing":
+      case "active":
+        return "bg-blue-500/10 text-blue-600 border-blue-500/30";
+      case "complete":
+      case "completed":
+      case "resolved":
+        return "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+      case "declined":
+        return "bg-red-500/10 text-red-600 border-red-500/30";
+      case "safe":
+      case "dismissed":
+        return "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+      case "escalated":
+        return "bg-purple-500/10 text-purple-600 border-purple-500/30";
+      default:
+        return "bg-amber-500/10 text-amber-600 border-amber-500/30";
     }
   };
 
@@ -250,79 +271,129 @@ function CaseDetail() {
             <ChevronRight className="h-4 w-4" />
             <span className="text-foreground">Case #{i.id.slice(0, 8).toUpperCase()}</span>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground mb-1">
-            Suspicious Activity on {i.platform}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Detected on {new Date(i.flagged_at).toLocaleDateString()} · {getStatusText(i.status)}
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              Suspicious Activity on {i.platform}
+            </h2>
+            <span className={`px-2.5 py-1 rounded-full border text-xs font-semibold uppercase tracking-wider ${getStatusBadgeClass(i.status)}`}>
+              {getStatusText(i.status)}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Detected on {new Date(i.flagged_at).toLocaleDateString()} · Status: <span className="font-medium text-foreground">{getStatusText(i.status)}</span>
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            disabled={isUpdating}
-            onClick={() => handleUpdateStatus("safe")}
-            className="flex items-center gap-2"
-          >
-            {isUpdating && updateStatusMutation.variables?.status === "safe" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-success" />
-            ) : (
-              <ShieldCheck className="h-4 w-4 text-success" />
-            )}
-            Safe
-          </Button>
-          <Button
-            variant="outline"
-            disabled={isUpdating}
-            onClick={() => handleUpdateStatus("active")}
-            className="flex items-center gap-2"
-          >
-            {isUpdating && updateStatusMutation.variables?.status === "active" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
-            ) : (
-              <RefreshCw className="h-4 w-4 text-amber-500" />
-            )}
-            Mark Active
-          </Button>
-          <Button
-            variant="outline"
-            disabled={isUpdating}
-            onClick={() => handleUpdateStatus("escalated")}
-            className="flex items-center gap-2"
-          >
-            {isUpdating && updateStatusMutation.variables?.status === "escalated" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-accent" />
-            ) : (
-              <Gavel className="h-4 w-4 text-accent" />
-            )}
-            Escalate to Counsel
-          </Button>
-          <Button
-            variant="outline"
-            disabled={isUpdating}
-            onClick={() => handleUpdateStatus("resolved")}
-            className="flex items-center gap-2"
-          >
-            {isUpdating && updateStatusMutation.variables?.status === "resolved" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-success" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-success" />
-            )}
-            Complete
-          </Button>
-          <Button
-            variant="outline"
-            disabled={isUpdating}
-            onClick={() => setShowDeclineDialog(true)}
-            className="flex items-center gap-2"
-          >
-            {isUpdating && updateStatusMutation.variables?.status === "declined" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
-            ) : (
-              <XCircle className="h-4 w-4 text-destructive" />
-            )}
-            Declined
-          </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          {i.status !== "safe" && i.status !== "dismissed" && (
+            <Button
+              variant="outline"
+              disabled={isUpdating}
+              onClick={() => handleUpdateStatus("escalated")}
+              className="flex items-center gap-2 border-accent/40 text-accent hover:bg-accent/10"
+            >
+              {isUpdating && updateStatusMutation.variables?.status === "escalated" ? (
+                <Loader2 className="h-4 w-4 animate-spin text-accent" />
+              ) : (
+                <Gavel className="h-4 w-4 text-accent" />
+              )}
+              Escalate to Counsel
+            </Button>
+          )}
+
+          {/* Workflow Stage 1: Pending / Flagged -> Analyze */}
+          {(i.status === "pending" || i.status === "flagged" || !i.status) && (
+            <Button
+              disabled={isUpdating}
+              onClick={() => handleUpdateStatus("analyzing")}
+              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-sm cursor-pointer"
+            >
+              {isUpdating && updateStatusMutation.variables?.status === "analyzing" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Analyze
+            </Button>
+          )}
+
+          {/* Workflow Stage 2: In Analysis ("analyzing" | "active") -> Complete, Rejected, Safe */}
+          {(i.status === "analyzing" || i.status === "active") && (
+            <>
+              <Button
+                disabled={isUpdating}
+                onClick={() => handleUpdateStatus("complete")}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm cursor-pointer"
+              >
+                {isUpdating && updateStatusMutation.variables?.status === "complete" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Complete
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={isUpdating}
+                onClick={() => setShowDeclineDialog(true)}
+                className="flex items-center gap-2 shadow-sm cursor-pointer"
+              >
+                {isUpdating && updateStatusMutation.variables?.status === "declined" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4" />
+                )}
+                Rejected
+              </Button>
+            </>
+          )}
+
+          {/* Workflow Stage 3: Safe State -> ONLY option available is Complete */}
+          {(i.status === "safe" || i.status === "dismissed") && (
+            <Button
+              disabled={isUpdating}
+              onClick={() => handleUpdateStatus("complete")}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm cursor-pointer"
+            >
+              {isUpdating && updateStatusMutation.variables?.status === "complete" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              Complete
+            </Button>
+          )}
+
+          {/* Processed Terminal States: Complete / Rejected */}
+          {(i.status === "complete" || i.status === "completed" || i.status === "resolved" || i.status === "declined") && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isUpdating}
+              onClick={() => handleUpdateStatus("analyzing")}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Re-analyze
+            </Button>
+          )}
+
+          {/* Safe shortcut for Flagged / In Analysis */}
+          {i.status !== "safe" && i.status !== "dismissed" && i.status !== "complete" && i.status !== "completed" && i.status !== "resolved" && i.status !== "declined" && (
+            <Button
+              variant="outline"
+              disabled={isUpdating}
+              onClick={() => handleUpdateStatus("safe")}
+              className="flex items-center gap-2"
+            >
+              {isUpdating && updateStatusMutation.variables?.status === "safe" ? (
+                <Loader2 className="h-4 w-4 animate-spin text-success" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 text-success" />
+              )}
+              Safe
+            </Button>
+          )}
+
           <Button
             onClick={() =>
               navigate({

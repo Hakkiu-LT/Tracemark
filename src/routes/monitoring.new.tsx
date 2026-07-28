@@ -562,73 +562,38 @@ function NewAssetPage() {
                 Route regional scans through local proxies to bypass geoblocking and capture location-specific infringements.
               </p>
 
-              <div className="space-y-3 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 {REGIONS.map((reg) => {
-                  const isExpanded = expandedRegions.has(reg.key);
                   const regCountries = reg.countries.map((c) => c.code);
-                  const selectedCount = reg.countries.filter((c) => selectedRegions.has(c.code)).length;
-                  const allSelected = selectedCount === reg.countries.length;
-                  const someSelected = selectedCount > 0 && !allSelected;
+                  const isSelected = reg.countries.every((c) => selectedRegions.has(c.code));
 
                   return (
-                    <div key={reg.key} className="border border-border rounded-lg overflow-hidden bg-background/50">
-                      {/* Macro Region Header Row */}
-                      <div className="flex items-center justify-between p-3.5 bg-muted/20 hover:bg-muted/40 transition-colors select-none">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={allSelected}
-                            ref={(el) => {
-                              if (el) el.indeterminate = someSelected;
-                            }}
-                            onChange={() => toggleMacroRegion(reg.key, regCountries)}
-                            className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
-                          />
-                          <span className="font-semibold text-sm text-foreground">{reg.label}</span>
-                          <span className="text-[10px] bg-muted text-muted-foreground font-mono px-2 py-0.5 rounded-full">
-                            {selectedCount}/{reg.countries.length}
+                    <button
+                      key={reg.key}
+                      type="button"
+                      onClick={() => toggleMacroRegion(reg.key, regCountries)}
+                      className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer text-left ${
+                        isSelected
+                          ? "border-accent bg-accent/10 shadow-sm"
+                          : "border-border/80 bg-background/60 hover:bg-muted/40 hover:border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
+                        />
+                        <div>
+                          <span className="font-semibold text-sm text-foreground block">{reg.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {isSelected ? "Active for proxy scraping" : "Click to activate region"}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleRegionExpanded(reg.key)}
-                          className="text-muted-foreground hover:text-foreground cursor-pointer p-1"
-                        >
-                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </button>
                       </div>
-
-                      {/* Country Checkboxes Under Macro Region */}
-                      {isExpanded && (
-                        <div className="p-4 border-t border-border grid grid-cols-2 gap-3 bg-card/30">
-                          {reg.countries.map((c) => {
-                            const active = selectedRegions.has(c.code);
-                            return (
-                              <label
-                                key={c.code}
-                                className={`flex items-center gap-3 p-2.5 rounded-md border transition-colors cursor-pointer text-xs ${
-                                  active
-                                    ? "border-accent bg-accent/5 text-foreground"
-                                    : "border-border/60 hover:bg-muted/30 text-muted-foreground"
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={active}
-                                  onChange={() => toggleCountry(c.code)}
-                                  className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
-                                />
-                                <span className="text-base leading-none">{c.flag}</span>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-foreground">{c.name}</span>
-                                  <span className="text-[10px] text-muted-foreground font-mono">{c.code} proxy</span>
-                                </div>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                      {isSelected && <span className="w-2 h-2 rounded-full bg-accent shrink-0" />}
+                    </button>
                   );
                 })}
               </div>
@@ -637,7 +602,7 @@ function NewAssetPage() {
               <div className="flex gap-2 p-3 bg-accent/5 rounded-lg border border-accent/20 text-xs text-muted-foreground mt-4 leading-relaxed">
                 <Info className="h-4.5 w-4.5 text-accent shrink-0 mt-0.5" />
                 <span>
-                  <strong>Scanning Logic:</strong> Selecting a macro-region or individual country schedules automated scans that route requests through secure residential proxies physically located within those target regions. This ensures correct localization and captures geotargeted storefront clones or search ads.
+                  <strong>Scanning Logic:</strong> Selecting a target region routes automated scans through secure residential proxies physically located within that region. This ensures correct localization and captures geotargeted storefront clones or search ads.
                 </span>
               </div>
             </section>

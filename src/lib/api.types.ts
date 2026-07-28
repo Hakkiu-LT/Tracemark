@@ -69,6 +69,7 @@ export interface TakedownReport {
 
 export interface CheckBrandResponse {
   case_id: string | null;
+  status?: string | null;
   no_findings?: boolean;
   decision: DecisionResponse | null;
   evidence: EvidenceResponse;

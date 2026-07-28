@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function AppHeader() {
   const persona = useStore((s) => s.persona);
@@ -16,8 +17,9 @@ export function AppHeader() {
   const setActiveClient = useStore((s) => s.setActiveClient);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
       <SidebarTrigger />
+      <ThemeToggle />
       <div className="ml-auto flex items-center gap-3">
         {persona === "law_firm" && (
           <Select value={activeClientId ?? "all"} onValueChange={(v) => setActiveClient(v === "all" ? null : v)}>

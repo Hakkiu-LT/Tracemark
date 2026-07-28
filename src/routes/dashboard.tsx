@@ -116,7 +116,7 @@ function Dashboard() {
 
       {/* Region Tabs */}
       <div className="flex border-b border-border gap-2">
-        {["ALL", "North America", "EMEA", "APAC", "LATAM"].map((region) => {
+        {["ALL", "North America", "Europe", "APAC", "LATAM"].map((region) => {
           const active = selectedMacroRegion === region;
           return (
             <button
@@ -189,31 +189,48 @@ function Dashboard() {
 }
 
 function Metric({
-  icon: Icon, label, value, sub, tone = "default",
+  icon: Icon, label, value, sub, tone = "default", pulsating,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   sub: string;
   tone?: "default" | "risk" | "success" | "accent";
+  pulsating?: boolean;
 }) {
+  const numericVal = typeof value === "number" ? value : parseInt(String(value), 10) || 0;
+  const isAlert = pulsating ?? (tone === "risk" && numericVal > 0);
+
   const toneCls = {
     default: "text-primary bg-primary/10",
-    risk: "text-risk-high bg-risk-high/10",
+    risk: isAlert ? "text-red-500 bg-red-500/20" : "text-risk-high bg-risk-high/10",
     success: "text-success bg-success/10",
     accent: "text-accent bg-accent/10",
   }[tone];
+
   return (
-    <Card>
+    <Card className={cn("transition-all duration-300", isAlert && "pulsate-red-card")}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-            <p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
+            <p className={cn("text-xs font-medium uppercase tracking-wide", isAlert ? "text-red-500 font-semibold" : "text-muted-foreground")}>
+              {label}
+            </p>
+            <p className={cn("mt-2 text-3xl font-semibold tracking-tight", isAlert && "text-red-600 dark:text-red-400 font-bold")}>
+              {value}
+            </p>
+            <p className={cn("mt-1 text-xs", isAlert ? "text-red-400 font-medium" : "text-muted-foreground")}>
+              {sub}
+            </p>
           </div>
-          <div className={`flex h-9 w-9 items-center justify-center rounded-md ${toneCls}`}>
+          <div className={`relative flex h-9 w-9 items-center justify-center rounded-md ${toneCls}`}>
             <Icon className="h-4 w-4" />
+            {isAlert && (
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+            )}
           </div>
         </div>
       </CardContent>

@@ -159,78 +159,145 @@ function MonitoringScanResultPage() {
       {/* Header */}
       <div className={`flex flex-wrap items-start justify-between gap-4 ${ANIM}`} style={animStyle(80)}>
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Scan Result</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">Scan Result</h2>
+            <span className={`px-2.5 py-1 rounded-full border text-xs font-semibold uppercase tracking-wider ${
+              result.status === "analyzing" || result.status === "active"
+                ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                : result.status === "complete" || result.status === "completed" || result.status === "resolved"
+                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                : result.status === "declined"
+                ? "bg-red-500/10 text-red-600 border-red-500/30"
+                : result.status === "safe"
+                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                : "bg-amber-500/10 text-amber-600 border-amber-500/30"
+            }`}>
+              {result.status === "analyzing" || result.status === "active"
+                ? "In Analysis"
+                : result.status === "complete" || result.status === "completed" || result.status === "resolved"
+                ? "Complete"
+                : result.status === "declined"
+                ? "Rejected"
+                : result.status === "safe"
+                ? "Marked as Safe"
+                : "Flagged"}
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             Completed at {scannedAt} · Case ID{" "}
             <span className="font-mono">{caseId}</span>
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => handleUpdateStatus("safe")}
-            className="flex items-center gap-2"
-          >
-            {updating === "safe" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-success" />
-            ) : (
-              <ShieldCheck className="h-4 w-4 text-success" />
-            )}
-            Safe
-          </Button>
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => handleUpdateStatus("analyzing")}
-            className="flex items-center gap-2"
-          >
-            {updating === "analyzing" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
-            ) : (
-              <RefreshCw className="h-4 w-4 text-amber-500" />
-            )}
-            Analyzing
-          </Button>
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => handleUpdateStatus("escalated")}
-            className="flex items-center gap-2"
-          >
-            {updating === "escalated" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-accent" />
-            ) : (
-              <Gavel className="h-4 w-4 text-accent" />
-            )}
-            Escalate to Counsel
-          </Button>
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => handleUpdateStatus("complete")}
-            className="flex items-center gap-2"
-          >
-            {updating === "complete" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-success" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-success" />
-            )}
-            Complete
-          </Button>
-          <Button
-            variant="outline"
-            disabled={updating !== null}
-            onClick={() => setShowDeclineDialog(true)}
-            className="flex items-center gap-2"
-          >
-            {updating === "declined" ? (
-              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
-            ) : (
-              <XCircle className="h-4 w-4 text-destructive" />
-            )}
-            Declined
-          </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          {result.status !== "safe" && result.status !== "dismissed" && (
+            <Button
+              variant="outline"
+              disabled={updating !== null}
+              onClick={() => handleUpdateStatus("escalated")}
+              className="flex items-center gap-2 border-accent/40 text-accent hover:bg-accent/10"
+            >
+              {updating === "escalated" ? (
+                <Loader2 className="h-4 w-4 animate-spin text-accent" />
+              ) : (
+                <Gavel className="h-4 w-4 text-accent" />
+              )}
+              Escalate to Counsel
+            </Button>
+          )}
+
+          {/* Workflow Stage 1: Pending -> Analyze */}
+          {(result.status === "pending" || result.status === "flagged" || !result.status) && (
+            <Button
+              disabled={updating !== null}
+              onClick={() => handleUpdateStatus("analyzing")}
+              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-sm cursor-pointer"
+            >
+              {updating === "analyzing" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Analyze
+            </Button>
+          )}
+
+          {/* Workflow Stage 2: Analyzing -> Complete OR Decline */}
+          {(result.status === "analyzing" || result.status === "active") && (
+            <>
+              <Button
+                disabled={updating !== null}
+                onClick={() => handleUpdateStatus("complete")}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm cursor-pointer"
+              >
+                {updating === "complete" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Complete
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={updating !== null}
+                onClick={() => setShowDeclineDialog(true)}
+                className="flex items-center gap-2 shadow-sm cursor-pointer"
+              >
+                {updating === "declined" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4" />
+                )}
+                Rejected
+              </Button>
+            </>
+          )}
+
+          {/* Workflow Stage 3: Safe State -> ONLY option available is Complete */}
+          {(result.status === "safe" || result.status === "dismissed") && (
+            <Button
+              disabled={updating !== null}
+              onClick={() => handleUpdateStatus("complete")}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm cursor-pointer"
+            >
+              {updating === "complete" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              Complete
+            </Button>
+          )}
+
+          {/* Processed Terminal States: Complete / Rejected */}
+          {(result.status === "complete" || result.status === "completed" || result.status === "resolved" || result.status === "declined") && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={updating !== null}
+              onClick={() => handleUpdateStatus("analyzing")}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Re-analyze
+            </Button>
+          )}
+
+          {/* Safe shortcut for Flagged / In Analysis */}
+          {result.status !== "safe" && result.status !== "dismissed" && result.status !== "complete" && result.status !== "completed" && result.status !== "resolved" && result.status !== "declined" && (
+            <Button
+              variant="outline"
+              disabled={updating !== null}
+              onClick={() => handleUpdateStatus("safe")}
+              className="flex items-center gap-2"
+            >
+              {updating === "safe" ? (
+                <Loader2 className="h-4 w-4 animate-spin text-success" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 text-success" />
+              )}
+              Safe
+            </Button>
+          )}
           <Button asChild>
             <Link to="/monitoring/$caseId/takedown" params={{ caseId }}>
               <FileText className="h-4 w-4 mr-2" />

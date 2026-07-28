@@ -1030,69 +1030,33 @@ function MonitoringPage() {
                   </div>
                 </div>
               </div>
-              <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 border border-border rounded-md p-2 pb-4 bg-muted/10">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 {REGIONS.map((reg) => {
-                  const isExpanded = editExpandedRegions.has(reg.key);
                   const regCountries = reg.countries.map((c) => c.code);
-                  const selectedCount = reg.countries.filter((c) => editSelectedRegions.has(c.code)).length;
-                  const allSelected = selectedCount === reg.countries.length;
-                  const someSelected = selectedCount > 0 && !allSelected;
+                  const isSelected = reg.countries.every((c) => editSelectedRegions.has(c.code));
 
                   return (
-                    <div key={reg.key} className="border border-border/80 rounded-md overflow-hidden bg-background">
-                      {/* Region Header */}
-                      <div className="flex items-center justify-between px-2.5 py-1.5 bg-muted/30 select-none">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={allSelected}
-                            ref={(el) => {
-                              if (el) el.indeterminate = someSelected;
-                            }}
-                            onChange={() => toggleEditMacroRegion(reg.key, regCountries)}
-                            className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
-                          />
-                          <span className="font-semibold text-xs text-foreground">{reg.label}</span>
-                          <span className="text-[9px] bg-muted text-muted-foreground font-mono px-1.5 py-0.2 rounded-full">
-                            {selectedCount}/{reg.countries.length}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleEditRegionExpanded(reg.key)}
-                          className="text-muted-foreground hover:text-foreground cursor-pointer"
-                        >
-                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        </button>
+                    <button
+                      key={reg.key}
+                      type="button"
+                      onClick={() => toggleEditMacroRegion(reg.key, regCountries)}
+                      className={`flex items-center justify-between p-3 rounded-lg border text-left cursor-pointer transition-colors text-xs select-none ${
+                        isSelected
+                          ? "border-accent bg-accent/10 text-accent font-semibold"
+                          : "border-border hover:bg-muted/50 text-muted-foreground"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
+                        />
+                        <span>{reg.label}</span>
                       </div>
-
-                      {/* Countries list under region */}
-                      {isExpanded && (
-                        <div className="px-3 py-2 border-t border-border/60 grid grid-cols-2 gap-1.5 bg-card/10">
-                          {reg.countries.map((c) => {
-                            const active = editSelectedRegions.has(c.code);
-                            return (
-                              <label
-                                key={c.code}
-                                className={`flex items-center gap-2 p-1.5 rounded border transition-colors cursor-pointer text-[10px] ${active
-                                    ? "border-accent/60 bg-accent/5 text-foreground"
-                                    : "border-border/40 hover:bg-muted/30 text-muted-foreground"
-                                  }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={active}
-                                  onChange={() => toggleEditCountry(c.code)}
-                                  className="h-3 w-3 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
-                                />
-                                <span>{c.flag}</span>
-                                <span className="font-medium truncate">{c.name}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                    </button>
                   );
                 })}
               </div>

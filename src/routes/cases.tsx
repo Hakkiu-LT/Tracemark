@@ -55,50 +55,57 @@ function pageItems(current: number, total: number): (number | "ellipsis")[] {
 
 const RISK_ORDER: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 const STATUS_ORDER: Record<string, number> = {
+  pending: 1,
   flagged: 1,
+  analyzing: 2,
   active: 2,
-  analyzing: 3,
-  pending: 4,
-  reviewed: 5,
-  escalated: 6,
-  resolved: 7,
-  complete: 7,
-  completed: 7,
-  safe: 8,
-  dismissed: 8,
-  declined: 9,
-  error: 10,
+  escalated: 3,
+  complete: 4,
+  completed: 4,
+  resolved: 4,
+  declined: 5,
+  safe: 6,
+  dismissed: 6,
+  error: 7,
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  flagged: "bg-risk-med/10 text-risk-med border-risk-med/30",
-  active: "bg-risk-med/10 text-risk-med border-risk-med/30",
-  pending: "bg-muted text-muted-foreground border-border",
-  analyzing: "bg-risk-med/10 text-risk-med border-risk-med/30",
-  reviewed: "bg-success/10 text-success border-success/30",
-  escalated: "bg-accent/10 text-accent border-accent/30",
-  complete: "bg-success/10 text-success border-success/30",
-  completed: "bg-success/10 text-success border-success/30",
-  resolved: "bg-success/10 text-success border-success/30",
-  safe: "bg-success/10 text-success border-success/30",
-  dismissed: "bg-success/10 text-success border-success/30",
-  declined: "bg-risk-high/10 text-risk-high border-risk-high/30",
-  error: "bg-risk-high/10 text-risk-high border-risk-high/30",
+  pending: "bg-muted text-muted-foreground border-border font-mono",
+  flagged: "bg-muted text-muted-foreground border-border font-mono",
+  analyzing: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
+  reviewed: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
+  active: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
+  escalated: "bg-purple-500/10 text-purple-600 border-purple-500/30 font-semibold",
+  complete: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
+  completed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
+  resolved: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
+  safe: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+  dismissed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+  declined: "bg-red-500/10 text-red-600 border-red-500/30 font-semibold",
+  rejected: "bg-red-500/10 text-red-600 border-red-500/30 font-semibold",
+  error: "bg-red-500/10 text-red-600 border-red-500/30",
 };
 
-/** Per-copycat rows still awaiting triage. */
-const PENDING_STATUSES = new Set(["flagged", "active"]);
+/** Per-copycat rows still awaiting triage (default initial state: pending). */
+const PENDING_STATUSES = new Set(["pending", "flagged"]);
 
 function CaseStatusBadge({ status }: { status: string }) {
-  const label = (status === "complete" || status === "completed" || status === "resolved") ? "completed" : status;
+  const norm = (status || "pending").toLowerCase();
+  let label = norm;
+  if (norm === "flagged") label = "pending";
+  if (norm === "reviewed" || norm === "active" || norm === "analyzing") label = "analyzing";
+  if (norm === "complete" || norm === "resolved" || norm === "completed") label = "completed";
+  if (norm === "declined") label = "rejected";
+  if (norm === "dismissed") label = "safe";
+
   return (
     <span
       className={cn(
-        "inline-flex rounded-md border px-2 py-0.5 text-xs font-medium capitalize",
-        STATUS_STYLES[label] ?? "bg-muted text-muted-foreground border-border",
+        "inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold capitalize",
+        STATUS_STYLES[label] ?? STATUS_STYLES[norm] ?? "bg-muted text-muted-foreground border-border",
       )}
     >
-      {label.replace(/_/g, " ")}
+      {label === "analyzing" ? "In Analysis" : label.replace(/_/g, " ")}
     </span>
   );
 }
@@ -442,7 +449,7 @@ function CasesList() {
 
       {/* Region Tabs */}
       <div className="flex border-b border-border gap-2">
-        {["ALL", "North America", "EMEA", "APAC", "LATAM"].map((region) => {
+        {["ALL", "North America", "Europe", "APAC", "LATAM"].map((region) => {
           const active = selectedMacroRegion === region;
           return (
             <button
