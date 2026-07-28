@@ -244,11 +244,14 @@ def update_staff(
             raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
         auth_attrs["password"] = payload.password
 
-    # PRIVILEGE GUARD: only a super-admin may reset a super-admin's credentials.
-    if auth_attrs and target_is_super and not staff.is_super_admin:
+    # PRIVILEGE GUARD: only a super-admin may change ANOTHER staff member's email or
+    # password. Otherwise a non-super holder of `staff.manage` could reset a colleague's
+    # password and log in as them (account takeover). Self-service credential changes are
+    # still allowed for any staff member (staff_id == staff.id).
+    if auth_attrs and staff_id != staff.id and not staff.is_super_admin:
         raise HTTPException(
             status_code=403,
-            detail="Super-admin required to change another super-admin's email or password",
+            detail="Super-admin required to change another staff member's email or password",
         )
 
     if auth_attrs:

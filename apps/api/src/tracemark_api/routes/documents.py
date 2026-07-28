@@ -27,20 +27,23 @@ def send_document_email_endpoint(
     doc = res.data
     infringement_id = doc.get("infringement_id")
 
-    # Verify document belongs to caller's org via: document → infringement → case → org
-    if infringement_id:
-        owner = (
-            sb.table("infringements")
-            .select("cases!inner(organization_id, user_id)")
-            .eq("id", infringement_id)
-            .maybe_single()
-            .execute()
-        )
-        owner_case = (owner.data or {}).get("cases") if owner else None
-        if not owner_case:
-            raise HTTPException(status_code=404, detail="Document not found")
-        if owner_case.get("organization_id") != profile.organization_id:
-            raise HTTPException(status_code=404, detail="Document not found")
+    # Verify document belongs to caller's org via: document → infringement → case → org.
+    # Deny by default: a document with no infringement link cannot be ownership-checked,
+    # so it must not be actionable cross-tenant (fail closed, not open).
+    if not infringement_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    owner = (
+        sb.table("infringements")
+        .select("cases!inner(organization_id, user_id)")
+        .eq("id", infringement_id)
+        .maybe_single()
+        .execute()
+    )
+    owner_case = (owner.data or {}).get("cases") if owner else None
+    if not owner_case:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if owner_case.get("organization_id") != profile.organization_id:
+        raise HTTPException(status_code=404, detail="Document not found")
 
     try:
         from tracemark_api.services.delivery_log import log_delivery

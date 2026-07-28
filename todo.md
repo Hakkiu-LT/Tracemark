@@ -5,6 +5,30 @@
 
 ---
 
+## 🔒 SECURITY — Session 22 re-audit (2026-07-28)
+
+Full plan: `security-remediation-plan-2026-07-28.md`. 5-subagent deep audit + manual verify.
+
+**DONE in code (this session):**
+- [x] H3 SSRF — `apps/api/.../services/ai.py:494`: added `validate_ssrf_url` + `follow_redirects=False`.
+- [x] H2 audit bug — `apps/admin-api/.../routes/leads.py`: fixed wrong `write_audit_log` kwargs (+ real IP).
+- [x] M1 fail-open — `apps/api/.../routes/documents.py`: deny-by-default when `infringement_id` is NULL.
+- [x] H1 staff takeover — `apps/admin-api/.../routes/staff.py`: super-admin required to change ANOTHER staff's email/password.
+- [x] C1 (partial) — redacted the leaked service-role literal from `security-audit.md`. **Still TODO:** purge git history (filter-repo/BFG) + confirm old key revoked in Supabase.
+- [x] P0 migration written + validated on throwaway PG16 (exit 0): `supabase/migrations/20260728000002_security_rls_p0.sql`
+  — C2 freeze `profiles.organization_id`, C3 scope `evidence_items`, C4 scope `brand_assets`, L4 `user_is_org_member` search_path.
+
+- [x] `supabase db push` — P0 migration APPLIED to LIVE DB (user-authorized 2026-07-28); remote now at 20260728000002. C2/C3/C4/L4 CLOSED on prod.
+- [x] Backend tests: 206 pass, 1 pre-existing live-network integration fail (`test_meta_ads_credentials`, unrelated).
+
+**DEFERRED (needs frontend-access verification before touching):**
+- [ ] H4 — add explicit `WITH CHECK` to persona mode-isolation policies (C2 already removes the main exploit path).
+- [ ] H7 — drop `organization_id = auth.uid()` branch from `brands` SELECT policy (verify no null-user_id brands depend on it).
+- [ ] C5 — make `evidence-screenshots` bucket private + signed URLs (BREAKS `<img>` display; needs frontend change + URL regen).
+- [ ] P1/P2/P3 remainder: admin rate-limiting, CORS localhost gate in prod, Caddy API headers, per-service env scoping, etc.
+
+---
+
 ## 🔴 OPEN — Follow-ups from recent sessions
 
 ### Legal / company pages (session 21 — built; USER ACTIONS remain)
@@ -17,13 +41,13 @@
 - [x] Requisite placeholders removed (session 21) — company registration fields (entity/code/
   address/VAT/phone) are blank in `company.ts` and the pages omit them; Imprint shows "will be
   published once finalized" instead of placeholders.
-- [ ] **USER ACTION — create email aliases** (forwards): `privacy@`, `legal@`, `security@`,
+- [x] **USER ACTION — create email aliases** (forwards): `privacy@`, `legal@`, `security@`,
   `support@` `hakkiu.com` (the pages now reference these; `info@` is used for general enquiries).
 - [ ] **USER ACTION — add company requisites** in `src/lib/company.ts` once incorporation is final:
   legal entity name, legal form, registration code (juridinio asmens kodas), registered address,
   VAT number, phone. One place updates all pages (Imprint auto-reveals the rows).
 - [ ] **USER ACTION — lawyer review** of all legal pages before relying on them (templates, not advice).
-- [ ] **RECOMMENDED (compliance gap) — cookie consent banner:** GA4 is live-firing; EU ePrivacy
+- [ ] **RECOMMENDED (compliance gap) — :** GA4 is live-firing; EU ePrivacy
   requires prior consent for analytics cookies. Need a CMP/banner with Google Consent Mode v2
   (default denied) that blocks GA4 until opt-in, + "Reject all" as easy as "Accept all". Cookie
   Policy page is written; the banner itself is a separate feature (not yet built).

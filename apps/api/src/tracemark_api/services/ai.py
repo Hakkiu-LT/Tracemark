@@ -490,8 +490,19 @@ def generate_evidence_analysis(
         import httpx
         from langchain_core.messages import HumanMessage
 
+        from tracemark_api.services.ssrf import SSRFError, validate_ssrf_url
+
+        # SSRF guard: screenshot_url can originate from scraped/attacker-controlled
+        # evidence data. Validate before fetching and disable redirects so a
+        # redirect can't defeat the DNS-rebind check (mirrors embedding_helper.py).
+        try:
+            validate_ssrf_url(screenshot_url)
+        except SSRFError as exc:
+            print(f"[AI] Refusing to fetch screenshot (SSRF guard): {exc}")
+            return None
+
         # Download the screenshot
-        resp = httpx.get(screenshot_url, timeout=20.0, follow_redirects=True)
+        resp = httpx.get(screenshot_url, timeout=20.0, follow_redirects=False)
         if resp.status_code != 200:
             print(f"[AI] Failed to download screenshot: HTTP {resp.status_code}")
             return None

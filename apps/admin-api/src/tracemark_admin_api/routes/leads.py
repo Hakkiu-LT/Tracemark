@@ -1,7 +1,7 @@
 """Admin endpoints for sales leads (Professional/Enterprise request-pricing forms)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api.clients import customer_sb
@@ -39,6 +39,7 @@ def list_leads(
 def update_lead(
     lead_id: str,
     body: UpdateLeadRequest,
+    request: Request,
     principal: StaffPrincipal = Depends(require_permission("leads.edit")),
 ):
     if body.status not in VALID_STATUSES:
@@ -52,11 +53,12 @@ def update_lead(
     sb.table("sales_leads").update({"status": body.status}).eq("id", lead_id).execute()
 
     write_audit_log(
-        principal=principal,
-        action="leads.update_status",
+        principal,
+        "leads.update_status",
         target_type="sales_lead",
         target_id=lead_id,
-        changes={"status": body.status},
+        metadata={"status": body.status},
+        ip=request.client.host if request.client else None,
     )
 
     return {"ok": True}

@@ -8,7 +8,7 @@ Full-codebase audit across 10 attack surfaces, run in parallel by specialized ag
 
 ### Rotate the Supabase service role key NOW
 
-`apps/api/query_case_details.py:6` contains a hardcoded service role key (`sb_secret_***REVOKED***`) pointing at the live production DB (`kdiyjwwejrdqnccfqhyv.supabase.co`). This key bypasses all RLS. It was previously fixed but re-introduced by an automated bot commit.
+`apps/api/query_case_details.py:6` contained a hardcoded service role key (`sb_secret_***REDACTED***` — the literal is intentionally not reproduced here anymore) pointing at the live production DB (`kdiyjwwejrdqnccfqhyv.supabase.co`). This key bypasses all RLS. It was previously fixed but re-introduced by an automated bot commit. NOTE (2026-07-28): the literal was redacted from this doc; the current `.env` uses a different key, but the old literal is still recoverable in git history — it must be purged (git filter-repo/BFG) and the old key confirmed revoked in Supabase.
 
 **Steps:**
 1. Go to Supabase dashboard → Settings → API → Rotate service role key.
