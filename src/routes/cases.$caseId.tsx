@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/error-state";
 import { BoundingBoxOverlay } from "@/components/BoundingBoxOverlay";
+import evidencePlaceholder from "@/images/evidence-placeholder.png";
 import { toast } from "sonner";
 import { ensureAbsoluteUrl } from "@/lib/utils";
 import { getRegionForId, getMacroRegionForCountry, COUNTRY_BY_CODE } from "@/lib/regions";
@@ -21,6 +22,7 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  ImageOff,
 } from "lucide-react";
 import { getInfringementById, getInfringementEvidence, updateInfringementStatus } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -196,6 +198,11 @@ function CaseDetail() {
 
   const latestEvidence = evidenceList?.[0];
 
+  // The screenshot to display: prefer the newest evidence_items capture, else fall
+  // back to the infringement's own (API-signed) screenshot. null → show the
+  // "no screenshot" placeholder empty-state.
+  const screenshotUrl = latestEvidence?.screenshot_url ?? i?.screenshot_url ?? null;
+
   const boxes = latestEvidence?.ai_analysis?.boxes || [
     {
       x: 5, y: 8, w: 42, h: 18,
@@ -330,7 +337,7 @@ function CaseDetail() {
         </div>
       </div>
 
-      {i.status === "error" || (latestEvidence && !latestEvidence.screenshot_url) ? (
+      {i.status === "error" || !screenshotUrl ? (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
@@ -482,26 +489,46 @@ function CaseDetail() {
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">Loading evidence...</p>
                 </div>
-              ) : (
+              ) : screenshotUrl ? (
                 <div className="w-full h-full rounded border border-border bg-card shadow-sm relative overflow-hidden group">
                   <BoundingBoxOverlay
-                    src={latestEvidence?.screenshot_url ?? i.screenshot_url ?? "../../images/evidence01.png"}
+                    src={screenshotUrl}
                     boxes={boxes}
                     reviews={reviews}
                     onReview={setReview}
                   />
                 </div>
+              ) : (
+                /* No screenshot captured — designed empty-state */
+                <div className="flex select-none flex-col items-center justify-center gap-5 px-6 text-center">
+                  <img
+                    src={evidencePlaceholder}
+                    alt="No screenshot available"
+                    draggable={false}
+                    className="pointer-events-none w-full max-w-[340px] opacity-95"
+                  />
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-foreground/70">
+                      <ImageOff className="h-4 w-4" />
+                      No screenshot captured
+                    </div>
+                    <p className="mx-auto max-w-xs text-xs leading-relaxed text-muted-foreground">
+                      Automated evidence capture wasn&apos;t available for this detection. The
+                      other evidence details remain valid.
+                    </p>
+                  </div>
+                </div>
               )}
-              {/* Timestamp Overlay */}
-              <div className="absolute bottom-6 right-6 bg-foreground text-background font-mono text-[11px] px-3 py-1.5 rounded opacity-90 shadow-lg border border-border/30 flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5" />
-                CAPTURE:{" "}
-                {latestEvidence
-                  ? new Date(latestEvidence.captured_at).toISOString().slice(0, 19) + "Z"
-                  : i.screenshot_url
-                    ? new Date(i.created_at).toISOString().slice(0, 19) + "Z"
-                    : "N/A"}
-              </div>
+              {/* Timestamp Overlay — only when a real screenshot is shown */}
+              {screenshotUrl && (
+                <div className="absolute bottom-6 right-6 bg-foreground text-background font-mono text-[11px] px-3 py-1.5 rounded opacity-90 shadow-lg border border-border/30 flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5" />
+                  CAPTURE:{" "}
+                  {latestEvidence
+                    ? new Date(latestEvidence.captured_at).toISOString().slice(0, 19) + "Z"
+                    : new Date(i.created_at).toISOString().slice(0, 19) + "Z"}
+                </div>
+              )}
             </div>
             <div className="px-4 py-2 border-t border-border bg-muted/20">
               <p className="font-mono text-[10px] text-muted-foreground text-center opacity-70">
