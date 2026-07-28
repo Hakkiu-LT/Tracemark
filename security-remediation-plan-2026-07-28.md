@@ -16,8 +16,8 @@ rankiniu būdu skaitant kodą.
 ## 🔴 P0 — CRITICAL (taisyti dabar; cross-tenant duomenų nutekėjimas / rakto ekspozicija)
 
 ### C1. Gyvas service-role raktas viešai repo HEAD ir git istorijoje
-- **Kur:** `security-audit.md:11` re-publikuoja `sb_secret_***REVOKED***`
-  (projektas `kdiyjwwejrdqnccfqhyv`). Istorijoje: commit'ai `7d8a174`, `ebcdb79`, `6ba5f3f`.
+- **Kur:** `security-audit.md:11` re-publikavo service-role raktą (literalas REDAGUOTAS 2026-07-28;
+  prefiksas `sb_secret_MKe…`, projektas `kdiyjwwejrdqnccfqhyv`). Istorijoje: commit'ai `7d8a174`, `ebcdb79`, `6ba5f3f`.
 - **Poveikis:** service-role raktas apeina VISĄ RLS — pilnas read/write/delete visų klientų duomenims.
 - **Statusas:** `.env` jau naudoja kitą raktą (`sb_secret_EWETRe...`) → tikėtina jau pasuktas, BET literalas vis dar viešas.
 - **Taisymas:**
