@@ -285,7 +285,9 @@ commit `5679df9` deployed clean, all 4 domains 200. No more manual SSH deploys n
 > GA4 tag, robots.txt, sitemap.xml, llms.txt all DONE (session 17).
 
 - [ ] Google Search Console: DNS verification, monitor organic keyword queries, impressions, CTR
-- [ ] Conversion tracking: custom GA4 events (demo requested, lead submitted)
+- [x] Conversion tracking: GA4 `generate_lead` event on demo/lead submit (session 25) —
+  `src/lib/analytics.ts` (consent-aware `trackEvent`/`trackLead`), wired into `request-demo.tsx`.
+  TODO in GA4 UI: mark `generate_lead` as a key event (conversion).
 
 ---
 

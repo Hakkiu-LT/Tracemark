@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { trackLead } from "@/lib/analytics";
 
 const BASE =
   typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
@@ -164,6 +165,8 @@ function RequestDemoPage() {
         throw new Error(data?.detail || `Error ${res.status}`);
       }
       setSubmitted(true);
+      // GA4 conversion — fires only if the visitor consented to analytics.
+      trackLead({ source: "request_demo", leadType: form.type ?? "demo" });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
