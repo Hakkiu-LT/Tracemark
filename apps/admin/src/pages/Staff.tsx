@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { ErrorState } from "@/components/error-state";
 
 interface StaffMember {
   id: string;
@@ -46,7 +47,7 @@ export function Staff() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
 
-  const { data: staff, isLoading, isError, refetch } = useQuery({
+  const { data: staff, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["staff"],
     queryFn: () => adminFetch<StaffMember[]>("/staff"),
   });
@@ -79,10 +80,7 @@ export function Staff() {
         </CardHeader>
         <CardContent>
           {isError ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-muted-foreground">Failed to load staff. Check your connection.</p>
-              <Button size="sm" variant="outline" onClick={() => refetch()} className="mt-3">Retry</Button>
-            </div>
+            <ErrorState variant="block" error={error} title="Failed to load staff" onRetry={() => refetch()} />
           ) : isLoading ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (

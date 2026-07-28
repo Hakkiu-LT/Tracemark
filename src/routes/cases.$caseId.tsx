@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link, useNavigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/error-state";
 import { BoundingBoxOverlay } from "@/components/BoundingBoxOverlay";
 import { toast } from "sonner";
 import { ensureAbsoluteUrl } from "@/lib/utils";
@@ -52,7 +53,7 @@ function CaseDetail() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const { data: i, isLoading: isCaseLoading, error: caseError } = useQuery({
+  const { data: i, isLoading: isCaseLoading, error: caseError, refetch: refetchCase } = useQuery({
     queryKey: ["infringement", caseId],
     queryFn: () => getInfringementById(caseId),
   });
@@ -108,11 +109,18 @@ function CaseDetail() {
 
   if (caseError) {
     return (
-      <div className="text-center py-20">
-        <p className="text-muted-foreground">Case not found.</p>
-        <Button asChild variant="link">
-          <Link to="/cases">Back to cases</Link>
-        </Button>
+      <div className="py-10">
+        <ErrorState
+          variant="block"
+          error={caseError}
+          title="Couldn't load this case"
+          onRetry={() => refetchCase()}
+        />
+        <div className="mt-2 text-center">
+          <Button asChild variant="link">
+            <Link to="/cases">Back to cases</Link>
+          </Button>
+        </div>
       </div>
     );
   }

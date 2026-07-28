@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { ErrorState } from "@/components/error-state";
 
 interface OrgRow {
   id: string;
@@ -39,7 +40,7 @@ export function Organizations() {
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["organizations"],
     queryFn: () => adminFetch<OrgRow[]>("/organizations"),
   });
@@ -72,10 +73,7 @@ export function Organizations() {
         </CardHeader>
         <CardContent>
           {isError ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-muted-foreground">Failed to load companies. Check your connection.</p>
-              <Button size="sm" variant="outline" onClick={() => refetch()} className="mt-3">Retry</Button>
-            </div>
+            <ErrorState variant="block" error={error} title="Failed to load companies" onRetry={() => refetch()} />
           ) : isLoading ? (
             <div className="space-y-2">
               {[0, 1, 2, 3].map((i) => (

@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { ErrorState } from "@/components/error-state";
 
 interface AuditRow {
   id: string;
@@ -56,7 +57,7 @@ export function Audit() {
   const params = new URLSearchParams({ limit: String(limit) });
   if (actionFilter) params.set("action", actionFilter);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["audit-log", actionFilter, limit],
     queryFn: () => adminFetch<AuditRow[]>(`/audit-log?${params}`),
   });
@@ -86,10 +87,7 @@ export function Audit() {
         </CardHeader>
         <CardContent>
           {isError ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-muted-foreground">Failed to load audit log. Check your connection.</p>
-              <Button size="sm" variant="outline" onClick={() => refetch()} className="mt-3">Retry</Button>
-            </div>
+            <ErrorState variant="block" error={error} title="Failed to load audit log" onRetry={() => refetch()} />
           ) : isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : (

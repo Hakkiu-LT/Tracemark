@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { ErrorState } from "@/components/error-state";
 
 interface Lead {
   id: string;
@@ -88,7 +89,7 @@ export function Leads() {
   if (statusFilter) params.set("status", statusFilter);
   if (tierFilter)   params.set("tier", tierFilter);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["leads", statusFilter, tierFilter],
     queryFn: () =>
       adminFetch<{ leads: Lead[] }>(`/leads${params.toString() ? `?${params}` : ""}`).then(
@@ -152,7 +153,7 @@ export function Leads() {
               ))}
             </div>
           ) : isError ? (
-            <p className="p-4 text-sm text-destructive">Failed to load leads.</p>
+            <ErrorState variant="inline" error={error} title="Failed to load leads" onRetry={() => refetch()} />
           ) : (
             <Table>
               <TableHeader>

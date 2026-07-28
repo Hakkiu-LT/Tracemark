@@ -26,6 +26,7 @@ import { getInfringements, type InfringementFeedItem } from "@/lib/api";
 import { deleteInfringementFromSupabase } from "@/lib/supabase";
 
 import { RiskBadge } from "@/components/risk-badge";
+import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
@@ -164,7 +165,9 @@ function CasesLayout() {
 function CasesList() {
   const [all, setAll] = useState<InfringementFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Hold the raw error object (not just its message) so <ErrorState> can read
+  // the HTTP status and pick the matching illustration.
+  const [error, setError] = useState<unknown>(null);
   // Restore the saved view only when returning from a case detail; otherwise start fresh.
   const [initialView] = useState(consumeCasesView);
 
@@ -182,10 +185,13 @@ function CasesList() {
 
   const persona = useStore((s) => s.persona);
   const activeClientId = useStore((s) => s.activeClientId);
+  // Bumped by the retry button to re-run the loader below.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     // One row per copycat: the backend persists an infringement per detected item,
     // so the list shows each copycat as its own case while scans stay a single
     // case + single AI prompt in the backend.
@@ -200,7 +206,7 @@ function CasesList() {
         }
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load cases");
+        if (!cancelled) setError(e ?? new Error("Failed to load cases"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -208,7 +214,7 @@ function CasesList() {
     return () => {
       cancelled = true;
     };
-  }, [persona, activeClientId]);
+  }, [persona, activeClientId, reloadKey]);
 
   const handleDeleteCase = async (infringementId: string) => {
     try {
@@ -614,10 +620,16 @@ function CasesList() {
                     </TableCell>
                   </TableRow>
                 )}
-                {error && (
+                {error != null && (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-risk-high">
-                      Failed to load cases: {error}
+                    <TableCell colSpan={7} className="p-0">
+                      <ErrorState
+                        variant="inline"
+                        error={error}
+                        title="Failed to load cases"
+                        onRetry={() => setReloadKey((k) => k + 1)}
+                        retryLabel="Retry"
+                      />
                     </TableCell>
                   </TableRow>
                 )}

@@ -16,7 +16,10 @@ Bucket (1xx…5xx or "signal lost" = no response) picks the image; code shown as
 - [x] Wired: `__root.tsx` boundary, `notification-delivery-log`, `InfringementAlertFeed`, `cases.tsx`, `cases.$caseId.tsx`.
 - [x] `src/images/errors/` — 6 real 1024×1024 PNGs installed (1xx/2xx/3xx/4xx/5xx/signal-lost.png).
 - [x] `tsc --noEmit` clean; `npm run build` ✓ (all 6 images emitted as bundle assets).
-- [ ] Admin-portal parity: the admin FE (`apps/admin`) has its own error UIs — port `<ErrorState>` there too if desired.
+- [x] Admin-portal parity: `AdminApiError.status` in `apps/admin/src/lib/api.ts`; copied `error-status.ts`;
+  new `apps/admin/src/components/error-state.tsx` (images via `/errors/*` in `apps/admin/public/errors/`).
+  Wired into 9 pages (Brands, Organizations, Customers, Cases, Audit, Staff, ScraperHealth, ScraperHealthDetail, Leads)
+  + global `defaultErrorComponent` in `router.tsx`. `tsc --noEmit` ✓, `vite build` ✓ (images in dist).
 
 ---
 
@@ -60,9 +63,16 @@ Full plan: `security-remediation-plan-2026-07-28.md`. 5-subagent deep audit + ma
 - [x] VALIDATED on throwaway PG16 w/ real prod policies + synthetic 2-org data: before=leak (sees 2),
   after=own-only (1 each) + cross-tenant=0 + embeds work. Exit 0.
 
-**STILL PENDING (needs deploy / staging / user):**
-- [ ] Push migration `20260728000003` to prod (`supabase db push`) — RISK CHANGED (now drops broad
-  READ policies), re-authorization needed. Smoke-test app right after; rollback = re-add broad policies.
+**DEPLOYED TO PROD (2026-07-28, user-authorized):**
+- [x] Code pushed to main (commits 28fc229, 8d421f4) → CI+Deploy ✓.
+- [x] Migration `20260728000003` APPLIED to prod (`supabase db push`); re-dump verified all broad
+  policies gone, 3 scoped policies present, cases_own + brands org=uid branch removed.
+- [x] ⚠️ INCIDENT + HOTFIX: admin-api 502'd after deploy because slowapi was added to pyproject.toml
+  but not `uv.lock` (Dockerfile installs `--frozen` from the lock). Symptom: admin portal login →
+  "not authorized" (frontend couldn't reach 502'd /staff/me). Fixed by `uv lock` + commit 63827da +
+  redeploy. admin-api /health=200 restored. LESSON: always commit uv.lock with any pyproject dep change.
+
+**STILL PENDING (needs deploy / staging / user):
 - [ ] C5 — `evidence-screenshots` private + signed URLs: investigated (see plan) → **NO-GO for blind prod**
   (breaks `<img>` display + email links + admin-api needs its own signer). Needs staging pass + email-link
   strategy decision before deploy. Full implementation plan captured from subagent.

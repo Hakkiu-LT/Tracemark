@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout";
+import { ErrorState } from "@/components/error-state";
 import { SignIn } from "@/pages/SignIn";
 import { ResetPassword } from "@/pages/ResetPassword";
 import { Dashboard } from "@/pages/Dashboard";
@@ -143,7 +144,17 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree, defaultPreloadStaleTime: 0 });
+export const router = createRouter({
+  routeTree,
+  defaultPreloadStaleTime: 0,
+  // Global safety net: any uncaught render/loader error shows the status-matched
+  // illustration instead of a blank screen.
+  defaultErrorComponent: ({ error, reset }) => (
+    <div className="flex min-h-screen items-center justify-center">
+      <ErrorState variant="page" error={error} onRetry={reset} />
+    </div>
+  ),
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

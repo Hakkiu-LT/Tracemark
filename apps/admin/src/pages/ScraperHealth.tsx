@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { ErrorState } from "@/components/error-state";
 
 interface PlatformHealth {
   platform: string;
@@ -46,7 +47,7 @@ function pct(rate: number): string {
 
 export function ScraperHealth() {
   const [window, setWindow] = useState<Window>("24h");
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["scraper-health", window],
     queryFn: () => adminFetch<ScraperHealthResponse>(`/scraper-health?window=${window}`),
     refetchInterval: 60_000,
@@ -85,12 +86,8 @@ export function ScraperHealth() {
 
       {isError ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
-            <AlertTriangle className="h-8 w-8 text-destructive" />
-            <p className="text-sm text-muted-foreground">Failed to load scraper health.</p>
-            <Button size="sm" variant="outline" onClick={() => refetch()}>
-              Retry
-            </Button>
+          <CardContent>
+            <ErrorState variant="block" error={error} title="Failed to load scraper health" onRetry={() => refetch()} />
           </CardContent>
         </Card>
       ) : isLoading ? (

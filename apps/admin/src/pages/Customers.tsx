@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { ErrorState } from "@/components/error-state";
 
 interface CustomerRow {
   id: string;
@@ -38,7 +39,7 @@ interface CustomerRow {
 export function Customers() {
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["customers"],
     queryFn: () => adminFetch<CustomerRow[]>("/customers"),
   });
@@ -77,10 +78,7 @@ export function Customers() {
         </CardHeader>
         <CardContent>
           {isError ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-muted-foreground">Failed to load customers. Check your connection.</p>
-              <Button size="sm" variant="outline" onClick={() => refetch()} className="mt-3">Retry</Button>
-            </div>
+            <ErrorState variant="block" error={error} title="Failed to load customers" onRetry={() => refetch()} />
           ) : isLoading ? (
             <div className="space-y-2">
               {[0, 1, 2, 3].map((i) => (

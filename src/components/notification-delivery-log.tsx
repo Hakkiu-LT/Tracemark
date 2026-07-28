@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ListFilter, AlertCircle, CheckCircle2, ShieldAlert } from "lucide-react";
+import { RefreshCw, ListFilter, CheckCircle2, ShieldAlert } from "lucide-react";
+import { ErrorState } from "@/components/error-state";
 import { formatDistanceToNow, parseISO } from "date-fns";
 
 interface DeliveryLog {
@@ -85,13 +86,13 @@ export function NotificationDeliveryLog() {
             <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <div className="flex h-32 flex-col items-center justify-center gap-2 text-center text-sm text-destructive">
-            <AlertCircle className="h-8 w-8 text-destructive" />
-            <p>Failed to load delivery logs.</p>
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
-              Retry
-            </Button>
-          </div>
+          <ErrorState
+            variant="inline"
+            error={error}
+            title="Failed to load delivery logs"
+            onRetry={() => refetch()}
+            retryLabel="Retry"
+          />
         ) : logs.length === 0 ? (
           <div className="flex h-32 flex-col items-center justify-center text-center text-sm text-muted-foreground">
             <CheckCircle2 className="h-8 w-8 text-muted-foreground mb-2" />

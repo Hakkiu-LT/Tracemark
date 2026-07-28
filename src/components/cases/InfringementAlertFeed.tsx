@@ -13,13 +13,13 @@ import { getInfringements, type InfringementFeedItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { getRegionForId, getMacroRegionForCountry, COUNTRY_BY_CODE } from "@/lib/regions";
+import { ErrorState } from "@/components/error-state";
 import {
   Search,
   X,
   Calendar as CalendarIcon,
   RefreshCw,
   ArrowUpRight,
-  ShieldAlert,
   SlidersHorizontal,
 } from "lucide-react";
 
@@ -294,18 +294,13 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
               ))}
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
-              <ShieldAlert className="h-8 w-8 text-risk-high" />
-              <div>
-                <p className="text-sm font-medium">Failed to load infringements</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {error instanceof Error ? error.message : "Internal API Connection Error"}
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                Retry connection
-              </Button>
-            </div>
+            <ErrorState
+              variant="block"
+              error={error}
+              title="Failed to load infringements"
+              onRetry={() => refetch()}
+              retryLabel="Retry connection"
+            />
           ) : filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
               <div className="rounded-full bg-muted p-2">

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { adminFetch } from "@/lib/api";
 import {
@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { ErrorState } from "@/components/error-state";
 
 interface ScraperEvent {
   platform: string | null;
@@ -49,7 +50,7 @@ export function ScraperHealthDetail() {
   const [status, setStatus] = useState<Status>("all");
   const [source, setSource] = useState<Source>("all");
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["scraper-health-events", platform, window, status, source],
     queryFn: () =>
       adminFetch<ScraperEventsResponse>(
@@ -133,12 +134,8 @@ export function ScraperHealthDetail() {
       {/* Content */}
       {isError ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
-            <AlertTriangle className="h-8 w-8 text-destructive" />
-            <p className="text-sm text-muted-foreground">Failed to load scrape events.</p>
-            <Button size="sm" variant="outline" onClick={() => refetch()}>
-              Retry
-            </Button>
+          <CardContent>
+            <ErrorState variant="block" error={error} title="Failed to load scrape events" onRetry={() => refetch()} />
           </CardContent>
         </Card>
       ) : isLoading ? (

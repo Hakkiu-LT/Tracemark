@@ -4,6 +4,21 @@ const BASE =
   (import.meta.env.VITE_ADMIN_API_URL as string | undefined) ??
   "http://localhost:8001/api/v1";
 
+/**
+ * Error thrown by {@link adminFetch} on a non-2xx response. Carries the HTTP
+ * `status` so the UI (`<ErrorState>`) can show the matching illustration
+ * (1xx…5xx). A request that never reaches the server throws a plain `TypeError`
+ * from `fetch`, which is treated as "signal lost" downstream.
+ */
+export class AdminApiError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "AdminApiError";
+    this.status = status;
+  }
+}
+
 /** Fetch the admin-api, injecting the staff Supabase JWT as a Bearer token. */
 export async function adminFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const {
@@ -29,7 +44,8 @@ export async function adminFetch<T>(path: string, init: RequestInit = {}): Promi
     } catch {
       /* non-JSON error body */
     }
-    throw new Error(detail);
+    // Carry the HTTP status so the UI can show the matching error image.
+    throw new AdminApiError(resp.status, detail);
   }
   // 204 / empty body tolerance
   const text = await resp.text();

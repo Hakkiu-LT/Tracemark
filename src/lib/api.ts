@@ -6,6 +6,24 @@ const BASE =
     ? import.meta.env.VITE_API_URL
     : "http://localhost:8000/api/v1";
 
+/**
+ * Error thrown by {@link apiFetch} when the server responds with a non-2xx
+ * status. Unlike a plain `Error`, it carries the HTTP `status` code so the UI
+ * can pick the right error illustration (1xx…5xx) via `getErrorStatus`.
+ *
+ * When the request never reaches the server (offline, DNS/TLS failure, aborted),
+ * `fetch` itself throws a `TypeError` — that stays a plain error and is treated
+ * as "signal lost" downstream (no status).
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const session = await supabase?.auth.getSession();
   const token = session?.data?.session?.access_token;
@@ -36,7 +54,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     } catch {
       /* not JSON — keep raw text */
     }
-    throw new Error(message || `API ${res.status}`);
+    // Carry the HTTP status so the UI can show the matching error image.
+    throw new ApiError(res.status, message || `API ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
