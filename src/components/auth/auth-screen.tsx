@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ShieldCheck, MailCheck, Eye, EyeOff } from "lucide-react";
+import { ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,37 +9,24 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { InfringementMap } from "@/components/auth/infringement-map";
 
-type Mode = "signin" | "signup";
-
 const GENERIC_ERROR = "Something went wrong. Please try again later.";
+
+// Self-serve sign-up is intentionally NOT available here. HAKKIU is a book-a-demo
+// product: staff provision customer logins from the Admin Portal, so this screen is
+// sign-in only. Do not re-introduce a supabase.auth.signUp() path — public signups are
+// also disabled at the Supabase project level.
 
 // Staggered reveal helper — each block enters slightly after the previous.
 function step(i: number): CSSProperties {
   return { animationDelay: `${i * 70}ms`, animationFillMode: "both" };
 }
 
-export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redirect?: string }) {
+export function AuthScreen({ redirect }: { redirect?: string }) {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>(initialMode);
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  const isSignup = mode === "signup";
-
-  function switchMode(next: Mode) {
-    setMode(next);
-    setSent(false);
-    setPassword("");
-    setConfirm("");
-    setShowPassword(false);
-    setShowConfirm(false);
-  }
 
   async function onGoogle() {
     if (!supabase) return toast.error(GENERIC_ERROR);
@@ -63,23 +50,6 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!supabase) return toast.error(GENERIC_ERROR);
-
-    if (isSignup) {
-      if (password !== confirm) return toast.error("Passwords do not match.");
-      setLoading(true);
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: name },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      setLoading(false);
-      if (error) return toast.error(error.message);
-      setSent(true);
-      return;
-    }
 
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -121,211 +91,116 @@ export function AuthScreen({ initialMode, redirect }: { initialMode: Mode; redir
           />
 
           <div className="relative z-10 mx-auto w-full max-w-md">
-            {sent ? (
-              <div className="duration-500 animate-in fade-in-0 zoom-in-95">
-                <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/15 text-accent">
-                  <span className="auth-ping-soft absolute inset-0 rounded-2xl bg-accent/30" />
-                  <MailCheck className="relative h-7 w-7" />
-                </div>
-                <h1 className="font-display mt-6 text-center text-2xl font-semibold tracking-tight">
-                  Check your email
-                </h1>
-                <p className="mt-2 text-center text-sm text-muted-foreground">
-                  We sent a confirmation link to{" "}
-                  <span className="font-medium text-foreground">{email}</span>. Click it to activate
-                  your account, then sign in.
-                </p>
-                <Button
-                  variant="outline"
-                  className="mt-8 w-full"
-                  onClick={() => switchMode("signin")}
-                >
-                  Back to sign in
-                </Button>
+            <div className="duration-500">
+              <p
+                className="font-mono text-[0.7rem] uppercase tracking-[0.28em] text-accent duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
+                style={step(0)}
+              >
+                Secure workspace access
+              </p>
+              <h1
+                className="font-display mt-3 text-4xl font-semibold tracking-tight text-foreground duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
+                style={step(1)}
+              >
+                Welcome back
+              </h1>
+              <p
+                className="mt-2 text-sm text-muted-foreground duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
+                style={step(2)}
+              >
+                Log in to your workspace.
+              </p>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-12 h-11 w-full gap-2 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
+                style={step(3)}
+                onClick={onGoogle}
+              >
+                <GoogleIcon />
+                Continue with Google
+              </Button>
+
+              <div
+                className="my-6 flex items-center gap-3 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
+                style={step(4)}
+              >
+                <span className="h-px flex-1 bg-border" />
+                <span className="font-mono text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-border" />
               </div>
-            ) : (
-              <div key={mode} className="duration-500">
-                <p
-                  className="font-mono text-[0.7rem] uppercase tracking-[0.28em] text-accent duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                  style={step(0)}
-                >
-                  {isSignup ? "Start monitoring" : "Secure workspace access"}
-                </p>
-                <h1
-                  className="font-display mt-3 text-4xl font-semibold tracking-tight text-foreground duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                  style={step(1)}
-                >
-                  {isSignup ? "Create your account" : "Welcome back"}
-                </h1>
-                <p
-                  className="mt-2 text-sm text-muted-foreground duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                  style={step(2)}
-                >
-                  {isSignup
-                    ? "Start protecting your brand in minutes."
-                    : "Log in to your workspace."}
-                </p>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-12 h-11 w-full gap-2 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                  style={step(3)}
-                  onClick={onGoogle}
-                >
-                  <GoogleIcon />
-                  Continue with Google
-                </Button>
-
+              <form onSubmit={onSubmit} className="space-y-5">
                 <div
-                  className="my-6 flex items-center gap-3 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                  style={step(4)}
+                  className="space-y-2 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
+                  style={step(5)}
                 >
-                  <span className="h-px flex-1 bg-border" />
-                  <span className="font-mono text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-                    or
-                  </span>
-                  <span className="h-px flex-1 bg-border" />
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    className="h-11"
+                  />
                 </div>
-
-                <form onSubmit={onSubmit} className="space-y-5">
-                  {isSignup && (
-                    <div
-                      className="space-y-2 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                      style={step(5)}
-                    >
-                      <Label htmlFor="name">Full name</Label>
-                      <Input
-                        id="name"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Jane Doe"
-                        className="h-11"
-                      />
-                    </div>
-                  )}
-                  <div
-                    className="space-y-2 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                    style={step(isSignup ? 6 : 5)}
-                  >
-                    <Label htmlFor="email">{isSignup ? "Work email" : "Email"}</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      autoComplete="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@company.com"
-                      className="h-11"
-                    />
-                  </div>
-                  <div
-                    className="space-y-2 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                    style={step(isSignup ? 7 : 6)}
-                  >
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        autoComplete={isSignup ? "new-password" : "current-password"}
-                        required
-                        minLength={isSignup ? 8 : undefined}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="h-11 pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {isSignup && (
-                      <p className="text-xs text-muted-foreground">Minimum 8 characters.</p>
-                    )}
-                    {!isSignup && (
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={onForgot}
-                          className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-accent hover:underline"
-                        >
-                          Forgot your password?
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {isSignup && (
-                    <div
-                      className="space-y-2 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                      style={step(8)}
-                    >
-                      <Label htmlFor="confirm">Confirm password</Label>
-                      <div className="relative">
-                        <Input
-                          id="confirm"
-                          type={showConfirm ? "text" : "password"}
-                          autoComplete="new-password"
-                          required
-                          minLength={8}
-                          value={confirm}
-                          onChange={(e) => setConfirm(e.target.value)}
-                          className="h-11 pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirm((v) => !v)}
-                          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                          aria-label={showConfirm ? "Hide password" : "Show password"}
-                        >
-                          {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <Button
-                    type="submit"
-                    className="mt-1 h-11 w-full shadow-[0_0_24px_-6px] shadow-accent/50 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
-                    style={step(isSignup ? 9 : 7)}
-                    disabled={loading}
-                  >
-                    {loading
-                      ? isSignup
-                        ? "Creating account…"
-                        : "Signing in…"
-                      : isSignup
-                        ? "Create account"
-                        : "Sign in"}
-                  </Button>
-                </form>
-              </div>
-            )}
-
-            {isSignup ? (
-              <p className="mt-8 text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => switchMode("signin")}
-                  className="font-semibold text-foreground transition-colors hover:text-accent"
+                <div
+                  className="space-y-2 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
+                  style={step(6)}
                 >
-                  Log in
-                </button>
-              </p>
-            ) : (
-              <p className="mt-8 text-center text-sm text-muted-foreground">
-                No account yet?{" "}
-                <Link to="/request-demo" className="font-semibold text-foreground transition-colors hover:text-accent">
-                  Book a demo to get started
-                </Link>
-              </p>
-            )}
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="h-11 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={onForgot}
+                      className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-accent hover:underline"
+                    >
+                      Forgot your password?
+                    </button>
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  className="mt-1 h-11 w-full shadow-[0_0_24px_-6px] shadow-accent/50 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
+                  style={step(7)}
+                  disabled={loading}
+                >
+                  {loading ? "Signing in…" : "Sign in"}
+                </Button>
+              </form>
+            </div>
+
+            <p className="mt-8 text-center text-sm text-muted-foreground">
+              No account yet?{" "}
+              <Link to="/request-demo" className="font-semibold text-foreground transition-colors hover:text-accent">
+                Book a demo to get started
+              </Link>
+            </p>
           </div>
         </div>
       </div>

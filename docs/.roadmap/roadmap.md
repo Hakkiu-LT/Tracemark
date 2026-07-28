@@ -114,7 +114,7 @@ Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables
 - **Filter bar (Risk Level, Platform, Status, Date Range)** | ✅ Done | Implemented search & filters for risk, platform, status, and date.
 - **Protected route guard (`<RequireAuth />`)** | ✅ Done | Implemented in `__root.tsx` via `RequireAuth`.
 - **Sign-in page (`/auth/sign-in`)** | ✅ Done | `auth.sign-in.tsx`.
-- **Sign-up page (`/auth/sign-up`)** | ✅ Done | `auth.sign-up.tsx`.
+- **Sign-up page (`/auth/sign-up`)** | ✅ Done → 🔒 disabled (book-a-demo) | Route redirects to `/landing`; `auth-screen.tsx` is now sign-in only (no `signUp()` path). Public signup off in `config.toml`; ⚠️ still must be disabled in the prod Supabase Dashboard (Auth → Sign In / Up) to block direct anon-key signups.
 - **Auth callback route (`/auth/callback`)** | ✅ Done | `auth.callback.tsx`.
 - **User menu with avatar + sign-out** | ✅ Done | `src/components/user-menu.tsx`.
 
@@ -187,8 +187,11 @@ Removed in the pivot: `routes/billing.py`, `services/entitlements.py`, `services
 `scripts/seed_stripe.py`, `test_billing.py`, `test_entitlements.py`, admin `billing_admin.py`,
 customer `src/lib/{billing,entitlements,stripe}.ts`, `ClientBillingCard.tsx`, and all
 `/checkout` `/plans` `/billing/*` routes. The `stripe` dependency and `STRIPE_*` env vars are gone.
-The unused `subscriptions` / `invoices` / `org_entitlement_overrides` / `stripe_events` DB tables
-remain (non-destructive; drop later via a forward migration if desired).
+The unused `subscriptions` / `subscription_addons` / `invoices` / `org_entitlement_overrides` /
+`stripe_events` DB tables + `org_settings.stripe_customer_id` were dropped by forward migration
+`20260728000001_drop_billing_tables.sql` (✅ applied to prod 2026-07-28, verified). `profiles.plan`
++ its protection trigger are intentionally kept (trigger also guards `is_admin`; the column is
+still returned by `GET /me`).
 
 ---
 

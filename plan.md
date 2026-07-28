@@ -2,7 +2,7 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-28 (session 19 — closed session-18 admin onboarding follow-ups)
+> Last updated: 2026-07-28 (session 20 — Book-a-demo/auth hardening + demo-form E2E)
 
 ---
 
@@ -51,8 +51,11 @@ the layer that acts on them. Pure business logic on existing data — no new scr
 
 ## Loose follow-ups before/alongside the next feature
 
-- **Supabase Auth → disable public sign-ups** (the old plan gate that limited this is gone —
-  otherwise anyone can self-register with full access).
+- **Supabase Auth → disable public sign-ups** — code+config done (session 20): `auth-screen.tsx`
+  is sign-in only, `config.toml` `enable_signup=false`. ⚠️ **Still needs the prod Dashboard toggle**
+  (Auth → Sign In / Up) to block direct anon-key `/auth/v1/signup` — no access token here to do it
+  via API. Drop-billing migration `20260728000001_drop_billing_tables.sql` **applied to prod**
+  (session 20) — subscriptions/invoices/stripe_events/entitlement tables removed.
 - **Supabase Auth URLs** — Site URL + redirect URLs for `hakkiu.com` / `admin.hakkiu.com`,
   enable Confirm email.
 - **Resend USER ACTIONS** — verify `hakkiu.com` domain (SPF/DKIM), set the real `RESEND_API_KEY`,

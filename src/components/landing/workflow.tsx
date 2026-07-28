@@ -80,10 +80,10 @@ export function Workflow() {
 
         <div className="mt-14 flex items-center justify-center">
           <Link
-            to="/auth/sign-up"
+            to="/request-demo"
             className="inline-flex items-center gap-2 rounded-lg bg-foreground px-6 py-3 text-xs font-semibold text-background shadow-md transition-all hover:bg-foreground/90"
           >
-            Start Monitoring Free
+            Book a Demo
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>

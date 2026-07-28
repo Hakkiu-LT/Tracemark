@@ -19,5 +19,5 @@ export const Route = createFileRoute("/auth/sign-in")({
 
 function SignInRoute() {
   const { redirect } = Route.useSearch();
-  return <AuthScreen initialMode="signin" redirect={redirect} />;
+  return <AuthScreen redirect={redirect} />;
 }

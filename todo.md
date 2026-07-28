@@ -1,18 +1,34 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-28 (session 19 — closed session-18 admin onboarding follow-ups)
+> Last updated: 2026-07-28 (session 20 — Book-a-demo/auth: signup hardening, config.toml,
+> drop-billing migration written, demo-form E2E verified)
 
 ---
 
 ## 🔴 OPEN — Follow-ups from recent sessions
 
 ### Book-a-demo / auth
-- [ ] Supabase → Auth → **disable public sign-ups** (staff-created logins only; otherwise
-  anyone can self-register and get full access — the old plan gate is gone).
-- [ ] Optional: drop unused billing tables + `profiles.plan` protection trigger via a forward
-  migration (SQL FILES kept as DB history; tables are unused, not referenced).
-- [ ] Optional: E2E test one demo-form submission (verify row in admin `/leads` + staff email).
+- [x] **Frontend hardened to sign-in only** (session 20) — removed the dead-but-live
+  `supabase.auth.signUp()` path from `src/components/auth/auth-screen.tsx` (now sign-in only,
+  `AuthScreen` signature dropped `initialMode`); landing CTA changed "Start Monitoring Free" →
+  "Book a Demo" (`/request-demo`). Typecheck clean.
+- [x] `supabase/config.toml` — `enable_signup = false` in `[auth]` and `[auth.email]` (local parity).
+- [ ] **USER ACTION (prod enforcement — the only complete fix):** Supabase **Dashboard →
+  Authentication → Sign In / Up → turn OFF "Allow new users to sign up"**. Frontend/config changes
+  are defense-in-depth only; a direct `POST /auth/v1/signup` with the public anon key is still
+  accepted until this dashboard toggle is off. Cannot be done from here — no `SUPABASE_ACCESS_TOKEN`
+  in `.env` for the Management API.
+- [x] Forward migration **written**: `supabase/migrations/20260728000001_drop_billing_tables.sql`
+  (drops `subscriptions`, `subscription_addons`, `invoices`, `stripe_events`,
+  `org_entitlement_overrides` + `org_settings.stripe_customer_id`; keeps `profiles.plan` + its
+  protection trigger — that trigger also guards `is_admin`). Verified zero app-code references.
+- [x] Migration **applied to prod** (session 20) via `supabase db push` — verified: all 5 tables
+  + `org_settings.stripe_customer_id` gone; `profiles.plan` + `is_admin` + protection trigger kept.
+- [x] E2E demo-form submission **verified** (session 20) — POST `/api/v1/leads` → 201,
+  row persisted in `sales_leads` with all v3 fields (arrays incl.), staff email really sent via
+  Resend (routed to a test inbox to avoid founder spam), test row deleted afterward. Admin `/leads`
+  reads the same table filtered by `status='pending'`, so the row surfaces there.
 
 ✅ **CI auto-deploy is LIVE** (fixed 2026-07-28 ~05:25 UTC) — the four `SSH_*` secrets
 (`SSH_HOST`/`SSH_USER`/`SSH_PORT`/`SSH_KEY`) are set on the repo, so every green push to `main`
