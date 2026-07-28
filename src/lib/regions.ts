@@ -21,7 +21,7 @@ export const REGIONS: RegionConfig[] = [
   },
   {
     key: "EMEA",
-    label: "Europe, Middle East & Africa",
+    label: "Europe",
     countries: [
       { code: "DE", name: "Germany", flag: "🇩🇪" },
       { code: "FR", name: "France", flag: "🇫🇷" },
@@ -68,7 +68,7 @@ export function getRegionForId(id: string): string {
 export function getMacroRegionForCountry(countryCode: string): string {
   const code = countryCode.toUpperCase();
   if (["US", "CA"].includes(code)) return "North America";
-  if (["DE", "FR", "GB"].includes(code)) return "EMEA";
+  if (["DE", "FR", "GB"].includes(code)) return "Europe";
   if (["JP", "SG", "AU"].includes(code)) return "APAC";
   return "LATAM";
 }

@@ -72,16 +72,18 @@ const STATUS_ORDER: Record<string, number> = {
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground border-border font-mono",
   flagged: "bg-muted text-muted-foreground border-border font-mono",
-  analyzing: "bg-amber-500/10 text-amber-500 border-amber-500/30 font-semibold",
-  active: "bg-amber-500/10 text-amber-500 border-amber-500/30 font-semibold",
-  escalated: "bg-accent/10 text-accent border-accent/30 font-semibold",
-  complete: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-semibold",
-  completed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-semibold",
-  resolved: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-semibold",
-  safe: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-  dismissed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-  declined: "bg-red-500/10 text-red-500 border-red-500/30 font-semibold",
-  error: "bg-red-500/10 text-red-500 border-red-500/30",
+  analyzing: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
+  reviewed: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
+  active: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
+  escalated: "bg-purple-500/10 text-purple-600 border-purple-500/30 font-semibold",
+  complete: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
+  completed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
+  resolved: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
+  safe: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+  dismissed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+  declined: "bg-red-500/10 text-red-600 border-red-500/30 font-semibold",
+  rejected: "bg-red-500/10 text-red-600 border-red-500/30 font-semibold",
+  error: "bg-red-500/10 text-red-600 border-red-500/30",
 };
 
 /** Per-copycat rows still awaiting triage (default initial state: pending). */
@@ -91,17 +93,19 @@ function CaseStatusBadge({ status }: { status: string }) {
   const norm = (status || "pending").toLowerCase();
   let label = norm;
   if (norm === "flagged") label = "pending";
-  if (norm === "active") label = "analyzing";
-  if (norm === "complete" || norm === "resolved") label = "completed";
+  if (norm === "reviewed" || norm === "active" || norm === "analyzing") label = "analyzing";
+  if (norm === "complete" || norm === "resolved" || norm === "completed") label = "completed";
+  if (norm === "declined") label = "rejected";
+  if (norm === "dismissed") label = "safe";
 
   return (
     <span
       className={cn(
-        "inline-flex rounded-md border px-2 py-0.5 text-xs font-medium capitalize",
-        STATUS_STYLES[norm] ?? STATUS_STYLES[label] ?? "bg-muted text-muted-foreground border-border",
+        "inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold capitalize",
+        STATUS_STYLES[label] ?? STATUS_STYLES[norm] ?? "bg-muted text-muted-foreground border-border",
       )}
     >
-      {label.replace(/_/g, " ")}
+      {label === "analyzing" ? "In Analysis" : label.replace(/_/g, " ")}
     </span>
   );
 }
@@ -445,7 +449,7 @@ function CasesList() {
 
       {/* Region Tabs */}
       <div className="flex border-b border-border gap-2">
-        {["ALL", "North America", "EMEA", "APAC", "LATAM"].map((region) => {
+        {["ALL", "North America", "Europe", "APAC", "LATAM"].map((region) => {
           const active = selectedMacroRegion === region;
           return (
             <button

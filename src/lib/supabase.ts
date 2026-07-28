@@ -1,4 +1,4 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type {
   CheckBrandResponse,
   DecisionResponse,
@@ -311,6 +311,7 @@ export async function fetchCaseFromSupabase(
 
   return {
     case_id: data.id,
+    status: data.status || "analyzing",
     decision: mapDecision(decisionRow),
     evidence,
     takedown_reports: (data.takedown_reports ?? []).map(mapTakedown),

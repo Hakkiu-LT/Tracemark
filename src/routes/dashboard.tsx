@@ -116,7 +116,7 @@ function Dashboard() {
 
       {/* Region Tabs */}
       <div className="flex border-b border-border gap-2">
-        {["ALL", "North America", "EMEA", "APAC", "LATAM"].map((region) => {
+        {["ALL", "North America", "Europe", "APAC", "LATAM"].map((region) => {
           const active = selectedMacroRegion === region;
           return (
             <button
