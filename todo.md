@@ -91,10 +91,20 @@ Staff create dashboard logins via admin. Access = having a login (NO plan/entitl
 - [x] `request-demo.tsx` SuccessScreen — the `outline` Button inherited `bg-background` (opaque white) from the variant while forcing `text-white` → white-on-white, text only faintly visible on hover. Replaced with the dark-bg outline pattern from `cta.tsx`: `bg-white/5 text-white hover:bg-white/10 hover:text-white` (translucent over the dark page, text always visible).
 
 ## Admin forgot-password (2026-07-28)
-- [x] `SignIn.tsx` — added "Forgot password?" mode → `supabase.auth.resetPasswordForEmail(email, { redirectTo: origin + "/auth/reset-password" })`; neutral "if an account exists" confirmation (no user enumeration).
 - [x] `ResetPassword.tsx` — new page: handles the recovery token (PASSWORD_RECOVERY / session), validates min-8 + match, `updateUser({ password })`, signs out, routes to sign-in.
 - [x] `router.tsx` — registered public `/auth/reset-password` route.
-- [ ] Supabase → Auth → URL Configuration: ensure `https://admin.hakkiu.com/**` (prod) and `http://localhost:8082/**` (local) are in **Redirect URLs**, else the reset link is rejected.
+- [x] Supabase → Auth → URL Configuration: `admin.hakkiu.com/**` + `localhost:8082/**` confirmed in Redirect URLs (verified via screenshot).
+
+### Reset via our OWN Resend pipeline, NOT Supabase SMTP (2026-07-28)
+Supabase's built-in `resetPasswordForEmail` returned **500** in prod (Supabase SMTP not
+configured → "Error sending recovery email"). Rebuilt the flow so it uses the app's already-
+working Resend pipeline and no longer depends on Supabase SMTP at all:
+- [x] `apps/api/routes/internal.py` — new `POST /internal/auth/send-password-reset` (X-Internal-Secret): builds HTML via `_base`/`_btn`, sends via `send_email` (Resend).
+- [x] `apps/admin-api/main_api.py` — `send_password_reset_email(email, reset_link)` proxy to the internal endpoint.
+- [x] `apps/admin-api/routes/auth.py` — new PUBLIC `POST /staff/request-password-reset`: verifies active `staff_accounts` row → `admin_sb().auth.admin.generate_link({type:"recovery"})` (generates link, sends NO email) → hands link to main-api Resend. Always returns a neutral message (no user enumeration); origin allow-listed for the redirect base.
+- [x] `apps/admin/SignIn.tsx` — "Forgot password?" now calls `adminFetch("/staff/request-password-reset")` instead of Supabase; friendly error message on failure (fixes the cryptic `{}` seen before).
+- [x] Validated: admin `tsc` exit 0, main-API + admin-API import clean.
+- [ ] Supabase Custom SMTP is now OPTIONAL — the built-in recovery email is bypassed. (Can still finish it as a fallback, but not required for reset to work.)
 
 ---
 

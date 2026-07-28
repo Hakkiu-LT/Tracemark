@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { adminFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from "@/components/ui";
 import { HakkiuMark } from "@/components/HakkiuMark";
@@ -36,18 +37,25 @@ export function SignIn() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    // Supabase emails a recovery link that lands back on our /auth/reset-password
-    // page (same admin origin), where the staffer sets a new password.
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
-    });
-    setLoading(false);
-    if (err) {
-      setError(err.message);
-      return;
+    // Reset goes through the admin API, which generates the recovery link and mails
+    // it via our own Resend pipeline (NOT Supabase's built-in SMTP). The endpoint
+    // always returns a neutral response, so a 2xx here just means "request accepted".
+    try {
+      await adminFetch("/staff/request-password-reset", {
+        method: "POST",
+        body: JSON.stringify({ email, origin: window.location.origin }),
+      });
+      // Always show the same confirmation — never reveal whether the email exists.
+      setResetSent(true);
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't send the reset email right now. Please try again in a moment.",
+      );
+    } finally {
+      setLoading(false);
     }
-    // Always show the same confirmation — never reveal whether the email exists.
-    setResetSent(true);
   }
 
   function backToSignIn() {

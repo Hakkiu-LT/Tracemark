@@ -180,6 +180,43 @@ def internal_send_document_email(document_id: str, _ok: bool = Depends(verify_in
         raise HTTPException(status_code=500, detail=f"Failed to send: {e}")
 
 
+class PasswordResetEmail(BaseModel):
+    email: str
+    reset_link: str
+
+
+@router.post("/auth/send-password-reset")
+def internal_send_password_reset(body: PasswordResetEmail, _ok: bool = Depends(verify_internal_secret)):
+    """Send a staff password-reset email via Resend.
+
+    The admin-api generates the Supabase recovery link (which does NOT itself send an
+    email) and hands it here, so delivery goes through our own Resend pipeline rather
+    than Supabase's built-in SMTP. Callers stay neutral on failure to avoid leaking
+    whether an email exists.
+    """
+    from tracemark_api.services.email import send_email
+    from tracemark_api.services.email_templates import _base, _btn
+
+    if not body.email or not body.reset_link:
+        raise HTTPException(status_code=400, detail="Missing email or reset link")
+
+    content = (
+        '<h2 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Reset your admin password</h2>'
+        '<p style="margin:0 0 4px;color:#334155;font-size:14px;line-height:1.6;">'
+        "We received a request to reset the password for your HAKKIU Admin account. "
+        "Click the button below to choose a new password — this link expires in 1 hour.</p>"
+        f"{_btn('Reset password', body.reset_link)}"
+        '<p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.6;">'
+        "If you didn't request this, you can safely ignore this email — your password "
+        "will stay the same.</p>"
+    )
+    html = _base(content, preheader="Reset your HAKKIU Admin password")
+    ok = send_email(to=body.email, subject="Reset your HAKKIU Admin password", html=html)
+    if not ok:
+        raise HTTPException(status_code=502, detail="Email provider not configured or send failed")
+    return {"success": True}
+
+
 # ── Resource + usage metrics (read-only passthrough of in-process state) ───────
 @router.get("/resources/metrics")
 def internal_resource_metrics(_ok: bool = Depends(verify_internal_secret)):

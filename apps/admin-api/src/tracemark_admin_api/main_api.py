@@ -58,6 +58,15 @@ def send_document_email(document_id: str) -> Any:
     return _request("POST", f"/internal/documents/{document_id}/send-email")
 
 
+def send_password_reset_email(email: str, reset_link: str) -> Any:
+    """Deliver a staff password-reset link through the main API's Resend pipeline."""
+    return _request(
+        "POST",
+        "/internal/auth/send-password-reset",
+        json={"email": email, "reset_link": reset_link},
+    )
+
+
 # ── Brand assets (photos) ─────────────────────────────────────────────────────
 def list_brand_assets(brand_id: str) -> Any:
     return _request("GET", f"/internal/brands/{brand_id}/assets")

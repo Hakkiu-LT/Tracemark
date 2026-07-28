@@ -402,10 +402,13 @@ GitHub secrets). Follow-up: disable public sign-ups in Supabase Auth. See `todo.
   env from CI, dropped the `stripe` dep from `apps/admin-api`, cleaned `README.md` +
   `docs/DEPLOYMENT.md`, deleted `docs/BILLING.md`, marked roadmap §7 REMOVED. Migration SQL
   files kept as DB history (tables unused, non-destructive).
-- **Admin forgot-password:** `SignIn.tsx` gained a "Forgot password?" flow
-  (`resetPasswordForEmail` → recovery email), plus a new `/auth/reset-password` page
-  (`ResetPassword.tsx`) that sets the new password via `updateUser`. Needs the reset redirect
-  URL allow-listed in Supabase Auth (see `todo.md`).
+- **Admin forgot-password (Resend, not Supabase SMTP):** new `/auth/reset-password` page
+  (`ResetPassword.tsx`) sets the new password via `updateUser`. The request flow does NOT use
+  Supabase's built-in email (it returned 500 in prod — SMTP unconfigured). Instead:
+  `SignIn.tsx` → admin-api `POST /staff/request-password-reset` (public, anti-enumeration) →
+  verifies active staff → `generate_link(recovery)` (no email sent) → main-api
+  `POST /internal/auth/send-password-reset` → Resend. Reset now works regardless of Supabase
+  SMTP config. Redirect base is origin-allow-listed; Supabase also enforces its redirect list.
 
 ## Prior focus: Production deployment to Hetzner (domain hakkiu.com) — LIVE
 
