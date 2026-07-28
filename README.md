@@ -7,7 +7,6 @@ HAKKIU helps brand owners automatically detect and remove counterfeit listings, 
 - Gemini Vision AI for logo/product similarity scoring
 - Automated takedown document generation and delivery
 - Geo-targeted scanning (country-specific results)
-- Stripe subscription billing with a law-firm white-label mode
 - Admin portal for staff operations at `admin.tracemark.ai`
 
 ---
@@ -94,11 +93,6 @@ SUPABASE_SECRET_KEY=eyJ...
 GEMINI_API_KEY=AIza...
 FIRECRAWL_API_KEY=fc-...
 GOOGLE_SERP_API=...
-
-# Stripe billing
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...
 
 # Internal security (shared between api and admin-api)
 INTERNAL_API_SECRET=some-long-random-secret
@@ -366,16 +360,6 @@ Make sure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are set in the
 
 The `/internal/*` endpoints are restricted to loopback + Docker bridge IPs. When calling from a new network or machine, add the IP to `INTERNAL_API_ALLOWED_IPS` in `.env`.
 
-### Stripe webhook events not received locally
-
-Use the Stripe CLI to forward events:
-
-```bash
-stripe listen --forward-to localhost:8000/api/v1/billing/webhook
-```
-
-Copy the printed webhook secret into `STRIPE_WEBHOOK_SECRET` in `.env`.
-
 ### `playwright install` required for screenshot scraper
 
 If the screenshot scraper throws a "browser not found" error:
@@ -393,7 +377,6 @@ cd apps/api && .venv/bin/python -m playwright install chromium
 | Active plan | `plan.md` |
 | Task checklist | `todo.md` |
 | Full feature roadmap | `docs/.roadmap/roadmap.md` |
-| Stripe billing setup | `docs/BILLING.md` |
 | Security audit findings | `security-audit.md` |
 | Monorepo architecture | `docs/monorepo-structure.md` |
 | Main API details | `apps/api/README.md` |

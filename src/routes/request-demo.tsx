@@ -612,7 +612,7 @@ function SuccessScreen({ form }: { form: FormData }) {
             Back to home
           </Link>
         </Button>
-        <Button asChild variant="outline" className="h-12 gap-2 rounded-xl border-white/20 text-white hover:bg-white/10 px-6">
+        <Button asChild variant="outline" className="h-12 gap-2 rounded-xl border-white/25 bg-white/5 px-6 text-white hover:border-white/40 hover:bg-white/10 hover:text-white">
           <Link to="/landing" hash="features">
             Explore features
           </Link>

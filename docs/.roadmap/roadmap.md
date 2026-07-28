@@ -178,36 +178,17 @@ Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables
 
 ---
 
-## 7. Billing, Stripe Payments & Entitlements
-*Real Stripe subscription payments, plan-based limits, and entitlement checks.*
+## 7. Billing, Stripe Payments & Entitlements — ❌ REMOVED (book-a-demo pivot, 2026-07-27)
+*The entire Stripe billing / plan-limits / entitlements subsystem was removed when the
+business model changed to book-a-demo (no self-serve payments). Every logged-in user now has
+unlimited access; new customers are provisioned manually by staff via the admin portal.*
 
-### Backend
-- **`POST /api/v1/billing/create-subscription`** | ✅ Done | Creates customer + incomplete subscription, returns PaymentIntent client_secret.
-- **`POST /api/v1/billing/update-subscription`** | ✅ Done | Change plan/interval or reconcile add-on quantities with prorations.
-- **`POST /api/v1/billing/cancel-subscription`** | ✅ Done | Cancel at period end / resume.
-- **`GET /api/v1/billing/subscription` · `GET /api/v1/billing/invoices`** | ✅ Done | Read current subscription + add-ons and synced invoice history.
-- **`POST /api/v1/billing/create-portal-session`** | ✅ Done | Stripe billing portal redirect session.
-- **`POST /api/v1/billing/webhook`** | ✅ Done | Verifies signature; syncs subscriptions, addons, invoices, and mirrors `profiles.plan`.
-- **`POST /api/v1/billing/charge-managed-takedown`** | ✅ Done | One-off $500 invoice item per successful managed takedown.
-- **Webhook idempotency** | ✅ Done | `stripe_events` ledger dedupes by event ID.
-- **Stripe error handling** | ✅ Done | `_do_stripe` maps `CardError`→402, `StripeError`→502.
-- **Stripe Price seeding helper** | ✅ Done | `seed_stripe.py` script.
-- **Plan entitlements service** | ✅ Done | `services/entitlements.py` — computes effective limits.
-- **`get_current_profile` dependency** | ✅ Done | Resolves org, plan, and entitlements for endpoint limit enforcement.
-- **Brands persisted server-side** | ✅ Done | CRUD `routes/brands.py` + `POST /brands` limit checks (402 + upsell).
-- **Scan limit enforcement** | ✅ Done | Gated platforms, regions, domains, and locked brands on check-brand.
-- **Downgrade/upgrade reconciliation** | ✅ Done | Locks excess brands on downgrade, unlocks on upgrade.
-- **Unit tests `test_billing.py` & `test_entitlements.py`** | ✅ Done | 26/26 checks passing.
-
-### Frontend
-- **`/settings/billing` page** | ✅ Done | Displays plan+interval, next invoice, add-on management, Stripe portal, invoice history with PDFs.
-- **`/billing/success` + `/billing/cancel` pages** | ✅ Done | Success page polls billing endpoint until active.
-- **Shared plan/add-on metadata** | ✅ Done | `src/lib/billing.ts` — single authority for pricing tiers, intervals, and add-ons.
-- **Stripe.js loader** | ✅ Done | `src/lib/stripe.ts` using publishable key.
-- **Billing API fetchers** | ✅ Done | `src/lib/api.ts` wired for Stripe integrations.
-- **`/plans` tier switcher** | ✅ Done | Real tiers + monthly/yearly toggle + enterprise contact.
-- **`/checkout` (Stripe Elements)** | ✅ Done | `<PaymentElement>` subscription checkout and plan changes with add-on picker.
-- **Managed-takedown "bill" action** | ✅ Done | "Let us handle it — $500" action button in takedown flow for Pro/Agency tiers.
+Removed in the pivot: `routes/billing.py`, `services/entitlements.py`, `services/billing_config.py`,
+`scripts/seed_stripe.py`, `test_billing.py`, `test_entitlements.py`, admin `billing_admin.py`,
+customer `src/lib/{billing,entitlements,stripe}.ts`, `ClientBillingCard.tsx`, and all
+`/checkout` `/plans` `/billing/*` routes. The `stripe` dependency and `STRIPE_*` env vars are gone.
+The unused `subscriptions` / `invoices` / `org_entitlement_overrides` / `stripe_events` DB tables
+remain (non-destructive; drop later via a forward migration if desired).
 
 ---
 

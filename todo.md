@@ -84,7 +84,17 @@ Staff create dashboard logins via admin. Access = having a login (NO plan/entitl
 - [x] **Deployed to server** (commit 8742239) — verified live: `/plans` 404, `/api/v1/billing/subscription` 404, all 5 domains 200. Dashboard no longer redirects to pricing.
 - [x] **Fix auth session storage** (commit a52f19d) — the M13 custom single-cookie storage broke login (session > 4KB cookie limit → getSession() null → API calls sent with no Authorization header → "Failed to load infringements"). Reverted both apps to Supabase default localStorage; redeployed; verified infringements load. See [[project_security_hardening_2026_07]] (M13 reverted).
 - [ ] Supabase → Auth → **disable public sign-ups** (staff-created logins only; otherwise anyone can self-register and get full access — the plan gate that used to limit this is gone).
-- [ ] Optional later: drop unused billing tables + `profiles.plan` protection trigger via migration; remove now-unused `VITE_STRIPE_PUBLISHABLE_KEY` build arg in compose/Dockerfile.
+- [x] **Purge remaining Stripe leftovers (2026-07-28)** — removed `VITE_STRIPE_PUBLISHABLE_KEY` build arg from `src/Dockerfile` + `docker-compose.yml`; stripped `*.stripe.com` / `js.stripe.com` / `hooks.stripe.com` from CSP in `Caddyfile` + `public/_headers`; deleted all `STRIPE_*` vars from `.env.example` + `.env.production.example`; removed dummy Stripe env from `ci.yml`; dropped `stripe` dep from `apps/admin-api/pyproject.toml`; cleaned Stripe from `README.md` + `docs/DEPLOYMENT.md`; deleted obsolete `docs/BILLING.md`; marked roadmap §7 REMOVED. Admin `tsc` clean.
+- [ ] Optional later: drop unused billing tables + `profiles.plan` protection trigger via a forward migration (SQL migration FILES kept as DB history — safe; tables are unused, not referenced).
+
+## Fix invisible "Explore features" button (2026-07-28)
+- [x] `request-demo.tsx` SuccessScreen — the `outline` Button inherited `bg-background` (opaque white) from the variant while forcing `text-white` → white-on-white, text only faintly visible on hover. Replaced with the dark-bg outline pattern from `cta.tsx`: `bg-white/5 text-white hover:bg-white/10 hover:text-white` (translucent over the dark page, text always visible).
+
+## Admin forgot-password (2026-07-28)
+- [x] `SignIn.tsx` — added "Forgot password?" mode → `supabase.auth.resetPasswordForEmail(email, { redirectTo: origin + "/auth/reset-password" })`; neutral "if an account exists" confirmation (no user enumeration).
+- [x] `ResetPassword.tsx` — new page: handles the recovery token (PASSWORD_RECOVERY / session), validates min-8 + match, `updateUser({ password })`, signs out, routes to sign-in.
+- [x] `router.tsx` — registered public `/auth/reset-password` route.
+- [ ] Supabase → Auth → URL Configuration: ensure `https://admin.hakkiu.com/**` (prod) and `http://localhost:8082/**` (local) are in **Redirect URLs**, else the reset link is rejected.
 
 ---
 

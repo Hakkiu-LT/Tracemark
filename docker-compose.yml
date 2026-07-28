@@ -19,9 +19,9 @@ services:
       - tracemark
     restart: unless-stopped
     logging: *default-logging
-    # Load ALL root .env vars into the container (Stripe billing, Resend email,
-    # CUSTOMER_APP_URL, etc.). Without this only the vars listed under `environment:`
-    # would reach the API, silently breaking billing + email in production.
+    # Load ALL root .env vars into the container (Resend email, CUSTOMER_APP_URL,
+    # etc.). Without this only the vars listed under `environment:` would reach the
+    # API, silently breaking email in production.
     env_file:
       - .env
     # These take precedence over env_file — they REMAP names the API expects
@@ -77,8 +77,6 @@ services:
         VITE_API_URL: ${VITE_API_URL:-https://api.hakkiu.com/api/v1}
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
-        # Baked into the bundle — src/lib/stripe.ts reads it for Stripe checkout.
-        VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY}
     image: tracemark-frontend
     ports:
       - "127.0.0.1:8080:8080"

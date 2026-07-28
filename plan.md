@@ -395,6 +395,18 @@ DB billing tables are left unused (no destructive migration). Deployed live via 
 `git pull && docker compose up -d --build` on the server (auto-deploy still pending Gabriel's
 GitHub secrets). Follow-up: disable public sign-ups in Supabase Auth. See `todo.md` for details.
 
+### 2026-07-28 follow-up — Stripe purge + admin forgot-password
+- **Stripe leftovers purged:** removed the last `VITE_STRIPE_PUBLISHABLE_KEY` build arg
+  (`src/Dockerfile` + `docker-compose.yml`), stripped Stripe domains from CSP (`Caddyfile` +
+  `public/_headers`), deleted all `STRIPE_*` from both `.env.*.example`, removed dummy Stripe
+  env from CI, dropped the `stripe` dep from `apps/admin-api`, cleaned `README.md` +
+  `docs/DEPLOYMENT.md`, deleted `docs/BILLING.md`, marked roadmap §7 REMOVED. Migration SQL
+  files kept as DB history (tables unused, non-destructive).
+- **Admin forgot-password:** `SignIn.tsx` gained a "Forgot password?" flow
+  (`resetPasswordForEmail` → recovery email), plus a new `/auth/reset-password` page
+  (`ResetPassword.tsx`) that sets the new password via `updateUser`. Needs the reset redirect
+  URL allow-listed in Supabase Auth (see `todo.md`).
+
 ## Prior focus: Production deployment to Hetzner (domain hakkiu.com) — LIVE
 
 Decision (confirmed this session): **everything runs on the Hetzner server** (incl. the

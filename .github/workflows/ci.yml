@@ -84,8 +84,6 @@ jobs:
           SUPABASE_URL: http://localhost
           SUPABASE_SECRET_KEY: dummy
           SUPABASE_SERVICE_ROLE_KEY: dummy
-          STRIPE_SECRET_KEY: dummy
-          STRIPE_WEBHOOK_SECRET: dummy
           GEMINI_API_KEY: dummy
           INTERNAL_API_SECRET: dummy-secret-for-ci
         run: uv run pytest -q -m "not integration" --tb=short

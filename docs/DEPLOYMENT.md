@@ -19,28 +19,18 @@ Internet ──443──▶ Caddy (auto TLS) ──▶ 4 containers on an intern
 
 ---
 
-## Environments & Stripe modes
+## Environments
 
-There are exactly **two** environments — the mode is decided purely by which `.env` is loaded,
+There are exactly **two** environments — decided purely by which `.env` is loaded,
 never by a code change:
 
-| Environment | Where | Stripe | Notes |
-|---|---|---|---|
-| **Test / sandbox** | local machine (uvicorn + `vite dev`) | `sk_test_` / `pk_test_` + **test** price IDs | day-to-day development + Stripe testing with fake cards |
-| **Production** | Hetzner server | `sk_live_` / `pk_live_` + **live** price IDs | real customers, real charges |
+| Environment | Where | Notes |
+|---|---|---|
+| **Test / sandbox** | local machine (uvicorn + `vite dev`) | day-to-day development |
+| **Production** | Hetzner server | real customers |
 
-Stripe **test and live are fully separate**: different keys, different Products/Prices, and
-**different `price_…` IDs**. So the `STRIPE_PRICE_*` values in the local `.env` (test) and the
-server `.env` (live) are *expected to differ*.
-
-⚠️ `VITE_STRIPE_PUBLISHABLE_KEY` is baked into the frontend bundle at build time — the server
-build uses the **live** key from the server `.env`, so production always talks to live Stripe.
-
-**Changing plans:** edit `PLANS` in `apps/api/scripts/seed_stripe.py` + `PLAN_MONTHLY_PRICE` in
-`services/billing_config.py`, run `seed_stripe.py` against test → paste the printed
-`STRIPE_PRICE_*` into the local `.env` → test. Then repeat in **live** mode (create the same
-Products/Prices in the Stripe live dashboard — the seed script refuses live keys as a safety
-guard) and put the live price IDs in the server `.env`. See `docs/BILLING.md`.
+The business model is book-a-demo (no self-serve billing), so there are no payment
+keys to manage — only Supabase, AI/scraping providers, and the shared internal secret.
 
 ---
 
@@ -48,7 +38,7 @@ guard) and put the live price IDs in the server `.env`. See `docs/BILLING.md`.
 
 - [ ] SSH access to the server as `root` (Hetzner emails the root password, or use an SSH key added at creation).
 - [ ] Domain `hakkiu.com` with editable DNS.
-- [ ] All production secrets ready (Supabase service-role key, Stripe **live** keys, Gemini, Firecrawl, Meta, etc.).
+- [ ] All production secrets ready (Supabase service-role key, Gemini, Firecrawl, Meta, etc.).
 - [ ] (Optional) A Hetzner Storage Box for off-site backups.
 
 ---
@@ -146,7 +136,7 @@ cd /opt/hakkiu
 Create the production `.env` from the template and fill in every secret:
 ```bash
 cp .env.production.example .env
-nano .env      # replace every CHANGE_ME; use Stripe LIVE keys; set Supabase keys
+nano .env      # replace every CHANGE_ME; set Supabase keys + provider secrets
 ```
 > The `.env` file stays only on the server — it is git-ignored and must **never** be committed. Generate `INTERNAL_API_SECRET` with `openssl rand -hex 32`.
 
@@ -184,9 +174,6 @@ From then on: `git push origin main` → CI runs → on success, the server pull
 
 ## 6. 💻 Wire up external services to the new domain
 
-- **Stripe** → Developers → Webhooks → add endpoint
-  `https://api.hakkiu.com/api/v1/billing/webhook`; copy its signing secret into
-  `STRIPE_WEBHOOK_SECRET` in the server `.env`, then `docker compose up -d`.
 - **Supabase** → Authentication → URL Configuration:
   - Site URL: `https://hakkiu.com`
   - Redirect URLs: `https://hakkiu.com/**`, `https://admin.hakkiu.com/**`
@@ -203,7 +190,6 @@ From then on: `git push origin main` → CI runs → on success, the server pull
 - [ ] `https://admin-api.hakkiu.com/health` returns 200.
 - [ ] `https://www.hakkiu.com` redirects to `https://hakkiu.com`.
 - [ ] Sign in on the customer app → a scan runs (proves API + Supabase + scraping work).
-- [ ] A test Stripe checkout completes and the webhook is received.
 
 ---
 
@@ -247,7 +233,6 @@ docker compose up -d --build
 | Customer app 502 in Caddy | `frontend` container not healthy — `docker compose logs frontend`. First boot builds workerd; give it a minute. |
 | Frontend shows old API URL | `VITE_*` are baked at build time — rebuild: `docker compose up -d --build frontend`. |
 | CORS errors in browser | `ALLOWED_ORIGINS` / `ADMIN_ALLOWED_ORIGINS` in `.env` don't match the domain. Fix, then restart `api`/`admin-api`. |
-| Stripe webhook 400 | `STRIPE_WEBHOOK_SECRET` mismatch — recopy from the Stripe dashboard endpoint. |
 | admin-api can't reach main API | `MAIN_API_URL` must be `http://api:8000/api/v1` (internal network name), not the public URL. |
 
 ---

@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout";
 import { SignIn } from "@/pages/SignIn";
+import { ResetPassword } from "@/pages/ResetPassword";
 import { Dashboard } from "@/pages/Dashboard";
 import { Customers } from "@/pages/Customers";
 import { CustomerDetail } from "@/pages/CustomerDetail";
@@ -36,6 +37,13 @@ const signInRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/auth/sign-in",
   component: SignIn,
+});
+
+// Public: password reset landing (opened from the recovery email link).
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/reset-password",
+  component: ResetPassword,
 });
 
 // "/" redirects into the app.
@@ -112,6 +120,7 @@ const leadsRoute = createRoute({ getParentRoute: () => appRoute, path: "/leads",
 
 const routeTree = rootRoute.addChildren([
   signInRoute,
+  resetPasswordRoute,
   indexRoute,
   appRoute.addChildren([
     dashboardRoute,
