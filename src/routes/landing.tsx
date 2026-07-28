@@ -1,12 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
 import { HeroV3 } from "@/components/landing/hero-v3";
 import { LandingNav } from "@/components/landing/landing-nav";
-import { Workflow } from "@/components/landing/workflow";
+import { ProductProof } from "@/components/landing/product-proof";
 import { Coverage } from "@/components/landing/coverage";
+import { Workflow } from "@/components/landing/workflow";
 import { Features } from "@/components/landing/features";
 import { ExposureCalculator } from "@/components/landing/exposure-calculator";
-import { Button } from "@/components/ui/button";
+import { FinalCTA } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 
 export const Route = createFileRoute("/landing")({
@@ -35,48 +35,28 @@ function LandingPage() {
       {/* TOP NAV */}
       <LandingNav />
 
-      {/* HERO SECTION */}
+      {/* 01 · HERO */}
       <HeroV3 />
 
-      {/* MULTI-CHANNEL COVERAGE */}
+      {/* 02 · PRODUCT PROOF — detection → takedown */}
+      <ProductProof />
+
+      {/* 03 · MULTI-CHANNEL COVERAGE (dark) */}
       <Coverage />
 
-      {/* HOW IT WORKS */}
+      {/* 04 · HOW IT WORKS */}
       <Workflow />
 
-      {/* PLATFORM FEATURES */}
+      {/* 05 · PLATFORM ARCHITECTURE */}
       <Features />
 
-      {/* BRAND EXPOSURE CALCULATOR */}
+      {/* 06 · BRAND EXPOSURE CALCULATOR */}
       <ExposureCalculator />
 
-      {/* BOOK A DEMO CTA */}
-      <div className="border-t border-border/60 bg-muted/20 py-24 text-center">
-        <div className="mx-auto max-w-4xl px-6 flex flex-col items-center">
-          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            READY TO DEPLOY BRAND DEFENSE?
-          </p>
-          <h3 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            Built for brand teams and IP professionals.
-          </h3>
-          <p className="mt-4 max-w-xl text-base text-muted-foreground">
-            See HAKKIU in action. Book a demo and our team will tailor brand protection to your
-            monitoring needs.
-          </p>
-          <Button
-            asChild
-            size="lg"
-            className="mt-8 h-12 gap-2 rounded-lg bg-foreground px-8 text-sm font-semibold text-background shadow-md hover:bg-foreground/90 transition-all cursor-pointer"
-          >
-            <Link to="/request-demo">
-              Book a demo
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-      </div>
+      {/* 07 · FINAL CTA (dark) */}
+      <FinalCTA />
 
-      {/* FOOTER */}
+      {/* 08 · FOOTER */}
       <Footer />
     </div>
   );

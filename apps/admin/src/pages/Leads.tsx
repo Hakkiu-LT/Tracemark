@@ -48,9 +48,9 @@ interface Lead {
 }
 
 const SOURCE_LABELS: Record<string, string> = {
-  pricing_modal: "Pricing page",
-  request_demo: "Demo wizard",
-  call_request: "Call request",
+  pricing_modal: "Pricing enquiry",
+  request_demo: "Book a demo",
+  call_request: "Talk to sales",
 };
 
 function statusVariant(s: string) {

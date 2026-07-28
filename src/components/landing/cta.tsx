@@ -4,6 +4,7 @@ import { ShieldCheck, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import DotField from "./dot-field";
+import { useLeadModals } from "./lead-modals";
 
 const ACCENT = "oklch(0.58 0.18 255)";
 
@@ -45,6 +46,7 @@ function usePrefersReducedMotion(): boolean {
 export function CTA() {
   const { ref, inView } = useInView<HTMLElement>();
   const reduced = usePrefersReducedMotion();
+  const { openDemo } = useLeadModals();
 
   return (
     <section ref={ref} className="relative overflow-hidden border-b border-border bg-background px-6 py-16 md:py-20">
@@ -114,15 +116,13 @@ export function CTA() {
                 </Link>
               </Button>
               <Button
-                asChild
                 size="lg"
                 variant="outline"
+                onClick={openDemo}
                 className="border-white/25 bg-white/5 text-white hover:border-white/40 hover:bg-white/10 hover:text-white dark:border-slate-300 dark:bg-transparent dark:text-slate-900 dark:hover:bg-slate-100 dark:hover:text-slate-900"
               >
-                <Link to="/request-demo">
-                  Book a demo
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
+                Book a demo
+                <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             </div>
             <div className="flex items-center gap-2 text-sm text-white/65 dark:text-slate-600">

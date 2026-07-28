@@ -2,7 +2,25 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-28 (session 25 — cookie consent banner + Google Consent Mode v2, GA4 now consent-gated)
+> Last updated: 2026-07-28 (session 27 — landing page "technical-paper" redesign: 8 sections rebuilt to the reference mockups; all lead-modal / analytics / link logic preserved)
+
+---
+
+## 🎨 Latest — Landing page "technical-paper" redesign (session 27)
+
+Rebuilt the marketing landing (`/landing`) to the reference mockups (`~/Desktop/redisign`):
+an off-white technical-paper surface (24px dot matrix + sparse blueprint construction lines),
+graphite type, black conversion actions, mint (`#18c889`) system accents, and two inverse dark
+sections (Coverage, Final CTA). Section order: Hero → Product proof → Coverage (dark) → How it
+works → Platform architecture → Risk calculator → Final CTA (dark) → Footer.
+
+**Preserved 100% (no logic touched):** `LeadModalsProvider` / `useLeadModals()`, both modals'
+submit → `/leads` fetch + payload + validation + `trackLead` GA4 + success swap, all real
+links (legal, /about, /contact, /dashboard, /auth), theme toggle, cookie consent. Motion is
+CSS + IntersectionObserver only (shared `reveal.tsx`), respects `prefers-reduced-motion`; the
+dot grid is never animated. New shared primitives: `reveal.tsx`, `blueprint.tsx`,
+`product-window.tsx`. New sections: `product-proof.tsx`, `final-cta.tsx`. Validated: `tsc
+--noEmit`, ESLint (landing files clean), and `vite build` all pass.
 
 ---
 

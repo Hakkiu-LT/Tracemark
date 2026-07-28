@@ -14,6 +14,7 @@ import { AppHeader } from "@/components/app-header";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorState } from "@/components/error-state";
 import { ConsentManager } from "@/components/consent/consent-banner";
+import { LeadModalsProvider } from "@/components/landing/lead-modals";
 import { AuthProvider, RequireAuth } from "@/lib/auth";
 
 import appCss from "../styles.css?url";
@@ -148,28 +149,30 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {isPublic ? (
-          <>
-            <Outlet />
-            <Toaster />
-          </>
-        ) : (
-          <RequireAuth>
-            <SidebarProvider>
-              <div className="flex min-h-screen w-full">
-                <AppSidebar />
-                <SidebarInset className="flex min-w-0 flex-1 flex-col">
-                  <AppHeader />
-                  <main className="flex-1 p-4 md:p-6">
-                    <Outlet />
-                  </main>
-                </SidebarInset>
-              </div>
+        <LeadModalsProvider>
+          {isPublic ? (
+            <>
+              <Outlet />
               <Toaster />
-            </SidebarProvider>
-          </RequireAuth>
-        )}
-        <ConsentManager />
+            </>
+          ) : (
+            <RequireAuth>
+              <SidebarProvider>
+                <div className="flex min-h-screen w-full">
+                  <AppSidebar />
+                  <SidebarInset className="flex min-w-0 flex-1 flex-col">
+                    <AppHeader />
+                    <main className="flex-1 p-4 md:p-6">
+                      <Outlet />
+                    </main>
+                  </SidebarInset>
+                </div>
+                <Toaster />
+              </SidebarProvider>
+            </RequireAuth>
+          )}
+          <ConsentManager />
+        </LeadModalsProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -19,6 +19,11 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 _limiter = Limiter(key_func=get_remote_address)
 _log = logging.getLogger(__name__)
 
+# Anti-spam rate limit for the public lead endpoint. Defaults to 3/hour per IP
+# in production; override locally (e.g. LEADS_RATE_LIMIT=1000/hour) so testing
+# the demo/sales forms isn't blocked after a few submits.
+_RATE_LIMIT = os.environ.get("LEADS_RATE_LIMIT", "3/hour")
+
 VALID_TIERS = frozenset({"professional", "enterprise"})
 VALID_BRAND_RANGES = frozenset({"1", "2-3", "4-5", "6-10", "11-20", "20+"})
 VALID_SOURCES = frozenset({"pricing_modal", "request_demo", "call_request"})
@@ -53,7 +58,22 @@ class LeadRequest(BaseModel):
     primary_goal: list[str] | None = None    # what they want to solve
 
 
+# Friendly labels for the staff notification subject line, keyed by lead source.
+_SOURCE_SUBJECTS = {
+    "request_demo": "Book a demo",
+    "call_request": "Talk to sales",
+    "pricing_modal": "Pricing enquiry",
+}
+
+
+def _lead_kind(lead: LeadRequest) -> str:
+    """Which confirmation copy to send the lead: 'sales' for Talk-to-sales,
+    'demo' for everything else (Book-a-demo / pricing)."""
+    return "sales" if lead.source == "call_request" else "demo"
+
+
 def _send_lead_notification(lead: LeadRequest) -> None:
+    """Internal alert to the sales team that a new lead came in."""
     try:
         from tracemark_api.services.email import send_email
         from tracemark_api.services.email_templates import new_lead_html
@@ -76,15 +96,34 @@ def _send_lead_notification(lead: LeadRequest) -> None:
             current_solution=lead.current_solution,
             primary_goal=lead.primary_goal,
         )
-        subject = f"New {lead.tier.capitalize()} Lead — {lead.email}"
+        kind_label = _SOURCE_SUBJECTS.get(lead.source or "", lead.tier.capitalize())
+        subject = f"New {kind_label} lead — {lead.email}"
         for recipient in _NOTIFY_EMAILS:
             send_email(to=recipient, subject=subject, html=html)
     except Exception:
         _log.exception("Failed to send lead notification email")
 
 
+def _send_lead_confirmation(lead: LeadRequest) -> None:
+    """Auto-confirmation to the person who submitted the form."""
+    try:
+        from tracemark_api.services.email import send_email
+        from tracemark_api.services.email_templates import lead_confirmation_html
+
+        kind = _lead_kind(lead)
+        html = lead_confirmation_html(kind=kind, first_name=lead.first_name)
+        subject = (
+            "Thanks for booking a demo with HAKKIU"
+            if kind == "demo"
+            else "We've received your message — HAKKIU"
+        )
+        send_email(to=str(lead.email), subject=subject, html=html)
+    except Exception:
+        _log.exception("Failed to send lead confirmation email")
+
+
 @router.post("", status_code=201)
-@_limiter.limit("3/hour")
+@_limiter.limit(_RATE_LIMIT)
 async def create_lead(payload: LeadRequest, request: Request) -> dict:
     from fastapi import HTTPException
 
@@ -118,5 +157,6 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
     }).execute()
 
     _send_lead_notification(payload)
+    _send_lead_confirmation(payload)
 
     return {"ok": True}

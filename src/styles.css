@@ -69,9 +69,9 @@
   --accent-foreground: oklch(0.99 0.005 250);
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.99 0.005 250);
-  --border: oklch(0.90 0.008 255);
-  --input: oklch(0.90 0.008 255);
-  --ring: oklch(0.20 0.02 260);
+  --border: oklch(0.9 0.008 255);
+  --input: oklch(0.9 0.008 255);
+  --ring: oklch(0.2 0.02 260);
   --risk-high: oklch(0.58 0.22 27);
   --risk-med: oklch(0.72 0.17 65);
   --risk-low: oklch(0.62 0.15 155);
@@ -100,12 +100,12 @@
   --popover: oklch(0.12 0.01 260);
   --popover-foreground: oklch(0.98 0.002 250);
   --primary: oklch(0.98 0.002 250);
-  --primary-foreground: oklch(0.10 0.01 260);
+  --primary-foreground: oklch(0.1 0.01 260);
   --secondary: oklch(0.16 0.01 260);
   --secondary-foreground: oklch(0.96 0.005 250);
   --muted: oklch(0.15 0.01 260);
   --muted-foreground: oklch(0.65 0.02 255);
-  --accent: oklch(0.65 0.20 260);
+  --accent: oklch(0.65 0.2 260);
   --accent-foreground: oklch(0.99 0.005 250);
   --destructive: oklch(0.65 0.2 27);
   --destructive-foreground: oklch(0.99 0.005 250);
@@ -118,7 +118,8 @@
   * {
     border-color: var(--color-border);
   }
-  html, body {
+  html,
+  body {
     font-family: var(--font-sans);
   }
   body {
@@ -153,13 +154,15 @@
 
 /* ── Vercel Minimalist Grid & Dot Utilities ────────────────────────── */
 .vercel-grid-bg {
-  background-image: linear-gradient(to right, rgba(120, 120, 120, 0.08) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(120, 120, 120, 0.08) 1px, transparent 1px);
+  background-image:
+    linear-gradient(to right, rgba(120, 120, 120, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(120, 120, 120, 0.08) 1px, transparent 1px);
   background-size: 32px 32px;
 }
 .dark .vercel-grid-bg {
-  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
 }
 
 .vercel-dots-bg {
@@ -189,8 +192,13 @@
 
 /* Slow drift for ambient atmosphere blooms. */
 @keyframes auth-drift {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(0, -16px, 0) scale(1.06); }
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -16px, 0) scale(1.06);
+  }
 }
 .auth-drift {
   animation: auth-drift 14s ease-in-out infinite;
@@ -198,8 +206,15 @@
 
 /* Pulse for the live-detection status indicator. */
 @keyframes auth-ping-soft {
-  0% { transform: scale(1); opacity: 0.6; }
-  75%, 100% { transform: scale(2.4); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  75%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
 }
 .auth-ping-soft {
   animation: auth-ping-soft 2s cubic-bezier(0, 0, 0.2, 1) infinite;
@@ -250,7 +265,9 @@
 
 /* Continuous data-flow shimmer along the pipeline once it has drawn in. */
 @keyframes wf-flow {
-  to { stroke-dashoffset: -28; }
+  to {
+    stroke-dashoffset: -28;
+  }
 }
 .wf-flow {
   animation: wf-flow 1.4s linear infinite;
@@ -264,19 +281,33 @@
 
 /* Hero V3 — the red "copied IP" connector's dashes crawl toward the threat. */
 @keyframes dashmove {
-  to { stroke-dashoffset: -12; }
+  to {
+    stroke-dashoffset: -12;
+  }
 }
 
 /* ── Star border (Enterprise pricing card) ─────────────────────────── */
 /* Two glowing streaks sweep along the top and bottom edges, reading as a
    comet tracing the card border. Duration is set inline via animationDuration. */
 @keyframes star-movement-bottom {
-  0% { transform: translate(0%, 0%); opacity: 1; }
-  100% { transform: translate(-100%, 0%); opacity: 0; }
+  0% {
+    transform: translate(0%, 0%);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-100%, 0%);
+    opacity: 0;
+  }
 }
 @keyframes star-movement-top {
-  0% { transform: translate(0%, 0%); opacity: 1; }
-  100% { transform: translate(100%, 0%); opacity: 0; }
+  0% {
+    transform: translate(0%, 0%);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(100%, 0%);
+    opacity: 0;
+  }
 }
 .star-movement-bottom {
   animation: star-movement-bottom linear infinite alternate;
@@ -292,14 +323,172 @@
   }
 }
 
+/* ── Technical-paper surface (landing redesign) ────────────────────────
+   A restrained security-drawing surface: a 24px cool-gray dot matrix with
+   sparse blueprint construction lines. Applied to page SECTIONS, never to
+   cards, form fields, modal panels, or dense product previews — those stay
+   solid so copy keeps its contrast. The dot grid itself is never animated. */
+.technical-paper {
+  --paper: var(--background);
+  --dot: rgba(71, 85, 105, 0.16);
+  --guide: rgba(71, 85, 105, 0.09);
+  --guide-strong: rgba(71, 85, 105, 0.14);
+  --mint: #18c889;
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  background-color: var(--paper);
+  background-image: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+/* Faint central construction lines, faded out toward the bottom so the grid
+   dissolves into the next section instead of ending on a hard edge. */
+.technical-paper::before {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.75;
+  background:
+    linear-gradient(
+      90deg,
+      transparent calc(50% - 0.5px),
+      var(--guide) calc(50% - 0.5px),
+      var(--guide) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    linear-gradient(
+      0deg,
+      transparent calc(50% - 0.5px),
+      var(--guide) calc(50% - 0.5px),
+      var(--guide) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    rgba(0, 0, 0, 0.68) 70%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.68) 70%, transparent 100%);
+}
+
+.technical-paper--dark {
+  --paper: #090d13;
+  --dot: rgba(148, 163, 184, 0.14);
+  --guide: rgba(148, 163, 184, 0.11);
+  --guide-strong: rgba(148, 163, 184, 0.18);
+  --mint: #18c889;
+  color: #f8fafc;
+}
+/* In app dark mode the light paper inverts to the same forensic surface. */
+.dark .technical-paper:not(.technical-paper--dark) {
+  --dot: rgba(148, 163, 184, 0.12);
+  --guide: rgba(148, 163, 184, 0.08);
+  --guide-strong: rgba(148, 163, 184, 0.14);
+}
+
+/* One decorative SVG per section — always aria-hidden. Lines align to the real
+   content columns of that section; keep opacity low so text contrast holds. */
+.blueprint-overlay {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--guide-strong);
+  stroke: currentColor;
+  stroke-width: 1;
+  opacity: 0.75;
+}
+
+/* Responsive grid density — tighter on smaller viewports, decoration softened. */
+@media (max-width: 1024px) {
+  .technical-paper {
+    background-size: 22px 22px;
+  }
+}
+@media (max-width: 768px) {
+  .technical-paper {
+    background-size: 18px 18px;
+  }
+  .blueprint-overlay {
+    opacity: 0.5;
+  }
+}
+
+/* A single faint scan line travels once through a product preview on reveal —
+   never through body copy. Driven by an inline animation on the element. */
+@keyframes hakkiu-scan {
+  0% {
+    transform: translateY(-8%);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(760%);
+    opacity: 0;
+  }
+}
+.hakkiu-scan {
+  animation: hakkiu-scan 2.6s cubic-bezier(0.22, 1, 0.36, 1) 0.4s both;
+}
+
+/* SVG connector draw-in for the architecture blueprint. */
+@keyframes hakkiu-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* A slow single data packet travels a connector every ~7s in the architecture
+   diagram; stopped entirely under reduced motion. */
+@keyframes hakkiu-packet {
+  0%,
+  8% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hakkiu-scan,
+  .hakkiu-packet {
+    animation: none;
+  }
+  .hakkiu-scan {
+    opacity: 0;
+  }
+}
+
 /* ── Print Styles Override ─────────────────────────────────────────── */
 @media print {
-  html, body {
+  html,
+  body {
     background-color: #ffffff !important;
     color: #000000 !important;
     font-size: 12pt !important;
   }
-  
+
   /* Hide navigation, sidebar, headers, and actions */
   nav,
   aside,
@@ -348,7 +537,7 @@
   }
 
   /* Avoid page breaks inside cards */
-  .card, 
+  .card,
   .border,
   Card,
   tr,
@@ -360,12 +549,21 @@
   }
 
   /* Optimize text for readability */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     color: #000000 !important;
     page-break-after: avoid !important;
   }
 
-  p, span, div, td, th {
+  p,
+  span,
+  div,
+  td,
+  th {
     color: #334155 !important;
   }
 }
@@ -374,8 +572,12 @@
    window, showing how much time remains before the panel auto-advances.
    Duration is set inline via animationDuration to match CYCLE_MS. */
 @keyframes feat-progress {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
 }
 .feat-progress {
   width: 100%;

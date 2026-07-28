@@ -3,178 +3,218 @@ import {
   Sparkles,
   FileCheck,
   Send,
-  CheckCircle2,
-  Lock,
-  ExternalLink,
-  ShieldAlert,
-  Search,
+  ArrowRight,
+  ShieldCheck,
+  type LucideIcon,
 } from "lucide-react";
+import { BlueprintOverlay } from "../blueprint";
+import { Reveal, useInView } from "../reveal";
+import { useLeadModals } from "../lead-modals";
+import { cn } from "@/lib/utils";
+
+type Module = {
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  /** Grid placement on the desktop quadrant layout. */
+  corner: "tl" | "tr" | "bl" | "br";
+};
+
+const MODULES: Module[] = [
+  {
+    icon: Activity,
+    title: "24/7 multi-channel surveillance",
+    body: "Automated crawlers scan 12+ marketplaces, social platforms, app stores, and domain registries around the clock.",
+    corner: "tl",
+  },
+  {
+    icon: Sparkles,
+    title: "AI visual & text matcher",
+    body: "Vision and language models compare listings against your registry to catch modified logos and typo-squats.",
+    corner: "tr",
+  },
+  {
+    icon: FileCheck,
+    title: "Forensic evidence dossiers",
+    body: "Screenshots, page HTML, WHOIS records, and cryptographic timestamps — archived court-ready, automatically.",
+    corner: "bl",
+  },
+  {
+    icon: Send,
+    title: "1-click marketplace enforcement",
+    body: "Direct dispatch to Amazon Brand Registry, Shopify, Google DMCA, and registrar notice portals.",
+    corner: "br",
+  },
+];
+
+// Connector endpoints in the SVG's stretched coordinate space (preserveAspect
+// none), pointing from the central engine out to each quadrant module. Because
+// the viewBox stretches to the container, these always aim at the right card.
+const LINES: Record<Module["corner"], string> = {
+  tl: "M500 300 C 340 260, 240 200, 150 150",
+  tr: "M500 300 C 660 260, 760 200, 850 150",
+  bl: "M500 300 C 340 340, 240 400, 150 450",
+  br: "M500 300 C 660 340, 760 400, 850 450",
+};
+
+function ModuleCard({ m, delay }: { m: Module; delay: number }) {
+  const Icon = m.icon;
+  return (
+    <Reveal
+      delay={delay}
+      className="relative rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-md"
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+        <Icon className="h-5 w-5" strokeWidth={2} />
+      </div>
+      <h3 className="mt-4 font-display text-base font-bold tracking-tight text-foreground">
+        {m.title}
+      </h3>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{m.body}</p>
+    </Reveal>
+  );
+}
+
+function pick(corner: Module["corner"]) {
+  return MODULES.find((m) => m.corner === corner)!;
+}
 
 export function Features() {
+  const { openDemo } = useLeadModals();
+  const { ref, inView } = useInView<HTMLDivElement>(0.25);
+
   return (
-    <section id="features" className="relative border-b border-border/60 bg-background py-24 scroll-mt-14">
-      {/* Background dot pattern */}
-      <div
-        aria-hidden="true"
-        className="vercel-dots-bg pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_70%_70%_at_50%_50%,#000_60%,transparent_100%)]"
-      />
+    <section
+      id="features"
+      className="technical-paper relative scroll-mt-16 border-b border-border/60 py-20 md:py-24"
+    >
+      <BlueprintOverlay variant="architecture" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        {/* Section Header */}
         <div className="mx-auto max-w-2xl text-center">
-          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            THE PLATFORM ARCHITECTURE
-          </p>
-          <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl md:text-5xl">
+          <Reveal
+            as="p"
+            className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+          >
+            The platform architecture
+          </Reveal>
+          <Reveal
+            as="h2"
+            delay={60}
+            className="mt-4 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl"
+          >
             Complete brand protection, automated end-to-end.
-          </h2>
-          <p className="mt-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Built for enterprise brand protection teams and IP law firms who require speed, legal evidence precision, and scalable enforcement.
-          </p>
+          </Reveal>
+          <Reveal
+            as="p"
+            delay={120}
+            className="mt-4 text-base leading-relaxed text-muted-foreground"
+          >
+            Detection, evidence, and enforcement share one verifiable chain of custody — built for
+            brand teams and IP law firms.
+          </Reveal>
         </div>
 
-        {/* Vercel Bento Grid Layout */}
-        <div className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-12">
-          
-          {/* Card 1: 24/7 Multi-Channel Surveillance (Span 7) */}
-          <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:border-foreground/30 hover:shadow-md lg:col-span-7">
-            <div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/50 text-foreground">
-                <Activity className="h-5 w-5" />
-              </div>
-              <h3 className="mt-4 font-display text-xl font-bold tracking-tight text-foreground">
-                24/7 Multi-Channel Surveillance
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Continuous automated web crawlers scan over 12 global marketplaces, social commerce platforms, app stores, and domain registries around the clock.
-              </p>
-            </div>
+        {/* Desktop: quadrant layout with SVG connectors to a central engine. */}
+        <div ref={ref} className="relative mt-16 hidden lg:block">
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            viewBox="0 0 1000 600"
+            preserveAspectRatio="none"
+          >
+            <g fill="none" stroke="var(--guide-strong)" strokeWidth={1}>
+              {Object.values(LINES).map((d, i) => (
+                <path
+                  key={i}
+                  d={d}
+                  strokeDasharray="600"
+                  strokeDashoffset={inView ? 0 : 600}
+                  style={{
+                    transition: "stroke-dashoffset 900ms cubic-bezier(.22,1,.36,1)",
+                    transitionDelay: `${200 + i * 120}ms`,
+                  }}
+                />
+              ))}
+            </g>
+            {/* A single mint data packet flows along one connector, once drawn. */}
+            <path
+              d={LINES.br}
+              fill="none"
+              stroke="var(--mint, #18c889)"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeDasharray="14 586"
+              className={inView ? "wf-flow" : undefined}
+              style={{ opacity: inView ? 0.9 : 0 }}
+            />
+          </svg>
 
-            {/* Static Visual UI Frame */}
-            <div className="mt-6 rounded-xl border border-border/60 bg-background p-4 text-xs font-mono">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-semibold text-foreground">Live Crawler Stream</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground">Updated 1s ago</span>
-              </div>
-              <div className="mt-3 space-y-2 text-[11px]">
-                <div className="flex items-center justify-between rounded bg-muted/40 p-2">
-                  <span className="text-muted-foreground">Amazon US/EU/JP</span>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">● 14,290 listings scanned/min</span>
-                </div>
-                <div className="flex items-center justify-between rounded bg-muted/40 p-2">
-                  <span className="text-muted-foreground">Shopify & Web Domains</span>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">● 8,120 endpoints scanned/min</span>
-                </div>
-                <div className="flex items-center justify-between rounded bg-muted/40 p-2">
-                  <span className="text-muted-foreground">Instagram & TikTok Ads</span>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">● 3,840 profiles checked/min</span>
-                </div>
-              </div>
+          <div className="relative grid grid-cols-3 items-stretch gap-6">
+            <ModuleCard m={pick("tl")} delay={200} />
+            <div className="row-span-2 flex items-center justify-center">
+              <Reveal className="w-full">
+                <EngineCard />
+              </Reveal>
             </div>
+            <ModuleCard m={pick("tr")} delay={280} />
+            <ModuleCard m={pick("bl")} delay={360} />
+            <ModuleCard m={pick("br")} delay={440} />
           </div>
-
-          {/* Card 2: AI Visual & Trademark Matcher (Span 5) */}
-          <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:border-foreground/30 hover:shadow-md lg:col-span-5">
-            <div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/50 text-foreground">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <h3 className="mt-4 font-display text-xl font-bold tracking-tight text-foreground">
-                AI Visual & Text Matcher
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Computer vision & NLP models compare listings against your official trademark registry to detect modified logos, typo-squatting, and evasive copy.
-              </p>
-            </div>
-
-            {/* Static Visual UI Frame */}
-            <div className="mt-6 rounded-xl border border-border/60 bg-background p-4 text-xs">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <span className="font-mono text-[11px] text-muted-foreground">MATCH CONFIDENCE</span>
-                <span className="rounded-full bg-rose-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400">
-                  &gt;99% CONFIDENCE
-                </span>
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-3 font-mono text-[11px]">
-                <div className="flex-1 rounded border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-center">
-                  <p className="text-[10px] text-muted-foreground">REGISTERED MARK</p>
-                  <p className="mt-1 font-bold text-foreground">"Tracemark"</p>
-                </div>
-                <span className="text-muted-foreground font-bold">VS</span>
-                <div className="flex-1 rounded border border-rose-500/30 bg-rose-500/5 p-2.5 text-center">
-                  <p className="text-[10px] text-muted-foreground font-sans">DETECTED COUNTERFEIT</p>
-                  <p className="mt-1 font-bold text-rose-600 dark:text-rose-400">"Trace-Mark-Shop"</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Forensic Evidence Dossier (Span 5) */}
-          <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:border-foreground/30 hover:shadow-md lg:col-span-5">
-            <div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/50 text-foreground">
-                <FileCheck className="h-5 w-5" />
-              </div>
-              <h3 className="mt-4 font-display text-xl font-bold tracking-tight text-foreground">
-                Forensic Evidence Dossiers
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Automatically archives high-resolution screenshots, page HTML, WHOIS registration details, and cryptographic timestamps ready for court or legal review.
-              </p>
-            </div>
-
-            {/* Static Visual UI Frame */}
-            <div className="mt-6 rounded-xl border border-border/60 bg-background p-4 font-mono text-xs space-y-2">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-muted-foreground">Screenshot SHA-256:</span>
-                <span className="font-semibold text-foreground">8f92a4b...c19</span>
-              </div>
-              <div className="flex justify-between text-[11px]">
-                <span className="text-muted-foreground">WHOIS Registrar:</span>
-                <span className="text-foreground">NameCheap, Inc.</span>
-              </div>
-              <div className="flex justify-between text-[11px]">
-                <span className="text-muted-foreground">Cryptographic Record:</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Immutable Seal ✔</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: 1-Click Automated Enforcement (Span 7) */}
-          <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:border-foreground/30 hover:shadow-md lg:col-span-7">
-            <div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/50 text-foreground">
-                <Send className="h-5 w-5" />
-              </div>
-              <h3 className="mt-4 font-display text-xl font-bold tracking-tight text-foreground">
-                1-Click Marketplace Enforcement
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Direct API integrations with Amazon Brand Registry, Shopify Takedown Portals, Google DMCA, and registrar notice dispatches to remove infringing content immediately.
-              </p>
-            </div>
-
-            {/* Static Visual UI Frame */}
-            <div className="mt-6 rounded-xl border border-border/60 bg-background p-4 text-xs font-mono">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <span className="font-semibold text-foreground">Takedown Dispatch Engine</span>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">API ACTIVE</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between rounded bg-muted/40 p-2.5">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  <span>Amazon IP Takedown Submitted</span>
-                </div>
-                <span className="font-bold text-foreground">Case #AMZ-9941</span>
-              </div>
-            </div>
-          </div>
-
         </div>
+
+        {/* Mobile / tablet: engine on top, modules stacked in a 2-col grid. */}
+        <div className="mt-14 lg:hidden">
+          <Reveal>
+            <EngineCard />
+          </Reveal>
+          <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {MODULES.map((m, i) => (
+              <ModuleCard key={m.title} m={m} delay={i * 70} />
+            ))}
+          </div>
+        </div>
+
+        <Reveal delay={120} className="mt-12 flex justify-center">
+          <button
+            type="button"
+            onClick={openDemo}
+            className="group inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-foreground transition-colors hover:text-muted-foreground"
+          >
+            Review technical architecture
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </Reveal>
       </div>
     </section>
+  );
+}
+
+function EngineCard({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-2xl border border-foreground/15 bg-foreground p-6 text-center text-background shadow-lg",
+        className,
+      )}
+    >
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-background/10">
+        <ShieldCheck className="h-6 w-6" strokeWidth={2} />
+      </div>
+      <p className="mt-4 font-display text-lg font-extrabold tracking-tight">HAKKIU engine</p>
+      <p className="mt-1 text-xs leading-relaxed text-background/70">
+        One detection &amp; enforcement core, one chain of custody.
+      </p>
+      <span
+        className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-background/20 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider"
+        style={{ color: "var(--mint, #18c889)" }}
+      >
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: "var(--mint, #18c889)" }}
+        />
+        Operational
+      </span>
+    </div>
   );
 }

@@ -574,18 +574,12 @@ def new_lead_html(
     primary_goal: list[str] | None = None,
 ) -> str:
     source_labels = {
-        "pricing_modal": "Request Pricing (Pricing page)",
-        "request_demo": "Request Demo (wizard)",
-        "call_request": "Call Request (hero CTA)",
+        "pricing_modal": "Pricing enquiry",
+        "request_demo": "Book a demo",
+        "call_request": "Talk to sales",
     }
     source_label = source_labels.get(source or "", source or "Unknown")
     tier_label = tier.capitalize()
-
-    name_line = ""
-    if first_name or last_name:
-        name_line = f"<strong>{(first_name or '')} {(last_name or '')}</strong>".strip()
-    else:
-        name_line = "<em style='color:{_MUTED};'>Not provided</em>"
 
     def row(label: str, value: str) -> str:
         return (
@@ -599,29 +593,29 @@ def new_lead_html(
         href = url if url.startswith(("http://", "https://")) else f"https://{url}"
         return f'<a href="{href}" style="color:{_BRAND_COLOR};">{url}</a>'
 
-    website_val = website_link(website) if website else None
-    regions_val = ", ".join(regions) if regions else None
-    marketplaces_val = ", ".join(marketplaces) if marketplaces else None
-    primary_goal_val = ", ".join(primary_goal) if primary_goal else None
+    # Always-present rows.
+    rows = [row("Source", source_label), row("Tier", tier_label)]
+    if first_name or last_name:
+        rows.append(row("Name", f"<strong>{(first_name or '')} {(last_name or '')}</strong>".strip()))
+    rows.append(row("Email", f'<a href="mailto:{email}" style="color:{_BRAND_COLOR};">{email}</a>'))
 
-    rows = [
-        row("Source", source_label),
-        row("Tier", tier_label),
-        row("Name", name_line if (first_name or last_name) else "<em>—</em>"),
-        row("Role", role or "<em>—</em>"),
-        row("Email", f'<a href="mailto:{email}" style="color:{_BRAND_COLOR};">{email}</a>'),
-        row("Phone", phone or "<em>—</em>"),
-        row("Company", company or "<em>—</em>"),
-        row("Website", website_val or "<em>—</em>"),
-        row("Regions", regions_val or "<em>—</em>"),
-        row("Brands (count)", brand_count_range or "<em>—</em>"),
-        row("Brands (names)", brand_names or "<em>—</em>"),
-        row("Marketplaces", marketplaces_val or "<em>—</em>"),
-        row("Primary goal", primary_goal_val or "<em>—</em>"),
-        row("Current solution", current_solution or "<em>—</em>"),
-    ]
-    if message:
-        rows.append(row("Message", f'<span style="white-space:pre-wrap;">{message}</span>'))
+    # Conditional rows — only shown when the form actually submitted a value, so
+    # the email mirrors the form (no empty "—" rows).
+    def maybe(label: str, value: str | None) -> None:
+        if value:
+            rows.append(row(label, value))
+
+    maybe("Role", role)
+    maybe("Phone", phone)
+    maybe("Company", company)
+    maybe("Website", website_link(website) if website else None)
+    maybe("Regions", ", ".join(regions) if regions else None)
+    maybe("Brands (count)", brand_count_range)
+    maybe("Brands (names)", brand_names)
+    maybe("Marketplaces", ", ".join(marketplaces) if marketplaces else None)
+    maybe("Primary goal", ", ".join(primary_goal) if primary_goal else None)
+    maybe("Current solution", current_solution)
+    maybe("Message", f'<span style="white-space:pre-wrap;">{message}</span>' if message else None)
 
     rows_html = "".join(rows)
 
@@ -637,6 +631,53 @@ def new_lead_html(
 {_btn("View in Admin Portal", "https://admin.hakkiu.com/leads")}
 """
     return _base(content, preheader=f"New {tier_label} lead from {email}")
+
+
+def lead_confirmation_html(
+    *,
+    kind: str,               # "demo" | "sales"
+    first_name: str | None = None,
+) -> str:
+    """Auto-confirmation sent to the person who submitted a lead form.
+
+    `kind` selects the copy: "demo" for the Book-a-demo modal, "sales" for the
+    Talk-to-sales modal. Staff still get the separate `new_lead_html` alert.
+    """
+    greeting = f"Hi {first_name}," if first_name else "Hi there,"
+
+    if kind == "sales":
+        heading = "Thanks for contacting us"
+        body = (
+            "We've received your message and our team will get back to you within "
+            "<strong>one business day</strong>."
+        )
+        what_next = (
+            "In the meantime, feel free to reply to this email with anything else "
+            "we should know about your brand."
+        )
+        preheader = "We've received your message — we'll reply within one business day."
+    else:
+        heading = "Thanks for booking a demo"
+        body = (
+            "We've received your request and a member of our team will reach out "
+            "shortly to <strong>confirm a time</strong> that works for you."
+        )
+        what_next = (
+            "We'll tailor the walkthrough to your brand and the marketplaces you "
+            "care about — no preparation needed on your side."
+        )
+        preheader = "Your demo request is in — we'll confirm a time shortly."
+
+    content = f"""
+<h2 style="margin:0 0 16px;font-size:22px;color:{_DARK};">{heading}</h2>
+<p style="margin:0 0 16px;font-size:15px;color:{_TEXT};">{greeting}</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:{_TEXT};">{body}</p>
+<p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:{_TEXT};">{what_next}</p>
+{_divider()}
+<p style="margin:0;font-size:14px;color:{_MUTED};">— The HAKKIU team</p>
+{_btn("Explore HAKKIU", f"{_APP_URL}/landing")}
+"""
+    return _base(content, preheader=preheader)
 
 
 def test_email_html(*, brand_name: str = "Test Brand") -> str:
