@@ -170,6 +170,21 @@ The `.github/workflows/deploy.yml` workflow SSHes in and redeploys after every g
 
 From then on: `git push origin main` → CI runs → on success, the server pulls and rebuilds automatically.
 
+> **⚠️ Changing an env *value* is NOT automatic.** Auto-deploy runs `git reset --hard` +
+> `docker compose build` on every push, so **code** changes (and the `VITE_*` rebake) ship
+> on their own — nothing extra to do. But `.env` is git-ignored and lives only on the server,
+> so pushing to `main` will **never** update a variable's value. When you rotate a secret
+> (`INTERNAL_API_SECRET`) or repoint a URL (`VITE_ADMIN_API_URL`, `MAIN_API_URL`, a domain
+> move), you must SSH in and edit it by hand:
+> ```bash
+> ssh deploy@116.202.8.87
+> cd /opt/hakkiu && nano .env           # change the value
+> docker compose build                  # REQUIRED for VITE_* — they bake in at build time
+> docker compose up -d
+> ```
+> Skipping `build` after touching a `VITE_*` var leaves the **old** value baked into the
+> browser bundle (e.g. the admin app keeps calling the old API URL — see Troubleshooting).
+
 ---
 
 ## 6. 💻 Wire up external services to the new domain
