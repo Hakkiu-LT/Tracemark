@@ -56,7 +56,8 @@ app.include_router(leads_router, prefix="/api/v1")
 
 _allowed_origins = [
     "http://localhost:8082",  # admin app local dev
-    "https://admin.tracemark.ai",
+    "https://admin.hakkiu.com",  # canonical production admin domain
+    "https://admin.tracemark.ai",  # legacy domain, kept for defence-in-depth
 ] + _extra_origins
 
 app.add_middleware(

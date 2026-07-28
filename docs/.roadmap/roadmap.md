@@ -241,7 +241,7 @@ remain (non-destructive; drop later via a forward migration if desired).
 
 ### Frontend
 - **Organization Switcher & Settings Panel** | ❌ Missing | (Fazė F) Customer-app tenant switcher + org settings.
-- **Member Invite & Access Control UI** | ⚠️ Partial | Members list + roles + add/remove live in the **admin portal** (OrganizationDetail). Customer-facing invite modal not built (Fazė F).
+- **Member Invite & Access Control UI** | ⚠️ Partial | Members list + roles + add/remove live in the **admin portal** (OrganizationDetail). "Add existing" now uses a debounced user search-select (`GET /search`, staff excluded, current members filtered out) instead of a raw UUID paste (session 19). Customer-facing invite modal not built (Fazė F).
 - **Zustand Store Organization Scoping** | ❌ Missing | Scope customer-app state by current organization ID (Fazė F).
 
 ---
@@ -273,10 +273,10 @@ remain (non-destructive; drop later via a forward migration if desired).
 *Integrating analytics tools to measure acquisition, trace user funnels, and optimize pages for organic search visibility.*
 
 ### Frontend
-- **Google Analytics 4 (GA4) Integration** | ❌ Missing | Embed tag management scripts on landing, pricing, and checkout routes to monitor user navigation flows, session events, and churn rates.
+- **Google Analytics 4 (GA4) Integration** | ✅ Done | (session 17) gtag.js for GA4 property `G-PH8369N5PD` in `RootShell` `<head>` (SSR + hydrated site-wide); CSP updated in `Caddyfile` + `public/_headers` to allow googletagmanager + GA collect endpoints.
+- **SEO Optimization & Sitemap Generation** | ✅ Done | (session 17) `public/robots.txt` (allow public pages, disallow app/auth, explicit AI-crawler rules), `public/sitemap.xml` (`/landing` + `/request-demo`), `public/llms.txt` product summary. All copied into `dist/client/` on build.
 - **Google Search Console (GSC) Verification** | ❌ Missing | Complete DNS-level site verification to monitor Google Search indexing, organic keyword queries, search impressions, and click-through rates.
-- **Conversion Tracking & Funnel Auditing** | ❌ Missing | Wire custom GA4 events to track user conversions (e.g., selecting pricing tiers, completing checkout, or upgrading subscription add-ons).
-- **SEO Optimization & Sitemap Generation** | ❌ Missing | Configure sitemap generators (`sitemap.xml`) and `robots.txt` to maximize search indexation of marketing pages.
+- **Conversion Tracking & Funnel Auditing** | ❌ Missing | Wire custom GA4 events to track lead conversions (e.g., demo requested, lead submitted).
 
 ---
 
@@ -318,14 +318,15 @@ remain (non-destructive; drop later via a forward migration if desired).
 
 ---
 
-## 17. Amazon SES Email Integration
-*Setting up enterprise-grade transactional and authentication emails using Amazon Simple Email Service (SES).*
+## 17. Transactional Email Integration (Resend) — ⚠️ LARGELY DONE
+*Transactional + lifecycle emails via Resend (resend.com), chosen over Amazon SES for simpler
+setup + Python SDK + Supabase Auth SMTP relay support.*
 
 ### Backend & Infrastructure
-- **SES Domain & Sender Verification** | ❌ Missing | Configure AWS SES, verify domain DNS records (TXT, MX), and configure SPF, DKIM, and DMARC credentials to maximize email deliverability and avoid spam classification.
-- **Supabase Auth Custom SMTP Integration** | ❌ Missing | Map Supabase Auth configuration to utilize verified AWS SES SMTP endpoints to send sign-up, sign-in OTP, and password reset tokens.
-- **Noreply & Support Sender Routing** | ❌ Missing | Configure clean, branded custom email addresses (e.g., `noreply@tracemark.ai` for transactional alerts/verification and `support@tracemark.ai` for ticketing/replies).
-- **Template Delivery Engine** | ❌ Missing | Integrate HTML templates for transactional emails (infringement alerts, takedown confirmations, weekly client reports) with clean corporate styles.
+- **Template Delivery Engine** | ✅ Done | `services/email.py` Resend wrapper + `email_templates.py` HTML templates (infringement alert, domain lookalike, takedown submitted/removed/failed, welcome, first-detection, new-lead, weekly digest, dunning day-0, test). Wired into existing hooks in `routes/monitoring.py`, `routes/documents.py`, `services/persistence.py`, `routes/brands.py`, `routes/leads.py`.
+- **Weekly digest + onboarding** | ✅ Done | `services/weekly_digest.py` daemon thread (Tuesdays 09:00 UTC); welcome on first brand; first-detection "aha" email. Deferred: 48h/day-14 nudges, day-3/day-7 dunning follow-ups, admin `/email-logs` page.
+- **Domain & Sender Verification** | ❌ Missing (USER ACTION) | Verify `hakkiu.com` in Resend (SPF/DKIM DNS), replace the `RESEND_API_KEY` placeholder in `.env` with the real key.
+- **Supabase Auth Custom SMTP Integration** | ❌ Missing (USER ACTION) | Point Supabase Auth SMTP at the Resend relay (host `smtp.resend.com`, port 465, user `resend`, pass = API key) for sign-up/reset tokens. (Admin password reset already bypasses this — it sends via the app's own Resend pipeline.)
 
 ---
 

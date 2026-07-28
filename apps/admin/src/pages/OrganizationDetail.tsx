@@ -296,6 +296,7 @@ export function OrganizationDetail() {
       {addingMember && (
         <AddMemberDialog
           orgId={orgId}
+          existingIds={data.members.map((m) => m.user_id)}
           onClose={() => setAddingMember(false)}
           onAdded={() => {
             setAddingMember(false);
@@ -542,15 +543,57 @@ function CreateUserDialog({ orgId, onClose, onCreated }: { orgId: string; onClos
   );
 }
 
-function AddMemberDialog({ orgId, onClose, onAdded }: { orgId: string; onClose: () => void; onAdded: () => void }) {
-  const [userId, setUserId] = useState("");
+// A person returned by the global /search endpoint (staff accounts are excluded server-side).
+interface SearchPerson {
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  organization_id: string | null;
+}
+interface SearchResults {
+  organizations: unknown[];
+  people: SearchPerson[];
+  brands: unknown[];
+}
+
+// Adds an EXISTING customer login to this company. Instead of pasting a raw UUID, staff
+// search by name/email (debounced /search) and pick from the results.
+function AddMemberDialog({
+  orgId,
+  existingIds,
+  onClose,
+  onAdded,
+}: {
+  orgId: string;
+  existingIds: string[];
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [selected, setSelected] = useState<SearchPerson | null>(null);
   const [role, setRole] = useState("member");
+
+  // Debounce the query so we don't fire a request on every keystroke (mirrors SearchBox).
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query.trim()), 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const { data, isFetching } = useQuery({
+    queryKey: ["member-search", debounced],
+    queryFn: () => adminFetch<SearchResults>(`/search?q=${encodeURIComponent(debounced)}`),
+    enabled: debounced.length >= 1 && !selected,
+  });
+
+  // Hide anyone who is already a member of THIS company.
+  const results = (data?.people ?? []).filter((p) => !existingIds.includes(p.user_id));
 
   const add = useMutation({
     mutationFn: () =>
       adminFetch(`/organizations/${orgId}/members`, {
         method: "POST",
-        body: JSON.stringify({ user_id: userId.trim(), role }),
+        body: JSON.stringify({ user_id: selected!.user_id, role }),
       }),
     onSuccess: () => { toast.success("Member added"); onAdded(); },
     onError: (e: Error) => toast.error(e.message),
@@ -561,20 +604,62 @@ function AddMemberDialog({ orgId, onClose, onAdded }: { orgId: string; onClose: 
       open
       onClose={onClose}
       title="Add member"
-      description="Add an existing customer to this organization by their user ID."
+      description="Search for an existing customer by name or email, then add them to this company."
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => add.mutate()} disabled={add.isPending || !userId.trim()}>
+          <Button onClick={() => add.mutate()} disabled={add.isPending || !selected}>
             {add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Add
           </Button>
         </>
       }
     >
       <div className="space-y-1.5">
-        <Label>Customer user ID</Label>
-        <Input value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="uuid…" className="font-mono text-xs" />
-        <p className="text-xs text-muted-foreground">Find the ID on the customer's detail page.</p>
+        <Label>Customer</Label>
+        {selected ? (
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium">{selected.full_name || "—"}</div>
+              <div className="truncate text-xs text-muted-foreground">{selected.email}</div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => { setSelected(null); setQuery(""); }}>
+              <X className="h-4 w-4" /> Change
+            </Button>
+          </div>
+        ) : (
+          <>
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name or email…"
+              autoFocus
+            />
+            {debounced.length >= 1 && (
+              <div className="mt-1 max-h-56 overflow-y-auto rounded-md border border-border">
+                {isFetching ? (
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+                  </div>
+                ) : results.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">No matching customers.</div>
+                ) : (
+                  results.map((p) => (
+                    <button
+                      key={p.user_id}
+                      type="button"
+                      onClick={() => setSelected(p)}
+                      className="block w-full border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-muted/40"
+                    >
+                      <div className="truncate text-sm">{p.full_name || "—"}</div>
+                      <div className="truncate text-xs text-muted-foreground">{p.email}</div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Only existing customer logins appear here; staff accounts are excluded.</p>
+          </>
+        )}
       </div>
       <div className="space-y-1.5">
         <Label>Role</Label>

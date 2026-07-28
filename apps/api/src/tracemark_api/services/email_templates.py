@@ -636,7 +636,7 @@ def new_lead_html(
   {rows_html}
 </table>
 {_divider()}
-{_btn("View in Admin Portal", "https://admin.tracemark.ai/leads")}
+{_btn("View in Admin Portal", "https://admin.hakkiu.com/leads")}
 """
     return _base(content, preheader=f"New {tier_label} lead from {email}")
 
