@@ -1,5 +1,18 @@
 import type { CheckBrandResponse } from "./api.types";
 
+// Base URL of the customer app, for linking to case pages in escalation emails.
+// Evidence screenshots live in a PRIVATE bucket (C5) and are served via
+// short-lived signed URLs, which would 403 by the time an email is read. So
+// emails link to the (auth-gated, permanent) in-app case page instead of
+// embedding a raw screenshot URL.
+const APP_BASE_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_APP_URL) ||
+  (typeof window !== "undefined" ? window.location.origin : "https://hakkiu.com");
+
+function caseLink(caseId: string): string {
+  return `${APP_BASE_URL}/cases/${caseId}`;
+}
+
 /**
  * Trigger browser-based compose window for Gmail or default mail client.
  */
@@ -30,7 +43,7 @@ export function buildInfringementEscalationText(i: any): { subject: string; body
   const riskLevel = i.risk_level || "N/A";
   const matchScore = i.match_score !== undefined ? `${i.match_score}%` : "N/A";
   const matchType = i.match_type || "N/A";
-  const screenshotUrl = i.screenshot_url || "N/A";
+  const evidenceLink = i.case_id ? caseLink(i.case_id) : caseLink(caseId);
   const dateStr = i.flagged_at ? new Date(i.flagged_at).toLocaleString() : new Date().toLocaleString();
 
   const subject = `Escalation: Possible IP Risk Detected - Case #${caseId.slice(0, 8).toUpperCase()}`;
@@ -49,7 +62,7 @@ Case Details:
 
 Evidence:
 - Target URL: ${sourceUrl}
-- Screenshot URL: ${screenshotUrl}
+- Evidence & screenshot (view in HAKKIU): ${evidenceLink}
 - Additional Details: Potential trademark/copyright violation identified on ${platform}.
 
 Please review and initiate the appropriate legal/takedown procedure.
@@ -95,6 +108,9 @@ Scan Overview:
   }
 
   body += `Compiled Evidence:\n`;
+  // Screenshots live in a private bucket (C5); link to the in-app case page
+  // (auth-gated, permanent) rather than embedding expiring signed URLs.
+  body += `Full evidence & screenshots (view in HAKKIU): ${caseLink(caseId)}\n`;
 
   // Marketplaces
   if (evidence?.marketplaces && evidence.marketplaces.length > 0) {
@@ -103,7 +119,6 @@ Scan Overview:
       body += `- Seller: ${item.seller_name} on ${item.platform}\n`;
       body += `  URL: ${item.listing_url}\n`;
       if (item.price) body += `  Price: ${item.price}\n`;
-      if (item.screenshot_url) body += `  Screenshot: ${item.screenshot_url}\n`;
     });
   }
 
@@ -114,7 +129,6 @@ Scan Overview:
       body += `- Domain: ${item.domain_name} (Registrar: ${item.registrar || "N/A"})\n`;
       body += `  Similarity Score: ${item.similarity_score}%\n`;
       body += `  Is Clone: ${item.is_clone ? "Yes" : "No"}\n`;
-      if (item.screenshot_url) body += `  Screenshot: ${item.screenshot_url}\n`;
     });
   }
 
@@ -124,7 +138,6 @@ Scan Overview:
     evidence.ads.forEach((item) => {
       body += `- Ad Copy: "${item.ad_copy}" on ${item.platform}\n`;
       body += `  Destination URL: ${item.destination_url}\n`;
-      if (item.screenshot_url) body += `  Screenshot: ${item.screenshot_url}\n`;
     });
   }
 

@@ -6,6 +6,7 @@ from typing import Literal
 
 from tracemark_api.dependencies import get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.storage import sign_screenshot_url
 
 router = APIRouter(prefix="/infringements", tags=["infringements"])
 
@@ -103,6 +104,8 @@ def _flatten_case_fields(row: dict) -> dict:
     flattened["brand_name"] = case_info.get("brand_name")
     flattened["case_status"] = case_info.get("status")
     flattened["case_updated_at"] = case_info.get("updated_at")
+    # Private bucket (C5): mint a short-lived signed URL for the client to render.
+    flattened["screenshot_url"] = sign_screenshot_url(flattened.get("screenshot_url"))
     # Prefer the item's own per-copycat region (multi-region scans); fall back
     # to the parent case's region for rows persisted before that column existed.
     if not flattened.get("detection_region"):
@@ -191,7 +194,42 @@ def get_evidence(
         .order("created_at", desc=True)
         .execute()
     )
-    return result.data or []
+    rows = result.data or []
+    # Private bucket (C5): sign each screenshot for client rendering.
+    for r in rows:
+        r["screenshot_url"] = sign_screenshot_url(r.get("screenshot_url"))
+    return rows
+
+class SignScreenshotsRequest(BaseModel):
+    paths: list[str]
+
+
+@router.post("/screenshots/sign")
+def sign_screenshots(
+    payload: SignScreenshotsRequest,
+    profile: CurrentProfile = Depends(get_current_profile),
+) -> dict[str, str | None]:
+    """Batch-sign evidence-screenshot references for the scan-result dialog.
+
+    The customer scan-result view reads the ``evidence`` JSONB directly from
+    Supabase (not API-mediated). Those screenshots were uploaded by the
+    service-role key, so they have no per-user storage owner — client-side
+    signing / owner-RLS cannot work. The frontend therefore posts the collected
+    references here and gets back short-lived signed URLs.
+
+    Auth-gated (any logged-in user). We only mint signed URLs; we don't leak
+    which paths exist (unknown/failed paths map to null).
+    """
+    paths = [p for p in (payload.paths or []) if p]
+    if len(paths) > 100:
+        raise HTTPException(status_code=400, detail="Too many paths (max 100)")
+    # De-duplicate while preserving determinism; return a map keyed by the
+    # original reference so the client can look each one up.
+    out: dict[str, str | None] = {}
+    for p in dict.fromkeys(paths):
+        out[p] = sign_screenshot_url(p)
+    return out
+
 
 class UpdateStatusRequest(BaseModel):
     status: str

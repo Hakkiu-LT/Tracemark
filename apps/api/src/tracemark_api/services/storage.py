@@ -3,7 +3,13 @@ Supabase Storage helpers for persisting evidence screenshots.
 
 Firecrawl returns temporary signed URLs that expire after a few hours.
 This module downloads those screenshots and re-uploads them to Supabase
-Storage as compressed WebP, returning a permanent public URL.
+Storage as compressed WebP.
+
+Security (C5): the ``evidence-screenshots`` bucket is PRIVATE. Uploaders store
+the BARE STORAGE PATH (e.g. ``marketplace/<uuid>.webp``) in the database, and
+readers mint a short-lived signed URL via :func:`sign_screenshot_url` at
+serve-time. ``sign_screenshot_url`` also accepts legacy full public URLs, so no
+DB backfill is required when the bucket is flipped to private.
 """
 from __future__ import annotations
 
@@ -17,6 +23,11 @@ from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
 BUCKET = "evidence-screenshots"
 BRAND_ASSETS_BUCKET = "brand-assets"
 WEBP_QUALITY = 85
+
+# Signed-URL TTLs (seconds). Short for in-app viewing, long for emails whose
+# links may be opened days after delivery.
+SCREENSHOT_SIGN_TTL = 3600           # 1 hour — in-app image rendering
+SCREENSHOT_SIGN_TTL_EMAIL = 604800   # 7 days — links embedded in emails
 
 
 def _compress_to_webp(image_bytes: bytes) -> bytes:
@@ -41,13 +52,19 @@ def _ensure_bucket() -> None:
     sb = get_supabase()
     existing = [b.name for b in sb.storage.list_buckets()]
     if BUCKET not in existing:
-        sb.storage.create_bucket(BUCKET, options={"public": True})
+        # PRIVATE bucket (C5): evidence screenshots leak tenant data if world
+        # readable. Readers mint short-lived signed URLs via sign_screenshot_url.
+        sb.storage.create_bucket(BUCKET, options={"public": False})
 
 
 def upload_screenshot(image_url: str, prefix: str = "meta") -> str | None:
     """
     Download a screenshot from a temporary URL, compress to WebP, and upload
-    to Supabase Storage. Returns a permanent public URL, or None on failure.
+    to Supabase Storage.
+
+    Returns the BARE STORAGE PATH (e.g. ``marketplace/<uuid>.webp``) — the bucket
+    is private, so callers must mint a signed URL via :func:`sign_screenshot_url`
+    at serve-time. Returns None on failure.
     """
     try:
         validate_ssrf_url(image_url)
@@ -71,7 +88,8 @@ def upload_screenshot(image_url: str, prefix: str = "meta") -> str | None:
             {"content-type": "image/webp", "upsert": "true"},
         )
 
-        return sb.storage.from_(BUCKET).get_public_url(path)
+        # Private bucket — store the bare path; sign at serve-time.
+        return path
     except Exception as e:
         print(f"[Storage] Failed to upload screenshot: {e}")
         return None
@@ -80,7 +98,9 @@ def upload_screenshot(image_url: str, prefix: str = "meta") -> str | None:
 def upload_screenshot_bytes(image_bytes: bytes, prefix: str = "meta") -> str | None:
     """
     Compress raw image bytes to WebP and upload to Supabase Storage.
-    Returns a permanent public URL, or None on failure.
+
+    Returns the BARE STORAGE PATH (private bucket) or None on failure. Callers
+    mint a signed URL via :func:`sign_screenshot_url` at serve-time.
     """
     try:
         compressed = _compress_to_webp(image_bytes)
@@ -94,10 +114,70 @@ def upload_screenshot_bytes(image_bytes: bytes, prefix: str = "meta") -> str | N
             {"content-type": "image/webp", "upsert": "true"},
         )
 
-        return sb.storage.from_(BUCKET).get_public_url(path)
+        # Private bucket — store the bare path; sign at serve-time.
+        return path
     except Exception as e:
         print(f"[Storage] Failed to upload screenshot bytes: {e}")
         return None
+
+
+def _extract_screenshot_path(stored: str) -> str:
+    """Resolve a stored screenshot reference to a bucket-relative path.
+
+    Handles all three shapes seen in the DB:
+      * bare path (new)           → ``marketplace/x.webp``
+      * legacy full public URL    → ``.../evidence-screenshots/marketplace/x.webp``
+      * foreign / mock http URL   → returned unchanged (caller must special-case)
+    """
+    marker = "/evidence-screenshots/"
+    idx = stored.find(marker)
+    if idx != -1:
+        return stored[idx + len(marker):]
+    return stored
+
+
+def sign_screenshot_url(stored: str | None, ttl: int = SCREENSHOT_SIGN_TTL) -> str | None:
+    """Return a short-lived signed URL for a stored evidence-screenshot reference.
+
+    Backward-compatible with BOTH new bare paths and legacy full public URLs, so
+    no data backfill is needed when the bucket is flipped to private:
+      * falsy               → None
+      * contains the bucket marker → sign the path after ``/evidence-screenshots/``
+      * else starts with ``http`` → foreign/mock URL (e.g. placehold.co) → return as-is
+      * else                → treat the whole value as a bare path and sign it
+
+    Mirrors :func:`get_brand_asset_url` (dict handling + defensive try/except).
+    """
+    if not stored:
+        return None
+    if "/evidence-screenshots/" not in stored and stored.startswith("http"):
+        # Foreign/mock URL that never lived in our bucket — nothing to sign.
+        return stored
+    path = _extract_screenshot_path(stored)
+    if not path:
+        return stored
+    try:
+        sb = get_supabase()
+        res = sb.storage.from_(BUCKET).create_signed_url(path, expires_in=ttl)
+        signed = res.get("signedURL", "") if isinstance(res, dict) else ""
+        return signed or None
+    except Exception as e:
+        print(f"[Storage] Failed to sign screenshot url: {e}")
+        return None
+
+
+def sign_screenshot_url_long(stored: str | None) -> str | None:
+    """7-day signed-URL variant for EMAIL contexts (a 1h URL would 403 in an inbox)."""
+    return sign_screenshot_url(stored, ttl=SCREENSHOT_SIGN_TTL_EMAIL)
+
+
+def resolve_screenshot_fetch_url(stored: str | None) -> str | None:
+    """Resolve a stored reference to a URL the BACKEND can fetch (AI vision, pHash).
+
+    Same logic as :func:`sign_screenshot_url` but named for internal pipeline use:
+    a bare path must be signed before ``httpx.get`` can download it.
+    """
+    return sign_screenshot_url(stored, ttl=SCREENSHOT_SIGN_TTL)
 
 
 def _ensure_brand_assets_bucket() -> None:
@@ -220,9 +300,16 @@ def cleanup_old_cases() -> None:
             for url in urls_to_delete:
                 idx = url.find(marker)
                 if idx != -1:
+                    # Legacy full URL → path after the bucket marker.
                     path = url[idx + len(marker):]
-                    if path:
-                        paths_to_delete.append(path)
+                elif url.startswith("http"):
+                    # Foreign/mock URL that never lived in our bucket — skip.
+                    continue
+                else:
+                    # New bare path stored directly.
+                    path = url
+                if path:
+                    paths_to_delete.append(path)
 
             if paths_to_delete:
                 try:

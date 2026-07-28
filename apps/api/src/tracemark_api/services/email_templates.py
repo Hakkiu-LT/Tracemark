@@ -11,13 +11,11 @@ from datetime import datetime, timezone
 # Defaults to https://hakkiu.com so emails always contain real URLs even in local dev.
 # Override in .env if needed: EMAIL_BASE_URL=https://hakkiu.com
 _APP_URL = os.environ.get("EMAIL_BASE_URL", "https://hakkiu.com").rstrip("/")
-# Logo hosted in the public evidence-screenshots bucket — always accessible.
-_SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-_LOGO_URL = (
-    f"{_SUPABASE_URL}/storage/v1/object/public/evidence-screenshots/_branding/hakkiu-lockup.png"
-    if _SUPABASE_URL
-    else f"{_APP_URL}/hakkiu-lockup.png"
-)
+# Logo is served from the customer app's public/ dir. It previously lived in the
+# evidence-screenshots bucket via a public URL, but that bucket is now PRIVATE
+# (C5) so the public logo URL would 400/404. The app-hosted asset is always
+# reachable and needs no signing.
+_LOGO_URL = f"{_APP_URL}/hakkiu-lockup.png"
 
 _BRAND_COLOR = "#16a34a"   # green-600
 _DARK = "#0f172a"          # slate-900

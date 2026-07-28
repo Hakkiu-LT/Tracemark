@@ -135,6 +135,65 @@ function mapEvidence(row: EvidenceRow | undefined): EvidenceResponse {
   };
 }
 
+/**
+ * Resolve a stored evidence-screenshot reference to a bucket-relative path for
+ * deletion. Handles bare paths (new), legacy full public URLs, and skips
+ * foreign/mock http URLs that never lived in our bucket.
+ */
+function screenshotStoragePath(ref: string | null | undefined): string | null {
+  if (!ref) return null;
+  const marker = "/evidence-screenshots/";
+  const idx = ref.indexOf(marker);
+  if (idx !== -1) return ref.slice(idx + marker.length) || null;
+  if (ref.startsWith("http")) return null; // foreign/mock URL — not ours
+  return ref; // bare path stored directly
+}
+
+/**
+ * Evidence screenshots live in a PRIVATE Supabase bucket (C5). The rows read
+ * directly from Supabase carry bare storage paths (or legacy full URLs), not
+ * renderable URLs. Collect every `screenshot_url`, ask the API to mint
+ * short-lived signed URLs (POST /infringements/screenshots/sign), and rewrite
+ * each item in place so the scan-result dialog can render <img> tags.
+ *
+ * Imported lazily to avoid a static circular import (api.ts imports `supabase`).
+ */
+async function signEvidenceScreenshots(evidence: EvidenceResponse): Promise<void> {
+  const categories = [
+    evidence.marketplaces,
+    evidence.ads,
+    evidence.domains,
+  ] as Array<Array<{ screenshot_url: string | null }>>;
+
+  const refs = new Set<string>();
+  categories.forEach((items) => {
+    items?.forEach((item) => {
+      if (item?.screenshot_url) refs.add(item.screenshot_url);
+    });
+  });
+  if (refs.size === 0) return;
+
+  try {
+    const { apiFetch } = await import("./api");
+    const paths = Array.from(refs).slice(0, 100);
+    const signed = await apiFetch<Record<string, string | null>>(
+      "/infringements/screenshots/sign",
+      { method: "POST", body: JSON.stringify({ paths }) }
+    );
+    categories.forEach((items) => {
+      items?.forEach((item) => {
+        if (item?.screenshot_url && item.screenshot_url in signed) {
+          item.screenshot_url = signed[item.screenshot_url];
+        }
+      });
+    });
+  } catch (err) {
+    // Non-fatal: fall back to leaving the raw references (which won't render on
+    // a private bucket, but the rest of the case detail still loads).
+    console.error("[Screenshots] Failed to sign evidence screenshots:", err);
+  }
+}
+
 function mapTakedown(row: TakedownRow): TakedownReport {
   return {
     id: row.id,
@@ -246,10 +305,14 @@ export async function fetchCaseFromSupabase(
   const decisionRow = data.decisions?.[0];
   if (!decisionRow) return null;
 
+  const evidence = mapEvidence(data.evidence?.[0]);
+  // Private bucket (C5): swap bare storage paths for short-lived signed URLs.
+  await signEvidenceScreenshots(evidence);
+
   return {
     case_id: data.id,
     decision: mapDecision(decisionRow),
-    evidence: mapEvidence(data.evidence?.[0]),
+    evidence,
     takedown_reports: (data.takedown_reports ?? []).map(mapTakedown),
     detection_region: data.detection_region || null,
   };
@@ -272,17 +335,13 @@ export async function deleteInfringementFromSupabase(infringementId: string): Pr
 
     const url = data?.screenshot_url;
     if (url) {
-      const marker = "/evidence-screenshots/";
-      const idx = url.indexOf(marker);
-      if (idx !== -1) {
-        const path = url.slice(idx + marker.length);
-        if (path) {
-          const { error: storageError } = await supabase.storage
-            .from("evidence-screenshots")
-            .remove([path]);
-          if (storageError) {
-            console.error("[Storage Cleanup] Failed to delete screenshot:", storageError);
-          }
+      const path = screenshotStoragePath(url);
+      if (path) {
+        const { error: storageError } = await supabase.storage
+          .from("evidence-screenshots")
+          .remove([path]);
+        if (storageError) {
+          console.error("[Storage Cleanup] Failed to delete screenshot:", storageError);
         }
       }
     }
@@ -342,14 +401,8 @@ export async function deleteCaseFromSupabase(caseId: string): Promise<boolean> {
     // 4. Parse relative paths (relative to evidence-screenshots bucket)
     const pathsToDelete: string[] = [];
     urlsToClean.forEach((url) => {
-      const marker = "/evidence-screenshots/";
-      const idx = url.indexOf(marker);
-      if (idx !== -1) {
-        const path = url.slice(idx + marker.length);
-        if (path) {
-          pathsToDelete.push(path);
-        }
-      }
+      const path = screenshotStoragePath(url);
+      if (path) pathsToDelete.push(path);
     });
 
     // 5. Delete files from storage

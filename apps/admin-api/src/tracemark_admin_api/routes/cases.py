@@ -13,6 +13,37 @@ from tracemark_admin_api.services.audit import write_audit_log
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
+_EVIDENCE_BUCKET = "evidence-screenshots"
+_SCREENSHOT_MARKER = "/evidence-screenshots/"
+_SIGN_TTL = 3600  # 1 hour — matches the customer app's signing TTL.
+
+
+def _sign_screenshot(stored: str | None) -> str | None:
+    """Mint a short-lived signed URL for a private evidence-screenshot reference.
+
+    Mirrors the main API's ``sign_screenshot_url`` (C5): accepts bare storage
+    paths (new), legacy full public URLs, and foreign/mock http URLs. The
+    service-role client bypasses storage RLS, so signing always succeeds for a
+    valid path. Returns a full signed URL that the admin ``ensureAbsoluteUrl``
+    helper passes through unchanged.
+    """
+    if not stored:
+        return None
+    if _SCREENSHOT_MARKER not in stored and stored.startswith("http"):
+        return stored  # foreign/mock URL — nothing to sign
+    idx = stored.find(_SCREENSHOT_MARKER)
+    path = stored[idx + len(_SCREENSHOT_MARKER):] if idx != -1 else stored
+    if not path:
+        return stored
+    try:
+        sb = customer_sb()
+        res = sb.storage.from_(_EVIDENCE_BUCKET).create_signed_url(path, expires_in=_SIGN_TTL)
+        signed = res.get("signedURL", "") if isinstance(res, dict) else ""
+        return signed or None
+    except Exception as e:  # pragma: no cover - defensive
+        print(f"[Admin] Failed to sign screenshot url: {e}")
+        return None
+
 
 class CaseRow(BaseModel):
     id: str
@@ -98,10 +129,15 @@ def get_case(case_id: str, staff: StaffPrincipal = Depends(require_permission("c
         sb.table("evidence_items").select("*").in_("infringement_id", infr_ids).execute().data
         if infr_ids else []
     ) or []
+    # Private bucket (C5): sign each evidence-item screenshot before returning.
+    for e in evidence:
+        e["screenshot_url"] = _sign_screenshot(e.get("screenshot_url"))
     ev_by_infr: dict[str, list] = {}
     for e in evidence:
         ev_by_infr.setdefault(e.get("infringement_id"), []).append(e)
     for i in infringements:
+        # Private bucket (C5): sign the infringement's own screenshot too.
+        i["screenshot_url"] = _sign_screenshot(i.get("screenshot_url"))
         i["evidence_items"] = ev_by_infr.get(i["id"], [])
 
     takedowns = sb.table("takedown_reports").select("*").eq("case_id", case_id).order("created_at", desc=True).execute().data or []

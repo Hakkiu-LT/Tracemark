@@ -297,8 +297,13 @@ def compute_screenshot_phash(screenshot_url: str) -> int | None:
     if not screenshot_url:
         return None
 
+    # The stored value is now a BARE private-bucket path (C5); resolve it to a
+    # signed URL the backend can download (legacy/foreign URLs pass through).
+    from tracemark_api.services.storage import resolve_screenshot_fetch_url
+    fetch_url = resolve_screenshot_fetch_url(screenshot_url) or screenshot_url
+
     try:
-        validate_ssrf_url(screenshot_url)
+        validate_ssrf_url(fetch_url)
     except SSRFError as e:
         print(f"[Embedding] Rejected unsafe screenshot URL in compute_screenshot_phash: {e}")
         return None
@@ -309,7 +314,7 @@ def compute_screenshot_phash(screenshot_url: str) -> int | None:
         from PIL import Image
         import imagehash
 
-        resp = httpx.get(screenshot_url, timeout=15.0, follow_redirects=False)
+        resp = httpx.get(fetch_url, timeout=15.0, follow_redirects=False)
         if resp.status_code != 200:
             return None
 

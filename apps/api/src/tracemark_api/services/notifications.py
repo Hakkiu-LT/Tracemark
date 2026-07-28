@@ -208,7 +208,10 @@ def dispatch_notifications(event: dict) -> None:
         platform = event.get("platform") or inf_data.get("platform", "marketplace")
         risk_level = inf_data.get("risk_level", "HIGH")
         match_score = float(inf_data.get("match_score") or 0.85)
-        screenshot_url = inf_data.get("screenshot_url")
+        # Private bucket (C5): the stored value is a bare path. Emails may be
+        # opened days later, so mint a 7-day signed URL (a 1h one would 403).
+        from tracemark_api.services.storage import sign_screenshot_url_long
+        screenshot_url = sign_screenshot_url_long(inf_data.get("screenshot_url"))
 
         # Only email on HIGH risk to avoid alert fatigue
         if risk_level != "HIGH":
