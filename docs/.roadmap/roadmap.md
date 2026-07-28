@@ -264,7 +264,7 @@ remain (non-destructive; drop later via a forward migration if desired).
 - **Hetzner CCX13 Instance Provisioning** | ✅ Done | Ubuntu 24.04 provisioned + hardened: `deploy` user, SSH keys-only (root+password login off), ufw (22/80/443), fail2ban, unattended-upgrades, 4G swap, Docker 29.6 + Compose v5.3.
 - **Dockerized Container Architecture** | ✅ Done | 4 images built + running via `docker-compose.yml` (api, admin-api, frontend/workerd, admin/nginx) + Caddy; env_file loads root `.env`; json-file log rotation (10m×3) on all services.
 - **Caddy Reverse Proxy & SSL Auto-Renewal** | ✅ Done | Caddy obtained Let's Encrypt certs for all 5 hostnames (hakkiu.com, www, api, admin, admin-api); www→apex 301; auto-renew via `caddy_data` volume. External HTTPS verified (apex 200, both `/health` 200, admin SPA 200).
-- **CI/CD Deployment Pipelines** | ⚠️ Partial | `ci.yml` + `deploy.yml` (SSH auto-deploy after green CI) in repo. Server pulls via classic PAT. Pending: repo-admin (SuperGabSq) must add `SSH_*` Actions secrets to enable auto-deploy; until then manual `git pull && docker compose up -d --build`.
+- **CI/CD Deployment Pipelines** | ✅ Done | `ci.yml` + `deploy.yml` (SSH auto-deploy after green CI) live. The four `SSH_*` Actions secrets were added 2026-07-28; every green push to `main` now auto-deploys to Hetzner (verified: all runs since succeed, all 4 domains 200). Manual `git pull && docker compose up -d --build` remains as a fallback.
 - **Automated DB & Storage Backups** | ⚠️ Partial | `scripts/backup.sh` ready on server. Pending: install `postgresql-client`, set `DATABASE_URL`, add nightly cron.
 
 ---

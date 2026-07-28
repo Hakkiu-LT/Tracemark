@@ -14,10 +14,11 @@
   migration (SQL FILES kept as DB history; tables are unused, not referenced).
 - [ ] Optional: E2E test one demo-form submission (verify row in admin `/leads` + staff email).
 
-⚠️ **CI auto-deploy is broken** — the GitHub `Deploy` workflow fails on every push with
-`Error: missing server host`: the repo has **no** `SSH_*` secrets. Fix = set
-`SSH_HOST=116.202.8.87`, `SSH_USER=deploy`, `SSH_PORT=22`, `SSH_KEY=<~/.ssh/hakkiu priv key>`
-via `gh secret set` (needs SuperGabSq repo-admin). Until then every prod deploy is manual over SSH.
+✅ **CI auto-deploy is LIVE** (fixed 2026-07-28 ~05:25 UTC) — the four `SSH_*` secrets
+(`SSH_HOST`/`SSH_USER`/`SSH_PORT`/`SSH_KEY`) are set on the repo, so every green push to `main`
+auto-deploys to Hetzner via the `Deploy` workflow (chains on CI success → SSH `git reset --hard`
++ `docker compose build && up -d` + Caddy restart). Verified: all deploys since 05:25 succeed;
+commit `5679df9` deployed clean, all 4 domains 200. No more manual SSH deploys needed.
 
 ---
 
@@ -69,13 +70,12 @@ via `gh secret set` (needs SuperGabSq repo-admin). Until then every prod deploy 
 
 > Live on Hetzner CCX13 (116.202.8.87); all 5 domains on HTTPS via Caddy + Let's Encrypt.
 
-- [ ] **Supabase Auth URLs** — Site URL `https://hakkiu.com`; Redirect URLs `https://hakkiu.com/**`,
+- [x] **Supabase Auth URLs** — Site URL `https://hakkiu.com`; Redirect URLs `https://hakkiu.com/**`,
   `https://admin.hakkiu.com/**`; enable Confirm email.
 - [ ] Functional test: sign in on customer app → run a scan (API + Supabase + scraping E2E).
 - [ ] Backups: `apt install postgresql-client`, set `DATABASE_URL` in .env, cron
   `15 3 * * * /opt/hakkiu/scripts/backup.sh`.
 - [ ] Optional: set `GOOGLE_SERP_API` / `SEARCHCANS_API` in .env (blank → those scraper sources inactive).
-
 ---
 
 ## 🟡 PRIORITY 6 — Scraper Health (remaining)
