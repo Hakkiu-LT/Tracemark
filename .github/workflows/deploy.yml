@@ -13,6 +13,10 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
+# Least privilege: the deploy job only SSHes out; it needs no repo write scopes.
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: SSH deploy to Hetzner
@@ -21,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         with:
           host: ${{ secrets.SSH_HOST }} # server public IP / hostname
           username: ${{ secrets.SSH_USER }} # deploy user (e.g. "deploy")

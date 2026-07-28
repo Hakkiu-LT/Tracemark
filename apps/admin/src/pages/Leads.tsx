@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { adminFetch } from "@/lib/api";
 import { usePermission } from "@/lib/auth";
+import { ensureAbsoluteUrl } from "@/lib/utils";
 import {
   Badge,
   Button,
@@ -200,7 +201,7 @@ export function Leads() {
                         <div>{lead.company ?? <span className="text-muted-foreground">—</span>}</div>
                         {lead.website && (
                           <a
-                            href={lead.website.startsWith("http") ? lead.website : `https://${lead.website}`}
+                            href={ensureAbsoluteUrl(lead.website)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-primary hover:underline"

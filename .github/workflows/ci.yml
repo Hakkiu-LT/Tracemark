@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: CI only reads the repo (audit + tests).
+permissions:
+  contents: read
+
 jobs:
   audit-python-api:
     name: Python audit (main API)

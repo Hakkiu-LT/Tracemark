@@ -55,12 +55,17 @@ app.include_router(internal_router, prefix="/api/v1")
 app.include_router(usage_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
 
-_allowed_origins = [
+_local_dev_origins = [
     "http://localhost:8080",
     "http://localhost:8082",
     "http://localhost:5173",
     "http://localhost:3000",
-] + _production_origins
+]
+# In production only the explicit ALLOWED_ORIGINS are trusted; localhost is
+# dev-only. (Mirrors how admin-api gates its origin list.)
+_allowed_origins = (
+    _production_origins if _is_production else _local_dev_origins + _production_origins
+)
 
 app.add_middleware(
     CORSMiddleware,

@@ -50,11 +50,29 @@ admin.hakkiu.com {
 # ── Main API (scraping / AI / customer endpoints) ──────────────────────────
 api.hakkiu.com {
 	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Hide upstream server banner.
+		-Server
+	}
+
 	reverse_proxy api:8000
 }
 
 # ── Admin API ──────────────────────────────────────────────────────────────
 admin-api.hakkiu.com {
 	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Hide upstream server banner.
+		-Server
+	}
+
 	reverse_proxy admin-api:8001
 }

@@ -123,8 +123,8 @@ def get_client_billing(client_id: str, profile: CurrentProfile = Depends(get_cur
     if not client.data:
         raise HTTPException(status_code=404, detail="Client not found")
         
-    # Count client cases
-    cases = sb.table("cases").select("id").eq("client_id", client_id).execute()
+    # Count client cases (org-scoped defence-in-depth; client already org-verified above)
+    cases = sb.table("cases").select("id").eq("client_id", client_id).eq("organization_id", org_id).execute()
     cases_list = cases.data or []
     cases_count = len(cases_list)
     case_ids = [c["id"] for c in cases_list]

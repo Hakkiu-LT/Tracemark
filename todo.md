@@ -21,11 +21,28 @@ Full plan: `security-remediation-plan-2026-07-28.md`. 5-subagent deep audit + ma
 - [x] `supabase db push` — P0 migration APPLIED to LIVE DB (user-authorized 2026-07-28); remote now at 20260728000002. C2/C3/C4/L4 CLOSED on prod.
 - [x] Backend tests: 206 pass, 1 pre-existing live-network integration fail (`test_meta_ads_credentials`, unrelated).
 
-**DEFERRED (needs frontend-access verification before touching):**
-- [ ] H4 — add explicit `WITH CHECK` to persona mode-isolation policies (C2 already removes the main exploit path).
-- [ ] H7 — drop `organization_id = auth.uid()` branch from `brands` SELECT policy (verify no null-user_id brands depend on it).
-- [ ] C5 — make `evidence-screenshots` bucket private + signed URLs (BREAKS `<img>` display; needs frontend change + URL regen).
-- [ ] P1/P2/P3 remainder: admin rate-limiting, CORS localhost gate in prod, Caddy API headers, per-service env scoping, etc.
+**DONE — session 22b (subagent-investigated, implemented + validated):**
+- [x] H4 — WITH CHECK added to persona mode-isolation policies (cases/infringements/evidence/takedown_reports)
+  via `ALTER POLICY ... WITH CHECK` (USING untouched → zero read risk). Migration `20260728000003_security_rls_h4_h7.sql`.
+- [x] H7 — dropped `organization_id = auth.uid()` branch from `brands` policy (verified: create_brand always sets user_id). Same migration.
+- [x] M2/M3 — admin-api rate limiting: slowapi added; global limiter in main.py; `request-password-reset`
+  now `5/hour` per-IP + `3/hour` per-email in-process throttle. Smoke-tested (5×200 → 429).
+- [x] M8 — main-api CORS: localhost origins gated behind `not _is_production`.
+- [x] M9 — Caddy: security-header snippet (nosniff/HSTS/Referrer/-Server) added to api. + admin-api. blocks.
+- [x] M4 — uvicorn `--proxy-headers --forwarded-allow-ips *` on both Dockerfiles (real client IP for rate-limit keys + audit logs).
+- [x] L8 — pinned `appleboy/ssh-action` to SHA + `permissions: contents: read` on ci.yml + deploy.yml.
+- [x] L5 — `Leads.tsx` href now uses `ensureAbsoluteUrl`.
+- [x] L1 — `clients.py` billing cases count org-scoped (test updated).
+- Migration `20260728000003` validated on throwaway PG16 (exit 0). Backend: 206 pass, 1 pre-existing unrelated fail.
+
+**STILL PENDING (needs deploy / staging / user):**
+- [ ] Push migration `20260728000003` to prod (`supabase db push`) — awaiting authorization.
+- [ ] C5 — `evidence-screenshots` private + signed URLs: investigated (see plan) → **NO-GO for blind prod**
+  (breaks `<img>` display + email links + admin-api needs its own signer). Needs staging pass + email-link
+  strategy decision before deploy. Full implementation plan captured from subagent.
+- [ ] C1 finish — purge leaked key from git history (filter-repo/BFG) + confirm old key revoked in Supabase (user-only).
+- [ ] M10 — docker-compose per-service env: assessed NO-GO (too risky for the gain; keep env_file).
+- [ ] L9 — admin list_users/limit(1000) pagination: deferred (low priority until customer count grows).
 
 ---
 

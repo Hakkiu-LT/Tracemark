@@ -7,6 +7,9 @@ import os
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from tracemark_admin_api.routes.auth import router as auth_router
 from tracemark_admin_api.routes.staff import router as staff_router
@@ -37,6 +40,13 @@ app = FastAPI(
     redoc_url=None if _is_production else "/redoc",
     openapi_url=None if _is_production else "/openapi.json",
 )
+
+# Global rate limiter (keyed by client IP — needs uvicorn --proxy-headers behind
+# Caddy). Registered on app.state so slowapi's 429 handler resolves it; the public
+# password-reset route uses its own module-local limiter (see routes/auth.py).
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(staff_router, prefix="/api/v1")

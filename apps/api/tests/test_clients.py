@@ -94,7 +94,8 @@ def test_get_client_billing():
         if name == "clients":
             t.select.return_value.eq.return_value.eq.return_value.maybe_single.return_value.execute.return_value = mock_client_result
         elif name == "cases":
-            t.select.return_value.eq.return_value.execute.return_value = mock_cases_result
+            # org-scoped: .select().eq(client_id).eq(organization_id).execute()
+            t.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_cases_result
         elif name == "takedown_reports":
             t.select.return_value.in_.return_value.execute.return_value = mock_takedowns_result
         return t
