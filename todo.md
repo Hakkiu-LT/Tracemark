@@ -1,7 +1,26 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-28 (session 23 — error-status illustrations)
+> Last updated: 2026-07-28 (session 24 — real platform logos)
+
+---
+
+## 🏷️ Real platform logos (2026-07-28)
+
+Replace the old 1–2 letter colored-square placeholders (e.g. orange "M" for Meta Ads) with real
+brand logos across the whole app.
+
+- [x] Generated 12 logo PNGs → `src/images/platforms/` (simple-icons brand marks in brand colors +
+  Wikimedia Amazon smile; rendered @256px transparent bg via `sharp`). web-domain = neutral globe.
+- [x] `src/lib/platform-logos.ts` — `getPlatformLogo()` normalizer (handles "Meta Ads" / "meta_ads" /
+  "meta" / "facebook_marketplace" / "google_ads" / "domains" — lowercase + strip non-alphanumerics).
+- [x] `src/components/platform-logo.tsx` — `<PlatformLogo>` white rounded chip + 2-letter fallback.
+- [x] Wired customer app: `InfringementAlertFeed.tsx` (removed dead PLATFORM_THEMES), `cases.$caseId.tsx`
+  (the INFRINGER METADATA badge from the screenshot), `cases.tsx` table, `monitoring.new.tsx` selector.
+- [x] Admin-portal parity: copied PNGs → `apps/admin/src/images/platforms/`; twin `platform-logos.ts`
+  + `platform-logo.tsx`; wired `CaseDetail.tsx`, `ScraperHealth.tsx`, `ScraperHealthDetail.tsx`.
+- [x] `tsc --noEmit` clean (both apps); customer `vite build` ✓ (10 PNGs emitted, aliexpress+tiktok
+  inlined as data-URIs since <4 KB).
 
 ---
 

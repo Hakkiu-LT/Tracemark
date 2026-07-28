@@ -2,7 +2,7 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-28 (session 21 — legal/company footer pages + footer redesign + LinkedIn)
+> Last updated: 2026-07-28 (session 24 — real platform logos replacing letter placeholders)
 
 ---
 

@@ -4,6 +4,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 
 import { adminFetch } from "@/lib/api";
+import { PlatformLogo } from "@/components/platform-logo";
 import {
   Badge,
   Button,
@@ -73,7 +74,8 @@ export function ScraperHealthDetail() {
             <ArrowLeft className="h-4 w-4" />
             Scraper Health
           </Link>
-          <h1 className="text-2xl font-bold capitalize tracking-tight">
+          <h1 className="flex items-center gap-2 text-2xl font-bold capitalize tracking-tight">
+            <PlatformLogo platform={platform} className="h-7 w-7" />
             {platformLabel}
           </h1>
           <p className="text-sm text-muted-foreground">

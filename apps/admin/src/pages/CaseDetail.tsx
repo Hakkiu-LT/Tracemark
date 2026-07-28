@@ -8,6 +8,7 @@ import { adminFetch } from "@/lib/api";
 import { ensureAbsoluteUrl } from "@/lib/utils";
 import { Can } from "@/components/Can";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { PlatformLogo } from "@/components/platform-logo";
 import {
   Badge,
   Button,
@@ -191,6 +192,7 @@ export function CaseDetail() {
                 )}
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex items-center gap-2">
+                    <PlatformLogo platform={inf.platform} className="h-5 w-5" imgClassName="p-0.5" />
                     <Badge variant="outline">{inf.platform}</Badge>
                     <a href={ensureAbsoluteUrl(inf.source_url) || "#"} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent hover:underline">
                       {inf.source_url}
@@ -321,6 +323,7 @@ function TakedownCard({ td, onSave, onSend }: { td: Takedown; onSave: (body: unk
   return (
     <div className="rounded-md border border-border p-4 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
+        <PlatformLogo platform={td.platform} className="h-5 w-5" imgClassName="p-0.5" />
         <Badge variant="outline">{td.platform}</Badge>
         <span className="text-xs text-muted-foreground">{td.submission_method}{td.submission_email ? ` · ${td.submission_email}` : ""}</span>
         <Can permission="customers.edit" fallback={<Badge>{td.status}</Badge>}>

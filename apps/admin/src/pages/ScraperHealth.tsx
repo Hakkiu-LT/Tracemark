@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 
 import { adminFetch } from "@/lib/api";
+import { PlatformLogo } from "@/components/platform-logo";
 import {
   Badge,
   Button,
@@ -145,6 +146,7 @@ export function ScraperHealth() {
                         <TableCell className="font-medium capitalize">
                           <span className="flex items-center gap-2">
                             {p.is_degraded && <AlertTriangle className="h-4 w-4 text-destructive" />}
+                            <PlatformLogo platform={p.platform} className="h-5 w-5" imgClassName="p-0.5" />
                             <Link
                               to="/monitoring/scrapers/$platform"
                               params={{ platform: p.platform }}

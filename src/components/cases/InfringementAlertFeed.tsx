@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { getRegionForId, getMacroRegionForCountry, COUNTRY_BY_CODE } from "@/lib/regions";
 import { ErrorState } from "@/components/error-state";
+import { PlatformLogo } from "@/components/platform-logo";
 import {
   Search,
   X,
@@ -22,29 +23,6 @@ import {
   ArrowUpRight,
   SlidersHorizontal,
 } from "lucide-react";
-
-// Platform icons or logo colors mapping
-const PLATFORM_THEMES: Record<string, { bg: string; text: string }> = {
-  amazon: { bg: "bg-amber-500/10", text: "text-amber-500" },
-  shopify: { bg: "bg-emerald-500/10", text: "text-emerald-500" },
-  instagram: { bg: "bg-pink-500/10", text: "text-pink-500" },
-  facebook: { bg: "bg-blue-600/10", text: "text-blue-600" },
-  ebay: { bg: "bg-blue-400/10", text: "text-blue-400" },
-  aliexpress: { bg: "bg-orange-500/10", text: "text-orange-500" },
-  tiktok: { bg: "bg-zinc-800/10", text: "text-zinc-400" },
-  google: { bg: "bg-red-500/10", text: "text-red-500" },
-  google_ads: { bg: "bg-red-500/10", text: "text-red-500" },
-  meta_ads: { bg: "bg-blue-500/10", text: "text-blue-500" },
-  domain: { bg: "bg-teal-500/10", text: "text-teal-500" },
-};
-
-function getPlatformTheme(platform: string) {
-  const norm = platform.toLowerCase();
-  for (const k of Object.keys(PLATFORM_THEMES)) {
-    if (norm.includes(k)) return PLATFORM_THEMES[k];
-  }
-  return { bg: "bg-primary/10", text: "text-primary" };
-}
 
 function inDateRange(dateStr: string, range: DateRange | undefined) {
   if (!range?.from) return true;
@@ -314,7 +292,6 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
           ) : (
             <div className="divide-y">
               {filteredItems.map((item) => {
-                const theme = getPlatformTheme(item.platform);
                 const detectDate = new Date(item.flagged_at || item.created_at);
                 const timeString = detectDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                 const dateString = detectDate.toLocaleDateString([], { month: "short", day: "numeric" });
@@ -327,15 +304,7 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
                     className="flex items-center gap-4 p-4 transition-colors hover:bg-muted/50 group"
                   >
                     {/* Platform Emblem */}
-                    <div
-                      className={cn(
-                        "h-10 w-10 shrink-0 rounded-md border flex items-center justify-center font-bold text-sm select-none",
-                        theme.bg,
-                        theme.text
-                      )}
-                    >
-                      {item.platform.slice(0, 2).toUpperCase()}
-                    </div>
+                    <PlatformLogo platform={item.platform} className="h-10 w-10" />
 
                     {/* Meta Details */}
                     <div className="min-w-0 flex-1">

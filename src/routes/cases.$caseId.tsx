@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/error-state";
 import { BoundingBoxOverlay } from "@/components/BoundingBoxOverlay";
+import { PlatformLogo } from "@/components/platform-logo";
 import evidencePlaceholder from "@/images/evidence-placeholder.png";
 import { toast } from "sonner";
 import { ensureAbsoluteUrl } from "@/lib/utils";
@@ -392,9 +393,7 @@ function CaseDetail() {
                     PLATFORM
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded bg-[#FF4500] flex items-center justify-center text-white text-[10px] font-bold uppercase">
-                      {i.platform.slice(0, 1)}
-                    </span>
+                    <PlatformLogo platform={i.platform} className="w-6 h-6 rounded" imgClassName="p-1" />
                     <span className="text-sm font-medium text-foreground">
                       {i.platform}
                     </span>

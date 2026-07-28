@@ -26,6 +26,7 @@ import { getInfringements, type InfringementFeedItem } from "@/lib/api";
 import { deleteInfringementFromSupabase } from "@/lib/supabase";
 
 import { RiskBadge } from "@/components/risk-badge";
+import { PlatformLogo } from "@/components/platform-logo";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -257,7 +258,12 @@ function CasesList() {
             </span>
           </Link>
         </TableCell>
-        <TableCell className="text-sm capitalize">{c.platform.replace(/_/g, " ")}</TableCell>
+        <TableCell className="text-sm capitalize">
+          <span className="flex items-center gap-2">
+            <PlatformLogo platform={c.platform} className="h-5 w-5 rounded" imgClassName="p-0.5" />
+            {c.platform.replace(/_/g, " ")}
+          </span>
+        </TableCell>
         <TableCell>
           <RiskBadge risk={c.risk_level.toLowerCase() as "high" | "medium" | "low"} />
         </TableCell>

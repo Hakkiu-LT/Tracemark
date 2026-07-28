@@ -2,6 +2,7 @@ import React from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useStore, type Platform } from "@/lib/store";
 import { PLATFORMS, PLATFORM_GROUPS } from "@/lib/platforms";
+import { PlatformLogo } from "@/components/platform-logo";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { checkBrandFullPipeline, createBrand, uploadBrandAsset } from "@/lib/api";
@@ -525,7 +526,7 @@ function NewAssetPage() {
                         <hr className="flex-1 border-border" />
                       </div>
                       <div className="grid grid-cols-3 gap-2">
-                        {group.map(({ id, label, icon: Icon }) => {
+                        {group.map(({ id, label }) => {
                           const active = selected.has(id);
                           return (
                             <button
@@ -538,7 +539,7 @@ function NewAssetPage() {
                                   : "border-border hover:bg-muted/40 text-muted-foreground"
                               }`}
                             >
-                              <Icon className="h-4 w-4 shrink-0" />
+                              <PlatformLogo platform={id} className="h-6 w-6" imgClassName="p-1" />
                               <span className={`font-medium text-sm truncate flex-1 text-left ${active ? "text-accent" : "text-foreground"}`}>{label}</span>
                               {active && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
                             </button>
