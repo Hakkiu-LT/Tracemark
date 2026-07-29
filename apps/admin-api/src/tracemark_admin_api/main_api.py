@@ -1,4 +1,4 @@
-"""Thin client for the MAIN Tracemark API's internal service-to-service endpoints.
+"""Thin client for the MAIN HAKKIU API's internal service-to-service endpoints.
 
 Authenticates with the shared secret (X-Internal-Secret). The admin-api checks staff
 permissions BEFORE calling here; this module only carries the request.
@@ -13,7 +13,7 @@ from fastapi import HTTPException
 
 
 def _base_url() -> str:
-    # e.g. https://api.tracemark.ai/api/v1  (no trailing slash)
+    # e.g. https://api.hakkiu.com/api/v1  (no trailing slash)
     return os.environ.get("MAIN_API_URL", "http://localhost:8000/api/v1").rstrip("/")
 
 

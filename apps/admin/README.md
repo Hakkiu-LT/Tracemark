@@ -1,6 +1,6 @@
 # HAKKIU Admin Portal
 
-Isolated operations portal at **admin.tracemark.ai** (roadmap Sekcija 14).
+Isolated operations portal at **admin.hakkiu.com** (roadmap Sekcija 14).
 Staff-only. Separate from the customer app; talks to `apps/admin-api`.
 
 - **Frontend** (`apps/admin`): Vite + React + TanStack Router SPA (this package).
@@ -51,7 +51,7 @@ Open http://localhost:8082 and sign in with the seeded super-admin.
 cd apps/admin && npm run deploy   # vite build && wrangler deploy
 ```
 
-Serves the built SPA as a static-asset Worker bound to `admin.tracemark.ai`
-(see `wrangler.jsonc`). The `tracemark.ai` zone must already exist in the Cloudflare
+Serves the built SPA as a static-asset Worker bound to `admin.hakkiu.com`
+(see `wrangler.jsonc`). The `hakkiu.com` zone must already exist in the Cloudflare
 account. Deploy `apps/admin-api` separately (e.g. its Docker image) and point
 `VITE_ADMIN_API_URL` at it.

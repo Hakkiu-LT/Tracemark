@@ -223,7 +223,7 @@ the layer that acts on them. Pure business logic on existing data — no new scr
 - **CI auto-deploy** — repo-admin (SuperGabSq) must add `SSH_HOST/USER/PORT/KEY` Actions secrets.
 - ✅ (session 19) Closed the session-18 admin-onboarding follow-ups: "Add existing" is now a
   debounced user search-select (was raw UUID); staff tables verified applied to prod via
-  `supabase migration list`; `tracemark.ai` reset/CORS/email stragglers aligned to the canonical
+  `supabase migration list`; legacy reset/CORS/email stragglers aligned to the canonical
   `hakkiu.com` (user-confirmed).
 
 ---
@@ -248,7 +248,7 @@ the layer that acts on them. Pure business logic on existing data — no new scr
 - Cross-app operations (SMTP sends, entitlements-era internals, metrics) go through main-API
   `/internal/*` endpoints (shared `INTERNAL_API_SECRET`), never duplicated in admin-api.
 - Supabase migrations live in `supabase/migrations/` — apply with `supabase db push` (the CLI is
-  linked to the real HAKKIU project; the MCP points at a DIFFERENT DB — do Tracemark DB work via CLI).
+  linked to the real HAKKIU project; the MCP points at a DIFFERENT DB — do HAKKIU DB work via CLI).
 - Every admin mutation calls `write_audit_log`.
 - Customer frontend builds for the Cloudflare Workers runtime; self-hosted under `workerd` via
   `wrangler dev --local` (glibc Docker base — musl/alpine can't run the workerd binary).

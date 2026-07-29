@@ -14,7 +14,7 @@ FAKE_ORG_ID = "fake-org"
 def override_auth():
     from tracemark_api.dependencies import get_current_profile, CurrentProfile
     profile = CurrentProfile(
-        id="fake-id", email="fake@tracemark.io",
+        id="fake-id", email="fake@example.com",
         organization_id=FAKE_ORG_ID,
     )
     app.dependency_overrides[get_current_profile] = lambda: profile

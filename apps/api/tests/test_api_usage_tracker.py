@@ -143,7 +143,7 @@ def test_usage_stats_endpoint():
     tracker.reset_all()
     tracker.record(UsageRecord(
         api_key="google_serp",
-        caller_id="avery@tracemark.io",
+        caller_id="avery@example.com",
         called_at=datetime.now(timezone.utc).isoformat(),
         success=True,
         latency_ms=80,
@@ -152,10 +152,10 @@ def test_usage_stats_endpoint():
     ))
 
     from tracemark_api.dependencies import AuthUser
-    response = get_usage_stats(admin_user=AuthUser(id="user-123", email="avery@tracemark.io"))
+    response = get_usage_stats(admin_user=AuthUser(id="user-123", email="avery@example.com"))
     assert response.generated_at is not None
     assert len(response.summary) == len(API_REGISTRY)
     assert len(response.by_developer) == 1
-    assert response.by_developer[0]["caller_id"] == "avery@tracemark.io"
+    assert response.by_developer[0]["caller_id"] == "avery@example.com"
     assert response.by_developer[0]["total_calls_today"] == 1
     assert response.by_developer[0]["by_api"]["google_serp"] == 1

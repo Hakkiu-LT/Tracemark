@@ -41,7 +41,6 @@ def _email_throttled(email: str) -> bool:
 # enforces its own allow-list, so this is a second, defence-in-depth gate.
 _ALLOWED_RESET_ORIGINS = {
     "https://admin.hakkiu.com",
-    "https://admin.tracemark.ai",
     "http://localhost:8082",
 }
 _DEFAULT_RESET_ORIGIN = "https://admin.hakkiu.com"

@@ -7,7 +7,7 @@ HAKKIU helps brand owners automatically detect and remove counterfeit listings, 
 - Gemini Vision AI for logo/product similarity scoring
 - Automated takedown document generation and delivery
 - Geo-targeted scanning (country-specific results)
-- Admin portal for staff operations at `admin.tracemark.ai`
+- Admin portal for staff operations at `admin.hakkiu.com`
 
 ---
 
@@ -18,7 +18,7 @@ Tracemark/
 ├── src/                    # Customer web app (TanStack Start + Cloudflare Workers, :8080)
 ├── apps/
 │   ├── api/                # Main Python/FastAPI backend — scraping, AI, customer endpoints (:8000)
-│   ├── admin/              # Admin portal frontend (Vite + React SPA, admin.tracemark.ai, :8082)
+│   ├── admin/              # Admin portal frontend (Vite + React SPA, admin.hakkiu.com, :8082)
 │   └── admin-api/          # Admin portal backend (FastAPI, :8001)
 ├── supabase/
 │   └── migrations/         # Ordered SQL migrations — apply with: supabase db push

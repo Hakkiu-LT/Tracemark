@@ -6,7 +6,7 @@ from tracemark_api.main import app
 from tracemark_api.dependencies import get_current_user, get_current_profile, AuthUser, CurrentProfile
 
 TEST_USER_ID = "fake-id"
-TEST_EMAIL = "fake@tracemark.io"
+TEST_EMAIL = "fake@example.com"
 TEST_ORG_ID = "fake-org"
 
 

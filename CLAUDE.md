@@ -3,7 +3,7 @@
 Trademark monitoring SaaS. Monorepo:
 - `src/` — customer web app (TanStack Start, Cloudflare Workers).
 - `apps/api/` — main Python/FastAPI backend (scraping, AI, customer endpoints).
-- `apps/admin/` — **Admin Portal** frontend (Vite + React SPA, `admin.tracemark.ai`).
+- `apps/admin/` — **Admin Portal** frontend (Vite + React SPA, `admin.hakkiu.com`).
 - `apps/admin-api/` — Admin Portal backend (FastAPI). Reads/writes the SAME Supabase
   project as customers via the service-role key; staff auth via `staff_accounts`.
 - Supabase migrations live in `supabase/migrations/` (apply with `supabase db push` —

@@ -9,6 +9,29 @@
 
 ---
 
+## Brand + domain sweep: Tracemark → HAKKIU / hakkiu.com (2026-07-29, session 39)
+
+> Scope confirmed with Martynas: change USER-FACING brand text + domains only. Internal Python
+> package names (`tracemark_api`, `tracemark_admin_api`) and infra identifiers KEPT (renaming them
+> is a separate risky refactor). Customer app (`src/`) + main API were already ~95% HAKKIU.
+- [x] Runtime CSP fixed: `public/_headers` (`api.tracemark.ai`→`api.hakkiu.com`) and
+  `apps/admin/public/_headers` (`admin-api.tracemark.ai`→`admin-api.hakkiu.com`).
+- [x] Admin CORS/reset origins: removed legacy `admin.tracemark.ai` from `admin-api/.../main.py`
+  and `routes/auth.py` (canonical `admin.hakkiu.com` already present).
+- [x] `apps/admin/wrangler.jsonc`: route pattern + zone comment → `admin.hakkiu.com` / `hakkiu.com`.
+- [x] Brand text: `main_api.py` docstring, `pyproject.toml` description, admin `styles.css` comment,
+  `supabase.ts` comment → HAKKIU / hakkiu.com.
+- [x] Test fixtures `@tracemark.io` → `@hakkiu.com` (conftest, usage-tracker, takedown-reports).
+- [x] Docs/domains updated: README, CLAUDE.md, plan.md, todo.md, roadmap.md, apps/admin/README, Caddyfile.
+- [x] SEO `sameAs` in `__root.tsx` Organization schema now includes Facebook (LinkedIn + Instagram
+  + Facebook), all sourced from `src/lib/company.ts`.
+- [x] Verified: 0 remaining `tracemark.(ai|io|com)` domains; edited Python files py_compile OK.
+- [ ] KEPT ON PURPOSE (rename later if desired): python pkgs `tracemark_api`/`tracemark_admin_api`,
+  docker image/network names, `tracemark-admin` npm/worker name, localStorage/auth storageKeys,
+  `supabase/config.toml` project_id, repo folder + git-backup name.
+
+---
+
 ## ⚠️ REMOVED all competitor comparison pages (2026-07-29, session 38) — legal-risk call
 
 > Decision by Martynas: delete every "vs competitor" comparison page and any content that names
@@ -109,7 +132,7 @@
 
 ## Admin — Delete Sales Leads (2026-07-29, session 37) — ✅ DONE
 
-> Staff can now delete sales leads from `admin.tracemark.ai` → Sales Leads. Full portal parity.
+> Staff can now delete sales leads from `admin.hakkiu.com` → Sales Leads. Full portal parity.
 - [x] Backend perm `leads.delete` added to `apps/admin-api/.../permissions.py` (+ `sales` role preset; `admin` inherits via ALL).
 - [x] Backend `DELETE /leads/{lead_id}` in `routes/leads.py`: `require_permission("leads.delete")`, 404 if missing, hard-delete `sales_leads`, `write_audit_log("leads.delete", ...)`.
 - [x] Frontend perm mirror `leads.delete` in `apps/admin/src/lib/permissions.ts` (+ `sales` preset — kept in sync).

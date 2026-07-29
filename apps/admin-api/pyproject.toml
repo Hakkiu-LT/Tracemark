@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tracemark-admin-api"
 version = "0.1.0"
-description = "Isolated admin/operations backend for Tracemark. Staff auth + full customer control."
+description = "Isolated admin/operations backend for HAKKIU. Staff auth + full customer control."
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115",

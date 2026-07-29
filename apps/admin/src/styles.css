@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Design tokens for the admin portal. Deep-navy / clean-gray, matching Tracemark. */
+/* Design tokens for the admin portal. Deep-navy / clean-gray, matching HAKKIU. */
 :root {
   --background: oklch(0.98 0.005 260);
   --foreground: oklch(0.22 0.02 260);

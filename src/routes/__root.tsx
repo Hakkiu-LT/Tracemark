@@ -143,7 +143,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
                 name: m.name,
                 sameAs: [m.linkedin],
               })),
-              sameAs: [COMPANY.linkedin, COMPANY.instagram],
+              sameAs: [COMPANY.linkedin, COMPANY.instagram, COMPANY.facebook],
             },
             {
               "@type": "WebSite",

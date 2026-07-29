@@ -15,7 +15,7 @@
 # Served by the customer container running the built worker under workerd (wrangler).
 # The Cloudflare `public/_headers` file is NOT honoured when self-hosting, so the
 # security headers + CSP are applied HERE instead. CSP mirrors public/_headers with
-# api.tracemark.ai swapped for api.hakkiu.com, plus Google Fonts allow-listed.
+# the api origin pointing at api.hakkiu.com, plus Google Fonts allow-listed.
 hakkiu.com {
 	encode zstd gzip
 
