@@ -7,7 +7,6 @@ Allow: /$
 Allow: /about
 Allow: /contact
 Allow: /solutions/
-Allow: /compare/
 Allow: /legal/
 
 # Private / authenticated application — never index

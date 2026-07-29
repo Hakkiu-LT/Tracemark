@@ -1,6 +1,6 @@
 # HAKKIU
 
-<!-- llms.txt · Version 1.3 · Last updated: 2026-07-29 · License: CC BY 4.0 -->
+<!-- llms.txt · Version 1.4 · Last updated: 2026-07-29 · License: CC BY 4.0 -->
 
 > HAKKIU is an AI-powered trademark and brand-protection platform that monitors online
 > marketplaces, social commerce, app stores, domain registries and the open web 24/7 to
@@ -56,15 +56,9 @@ sales consultation. There are no self-serve plans or per-detection / per-takedow
 - [HAKKIU for brand owners](https://hakkiu.com/solutions/brand-owners): How HAKKIU detects
   counterfeits, unauthorized sellers and lookalike domains for brand owners — detect, review,
   remove — with no per-detection or per-takedown charge.
-- [HAKKIU for law firms](https://hakkiu.com/solutions/law-firms): Multi-client trademark and
-  marketplace monitoring for IP law firms, with legal-review-ready evidence and
+- [HAKKIU for law firms](https://hakkiu.com/solutions/law-firms): Multi-client marketplace and
+  domain monitoring for IP law firms, with legal-review-ready evidence and
   representative-of-client takedown notices.
-- [HAKKIU vs Red Points](https://hakkiu.com/compare/red-points): Honest comparison of HAKKIU and
-  Red Points — detection approach, legal-review evidence, channel coverage and pricing model.
-- [HAKKIU vs BrandShield](https://hakkiu.com/compare/brandshield): Honest comparison of focused
-  trademark enforcement (HAKKIU) vs broad digital-risk protection (BrandShield).
-- [HAKKIU vs Corsearch](https://hakkiu.com/compare/corsearch): Honest comparison of HAKKIU for
-  growing brands vs Corsearch's full-lifecycle enterprise IP suite.
 - [Contact](https://hakkiu.com/contact): Ways to reach HAKKIU — book a demo, or contact the
   privacy, security and legal teams directly.
 - [Trust & Security](https://hakkiu.com/legal/security): How HAKKIU protects customer data —

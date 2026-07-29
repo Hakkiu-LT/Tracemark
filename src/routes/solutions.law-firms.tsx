@@ -333,14 +333,7 @@ function LawFirmsPage() {
               >
                 homepage workflow
               </Link>
-              . Weighing enterprise IP suites? See how we compare on{" "}
-              <Link
-                to="/compare/corsearch"
-                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
-              >
-                HAKKIU vs Corsearch
-              </Link>
-              , or read about{" "}
+              . Running enforcement for in-house teams too? Read about{" "}
               <Link
                 to="/solutions/brand-owners"
                 className="font-medium text-foreground underline underline-offset-4 hover:no-underline"

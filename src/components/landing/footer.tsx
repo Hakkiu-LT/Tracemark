@@ -25,9 +25,6 @@ const PRODUCT_LINKS: FooterLink[] = [
 const SOLUTIONS_LINKS: FooterLink[] = [
   { label: "For brand owners", to: "/solutions/brand-owners" },
   { label: "For law firms", to: "/solutions/law-firms" },
-  { label: "vs Red Points", to: "/compare/red-points" },
-  { label: "vs BrandShield", to: "/compare/brandshield" },
-  { label: "vs Corsearch", to: "/compare/corsearch" },
 ];
 
 const LEGAL_LINKS: FooterLink[] = [

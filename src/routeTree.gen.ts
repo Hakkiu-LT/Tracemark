@@ -36,9 +36,6 @@ import { Route as LegalCookiesRouteImport } from './routes/legal.cookies'
 import { Route as LegalAcceptableUseRouteImport } from './routes/legal.acceptable-use'
 import { Route as LegacySignupRouteImport } from './routes/legacy/signup'
 import { Route as LegacyLoginRouteImport } from './routes/legacy/login'
-import { Route as CompareRedPointsRouteImport } from './routes/compare.red-points'
-import { Route as CompareCorsearchRouteImport } from './routes/compare.corsearch'
-import { Route as CompareBrandshieldRouteImport } from './routes/compare.brandshield'
 import { Route as CasesCaseIdRouteImport } from './routes/cases.$caseId'
 import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
@@ -181,21 +178,6 @@ const LegacyLoginRoute = LegacyLoginRouteImport.update({
   path: '/legacy/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CompareRedPointsRoute = CompareRedPointsRouteImport.update({
-  id: '/compare/red-points',
-  path: '/compare/red-points',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CompareCorsearchRoute = CompareCorsearchRouteImport.update({
-  id: '/compare/corsearch',
-  path: '/compare/corsearch',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CompareBrandshieldRoute = CompareBrandshieldRouteImport.update({
-  id: '/compare/brandshield',
-  path: '/compare/brandshield',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CasesCaseIdRoute = CasesCaseIdRouteImport.update({
   id: '/$caseId',
   path: '/$caseId',
@@ -243,9 +225,6 @@ export interface FileRoutesByFullPath {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
-  '/compare/brandshield': typeof CompareBrandshieldRoute
-  '/compare/corsearch': typeof CompareCorsearchRoute
-  '/compare/red-points': typeof CompareRedPointsRoute
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/legal/acceptable-use': typeof LegalAcceptableUseRoute
@@ -281,9 +260,6 @@ export interface FileRoutesByTo {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
-  '/compare/brandshield': typeof CompareBrandshieldRoute
-  '/compare/corsearch': typeof CompareCorsearchRoute
-  '/compare/red-points': typeof CompareRedPointsRoute
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/legal/acceptable-use': typeof LegalAcceptableUseRoute
@@ -320,9 +296,6 @@ export interface FileRoutesById {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
-  '/compare/brandshield': typeof CompareBrandshieldRoute
-  '/compare/corsearch': typeof CompareCorsearchRoute
-  '/compare/red-points': typeof CompareRedPointsRoute
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/legal/acceptable-use': typeof LegalAcceptableUseRoute
@@ -360,9 +333,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
-    | '/compare/brandshield'
-    | '/compare/corsearch'
-    | '/compare/red-points'
     | '/legacy/login'
     | '/legacy/signup'
     | '/legal/acceptable-use'
@@ -398,9 +368,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
-    | '/compare/brandshield'
-    | '/compare/corsearch'
-    | '/compare/red-points'
     | '/legacy/login'
     | '/legacy/signup'
     | '/legal/acceptable-use'
@@ -436,9 +403,6 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
-    | '/compare/brandshield'
-    | '/compare/corsearch'
-    | '/compare/red-points'
     | '/legacy/login'
     | '/legacy/signup'
     | '/legal/acceptable-use'
@@ -474,9 +438,6 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
-  CompareBrandshieldRoute: typeof CompareBrandshieldRoute
-  CompareCorsearchRoute: typeof CompareCorsearchRoute
-  CompareRedPointsRoute: typeof CompareRedPointsRoute
   LegacyLoginRoute: typeof LegacyLoginRoute
   LegacySignupRoute: typeof LegacySignupRoute
   LegalAcceptableUseRoute: typeof LegalAcceptableUseRoute
@@ -682,27 +643,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegacyLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/compare/red-points': {
-      id: '/compare/red-points'
-      path: '/compare/red-points'
-      fullPath: '/compare/red-points'
-      preLoaderRoute: typeof CompareRedPointsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/compare/corsearch': {
-      id: '/compare/corsearch'
-      path: '/compare/corsearch'
-      fullPath: '/compare/corsearch'
-      preLoaderRoute: typeof CompareCorsearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/compare/brandshield': {
-      id: '/compare/brandshield'
-      path: '/compare/brandshield'
-      fullPath: '/compare/brandshield'
-      preLoaderRoute: typeof CompareBrandshieldRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/cases/$caseId': {
       id: '/cases/$caseId'
       path: '/$caseId'
@@ -825,9 +765,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
-  CompareBrandshieldRoute: CompareBrandshieldRoute,
-  CompareCorsearchRoute: CompareCorsearchRoute,
-  CompareRedPointsRoute: CompareRedPointsRoute,
   LegacyLoginRoute: LegacyLoginRoute,
   LegacySignupRoute: LegacySignupRoute,
   LegalAcceptableUseRoute: LegalAcceptableUseRoute,

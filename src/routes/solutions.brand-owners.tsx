@@ -289,22 +289,8 @@ function BrandOwnersPage() {
                 coverage overview
               </Link>
               . Pricing is tailored to your brand and shared after a demo — you are never charged per
-              detection or per takedown, so growing your monitoring never means a growing bill.
-              Comparing options? See{" "}
-              <Link
-                to="/compare/red-points"
-                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
-              >
-                HAKKIU vs Red Points
-              </Link>{" "}
-              and{" "}
-              <Link
-                to="/compare/brandshield"
-                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
-              >
-                HAKKIU vs BrandShield
-              </Link>
-              , or, if you're a law firm,{" "}
+              detection or per takedown, so growing your monitoring never means a growing bill. If
+              you're a law firm protecting client brands, see{" "}
               <Link
                 to="/solutions/law-firms"
                 className="font-medium text-foreground underline underline-offset-4 hover:no-underline"

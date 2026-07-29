@@ -9,7 +9,31 @@
 
 ---
 
-## SEO B-group — content depth + humanized copy (2026-07-29, session 38) — ✅ DONE
+## ⚠️ REMOVED all competitor comparison pages (2026-07-29, session 38) — legal-risk call
+
+> Decision by Martynas: delete every "vs competitor" comparison page and any content that names
+> other companies, to avoid any trademark/defamation/legal exposure. Better safe than sorry. This
+> UNDOES the A-group + B-group comparison work below (the /solutions/* pages stay — they name no
+> competitors). Keeping the A/B sections below as history; current state is: NO compare pages exist.
+- [x] Deleted route files: `compare.red-points.tsx`, `compare.brandshield.tsx`, `compare.corsearch.tsx`,
+  and the shared `compare-page.tsx` component (its only callers were those three).
+- [x] Removed 3 compare paths from `PUBLIC_PATHS` in `__root.tsx`; `routeTree.gen.ts` regenerated
+  by build (0 compare refs).
+- [x] Removed the 3 "vs …" links from `footer.tsx` SOLUTIONS_LINKS (column now: brand owners + law firms).
+- [x] Reworded homepage FAQ (`faq.tsx` "How does HAKKIU compare…") to NOT name Red Points /
+  BrandShield / Corsearch — generic "enterprise suites down to point tools" instead.
+- [x] `solutions.brand-owners.tsx` + `solutions.law-firms.tsx`: removed the `/compare/*` interlinks
+  and reworded the surrounding copy (they now cross-link only to each other).
+- [x] `sitemap.xml`: removed 3 compare `<url>` entries. `robots.txt`: removed `Allow: /compare/`.
+  `llms.txt` v1.3 → v1.4: removed the 3 compare entries + reworded law-firms line (dropped
+  "trademark monitoring" → "marketplace and domain monitoring").
+- [x] Verified: `build` 0, `tsc` 0, `routeTree.gen.ts` has 0 compare refs, and a repo-wide grep of
+  `src`+`public` finds NO "Red Points / BrandShield / Corsearch / /compare/" anywhere. Local SSR:
+  compare URLs no longer render the comparison page; both solutions pages render clean; homepage clean.
+
+---
+
+## SEO B-group — content depth + humanized copy (2026-07-29, session 38) — ✅ DONE (compare parts later REMOVED — see top)
 
 > The deeper follow-up to A-group: the SXO/GEO/content subagents all pointed at one gap —
 > the compare/solution pages were too thin (~400–620 words) with no question-headings, no FAQ,
