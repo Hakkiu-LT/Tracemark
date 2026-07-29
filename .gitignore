@@ -42,6 +42,10 @@ apps/api/.venv/
 *.pyc
 apps/api/tests/artifacts
 
+# Cloud-sync duplicate backup folder (iCloud/Dropbox "… 2.ext" copies get
+# swept here) — never part of the repo.
+_dup_backup/
+
 # Skills
 .agents/skills.json
 
