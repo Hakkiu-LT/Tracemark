@@ -33,7 +33,7 @@ export function LandingNav() {
             className="flex items-center gap-2 text-foreground transition-opacity hover:opacity-80"
           >
             <HakkiuLogo className="h-6 text-foreground" />
-            <span className="ml-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="ml-1 hidden rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
               AI 2.0
             </span>
           </Link>
@@ -55,7 +55,7 @@ export function LandingNav() {
             <Button
               variant="outline"
               onClick={openSales}
-              className="h-8 rounded-md border-border px-3.5 text-xs font-medium text-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+              className="hidden h-8 rounded-md border-border px-3.5 text-xs font-medium text-foreground hover:bg-muted hover:text-foreground cursor-pointer sm:inline-flex"
             >
               Talk to sales
             </Button>

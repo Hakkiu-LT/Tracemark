@@ -53,7 +53,10 @@ export function LeadModalShell({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "gap-0 overflow-hidden border bg-card p-0",
+          // Cap the modal to the viewport and let its own body scroll — the
+          // lead forms are tall, so on phones they must scroll inside the
+          // dialog instead of overflowing off-screen (top/bottom cut off).
+          "max-h-[calc(100svh-1.5rem)] gap-0 overflow-y-auto overflow-x-hidden border bg-card p-0",
           submitted
             ? "sm:max-w-[560px] sm:rounded-3xl"
             : "sm:max-w-3xl sm:rounded-2xl",

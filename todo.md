@@ -1,7 +1,22 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 31 — brands-count field in lead modals, landing moved to site root)
+> Last updated: 2026-07-29 (session 32 — landing page mobile responsiveness)
+
+---
+
+## 📱 Landing page mobile polish (2026-07-29, session 32)
+
+- [x] Lead modals (`lead-modal-shell.tsx`): capped `DialogContent` to `max-h-[calc(100svh-1.5rem)]`
+  with `overflow-y-auto` so the tall Book-a-demo / Talk-to-sales forms scroll INSIDE the dialog
+  on phones instead of overflowing off-screen (top/bottom were being cut off, no way to reach the
+  submit button). Only the landing shell touched — shared `ui/dialog.tsx` base left unchanged.
+- [x] Nav (`landing-nav.tsx`): on <sm screens hide the "AI 2.0" badge and the secondary
+  "Talk to sales" button so logo + primary "Book a demo" CTA no longer crowd/overflow the header
+  on ~375px widths. Both reappear at `sm:`.
+- [x] Verified: `tsc --noEmit` clean, dev server returns HTTP 200. All other sections
+  (hero, social-proof, coverage, workflow, features bento, exposure calculator, final CTA, footer)
+  already used responsive Tailwind breakpoints and collapse correctly on mobile — no changes needed.
 
 ---
 
