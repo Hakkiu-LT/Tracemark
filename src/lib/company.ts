@@ -41,6 +41,7 @@ export const COMPANY = {
   domain: "hakkiu.com",
   baseUrl: "https://hakkiu.com",
   linkedin: "https://www.linkedin.com/company/hakkiu/",
+  instagram: "https://www.instagram.com/hakkiu_official/",
 
   // Governing law / jurisdiction for the Terms & DPA. Confirm on incorporation.
   governingLaw: "the Republic of Lithuania",
