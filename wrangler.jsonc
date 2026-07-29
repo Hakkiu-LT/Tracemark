@@ -4,4 +4,11 @@
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
+  // Binds the customer site to this Worker and auto-manages the proxied DNS
+  // records. The zone hakkiu.com must already exist in this Cloudflare account
+  // (add the site in Cloudflare + point Hostinger nameservers at Cloudflare).
+  "routes": [
+    { "pattern": "hakkiu.com", "custom_domain": true },
+    { "pattern": "www.hakkiu.com", "custom_domain": true }
+  ]
 }
