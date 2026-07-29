@@ -1,12 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  getErrorStatus,
-  getErrorBucket,
-  getMessage,
-  type ErrorBucket,
-} from "@/lib/error-status";
+import { getErrorStatus, getErrorBucket, type ErrorBucket } from "@/lib/error-status";
 
 // Illustrations, one per bucket. These are resolved to hashed URLs by Vite at
 // build time, so the images ship in the bundle. Drop the real artwork into
@@ -114,7 +109,9 @@ export function ErrorState({
   const copy = BUCKET_COPY[bucket];
 
   const heading = title ?? copy.title;
-  const body = description ?? (getMessage(error) || copy.description);
+  // Always use the friendly bucket copy — never surface the raw error.message
+  // (avoids leaking "Failed to fetch" / React errors / stack text to users).
+  const body = description ?? copy.description;
 
   return (
     <div

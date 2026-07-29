@@ -74,7 +74,7 @@ export function ProductProof() {
             <button
               type="button"
               onClick={openDemo}
-              className="group inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm font-semibold text-foreground transition-colors hover:text-muted-foreground"
+              className="group inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm font-semibold text-foreground transition-colors hover:text-accent"
             >
               Explore the platform
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -82,39 +82,38 @@ export function ProductProof() {
           </Reveal>
         </div>
 
-        {/* Detect → verify → enforce flow */}
-        <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-3">
-          {FLOW.map((f, i) => {
-            const Icon = f.icon;
-            return (
-              <Reveal
-                key={f.step}
-                delay={i * 70}
-                className="relative rounded-2xl border border-border/80 bg-card p-6 shadow-sm"
-              >
-                {/* Connector arrow between steps on desktop */}
-                {i < FLOW.length - 1 && (
-                  <ArrowRight
-                    aria-hidden="true"
-                    className="absolute -right-4 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-border md:block"
-                  />
-                )}
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+        {/* Detect → verify → enforce, as ONE compact process ribbon (divided by
+            hairlines, not three separate cards) so it reads as a caption for the
+            story and stays visually distinct from the Workflow section's steps. */}
+        <Reveal
+          delay={120}
+          className="mt-12 rounded-2xl border border-border/80 bg-card/60 p-6 shadow-sm backdrop-blur-sm md:p-8"
+        >
+          <ol className="flex flex-col gap-6 md:flex-row md:gap-0">
+            {FLOW.map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <li
+                  key={f.step}
+                  className="flex items-start gap-4 md:flex-1 md:px-7 md:first:pl-0 md:last:pr-0 md:[&:not(:first-child)]:border-l md:[&:not(:first-child)]:border-border/60"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
                     <Icon className="h-5 w-5" strokeWidth={2} />
                   </span>
-                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    {`0${i + 1} · ${f.step}`}
-                  </span>
-                </div>
-                <h3 className="mt-5 font-display text-lg font-bold tracking-tight text-foreground">
-                  {f.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
-              </Reveal>
-            );
-          })}
-        </div>
+                  <div>
+                    <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      {`0${i + 1} · ${f.step}`}
+                    </span>
+                    <h3 className="mt-1 font-display text-base font-bold tracking-tight text-foreground">
+                      {f.title}
+                    </h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </Reveal>
 
         {/* Monitoring metrics */}
         <Reveal delay={120} className="mt-14 border-t border-border/60 pt-8">

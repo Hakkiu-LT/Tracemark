@@ -1,5 +1,6 @@
 import { ArrowRight, Check, CalendarCheck, MessageSquare } from "lucide-react";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { BlueprintOverlay } from "./blueprint";
 import { Reveal } from "./reveal";
 import { useLeadModals } from "./lead-modals";
@@ -80,14 +81,14 @@ export function FinalCTA() {
                 <p className="mt-1.5 text-sm text-slate-300/80">
                   A focused 30-minute walkthrough tailored to your channels.
                 </p>
-                <button
+                <RainbowButton
                   type="button"
                   onClick={openDemo}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-100 sm:w-auto"
+                  className="mt-4 w-full gap-2 rounded-lg px-5 text-sm font-semibold sm:w-auto"
                 >
                   Book a demo
                   <ArrowRight className="h-4 w-4" />
-                </button>
+                </RainbowButton>
               </div>
             </div>
           </Reveal>

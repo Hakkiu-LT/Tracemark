@@ -410,7 +410,8 @@ function MonitoringPage() {
       setEditExistingProducts((prev) => prev.filter((a) => a.id !== asset.id));
       toast.success("Asset removed.");
     } catch (err) {
-      toast.error("Failed to remove asset", { description: (err as Error).message });
+      console.error(err);
+      toast.error("Couldn't remove that asset. Please try again.");
     }
   };
 
@@ -435,7 +436,8 @@ function MonitoringPage() {
         toast.info(res.message || "No official website configured yet.");
       }
     } catch (err) {
-      toast.error("Failed to refresh reference content", { description: (err as Error).message });
+      console.error(err);
+      toast.error("Couldn't refresh reference content. Please try again.");
     } finally {
       setRefRefreshing(false);
     }
@@ -487,9 +489,8 @@ function MonitoringPage() {
           setEditRealBrandId(created.id);
         }
       } catch (err) {
-        toast.error("Could not resolve brand — try again.", {
-          description: (err as Error).message,
-        });
+        console.error(err);
+        toast.error("Something went wrong. Please try again.");
         return;
       }
     }
@@ -512,7 +513,8 @@ function MonitoringPage() {
         await uploadBrandAsset(realBrandId, "product_image", editProductFile);
       }
     } catch (err) {
-      toast.error("Failed to update brand", { description: (err as Error).message });
+      console.error(err);
+      toast.error("Couldn't update the brand. Please try again.");
       return;
     }
 

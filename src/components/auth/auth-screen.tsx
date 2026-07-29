@@ -34,7 +34,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
-    if (error) toast.error(error.message);
+    if (error) toast.error("Couldn't sign you in with Google. Please try again.");
   }
 
   async function onForgot() {
@@ -43,7 +43,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback`,
     });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error("Couldn't send the reset link. Please try again.");
     toast.success(`Password reset link sent to ${email}.`);
   }
 
@@ -54,7 +54,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error("Couldn't sign you in — check your email and password.");
     navigate({ to: redirect ?? "/dashboard" });
   }
 

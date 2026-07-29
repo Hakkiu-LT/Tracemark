@@ -157,7 +157,8 @@ function NoticeActions({ report, onUpdate }: { report: TakedownReport; onUpdate:
       toast.success("Email sent", { description: "Notice dispatched and recorded in history." });
       onUpdate();
     } catch (e: any) {
-      toast.error("Failed to send email", { description: e.message });
+      console.error(e);
+      toast.error("Couldn't send the email. Please try again.");
     } finally {
       setSending(false);
     }
@@ -260,7 +261,7 @@ function TakedownNoticesPage() {
       });
     } catch (err: any) {
       console.error("Error saving document to storage:", err);
-      toast.error("Failed to save document", { description: err.message || String(err) });
+      toast.error("Couldn't save the document. Please try again.");
     } finally {
       setIsSavingToStorage(false);
     }

@@ -1,5 +1,6 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { BlueprintOverlay } from "./blueprint";
 import { ProductWindow } from "./product-window";
 import { Reveal } from "./reveal";
@@ -44,19 +45,19 @@ export function HeroV3() {
         </Reveal>
 
         <Reveal delay={200} className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <Button
-            size="lg"
+          <RainbowButton
+            type="button"
             onClick={openDemo}
-            className="flex h-12 items-center gap-2 rounded-lg bg-foreground px-7 text-sm font-semibold text-background shadow-md transition-all hover:bg-foreground/90 hover:shadow-lg"
+            className="h-12 gap-2 px-7 text-sm font-semibold shadow-md"
           >
             Book a demo
             <ArrowRight className="h-4 w-4" />
-          </Button>
+          </RainbowButton>
           <Button
             size="lg"
             variant="outline"
             onClick={openSales}
-            className="h-12 rounded-lg border-border bg-card px-7 text-sm font-semibold text-foreground transition-all hover:border-foreground/40 hover:bg-muted"
+            className="h-12 rounded-lg border-border bg-card px-7 text-sm font-semibold text-foreground transition-all hover:border-foreground/40 hover:bg-muted hover:text-foreground"
           >
             Talk to sales
           </Button>

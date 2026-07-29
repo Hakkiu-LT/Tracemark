@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Sun, Moon } from "lucide-react";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { Button } from "@/components/ui/button";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { cn } from "@/lib/utils";
 import { useLeadModals } from "./lead-modals";
 
@@ -60,24 +61,17 @@ export function LandingNav() {
             <Link to="/landing" hash="features" className="transition-colors hover:text-foreground">
               Platform
             </Link>
-            <Link to="/landing" hash="coverage" className="transition-colors hover:text-foreground">
-              Coverage
-            </Link>
             <Link to="/landing" hash="how" className="transition-colors hover:text-foreground">
               How it works
+            </Link>
+            <Link to="/landing" hash="coverage" className="transition-colors hover:text-foreground">
+              Coverage
             </Link>
             <Link to="/legal/security" className="transition-colors hover:text-foreground">
               Security
             </Link>
           </nav>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              onClick={openSales}
-              className="h-8 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-            >
-              Talk to sales
-            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -88,11 +82,19 @@ export function LandingNav() {
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
             <Button
+              variant="outline"
+              onClick={openSales}
+              className="h-8 rounded-md border-border px-3.5 text-xs font-medium text-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+            >
+              Talk to sales
+            </Button>
+            <RainbowButton
+              type="button"
               onClick={openDemo}
-              className="h-8 rounded-md bg-foreground px-3.5 text-xs font-medium text-background hover:bg-foreground/90 transition-all shadow-sm cursor-pointer"
+              className="h-8 rounded-lg px-4 text-xs"
             >
               Book a demo
-            </Button>
+            </RainbowButton>
           </div>
         </div>
       </header>

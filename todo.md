@@ -1,7 +1,7 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-28 (session 27 — landing "technical-paper" redesign)
+> Last updated: 2026-07-29 (session 28 — landing + info/legal page frontend polish)
 
 ---
 
@@ -410,6 +410,16 @@ commit `5679df9` deployed clean, all 4 domains 200. No more manual SSH deploys n
 
 ## Recently completed (reference — full detail in git log)
 
+- **Session 28** — Public-site frontend polish: page-wide animated grid backdrop; rainbow "Book a demo"
+  CTAs (21st/magicui) across nav/hero/workflow/final-cta/footer; Coverage → scrolling logo Marquee
+  (21st/magicui) with real platform logos; ProductProof duplicate cards → compact process ribbon;
+  `legal-layout` upgrade (auto TOC + scrollspy, responsive/zebra tables, heading hierarchy, `<code>`,
+  back-to-top) lifting all 10 legal pages; About + Contact rebuilt off the legal template as marketing
+  pages; nav reorder. Coverage made light (was dark) with masked marquee edges (no seam). ALL
+  user-facing errors made friendly — error boundary ("Signal lost") no longer prints error.message,
+  lead modals show "Connection lost…" on network fail, every app-route toast dropped raw err.message.
+  Planned/executed via 6 subagents. Remaining: landing de-dup (Workflow/Features),
+  Features mobile diagram, re-run with 21st MCP loaded live.
 - **Session 18** — Admin Portal: create company + owner + users end-to-end (`POST /organizations`,
   CreateOrgDialog, CreateUserDialog); verified live against Supabase with full cleanup.
 - **Session 17** — GA4 tag site-wide; SEO/crawler files (robots.txt, sitemap.xml, llms.txt); CSP updated.

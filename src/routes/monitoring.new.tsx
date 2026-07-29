@@ -238,7 +238,8 @@ function NewAssetPage() {
       }
     },
     onError: (err: Error) => {
-      toast.error("Couldn't start monitoring", { description: err.message });
+      console.error(err);
+      toast.error("Couldn't start monitoring. Please try again.");
     },
   });
 

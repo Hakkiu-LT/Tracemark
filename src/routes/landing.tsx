@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { InfiniteGridBackdrop } from "@/components/ui/the-infinite-grid";
 import { HeroV3 } from "@/components/landing/hero-v3";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { ProductProof } from "@/components/landing/product-proof";
@@ -31,12 +32,18 @@ export const Route = createFileRoute("/landing")({
 
 function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground antialiased selection:bg-foreground selection:text-background">
-      {/* TOP NAV */}
-      <LandingNav />
+    <div className="relative isolate min-h-screen bg-background text-foreground antialiased selection:bg-foreground selection:text-background">
+      {/* One continuous animated grid + colour wash behind the ENTIRE page.
+          Pinned to the viewport so it stays put while sections scroll over it;
+          sections are transparent (see .technical-paper) so it reads as one field. */}
+      <InfiniteGridBackdrop fixed />
 
-      {/* 01 · HERO */}
-      <HeroV3 />
+      <div className="relative z-10">
+        {/* TOP NAV */}
+        <LandingNav />
+
+        {/* 01 · HERO */}
+        <HeroV3 />
 
       {/* 02 · PRODUCT PROOF — detection → takedown */}
       <ProductProof />
@@ -56,8 +63,9 @@ function LandingPage() {
       {/* 07 · FINAL CTA (dark) */}
       <FinalCTA />
 
-      {/* 08 · FOOTER */}
-      <Footer />
+        {/* 08 · FOOTER */}
+        <Footer />
+      </div>
     </div>
   );
 }

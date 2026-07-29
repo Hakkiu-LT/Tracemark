@@ -22,7 +22,7 @@ function CallbackPage() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          toast.error(error.message);
+          toast.error("Couldn't complete sign-in. Please try again.");
           navigate({ to: "/auth/sign-in", replace: true });
           return;
         }

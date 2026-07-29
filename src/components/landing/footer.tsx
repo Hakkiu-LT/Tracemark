@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Linkedin, ArrowRight } from "lucide-react";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { COMPANY, copyrightLine } from "@/lib/company";
 import { openCookieSettings } from "@/lib/consent";
 import { Reveal } from "./reveal";
@@ -105,14 +106,14 @@ export function Footer() {
             >
               Talk to sales
             </button>
-            <button
+            <RainbowButton
               type="button"
               onClick={openDemo}
-              className="group inline-flex items-center gap-2 rounded-lg bg-foreground px-5 py-2.5 text-sm font-semibold text-background shadow-sm transition-all hover:bg-foreground/90"
+              className="gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm"
             >
               Book a demo
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </button>
+            </RainbowButton>
           </div>
         </Reveal>
       </div>

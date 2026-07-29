@@ -122,7 +122,7 @@ export function SettingsPage() {
       toast.success("Profile saved successfully");
     } catch (err) {
       console.error("Error saving profile:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to save profile");
+      toast.error("Couldn't save your profile. Please try again.");
     } finally {
       setSavingProfile(false);
     }

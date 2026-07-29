@@ -146,9 +146,9 @@ export function NotificationDeliveryLog() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
                         {log.status === "failed" ? (
-                          <span className="flex items-center gap-1 text-destructive font-medium" title={log.error_message || "Unknown error"}>
+                          <span className="flex items-center gap-1 text-destructive font-medium" title={log.error_message || "Delivery failed"}>
                             <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-destructive" />
-                            {log.error_message || "Delivery failed"}
+                            Delivery failed
                           </span>
                         ) : (
                           <span className="text-muted-foreground">

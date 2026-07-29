@@ -86,7 +86,16 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
       // GA4 conversion — fires only if the visitor consented to analytics.
       trackLead({ source: "call_request", leadType: "sales" });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      console.error(err);
+      // A network failure throws TypeError ("Failed to fetch") — show a clean
+      // message. HTTP errors already carry a friendly apiErrorMessage string.
+      setError(
+        err instanceof TypeError
+          ? "Connection lost — please check your internet and try again."
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again.",
+      );
     } finally {
       setLoading(false);
     }

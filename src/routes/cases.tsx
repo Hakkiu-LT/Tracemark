@@ -232,7 +232,7 @@ function CasesList() {
       toast.success("Case deleted successfully");
     } catch (err: any) {
       console.error("Failed to delete case:", err);
-      toast.error("Failed to delete case", { description: err.message || String(err) });
+      toast.error("Couldn't delete the case. Please try again.");
     }
   };
 

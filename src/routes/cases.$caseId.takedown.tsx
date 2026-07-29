@@ -157,7 +157,7 @@ function TakedownPage() {
       toast.success("Saved successfully", { description: "Document stored in legal-documents bucket." });
     } catch (err: any) {
       console.error("Error saving document to storage:", err);
-      toast.error("Failed to save document", { description: err.message || String(err) });
+      toast.error("Couldn't save the document. Please try again.");
     } finally {
       setIsSavingToStorage(false);
     }

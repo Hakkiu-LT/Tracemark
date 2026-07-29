@@ -78,9 +78,8 @@ function MonitoringScanResultPage() {
       markCasesViewForRestore();
       navigate({ to: "/cases" });
     } catch (err) {
-      toast.error("Failed to update status", {
-        description: err instanceof Error ? err.message : String(err),
-      });
+      console.error(err);
+      toast.error("Couldn't update the status. Please try again.");
     } finally {
       setUpdating(null);
     }

@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   type LucideIcon,
 } from "lucide-react";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import { BlueprintOverlay } from "./blueprint";
 import { Reveal } from "./reveal";
 import { useLeadModals } from "./lead-modals";
@@ -134,14 +135,14 @@ export function Workflow() {
 
         {/* Conversion after the sequence */}
         <Reveal delay={120} className="mt-12 flex flex-wrap items-center justify-center gap-3">
-          <button
+          <RainbowButton
             type="button"
             onClick={openDemo}
-            className="group inline-flex cursor-pointer items-center gap-2 rounded-lg bg-foreground px-6 py-3 text-sm font-semibold text-background shadow-md transition-all hover:bg-foreground/90"
+            className="gap-2 rounded-lg px-6 text-sm font-semibold shadow-md"
           >
             Book a demo
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </button>
+          </RainbowButton>
           <button
             type="button"
             onClick={openSales}

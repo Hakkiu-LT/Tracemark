@@ -2,11 +2,29 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-28 (session 27 — landing page "technical-paper" redesign: 8 sections rebuilt to the reference mockups; all lead-modal / analytics / link logic preserved)
+> Last updated: 2026-07-29 (session 28 — landing + info/legal page polish: animated grid backdrop, rainbow CTAs, 21st Marquee coverage, legal-layout TOC/tables, About+Contact rebuilt as marketing pages)
 
 ---
 
-## 🎨 Latest — Landing page "technical-paper" redesign (session 27)
+## 🎨 Latest — Landing + info-page polish (session 28)
+
+Frontend pass on the public site (customer app), planned via subagent audits:
+- **Landing background** — one page-wide animated grid (`InfiniteGridBackdrop fixed`, `src/components/ui/the-infinite-grid.tsx`) mounted once in `landing.tsx`; `.technical-paper` sections made transparent (dark sections at 85%) so it reads as ONE continuous field. Old dot-matrix + blueprint construction lines removed.
+- **CTAs** — all "Book a demo" buttons now use a rainbow gradient button (`src/components/ui/rainbow-button.tsx`, magicui/21st) across nav, hero, workflow, final-cta, footer. Tailwind v4 animation wired in `styles.css` (`--animate-rainbow` + `@keyframes`).
+- **Coverage** — static icon grid → real platform logos in a scrolling **Marquee** (`src/components/ui/marquee.tsx`, magicui/21st); `--animate-marquee` in `styles.css`.
+- **Product proof** — duplicate detect→verify→enforce card grid → one compact process ribbon (distinct from the Workflow steps).
+- **Legal pages** — `legal-layout.tsx` upgraded: auto TOC sidebar + scrollspy, responsive/zebra tables, stronger heading hierarchy, `<code>` styling, "last updated" badge, back-to-top. Lifts all 10 legal pages.
+- **About + Contact** — moved off the legal template to full marketing pages (LandingNav + grid + Card grids + RainbowButton + Reveal).
+- **Nav** — reordered links + theme toggle; "Talk to sales" → outline.
+- **Coverage** — converted from a dark section to light like the rest; marquee edges now use a CSS mask (fade to transparent) so there's no visible start/end seam.
+- **Friendly errors** — no raw technical text shown to users anymore: `error-state.tsx` (the "Signal lost" boundary) uses friendly bucket copy instead of `error.message`; lead modals map network failures to "Connection lost…"; all app-route `toast.error` calls dropped raw `err.message` titles/descriptions for short friendly lines.
+- 21st MCP added but its tools load only at next session start — used 21st components via the magicui/21st registry (web) this session.
+
+**Remaining (needs product decision):** deeper landing de-dup (Workflow vs Features overlap), mobile version of the Features quadrant diagram, Final-CTA orphaned-logo column. Re-run with 21st MCP live next session for richer component swaps.
+
+---
+
+## 🎨 Landing page "technical-paper" redesign (session 27)
 
 Rebuilt the marketing landing (`/landing`) to the reference mockups (`~/Desktop/redisign`):
 an off-white technical-paper surface (24px dot matrix + sparse blueprint construction lines),
