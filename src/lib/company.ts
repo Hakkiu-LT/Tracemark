@@ -14,6 +14,9 @@ export const COMPANY = {
   brand: "HAKKIU",
   tagline: "Automated Brand Enforcement",
 
+  // Year the company was founded (used on /about and in Organization schema).
+  foundedYear: "2026",
+
   // Registered legal identity — TO BE ADDED once finalized. Leave blank for now.
   legalName: "HAKKIU",
   legalForm: "",
@@ -62,3 +65,18 @@ export const COMPANY = {
 export function copyrightLine(): string {
   return `© ${new Date().getFullYear()} ${COMPANY.brand}`;
 }
+
+// The people behind HAKKIU. Single source of truth for the /about team
+// section AND the Organization `employee` schema, so the visible page and the
+// structured data never drift. No job titles yet (roles TBD) — deliberately
+// omitted rather than guessed. `photo` is optional: drop a headshot in
+// public/team/<name>.jpg and set `photo: "/team/<name>.jpg"` to upgrade the
+// initials avatar to a real photo (LinkedIn images can't be hotlinked — their
+// CDN URLs expire and hotlinking breaks LinkedIn's terms).
+export const TEAM: { name: string; linkedin: string; photo?: string }[] = [
+  { name: "Martynas Paškevičius", linkedin: "https://www.linkedin.com/in/martynas-paškevičius-70568b25a", photo: "/team/martynas.jpeg" },
+  { name: "Gabriel Sequera", linkedin: "https://www.linkedin.com/in/gabriel-sequera-ba4bb8161", photo: "/team/gabriel.jpeg" },
+  { name: "Modestas Akelis", linkedin: "https://www.linkedin.com/in/modestas-akelis-profile", photo: "/team/modestas.jpeg" },
+  { name: "Mantas Samulionis", linkedin: "https://www.linkedin.com/in/mantas-samulionis", photo: "/team/mantas.jpeg" },
+  { name: "Domantas Janušauskas", linkedin: "https://www.linkedin.com/in/domantasjan", photo: "/team/domantas.jpeg" },
+];

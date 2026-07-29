@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, ScanSearch, Sparkles, Gavel, Building2, Scale } from "lucide-react";
+import { ArrowRight, ScanSearch, Sparkles, Gavel, Building2, Scale, Linkedin } from "lucide-react";
 import { InfiniteGridBackdrop } from "@/components/ui/the-infinite-grid";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { Footer } from "@/components/landing/footer";
@@ -14,7 +14,18 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { COMPANY } from "@/lib/company";
+import { COMPANY, TEAM } from "@/lib/company";
+
+/** Two-letter (or one, for single names) monogram for the avatar fallback. */
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -253,6 +264,62 @@ function AboutPage() {
                 </Reveal>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* THE TEAM */}
+        <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
+          <div className="mx-auto max-w-6xl px-6">
+            <Reveal
+              as="p"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+            >
+              The team
+            </Reveal>
+            <Reveal
+              as="p"
+              delay={70}
+              className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
+            >
+              Founded in {COMPANY.foundedYear}, {COMPANY.brand} is built by a small, hands-on team
+              working across detection, AI and enforcement. Connect with any of us on LinkedIn.
+            </Reveal>
+
+            <ul className="mt-12 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
+              {TEAM.map((member, i) => (
+                <Reveal as="li" key={member.name} delay={120 + i * 60}>
+                  <a
+                    href={member.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex flex-col items-center text-center"
+                    aria-label={`${member.name} on LinkedIn`}
+                  >
+                    {member.photo ? (
+                      <img
+                        src={member.photo}
+                        alt={member.name}
+                        width={80}
+                        height={80}
+                        loading="lazy"
+                        className="h-20 w-20 rounded-full border border-border object-cover shadow-sm transition-all group-hover:border-foreground/40 group-hover:shadow-md"
+                      />
+                    ) : (
+                      <span className="flex h-20 w-20 items-center justify-center rounded-full border border-border bg-muted/50 font-display text-xl font-bold tracking-tight text-foreground shadow-sm transition-all group-hover:border-foreground/40 group-hover:shadow-md">
+                        {initials(member.name)}
+                      </span>
+                    )}
+                    <span className="mt-4 font-display text-base font-semibold tracking-tight text-foreground">
+                      {member.name}
+                    </span>
+                    <span className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+                      <Linkedin className="h-3.5 w-3.5" />
+                      LinkedIn
+                    </span>
+                  </a>
+                </Reveal>
+              ))}
+            </ul>
           </div>
         </section>
 

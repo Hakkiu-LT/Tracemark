@@ -16,7 +16,7 @@ import { ErrorState } from "@/components/error-state";
 import { ConsentManager } from "@/components/consent/consent-banner";
 import { LeadModalsProvider } from "@/components/landing/lead-modals";
 import { AuthProvider, RequireAuth } from "@/lib/auth";
-import { COMPANY } from "@/lib/company";
+import { COMPANY, TEAM } from "@/lib/company";
 
 import appCss from "../styles.css?url";
 
@@ -108,6 +108,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               logo: `${COMPANY.baseUrl}/hakkiu-mark.png`,
               description:
                 "AI-powered trademark and brand-protection platform. Continuous monitoring across marketplaces, social channels, app stores and domains, with forensic evidence capture and automated takedowns.",
+              foundingDate: COMPANY.foundedYear,
               email: COMPANY.email.general,
               contactPoint: {
                 "@type": "ContactPoint",
@@ -115,6 +116,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
                 email: COMPANY.email.general,
                 url: `${COMPANY.baseUrl}/contact`,
               },
+              // Named people + their LinkedIn profiles strengthen the entity
+              // graph (a key AI-citation signal). No jobTitle — roles TBD.
+              employee: TEAM.map((m) => ({
+                "@type": "Person",
+                name: m.name,
+                sameAs: [m.linkedin],
+              })),
               sameAs: [COMPANY.linkedin, COMPANY.instagram],
             },
             {

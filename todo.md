@@ -54,7 +54,13 @@
   header (v1.1); Home entry now mentions the FAQ.
 - [x] **L1** `public/sitemap.xml` — homepage `<lastmod>` already 2026-07-29 (today); no change needed.
 - [ ] **H3** Named + attributed testimonial *(BLOCKED — need a real client name/quote+metric)*
-- [ ] **M1** `/about` founding year + named team *(BLOCKED — need real facts; won't invent)*
+- [x] **M1** `/about` — added "The team" section (5 members, initials-avatar + LinkedIn link each)
+  + "Founded in 2026". `foundedYear` + `TEAM` live in `src/lib/company.ts` (single source).
+  Organization schema now carries `foundingDate: "2026"` + 5 `employee` Person entries with
+  LinkedIn `sameAs` (entity-graph signal). No job titles (roles TBD — omitted, not guessed).
+  Photos: real headshots added to `public/team/*.jpeg` (resized 256×256, PNG→JPEG, ~106KB total
+  for all 5) and wired via `photo:` in TEAM; `<img loading="lazy" width/height>`. Domantas's full
+  name (Janušauskas) confirmed. Personal emails deliberately NOT shown (spam) — LinkedIn only.
 - [x] Verified: `tsc --noEmit`=0 · all public routes 200 · SSR HTML carries FAQ answers + new
   question headings · 4 JSON-LD types (Organization/WebSite/SoftwareApplication/FAQPage) valid.
 
