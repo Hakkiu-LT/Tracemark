@@ -19,7 +19,26 @@ import { COMPANY } from "@/lib/company";
 const PATH = "/solutions/law-firms";
 const TITLE = "Trademark Monitoring Software for IP Law Firms";
 const DESCRIPTION =
-  "HAKKIU gives IP law firms one platform for trademark and marketplace monitoring, legal-review-ready evidence, and multi-client enforcement workflows.";
+  "HAKKIU gives IP law firms one platform to monitor marketplaces and domains, with legal-review-ready evidence and multi-client enforcement workflows.";
+
+const FAQS = [
+  {
+    q: "Can one firm manage several clients in HAKKIU?",
+    a: "Yes — that is the point of it. Each client gets its own workspace, with its own marks, authorized sellers, detections and takedown history kept separate. Nothing bleeds between matters, so you can hand a partner a clean picture of exactly what is happening for one client without unpicking it from the rest.",
+  },
+  {
+    q: "Is the evidence usable if we escalate or file?",
+    a: "That is what it is built for. Every detection is captured as high-resolution screenshots, WHOIS registration records and a SHA-256 hash of the content with a UTC timestamp, then stored privately and shared through short-lived signed links. The point is a record that is timestamped and tamper-evident — something that holds up at a marketplace portal, in a UDRP complaint, or in front of a court, rather than a screenshot someone could have edited.",
+  },
+  {
+    q: "Do takedown notices go out under our firm's name?",
+    a: "Notices are prepared with representative-of-client wording and routed to the right destination — a marketplace reporting portal, an abuse contact, or a UDRP domain complaint — with each one tracked to resolution. You stay in control of what gets sent; HAKKIU does the assembly and the routing.",
+  },
+  {
+    q: "How does pricing work for a firm?",
+    a: "You are never charged per detection or per takedown, so a busy enforcement month does not turn into a bigger bill. Exact pricing depends on the number of clients and marks you are watching, and we share it after a demo once we understand what you are protecting.",
+  },
+];
 
 export const Route = createFileRoute("/solutions/law-firms")({
   head: () => ({
@@ -53,6 +72,18 @@ export const Route = createFileRoute("/solutions/law-firms")({
             { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
             { "@type": "ListItem", position: 2, name: "For law firms", item: `${COMPANY.baseUrl}${PATH}` },
           ],
+        },
+      },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "@id": `${COMPANY.baseUrl}${PATH}#faq`,
+          mainEntity: FAQS.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
         },
       },
       { property: "og:url", content: `${COMPANY.baseUrl}${PATH}` },
@@ -111,7 +142,7 @@ function LawFirmsPage() {
               delay={140}
               className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
             >
-              Monitor trademarks, marketplaces and domains for every client from one workspace —
+              Monitor marketplaces, domains and the open web for every client from one workspace,
               with legal-review-ready evidence and takedowns tracked to resolution.
             </Reveal>
             <Reveal delay={200} className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -153,9 +184,9 @@ function LawFirmsPage() {
               as raw data, docketing software that was never built for online enforcement, and manual
               marketplace checks that eat associate hours. When a client asks what you are doing about
               counterfeits and impersonation online, the honest answer is often "not much,
-              systematically." {COMPANY.brand} closes that gap — continuous monitoring across
-              marketplaces, domains and the open web, with the evidence and workflow a legal team
-              needs to act.
+              systematically." {COMPANY.brand} closes that gap: continuous monitoring across
+              marketplaces, domains and the open web, and timestamped evidence that ends in a filed
+              takedown rather than a spreadsheet.
             </Reveal>
           </div>
         </section>
@@ -191,6 +222,86 @@ function LawFirmsPage() {
           </div>
         </section>
 
+        {/* HOW A MATTER MOVES */}
+        <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
+          <div className="mx-auto max-w-5xl px-6">
+            <Reveal
+              as="h2"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+            >
+              How a client matter moves through {COMPANY.brand}
+            </Reveal>
+            <Reveal
+              as="p"
+              delay={70}
+              className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
+            >
+              The shape is the same for every client, whether you are watching two marks or two
+              hundred. Here is the path a single case takes, start to finish.
+            </Reveal>
+            <ol className="mt-10 space-y-8">
+              {[
+                {
+                  step: "Onboard the client",
+                  body: "Add the client's trademarks and the sellers they have authorized. That becomes their workspace — separate from every other matter you run, so the line between clients is never blurry.",
+                },
+                {
+                  step: "Monitoring runs",
+                  body: "HAKKIU watches marketplaces, social commerce, app stores, domain registries and the open web continuously. Each possible match is scored by risk, so the obvious knock-offs and the borderline cases are not treated the same.",
+                },
+                {
+                  step: "You review, not hunt",
+                  body: "The evidence is already captured by the time you look. You confirm the ones that matter and dismiss the noise — the associate hours that used to go into manually checking marketplaces are the hours you get back.",
+                },
+                {
+                  step: "The notice goes out",
+                  body: "A takedown is prepared with representative-of-client wording and routed to the right marketplace portal, abuse contact or UDRP complaint. Every case is tracked to resolution, so you always know what is outstanding for which client.",
+                },
+              ].map((item, i) => (
+                <Reveal as="li" key={item.step} delay={110 + i * 70} className="flex gap-5">
+                  <span className="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full border border-border bg-muted/50 font-mono text-sm font-semibold text-foreground">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
+                      {item.step}
+                    </h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                      {item.body}
+                    </p>
+                  </div>
+                </Reveal>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* WHAT THE EVIDENCE LOOKS LIKE */}
+        <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
+          <div className="mx-auto max-w-5xl px-6">
+            <Reveal
+              as="h2"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+            >
+              What "legal-review-ready" actually means
+            </Reveal>
+            <Reveal
+              as="p"
+              delay={70}
+              className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
+            >
+              It is a phrase every vendor uses, so here is what sits behind it at {COMPANY.brand}.
+              Each detection is captured as high-resolution screenshots, the WHOIS record for the
+              domain or listing, and a SHA-256 hash of the captured content stamped with a UTC time.
+              The hash is the part that matters to a lawyer: it is a fingerprint of exactly what was
+              on that page at that moment, so no one can later argue the screenshot was edited.
+              Evidence is stored privately and shared through short-lived signed links, not passed
+              around as loose files — which keeps the chain intact if a matter ends up in front of a
+              marketplace panel or a court.
+            </Reveal>
+          </div>
+        </section>
+
         {/* COVERAGE + INTERLINK */}
         <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
           <div className="mx-auto max-w-5xl px-6">
@@ -206,7 +317,7 @@ function LawFirmsPage() {
               className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
             >
               {COMPANY.brand} monitors online marketplaces, social commerce, app stores, domain
-              registries and the open web around the clock; see the full{" "}
+              registries and the open web continuously; see the full{" "}
               <Link
                 to="/"
                 hash="coverage"
@@ -267,6 +378,28 @@ function LawFirmsPage() {
                 </CardContent>
               </Card>
             </Reveal>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
+          <div className="mx-auto max-w-5xl px-6">
+            <Reveal
+              as="h2"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+            >
+              Questions IP firms ask us
+            </Reveal>
+            <div className="mt-10 max-w-3xl divide-y divide-border/60">
+              {FAQS.map((faq, i) => (
+                <Reveal key={faq.q} delay={100 + i * 60} className="py-6 first:pt-0">
+                  <h3 className="font-display text-base font-bold tracking-tight text-foreground">
+                    {faq.q}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{faq.a}</p>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
 

@@ -21,6 +21,25 @@ const TITLE = "Brand Protection Software for Brand Owners";
 const DESCRIPTION =
   "HAKKIU monitors Amazon, eBay, social media, app stores and domains for counterfeits, unauthorized sellers and lookalike domains — no per-takedown fee.";
 
+const FAQS = [
+  {
+    q: "Which marketplaces and channels does HAKKIU monitor?",
+    a: "Marketplaces like Amazon, eBay, Etsy, AliExpress and Alibaba, plus Shopify storefronts, social commerce on Instagram, Facebook and TikTok, app stores, Google Shopping, and domain registries and the open web. The idea is to cover the places a counterfeit or a lookalike domain actually shows up, not just the one or two you already watch by hand.",
+  },
+  {
+    q: "How is pricing structured?",
+    a: "It is a flat rate, set by how many brands and marks you are protecting — not by how many infringements we find or how many takedowns we file. That matters, because the months you most need enforcement are the months a per-takedown tool costs you the most. We share the number after a demo, once we know what you are protecting.",
+  },
+  {
+    q: "What happens after a counterfeit listing is detected?",
+    a: "The match is scored by risk and its evidence is captured automatically — screenshots, WHOIS and a hashed, timestamped record. You review it, and if it is a real infringement a trademark or DMCA notice is prepared with that evidence attached and routed to the right marketplace portal, abuse contact or domain complaint. Each case is then tracked until it is resolved.",
+  },
+  {
+    q: "How much is automated, and where does a person actually look?",
+    a: "Detection is the automated part: a tiered pipeline runs keyword and typosquat checks, perceptual image hashing, then a vision-language model to judge the harder cases. But a person reviews the consequential decisions before any notice goes out. You are not handing enforcement to a model and hoping — the automation does the searching, a human makes the calls that carry weight.",
+  },
+];
+
 export const Route = createFileRoute("/solutions/brand-owners")({
   head: () => ({
     meta: [
@@ -53,6 +72,18 @@ export const Route = createFileRoute("/solutions/brand-owners")({
             { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
             { "@type": "ListItem", position: 2, name: "For brand owners", item: `${COMPANY.baseUrl}${PATH}` },
           ],
+        },
+      },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "@id": `${COMPANY.baseUrl}${PATH}#faq`,
+          mainEntity: FAQS.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
         },
       },
       { property: "og:url", content: `${COMPANY.baseUrl}${PATH}` },
@@ -154,7 +185,7 @@ function BrandOwnersPage() {
               domain is running ads against your name and phishing your customers. Usually you find
               out by accident — a customer complaint, or a Google Alert. Checking every marketplace by
               hand does not scale, and each counterfeit chips away at margin and trust. {COMPANY.brand}{" "}
-              turns that reactive scramble into a continuous, evidence-backed process.
+              makes finding them a background job instead of a fire drill.
             </Reveal>
           </div>
         </section>
@@ -184,6 +215,51 @@ function BrandOwnersPage() {
                       </CardDescription>
                     </CardContent>
                   </Card>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CHANNEL BY CHANNEL */}
+        <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
+          <div className="mx-auto max-w-6xl px-6">
+            <Reveal
+              as="h2"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+            >
+              What that looks like on each channel
+            </Reveal>
+            <Reveal
+              as="p"
+              delay={70}
+              className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
+            >
+              "Everywhere online" is easy to say. In practice the abuse looks different depending on
+              where it lives, and so does the way you get it removed.
+            </Reveal>
+            <div className="mt-10 grid gap-6 md:grid-cols-3">
+              {[
+                {
+                  title: "Marketplaces",
+                  body: "Counterfeit listings and unauthorized sellers on Amazon, eBay, Etsy, AliExpress and Alibaba. Where a marketplace runs its own brand-protection route — Amazon Brand Registry, eBay's VeRO programme — notices are routed through it, which is usually the fastest way to a removal.",
+                },
+                {
+                  title: "Domains",
+                  body: "Lookalike and typosquatted domains running ads against your name or phishing your customers. The WHOIS record is captured with the rest of the evidence, and where it is warranted a UDRP complaint is prepared to go after the domain itself, not just one page.",
+                },
+                {
+                  title: "Social & app stores",
+                  body: "Fake shops, impersonation accounts and knock-off apps across Instagram, Facebook, TikTok and the app stores. These get reported through each platform's own channel, with the evidence attached so the report is not just a flag.",
+                },
+              ].map((c, i) => (
+                <Reveal key={c.title} delay={120 + i * 70}>
+                  <div className="h-full rounded-2xl border border-border/80 bg-card/80 p-6 shadow-sm backdrop-blur-sm">
+                    <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
+                      {c.title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{c.body}</p>
+                  </div>
                 </Reveal>
               ))}
             </div>
@@ -266,6 +342,28 @@ function BrandOwnersPage() {
                 </CardContent>
               </Card>
             </Reveal>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
+          <div className="mx-auto max-w-5xl px-6">
+            <Reveal
+              as="h2"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+            >
+              Questions brand owners ask us
+            </Reveal>
+            <div className="mt-10 max-w-3xl divide-y divide-border/60">
+              {FAQS.map((faq, i) => (
+                <Reveal key={faq.q} delay={100 + i * 60} className="py-6 first:pt-0">
+                  <h3 className="font-display text-base font-bold tracking-tight text-foreground">
+                    {faq.q}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{faq.a}</p>
+                </Reveal>
+              ))}
+            </div>
           </div>
         </section>
 

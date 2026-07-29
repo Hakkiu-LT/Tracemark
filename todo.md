@@ -9,6 +9,42 @@
 
 ---
 
+## SEO B-group — content depth + humanized copy (2026-07-29, session 38) — ✅ DONE
+
+> The deeper follow-up to A-group: the SXO/GEO/content subagents all pointed at one gap —
+> the compare/solution pages were too thin (~400–620 words) with no question-headings, no FAQ,
+> no "who should choose the competitor" section. B-group fixes that. User's hard requirement:
+> copy must read HUMAN, not AI slop. There is no dedicated "humanize" skill in the system, so I
+> wrote the prose myself and ran TWO adversarial reviewer subagents — one hunting AI tells
+> (em-dashes, template symmetry, rule-of-three, cliché transitions), one fact-checking every new
+> claim against the truthfulness rules — then revised on their findings. Marketing-site content
+> only → no Admin Portal parity needed.
+- [x] `compare-page.tsx`: extended `ComparePageData` with `verdict` + `faqs` (new `CompareFaq`
+  type); added three sections — "So which one should you pick?" (Stay-with-X / Look-at-HAKKIU),
+  a shared "Questions to ask on any demo" list (`BUYER_QUESTIONS`), and a visible FAQ.
+- [x] All 3 compare pages rewritten: real FAQ (4 Q&A each) + FAQPage JSON-LD, honest "pick this
+  one if…" verdict, table rows reordered to lead with HAKKIU strengths and end on the honest
+  gaps (early-stage / scale). Word count ~410 → ~1120–1160.
+- [x] Both solutions pages expanded: law-firms gained a "how a client matter moves" 4-step
+  walkthrough + a "what legal-review-ready actually means" evidence section + FAQ; brand-owners
+  gained a "what that looks like on each channel" section (marketplaces/domains/social) + FAQ.
+  Both got FAQPage JSON-LD. Word count ~500 → ~850–980.
+- [x] Humanization pass (adversarial AI-tell reviewer, rated copy 6–8/10 "genuinely good, not
+  slop"): rewrote corsearch fairAssessment to break the 3-page template symmetry (lead with the
+  buyer, not the vendor); cut the "not X, it's Y" antithesis fragment; removed "It is worth
+  asking" hedge; killed the generic "reactive scramble into a…process" and "evidence and workflow
+  a legal team needs to act" tails; fixed a broken rule-of-three; de-duplicated a repeated triple;
+  trimmed em-dash density and one extra "AI-native".
+- [x] Truthfulness pass (adversarial fact-checker): law-firms hero + meta no longer say "monitor
+  trademarks" (implied trademark *watching*, a competitor strength) → "monitor marketplaces and
+  domains"; softened two "around the clock" claims to "continuously" (no unbacked 24/7 guarantee).
+  No invented social proof, no published prices, flat-fee framed as parity with Red Points — all clean.
+- [x] Verified: `tsc` 0, `build` 0, local SSR — all 5 pages 1 H1, WebPage+BreadcrumbList+FAQPage
+  JSON-LD valid (4 Q each), breadcrumb still 2-level, law-firms meta desc trimmed to ≤152.
+  Post-deploy: re-run SXO + content subagents on prod to quantify the jump.
+
+---
+
 ## SEO A-group — quick truthful wins on the new pages (2026-07-29, session 38) — ✅ DONE
 
 > Re-ran 5 SEO subagents (technical 74, schema 78, GEO 52, SXO 41) against the live compare/solution
