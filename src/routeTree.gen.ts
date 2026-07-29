@@ -19,6 +19,8 @@ import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CasesRouteImport } from './routes/cases'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SolutionsLawFirmsRouteImport } from './routes/solutions.law-firms'
+import { Route as SolutionsBrandOwnersRouteImport } from './routes/solutions.brand-owners'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsClientsRouteImport } from './routes/settings.clients'
@@ -34,6 +36,9 @@ import { Route as LegalCookiesRouteImport } from './routes/legal.cookies'
 import { Route as LegalAcceptableUseRouteImport } from './routes/legal.acceptable-use'
 import { Route as LegacySignupRouteImport } from './routes/legacy/signup'
 import { Route as LegacyLoginRouteImport } from './routes/legacy/login'
+import { Route as CompareRedPointsRouteImport } from './routes/compare.red-points'
+import { Route as CompareCorsearchRouteImport } from './routes/compare.corsearch'
+import { Route as CompareBrandshieldRouteImport } from './routes/compare.brandshield'
 import { Route as CasesCaseIdRouteImport } from './routes/cases.$caseId'
 import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
@@ -89,6 +94,16 @@ const AboutRoute = AboutRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolutionsLawFirmsRoute = SolutionsLawFirmsRouteImport.update({
+  id: '/solutions/law-firms',
+  path: '/solutions/law-firms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolutionsBrandOwnersRoute = SolutionsBrandOwnersRouteImport.update({
+  id: '/solutions/brand-owners',
+  path: '/solutions/brand-owners',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsProfileRoute = SettingsProfileRouteImport.update({
@@ -166,6 +181,21 @@ const LegacyLoginRoute = LegacyLoginRouteImport.update({
   path: '/legacy/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompareRedPointsRoute = CompareRedPointsRouteImport.update({
+  id: '/compare/red-points',
+  path: '/compare/red-points',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareCorsearchRoute = CompareCorsearchRouteImport.update({
+  id: '/compare/corsearch',
+  path: '/compare/corsearch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareBrandshieldRoute = CompareBrandshieldRouteImport.update({
+  id: '/compare/brandshield',
+  path: '/compare/brandshield',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CasesCaseIdRoute = CasesCaseIdRouteImport.update({
   id: '/$caseId',
   path: '/$caseId',
@@ -213,6 +243,9 @@ export interface FileRoutesByFullPath {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/compare/brandshield': typeof CompareBrandshieldRoute
+  '/compare/corsearch': typeof CompareCorsearchRoute
+  '/compare/red-points': typeof CompareRedPointsRoute
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/legal/acceptable-use': typeof LegalAcceptableUseRoute
@@ -228,6 +261,8 @@ export interface FileRoutesByFullPath {
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
+  '/solutions/law-firms': typeof SolutionsLawFirmsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -246,6 +281,9 @@ export interface FileRoutesByTo {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/compare/brandshield': typeof CompareBrandshieldRoute
+  '/compare/corsearch': typeof CompareCorsearchRoute
+  '/compare/red-points': typeof CompareRedPointsRoute
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/legal/acceptable-use': typeof LegalAcceptableUseRoute
@@ -261,6 +299,8 @@ export interface FileRoutesByTo {
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
+  '/solutions/law-firms': typeof SolutionsLawFirmsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -280,6 +320,9 @@ export interface FileRoutesById {
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
+  '/compare/brandshield': typeof CompareBrandshieldRoute
+  '/compare/corsearch': typeof CompareCorsearchRoute
+  '/compare/red-points': typeof CompareRedPointsRoute
   '/legacy/login': typeof LegacyLoginRoute
   '/legacy/signup': typeof LegacySignupRoute
   '/legal/acceptable-use': typeof LegalAcceptableUseRoute
@@ -295,6 +338,8 @@ export interface FileRoutesById {
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
+  '/solutions/law-firms': typeof SolutionsLawFirmsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -315,6 +360,9 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
+    | '/compare/brandshield'
+    | '/compare/corsearch'
+    | '/compare/red-points'
     | '/legacy/login'
     | '/legacy/signup'
     | '/legal/acceptable-use'
@@ -330,6 +378,8 @@ export interface FileRouteTypes {
     | '/settings/clients'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/solutions/brand-owners'
+    | '/solutions/law-firms'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   fileRoutesByTo: FileRoutesByTo
@@ -348,6 +398,9 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
+    | '/compare/brandshield'
+    | '/compare/corsearch'
+    | '/compare/red-points'
     | '/legacy/login'
     | '/legacy/signup'
     | '/legal/acceptable-use'
@@ -363,6 +416,8 @@ export interface FileRouteTypes {
     | '/settings/clients'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/solutions/brand-owners'
+    | '/solutions/law-firms'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   id:
@@ -381,6 +436,9 @@ export interface FileRouteTypes {
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
+    | '/compare/brandshield'
+    | '/compare/corsearch'
+    | '/compare/red-points'
     | '/legacy/login'
     | '/legacy/signup'
     | '/legal/acceptable-use'
@@ -396,6 +454,8 @@ export interface FileRouteTypes {
     | '/settings/clients'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/solutions/brand-owners'
+    | '/solutions/law-firms'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   fileRoutesById: FileRoutesById
@@ -414,6 +474,9 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
+  CompareBrandshieldRoute: typeof CompareBrandshieldRoute
+  CompareCorsearchRoute: typeof CompareCorsearchRoute
+  CompareRedPointsRoute: typeof CompareRedPointsRoute
   LegacyLoginRoute: typeof LegacyLoginRoute
   LegacySignupRoute: typeof LegacySignupRoute
   LegalAcceptableUseRoute: typeof LegalAcceptableUseRoute
@@ -424,6 +487,8 @@ export interface RootRouteChildren {
   LegalSecurityRoute: typeof LegalSecurityRoute
   LegalSubprocessorsRoute: typeof LegalSubprocessorsRoute
   LegalTermsRoute: typeof LegalTermsRoute
+  SolutionsBrandOwnersRoute: typeof SolutionsBrandOwnersRoute
+  SolutionsLawFirmsRoute: typeof SolutionsLawFirmsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -496,6 +561,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solutions/law-firms': {
+      id: '/solutions/law-firms'
+      path: '/solutions/law-firms'
+      fullPath: '/solutions/law-firms'
+      preLoaderRoute: typeof SolutionsLawFirmsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solutions/brand-owners': {
+      id: '/solutions/brand-owners'
+      path: '/solutions/brand-owners'
+      fullPath: '/solutions/brand-owners'
+      preLoaderRoute: typeof SolutionsBrandOwnersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/profile': {
@@ -601,6 +680,27 @@ declare module '@tanstack/react-router' {
       path: '/legacy/login'
       fullPath: '/legacy/login'
       preLoaderRoute: typeof LegacyLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/red-points': {
+      id: '/compare/red-points'
+      path: '/compare/red-points'
+      fullPath: '/compare/red-points'
+      preLoaderRoute: typeof CompareRedPointsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/corsearch': {
+      id: '/compare/corsearch'
+      path: '/compare/corsearch'
+      fullPath: '/compare/corsearch'
+      preLoaderRoute: typeof CompareCorsearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/brandshield': {
+      id: '/compare/brandshield'
+      path: '/compare/brandshield'
+      fullPath: '/compare/brandshield'
+      preLoaderRoute: typeof CompareBrandshieldRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cases/$caseId': {
@@ -725,6 +825,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
+  CompareBrandshieldRoute: CompareBrandshieldRoute,
+  CompareCorsearchRoute: CompareCorsearchRoute,
+  CompareRedPointsRoute: CompareRedPointsRoute,
   LegacyLoginRoute: LegacyLoginRoute,
   LegacySignupRoute: LegacySignupRoute,
   LegalAcceptableUseRoute: LegalAcceptableUseRoute,
@@ -735,6 +838,8 @@ const rootRouteChildren: RootRouteChildren = {
   LegalSecurityRoute: LegalSecurityRoute,
   LegalSubprocessorsRoute: LegalSubprocessorsRoute,
   LegalTermsRoute: LegalTermsRoute,
+  SolutionsBrandOwnersRoute: SolutionsBrandOwnersRoute,
+  SolutionsLawFirmsRoute: SolutionsLawFirmsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

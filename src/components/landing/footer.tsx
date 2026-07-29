@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Linkedin, Instagram, ArrowRight } from "lucide-react";
+import { Linkedin, Instagram, Facebook, ArrowRight } from "lucide-react";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { COMPANY, copyrightLine } from "@/lib/company";
@@ -20,6 +20,14 @@ const PRODUCT_LINKS: FooterLink[] = [
   { label: "Coverage", to: "/", hash: "coverage" },
   { label: "How it works", to: "/", hash: "how" },
   { label: "Security", to: "/legal/security" },
+];
+
+const SOLUTIONS_LINKS: FooterLink[] = [
+  { label: "For brand owners", to: "/solutions/brand-owners" },
+  { label: "For law firms", to: "/solutions/law-firms" },
+  { label: "vs Red Points", to: "/compare/red-points" },
+  { label: "vs BrandShield", to: "/compare/brandshield" },
+  { label: "vs Corsearch", to: "/compare/corsearch" },
 ];
 
 const LEGAL_LINKS: FooterLink[] = [
@@ -120,7 +128,7 @@ export function Footer() {
 
       {/* Columns */}
       <div className="mx-auto max-w-6xl px-6 py-14">
-        <div className="grid gap-10 md:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
+        <div className="grid gap-10 md:grid-cols-[1.6fr_1fr_1fr_1fr_1.2fr]">
           {/* Brand block */}
           <div>
             <Link to="/" className="inline-flex items-center gap-2.5">
@@ -149,6 +157,15 @@ export function Footer() {
               >
                 <Instagram className="h-4 w-4" />
               </a>
+              <a
+                href={COMPANY.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="HAKKIU on Facebook"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+              >
+                <Facebook className="h-4 w-4" />
+              </a>
             </div>
             <p className="mt-6 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
               <span
@@ -160,6 +177,7 @@ export function Footer() {
           </div>
 
           <FooterColumn title="Product" links={PRODUCT_LINKS} />
+          <FooterColumn title="Solutions" links={SOLUTIONS_LINKS} />
           <FooterColumn title="Company" links={companyLinks} />
           <FooterColumn title="Legal" links={LEGAL_LINKS} />
         </div>
@@ -178,7 +196,7 @@ export function Footer() {
             >
               Cookie settings
             </button>
-            <span className="font-mono">Vilnius, Lithuania</span>
+            <span className="font-mono">Kaunas, Lithuania</span>
           </div>
         </div>
       </div>

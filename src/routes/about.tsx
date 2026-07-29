@@ -391,7 +391,7 @@ function AboutPage() {
               delay={70}
               className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
             >
-              {COMPANY.brand} is an EU-based company headquartered in Vilnius, Lithuania, and we
+              {COMPANY.brand} is an EU-based company headquartered in Kaunas, Lithuania, and we
               build for the standards European brand and legal teams expect. Our core infrastructure
               is hosted in the EEA and we process personal data in line with the GDPR — you can read
               how in our{" "}

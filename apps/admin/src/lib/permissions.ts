@@ -18,6 +18,7 @@ export const PERMISSIONS = {
   "audit.view": "Read the audit log",
   "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
   "leads.edit": "Update lead status (mark contacted, close)",
+  "leads.delete": "Delete sales leads (destructive)",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -28,7 +29,7 @@ export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
   dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view"],
-  sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit"],
+  sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit", "leads.delete"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(
     (p) => p !== "customers.delete" && p !== "customers.impersonate",

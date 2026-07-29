@@ -2,11 +2,15 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-29 (session 36 — **Batch 1 SEO fixes DONE** (og:url all routes, WebPage
-> dateModified schema, ImageObject logo, robots max-snippet, og:image dims, ContactPoint areaServed,
-> /about keyword title, robots.txt request-demo line dropped); tsc 0, SSR verified, 4 valid JSON-LD
-> blocks. **Uncommitted.** NEXT: Batch 2 (LCP/perf: fonts, unused JS, hero H1) + Caddy snippet for
-> Martynas; then re-measure PageSpeed.)
+> Last updated: 2026-07-29 (session 38 — **B4-5 SERP-matching pages DONE (code)**: 5 new static
+> routes — `/solutions/law-firms`, `/solutions/brand-owners`, `/compare/{red-points,brandshield,
+> corsearch}` — via a shared `compare-page.tsx` (solution pages self-contained like about.tsx);
+> wired into PUBLIC_PATHS + sitemap + a new footer "Solutions" column. All copy fact-checked against
+> live competitor research; truthfulness guardrails enforced (no $ claims, flat-fee=parity not
+> advantage, competitors' own strengths shown honestly, EU/Vilnius the only hard differentiator).
+> tsc 0 / build 0 / all 5 SSR 200 with title+canonical+og:url+WebPage/BreadcrumbList JSON-LD.
+> **Uncommitted.** NEXT: commit+push+deploy; then B4-1 (G2/Capterra profiles) strengthens these pages'
+> E-E-A-T. Batches 1–3 already committed+deployed (7f6b26e / 53d6824 / 1726dd8).)
 
 ## 🔎 SEO — where we are (session 36 snapshot for post-compaction)
 - **Done & live in prod:** Sprint 1 (schema foundation, canonicals, keyword title, self-hosted OG, removed fabricated stats), Sprint 2 (FAQ + FAQPage schema, question-format H3s, expanded copy, FAQ nav link, llms.txt v1.1), M1 (/about "The team" 5 members + real photos in `public/team/*.jpeg` + LinkedIn + foundingDate 2026 + Organization `employee` schema). AI Overview already cites HAKKIU.

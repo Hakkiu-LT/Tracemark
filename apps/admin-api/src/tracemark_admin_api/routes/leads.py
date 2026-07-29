@@ -62,3 +62,35 @@ def update_lead(
     )
 
     return {"ok": True}
+
+
+@router.delete("/{lead_id}")
+def delete_lead(
+    lead_id: str,
+    request: Request,
+    principal: StaffPrincipal = Depends(require_permission("leads.delete")),
+):
+    sb = customer_sb()
+    existing = (
+        sb.table("sales_leads")
+        .select("id,email,tier,org_id")
+        .eq("id", lead_id)
+        .maybe_single()
+        .execute()
+    )
+    if not existing or not existing.data:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    sb.table("sales_leads").delete().eq("id", lead_id).execute()
+
+    write_audit_log(
+        principal,
+        "leads.delete",
+        target_type="sales_lead",
+        target_id=lead_id,
+        target_org_id=existing.data.get("org_id"),
+        metadata={"email": existing.data.get("email"), "tier": existing.data.get("tier")},
+        ip=request.client.host if request.client else None,
+    )
+
+    return {"ok": True}

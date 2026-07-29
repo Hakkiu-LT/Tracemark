@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
-import { Loader2, ChevronRight, ChevronDown } from "lucide-react";
+import { Loader2, ChevronRight, ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { adminFetch } from "@/lib/api";
 import { usePermission } from "@/lib/auth";
 import { ensureAbsoluteUrl } from "@/lib/utils";
+import { useConfirm } from "@/components/ConfirmDialog";
 import {
   Badge,
   Button,
@@ -75,6 +76,9 @@ export function Leads() {
   const [tierFilter, setTierFilter]     = useState("");
   const [expanded, setExpanded]         = useState<Set<string>>(new Set());
   const canEdit = usePermission("leads.edit");
+  const canDelete = usePermission("leads.delete");
+  const showActions = canEdit || canDelete;
+  const confirm = useConfirm();
   const qc = useQueryClient();
 
   function toggleExpanded(id: string) {
@@ -105,6 +109,15 @@ export function Leads() {
       toast.success(`Lead marked as ${status}`);
     },
     onError: (err: any) => toast.error(err.message ?? "Update failed"),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => adminFetch(`/leads/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      toast.success("Lead deleted");
+    },
+    onError: (err: any) => toast.error(err.message ?? "Delete failed"),
   });
 
   return (
@@ -166,13 +179,13 @@ export function Leads() {
                   <TableHead>Brands</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
-                  {canEdit && <TableHead className="text-right">Actions</TableHead>}
+                  {showActions && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(data ?? []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={canEdit ? 9 : 8} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={showActions ? 9 : 8} className="py-10 text-center text-muted-foreground">
                       No leads found.
                     </TableCell>
                   </TableRow>
@@ -227,10 +240,10 @@ export function Leads() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{fmtDate(lead.created_at)}</TableCell>
-                      {canEdit && (
+                      {showActions && (
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-end gap-2">
-                            {lead.status === "pending" && (
+                          <div className="flex items-center justify-end gap-2">
+                            {canEdit && lead.status === "pending" && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -244,7 +257,7 @@ export function Leads() {
                                 )}
                               </Button>
                             )}
-                            {lead.status !== "closed" && (
+                            {canEdit && lead.status !== "closed" && (
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -254,6 +267,37 @@ export function Leads() {
                                 Close
                               </Button>
                             )}
+                            {canDelete && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                disabled={remove.isPending}
+                                aria-label="Delete lead"
+                                title="Delete lead"
+                                onClick={() =>
+                                  confirm.open({
+                                    title: "Delete this lead?",
+                                    description: `Permanently removes the lead from ${
+                                      lead.first_name || lead.last_name
+                                        ? `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim()
+                                        : lead.email
+                                    }. This cannot be undone.`,
+                                    confirmLabel: "Delete lead",
+                                    destructive: true,
+                                    onConfirm: async () => {
+                                      await remove.mutateAsync(lead.id);
+                                    },
+                                  })
+                                }
+                              >
+                                {remove.isPending && remove.variables === lead.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       )}
@@ -261,7 +305,7 @@ export function Leads() {
                     {isOpen && (
                       <TableRow className="bg-muted/30 hover:bg-muted/30">
                         <TableCell></TableCell>
-                        <TableCell colSpan={canEdit ? 8 : 7} className="py-4">
+                        <TableCell colSpan={showActions ? 8 : 7} className="py-4">
                           <LeadDetails lead={lead} />
                         </TableCell>
                       </TableRow>
@@ -275,6 +319,7 @@ export function Leads() {
           )}
         </CardContent>
       </Card>
+      {confirm.element}
     </div>
   );
 }

@@ -28,6 +28,7 @@ PERMISSIONS: dict[str, str] = {
     "audit.view": "Read the audit log",
     "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
     "leads.edit": "Update lead status (mark contacted, close)",
+    "leads.delete": "Delete sales leads (destructive)",
 }
 
 ALL_PERMISSIONS: frozenset[str] = frozenset(PERMISSIONS)
@@ -51,6 +52,7 @@ ROLE_PRESETS: dict[str, set[str]] = {
         "brands.view",
         "leads.view",
         "leads.edit",
+        "leads.delete",
     },
     "marketing": {
         "customers.view",

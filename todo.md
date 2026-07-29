@@ -9,6 +9,25 @@
 
 ---
 
+## Site edits — Facebook link + HQ city (2026-07-29, session 37) — ✅ DONE
+
+- [x] Footer: added Facebook social icon (`COMPANY.facebook` → profile 61592029420493), same style as LinkedIn/Instagram (`src/lib/company.ts` + `src/components/landing/footer.tsx`).
+- [x] HQ city Vilnius → **Kaunas** everywhere in customer-facing copy (8 refs): `footer.tsx`, `about.tsx`, `compare.{red-points,corsearch,brandshield}.tsx`. Audited with subagent. Left unchanged (correctly): VDAI supervisory authority + "Republic of Lithuania" governing law/jurisdiction (neither names Vilnius). `company.ts` address block still blank. Internal docs (plan/todo history) left as-is.
+- [x] Verified: no "Vilnius" left in `src/`; `tsc --noEmit` exit 0.
+
+---
+
+## Admin — Delete Sales Leads (2026-07-29, session 37) — ✅ DONE
+
+> Staff can now delete sales leads from `admin.tracemark.ai` → Sales Leads. Full portal parity.
+- [x] Backend perm `leads.delete` added to `apps/admin-api/.../permissions.py` (+ `sales` role preset; `admin` inherits via ALL).
+- [x] Backend `DELETE /leads/{lead_id}` in `routes/leads.py`: `require_permission("leads.delete")`, 404 if missing, hard-delete `sales_leads`, `write_audit_log("leads.delete", ...)`.
+- [x] Frontend perm mirror `leads.delete` in `apps/admin/src/lib/permissions.ts` (+ `sales` preset — kept in sync).
+- [x] `Leads.tsx`: trash button in Actions column gated by `leads.delete`, `useConfirm` destructive dialog, toast, cache invalidation. Actions column now shows when `canEdit || canDelete`.
+- [x] Verified: admin-api imports OK, admin FE `tsc --noEmit` clean.
+
+---
+
 ## PRIORITY 13 — SEO audit fixes (2026-07-29, session 33)
 
 > Source: `/seo audit https://hakkiu.com/` → Health Score **58/100**. These are marketing-site /
@@ -172,7 +191,21 @@
 - [ ] **B4-2** **YouTube** channel + 1 product-walkthrough video (0.737 correlation w/ AI citation — strongest single off-site signal)
 - [ ] **B4-3** **Wikidata** entity (no notability bar) + add its URI to Organization `sameAs`
 - [ ] **B4-4** Blog/resources: 2–3 long-form guides (800–1200w) — "detect counterfeits on Amazon", "forensic dossier for IP enforcement", "marketplace DMCA takedown"
-- [ ] **B4-5** SERP-matching pages: comparison ("HAKKIU vs Red Points"), solution ("for Law Firms"), guide (was C4)
+- [x] **B4-5** SERP-matching pages — DONE (code). Built 5 static routes (TanStack dot-notation):
+  `/solutions/law-firms`, `/solutions/brand-owners`, `/compare/red-points`, `/compare/brandshield`,
+  `/compare/corsearch`. Shared `components/landing/compare-page.tsx` (hero + fair "where competitor
+  fits" note + factual side-by-side table + honest reasons + CTA + trademark/pricing disclaimer);
+  solution pages self-contained like `about.tsx`. Wired: `__root.tsx` PUBLIC_PATHS (5 paths),
+  `sitemap.xml` (5 urls, priority 0.7–0.8), footer "Solutions" column (new 5-col grid).
+  **Truthfulness guardrails applied** (per competitor research): NO $ / "flat plans" claims (pricing
+  not published — only "no per-detection/takedown charge" allowed); flat-fee/unlimited-takedowns shown
+  as PARITY with Red Points (they market it too), NOT a HAKKIU advantage; competitors' own wins shown
+  honestly (BrandShield phishing/exec, Corsearch clearance heritage & scale); only verifiable EU/Vilnius
+  jurisdiction + documented AI pipeline + legal-review evidence used as differentiators; Corsearch
+  "£5k/mo" & analyst-hour claims NOT published (3rd-party only); cells a vendor doesn't publish = "Not
+  published". Verified: `tsc`=0 · `build`=0 · all 5 SSR 200 with correct title/canonical/og:url/WebPage
+  +BreadcrumbList JSON-LD/1×h1. ⚠️ Note (from SXO agent): compare pages are a 3–12mo ranking play and
+  weaker without G2/Capterra review signals (B4-1) — do B4-1 to strengthen E-E-A-T.
 - [ ] **B4-6** ProductHunt listing; press/Crunchbase for eventual Wikipedia notability
 
 ### BLOCKED — need input from Martynas
