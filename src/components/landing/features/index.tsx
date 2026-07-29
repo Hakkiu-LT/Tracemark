@@ -4,84 +4,48 @@ import {
   FileCheck,
   Send,
   ArrowRight,
-  ShieldCheck,
+  ShoppingCart,
+  Globe,
+  Users,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 import { BlueprintOverlay } from "../blueprint";
-import { Reveal, useInView } from "../reveal";
+import { Reveal } from "../reveal";
+import { ProgressBar } from "../progress-bar";
 import { useLeadModals } from "../lead-modals";
-import { cn } from "@/lib/utils";
 
-type Module = {
-  icon: LucideIcon;
-  title: string;
-  body: string;
-  /** Grid placement on the desktop quadrant layout. */
-  corner: "tl" | "tr" | "bl" | "br";
-};
+/**
+ * Platform architecture (SS3) — a bento grid where each module previews the
+ * capability it describes: the AI matcher shows a registered-mark vs counterfeit
+ * comparison, surveillance shows live crawl-rate bars, dossiers show sealed
+ * evidence fields, and enforcement shows the dispatch chain resolving. All
+ * previews are decorative; the copy carries the meaning.
+ */
 
-const MODULES: Module[] = [
-  {
-    icon: Activity,
-    title: "24/7 multi-channel surveillance",
-    body: "Automated crawlers scan 12+ marketplaces, social platforms, app stores, and domain registries around the clock.",
-    corner: "tl",
-  },
-  {
-    icon: Sparkles,
-    title: "AI visual & text matcher",
-    body: "Vision and language models compare listings against your registry to catch modified logos and typo-squats.",
-    corner: "tr",
-  },
-  {
-    icon: FileCheck,
-    title: "Forensic evidence dossiers",
-    body: "Screenshots, page HTML, WHOIS records, and cryptographic timestamps — archived court-ready, automatically.",
-    corner: "bl",
-  },
-  {
-    icon: Send,
-    title: "1-click marketplace enforcement",
-    body: "Direct dispatch to Amazon Brand Registry, Shopify, Google DMCA, and registrar notice portals.",
-    corner: "br",
-  },
+const MINT = "var(--mint, #18c889)";
+
+const CRAWLERS: { icon: LucideIcon; label: string; value: string; unit: string; width: string }[] = [
+  { icon: ShoppingCart, label: "Amazon US/EU/JP", value: "14,290", unit: "listings / min", width: "92%" },
+  { icon: Globe, label: "Shopify & web domains", value: "8,120", unit: "endpoints / min", width: "68%" },
+  { icon: Users, label: "Instagram & TikTok ads", value: "3,840", unit: "profiles / min", width: "41%" },
 ];
 
-// Connector endpoints in the SVG's stretched coordinate space (preserveAspect
-// none), pointing from the central engine out to each quadrant module. Because
-// the viewBox stretches to the container, these always aim at the right card.
-const LINES: Record<Module["corner"], string> = {
-  tl: "M500 300 C 340 260, 240 200, 150 150",
-  tr: "M500 300 C 660 260, 760 200, 850 150",
-  bl: "M500 300 C 340 340, 240 400, 150 450",
-  br: "M500 300 C 660 340, 760 400, 850 450",
-};
+const DOSSIER_ROWS: [string, string][] = [
+  ["Screenshot SHA-256", "8f92a4b…c19"],
+  ["WHOIS registrar", "NameCheap, Inc."],
+  ["Timestamp (UTC)", "2025-05-16 14:32:11"],
+];
 
-function ModuleCard({ m, delay }: { m: Module; delay: number }) {
-  const Icon = m.icon;
-  return (
-    <Reveal
-      delay={delay}
-      className="relative rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-md"
-    >
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
-        <Icon className="h-5 w-5" strokeWidth={2} />
-      </div>
-      <h3 className="mt-4 font-display text-base font-bold tracking-tight text-foreground">
-        {m.title}
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{m.body}</p>
-    </Reveal>
-  );
-}
-
-function pick(corner: Module["corner"]) {
-  return MODULES.find((m) => m.corner === corner)!;
-}
+const DISPATCH: { icon: LucideIcon; label: string }[] = [
+  { icon: FileCheck, label: "Dossier" },
+  { icon: Store, label: "Amazon IP" },
+  { icon: ShoppingCart, label: "Shopify" },
+  { icon: Globe, label: "Registrar" },
+];
 
 export function Features() {
   const { openDemo } = useLeadModals();
-  const { ref, inView } = useInView<HTMLDivElement>(0.25);
 
   return (
     <section
@@ -91,88 +55,211 @@ export function Features() {
       <BlueprintOverlay variant="architecture" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <Reveal
-            as="p"
-            className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
-          >
-            The platform architecture
-          </Reveal>
-          <Reveal
-            as="h2"
-            delay={60}
-            className="mt-4 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl"
-          >
-            Complete brand protection, automated end-to-end.
-          </Reveal>
+        {/* Header */}
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-2xl">
+            <Reveal
+              as="p"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+            >
+              The platform
+            </Reveal>
+            <Reveal
+              as="h2"
+              delay={60}
+              className="mt-4 font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl"
+            >
+              Monitoring, evidence, and enforcement in one chain of custody.
+            </Reveal>
+          </div>
           <Reveal
             as="p"
             delay={120}
-            className="mt-4 text-base leading-relaxed text-muted-foreground"
+            className="max-w-sm text-base leading-relaxed text-muted-foreground"
           >
-            Detection, evidence, and enforcement share one verifiable chain of custody — built for
-            brand teams and IP law firms.
+            Nothing is re-entered between steps. Every flag carries its own verifiable trail into
+            the notice you send.
           </Reveal>
         </div>
 
-        {/* Desktop: quadrant layout with SVG connectors to a central engine. */}
-        <div ref={ref} className="relative mt-16 hidden lg:block">
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 h-full w-full"
-            viewBox="0 0 1000 600"
-            preserveAspectRatio="none"
+        {/* Bento grid */}
+        <div className="mt-12 grid gap-4 md:grid-cols-3">
+          {/* AI matcher — wide */}
+          <Reveal
+            delay={0}
+            className="flex flex-col gap-5 rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-md md:col-span-2"
           >
-            <g fill="none" stroke="var(--guide-strong)" strokeWidth={1}>
-              {Object.values(LINES).map((d, i) => (
-                <path
-                  key={i}
-                  d={d}
-                  strokeDasharray="600"
-                  strokeDashoffset={inView ? 0 : 600}
-                  style={{
-                    transition: "stroke-dashoffset 900ms cubic-bezier(.22,1,.36,1)",
-                    transitionDelay: `${200 + i * 120}ms`,
-                  }}
-                />
-              ))}
-            </g>
-            {/* A single mint data packet flows along one connector, once drawn. */}
-            <path
-              d={LINES.br}
-              fill="none"
-              stroke="var(--mint, #18c889)"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeDasharray="14 586"
-              className={inView ? "wf-flow" : undefined}
-              style={{ opacity: inView ? 0.9 : 0 }}
-            />
-          </svg>
-
-          <div className="relative grid grid-cols-3 items-stretch gap-6">
-            <ModuleCard m={pick("tl")} delay={200} />
-            <div className="row-span-2 flex items-center justify-center">
-              <Reveal className="w-full">
-                <EngineCard />
-              </Reveal>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+                  <Sparkles className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
+                  AI visual &amp; text matcher
+                </h3>
+              </div>
+              <span
+                className="hakkiu-pulse-soft shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider"
+                style={{
+                  color: MINT,
+                  borderColor: `color-mix(in srgb, ${MINT} 35%, transparent)`,
+                  backgroundColor: `color-mix(in srgb, ${MINT} 10%, transparent)`,
+                }}
+              >
+                &gt;99% confidence
+              </span>
             </div>
-            <ModuleCard m={pick("tr")} delay={280} />
-            <ModuleCard m={pick("bl")} delay={360} />
-            <ModuleCard m={pick("br")} delay={440} />
-          </div>
-        </div>
-
-        {/* Mobile / tablet: engine on top, modules stacked in a 2-col grid. */}
-        <div className="mt-14 lg:hidden">
-          <Reveal>
-            <EngineCard />
+            <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
+              Vision and language models compare live listings against your registered trademark
+              portfolio to catch modified logos, typo-squats, and evasive copy.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+              <div
+                className="rounded-lg border p-4 text-center"
+                style={{
+                  borderColor: `color-mix(in srgb, ${MINT} 30%, transparent)`,
+                  backgroundColor: `color-mix(in srgb, ${MINT} 6%, transparent)`,
+                }}
+              >
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Registered mark
+                </p>
+                <p className="mt-2 font-display text-lg font-bold tracking-tight text-foreground">
+                  HAKKIU&reg;
+                </p>
+              </div>
+              <span className="text-center font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                vs
+              </span>
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4 text-center">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Detected counterfeit
+                </p>
+                <p className="mt-2 font-mono text-base font-semibold text-rose-600 dark:text-rose-400">
+                  HAKK1U-Outlet
+                </p>
+              </div>
+            </div>
           </Reveal>
-          <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            {MODULES.map((m, i) => (
-              <ModuleCard key={m.title} m={m} delay={i * 70} />
-            ))}
-          </div>
+
+          {/* 24/7 surveillance */}
+          <Reveal
+            delay={100}
+            className="flex flex-col gap-5 rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+                <Activity className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
+                24/7 surveillance
+              </h3>
+            </div>
+            <ul className="flex flex-col gap-4">
+              {CRAWLERS.map((c, i) => {
+                const Icon = c.icon;
+                return (
+                  <li key={c.label}>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="flex items-center gap-2 text-sm text-foreground">
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        {c.label}
+                      </span>
+                      <span className="font-mono text-sm font-medium tabular-nums text-foreground">
+                        {c.value}
+                      </span>
+                    </div>
+                    <ProgressBar width={c.width} delay={200 + i * 140} className="mt-2 h-1" />
+                    <p className="mt-1.5 font-mono text-[10px] text-muted-foreground">{c.unit}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          </Reveal>
+
+          {/* Forensic dossiers */}
+          <Reveal
+            delay={160}
+            className="flex flex-col gap-5 rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+                <FileCheck className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
+                Forensic dossiers
+              </h3>
+            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Screenshots, WHOIS records, and cryptographic timestamps sealed for legal review.
+            </p>
+            <dl className="mt-auto flex flex-col gap-1.5">
+              {DOSSIER_ROWS.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2"
+                >
+                  <dt className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {label}
+                  </dt>
+                  <dd className="truncate font-mono text-[11px] text-foreground">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
+
+          {/* One-click enforcement — wide */}
+          <Reveal
+            delay={100}
+            className="flex flex-col gap-5 rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-md md:col-span-2"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+                  <Send className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
+                  1-click marketplace enforcement
+                </h3>
+              </div>
+              <span className="shrink-0 rounded-full border border-border bg-muted/40 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Notice delivered
+              </span>
+            </div>
+            <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
+              Direct API integrations remove infringing content fast, with the evidence dossier
+              attached to every notice and platform responses tracked back into the case.
+            </p>
+            <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
+              {DISPATCH.map((s, i) => {
+                const Icon = s.icon;
+                return (
+                  <li key={s.label} className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-foreground">{s.label}</span>
+                    </div>
+                    {i < DISPATCH.length - 1 && (
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </li>
+                );
+              })}
+              <li className="flex items-center gap-2">
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                <div
+                  className="rounded-lg border px-3 py-2 text-xs font-medium"
+                  style={{
+                    color: MINT,
+                    borderColor: `color-mix(in srgb, ${MINT} 35%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${MINT} 10%, transparent)`,
+                  }}
+                >
+                  Resolved
+                </div>
+              </li>
+            </ol>
+          </Reveal>
         </div>
 
         <Reveal delay={120} className="mt-12 flex justify-center">
@@ -187,34 +274,5 @@ export function Features() {
         </Reveal>
       </div>
     </section>
-  );
-}
-
-function EngineCard({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        "relative overflow-hidden rounded-2xl border border-foreground/15 bg-foreground p-6 text-center text-background shadow-lg",
-        className,
-      )}
-    >
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-background/10">
-        <ShieldCheck className="h-6 w-6" strokeWidth={2} />
-      </div>
-      <p className="mt-4 font-display text-lg font-extrabold tracking-tight">HAKKIU engine</p>
-      <p className="mt-1 text-xs leading-relaxed text-background/70">
-        One detection &amp; enforcement core, one chain of custody.
-      </p>
-      <span
-        className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-background/20 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider"
-        style={{ color: "var(--mint, #18c889)" }}
-      >
-        <span
-          className="h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: "var(--mint, #18c889)" }}
-        />
-        Operational
-      </span>
-    </div>
   );
 }

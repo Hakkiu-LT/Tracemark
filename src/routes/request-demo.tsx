@@ -6,6 +6,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // sends visitors to the landing page with the demo modal auto-opened.
 export const Route = createFileRoute("/request-demo")({
   beforeLoad: () => {
-    throw redirect({ to: "/landing", search: { book: "demo" } as never });
+    throw redirect({ to: "/", search: { book: "demo" } as never });
   },
 });

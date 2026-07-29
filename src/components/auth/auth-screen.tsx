@@ -61,7 +61,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background font-body-alt text-foreground">
       {/* Floating brand — left */}
-      <Link to="/landing" className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-10">
+      <Link to="/" className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-10">
         <HakkiuLogo className="h-9 text-foreground" />
       </Link>
 
@@ -71,7 +71,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
         variant="outline"
         className="absolute right-6 top-6 z-30 h-11 border-border/60 bg-background/50 px-5 text-sm text-muted-foreground backdrop-blur hover:bg-background/70 hover:text-foreground sm:right-10"
       >
-        <Link to="/landing">← Back to home</Link>
+        <Link to="/">← Back to home</Link>
       </Button>
 
       <div className="grid flex-1 lg:grid-cols-[1.6fr_1fr]">

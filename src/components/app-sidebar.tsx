@@ -47,7 +47,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className={cn("border-b border-sidebar-border", collapsed && "p-0 flex items-center justify-center")}>
         <Link
-          to="/landing"
+          to="/"
           className={cn(
             "flex items-center gap-2 py-3 transition-all",
             collapsed ? "w-full justify-center px-0" : "px-2"

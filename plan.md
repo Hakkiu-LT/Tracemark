@@ -2,11 +2,29 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-29 (session 28 — landing + info/legal page polish: animated grid backdrop, rainbow CTAs, 21st Marquee coverage, legal-layout TOC/tables, About+Contact rebuilt as marketing pages)
+> Last updated: 2026-07-29 (session 31 — added "How many brands do you protect?" field to both lead modals (wired to existing brand_count_range → email + admin), moved landing page from /landing to site root "/" with a permanent redirect from the old URL)
 
 ---
 
-## 🎨 Latest — Landing + info-page polish (session 28)
+## 🎨 Latest — Brands-count field + landing at root (session 31)
+
+Two changes to the public site (customer app):
+- **Brands-count field** — added a required "How many brands do you protect?" Select
+  to BOTH lead modals (`book-demo-modal.tsx`, `talk-to-sales-modal.tsx`). It posts the
+  existing `brand_count_range` field (values `1 / 2-3 / 4-5 / 6-10 / 11-20 / 20+`, matching
+  the `sales_leads` CHECK constraint). No DB/API/admin/email work was needed — that pipeline
+  already existed end-to-end (`LeadRequest` model, `sales_leads` column, `new_lead_html`
+  "Brands (count)" row, Admin Portal Leads "Brands" column). The forms simply weren't sending it.
+- **Landing at site root** — the marketing page now lives at `/` instead of `/landing`.
+  `src/routes/index.tsx` IS the landing page; `src/routes/landing.tsx` is a permanent redirect
+  to `/` that preserves `?book=demo|sales` deep links. Updated all 13 internal links (nav, footer,
+  sidebar, legal, auth), both programmatic redirects (`request-demo`, `auth.sign-up`), the
+  confirmation-email CTA, the Docker healthcheck, and SEO files (sitemap/robots/llms). Verified:
+  `tsc` clean, `vite build` OK, `/` → 200, `/landing` → 307 to `/`, both modals show the new field.
+
+---
+
+## 🎨 Landing + info-page polish (session 28)
 
 Frontend pass on the public site (customer app), planned via subagent audits:
 - **Landing background** — one page-wide animated grid (`InfiniteGridBackdrop fixed`, `src/components/ui/the-infinite-grid.tsx`) mounted once in `landing.tsx`; `.technical-paper` sections made transparent (dark sections at 85%) so it reads as ONE continuous field. Old dot-matrix + blueprint construction lines removed.

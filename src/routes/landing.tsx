@@ -1,71 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { InfiniteGridBackdrop } from "@/components/ui/the-infinite-grid";
-import { HeroV3 } from "@/components/landing/hero-v3";
-import { LandingNav } from "@/components/landing/landing-nav";
-import { ProductProof } from "@/components/landing/product-proof";
-import { Coverage } from "@/components/landing/coverage";
-import { Workflow } from "@/components/landing/workflow";
-import { Features } from "@/components/landing/features";
-import { ExposureCalculator } from "@/components/landing/exposure-calculator";
-import { FinalCTA } from "@/components/landing/final-cta";
-import { Footer } from "@/components/landing/footer";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+// The landing page now lives at the site root ("/"). This route is kept so old
+// links, bookmarks, sitemaps and campaigns pointing at /landing keep working —
+// it permanently redirects to "/", preserving any ?book=demo|sales deep link.
 export const Route = createFileRoute("/landing")({
-  head: () => ({
-    meta: [
-      { title: "HAKKIU — Protect your brand at internet speed" },
-      {
-        name: "description",
-        content:
-          "HAKKIU monitors marketplaces and the open web 24/7, detects infringements with AI, and automates takedowns — built for brand owners and law firms.",
-      },
-      { property: "og:title", content: "HAKKIU — Protect your brand at internet speed" },
-      {
-        property: "og:description",
-        content:
-          "AI-powered trademark monitoring, evidence capture, and one-click takedowns across Amazon, Shopify, and the web.",
-      },
-    ],
-  }),
-  component: LandingPage,
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: "/", search: search as never, replace: true });
+  },
 });
-
-function LandingPage() {
-  return (
-    <div className="relative isolate min-h-screen bg-background text-foreground antialiased selection:bg-foreground selection:text-background">
-      {/* One continuous animated grid + colour wash behind the ENTIRE page.
-          Pinned to the viewport so it stays put while sections scroll over it;
-          sections are transparent (see .technical-paper) so it reads as one field. */}
-      <InfiniteGridBackdrop fixed />
-
-      <div className="relative z-10">
-        {/* TOP NAV */}
-        <LandingNav />
-
-        {/* 01 · HERO */}
-        <HeroV3 />
-
-      {/* 02 · PRODUCT PROOF — detection → takedown */}
-      <ProductProof />
-
-      {/* 03 · MULTI-CHANNEL COVERAGE (dark) */}
-      <Coverage />
-
-      {/* 04 · HOW IT WORKS */}
-      <Workflow />
-
-      {/* 05 · PLATFORM ARCHITECTURE */}
-      <Features />
-
-      {/* 06 · BRAND EXPOSURE CALCULATOR */}
-      <ExposureCalculator />
-
-      {/* 07 · FINAL CTA (dark) */}
-      <FinalCTA />
-
-        {/* 08 · FOOTER */}
-        <Footer />
-      </div>
-    </div>
-  );
-}

@@ -13,7 +13,7 @@ export const Route = createFileRoute("/auth/sign-up")({
 function SignUpRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    navigate({ to: "/landing", replace: true });
+    navigate({ to: "/", replace: true });
   }, [navigate]);
   return null;
 }

@@ -675,7 +675,7 @@ def lead_confirmation_html(
 <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:{_TEXT};">{what_next}</p>
 {_divider()}
 <p style="margin:0;font-size:14px;color:{_MUTED};">— The HAKKIU team</p>
-{_btn("Explore HAKKIU", f"{_APP_URL}/landing")}
+{_btn("Explore HAKKIU", f"{_APP_URL}")}
 """
     return _base(content, preheader=preheader)
 

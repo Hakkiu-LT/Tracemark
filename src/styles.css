@@ -471,6 +471,118 @@
   }
 }
 
+/* ── Live product-window motion (SS1 monitoring mock) ──────────────────
+   Small, looping "always watching" cues layered onto the product window:
+   detection rows lift in on mount (staggered inline), a faint sweep drifts
+   down the feed, the evidence-hash cursor blinks, and the takedown CTA
+   catches a slow sheen. All stopped under reduced motion. */
+@keyframes hakkiu-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.hakkiu-row-in {
+  opacity: 0;
+  animation: hakkiu-row-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hakkiu-sweep {
+  0% {
+    transform: translateY(-110%);
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110%);
+    opacity: 0;
+  }
+}
+.hakkiu-sweep {
+  animation: hakkiu-sweep 4.2s ease-in-out 1.2s infinite;
+}
+
+@keyframes hakkiu-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.hakkiu-blink {
+  animation: hakkiu-blink 1.05s steps(2, jump-none) infinite;
+}
+
+@keyframes hakkiu-sheen {
+  0% {
+    background-position: 160% 0;
+  }
+  55%,
+  100% {
+    background-position: -60% 0;
+  }
+}
+.hakkiu-sheen {
+  background-image: linear-gradient(
+    110deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.45) 45%,
+    rgba(255, 255, 255, 0.45) 55%,
+    transparent 80%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: hakkiu-sheen 3.6s ease-in-out 0.8s infinite;
+}
+
+@keyframes hakkiu-pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.hakkiu-pulse-soft {
+  animation: hakkiu-pulse-soft 2.6s ease-in-out infinite;
+}
+
+/* Indeterminate horizontal scan segment — a mint band sweeps a track to signal
+   an active, ongoing scan (Workflow step 02 preview). */
+@keyframes hakkiu-scan-x {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+.hakkiu-scan-x {
+  animation: hakkiu-scan-x 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hakkiu-row-in,
+  .hakkiu-sweep,
+  .hakkiu-blink,
+  .hakkiu-sheen,
+  .hakkiu-pulse-soft,
+  .hakkiu-scan-x {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 /* ── Print Styles Override ─────────────────────────────────────────── */
 @media print {
   html,

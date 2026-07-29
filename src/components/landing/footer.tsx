@@ -16,9 +16,9 @@ type FooterLink = {
 };
 
 const PRODUCT_LINKS: FooterLink[] = [
-  { label: "Platform", to: "/landing", hash: "features" },
-  { label: "Coverage", to: "/landing", hash: "coverage" },
-  { label: "How it works", to: "/landing", hash: "how" },
+  { label: "Platform", to: "/", hash: "features" },
+  { label: "Coverage", to: "/", hash: "coverage" },
+  { label: "How it works", to: "/", hash: "how" },
   { label: "Security", to: "/legal/security" },
 ];
 
@@ -123,7 +123,7 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-[1.6fr_1fr_1fr_1.2fr]">
           {/* Brand block */}
           <div>
-            <Link to="/landing" className="inline-flex items-center gap-2.5">
+            <Link to="/" className="inline-flex items-center gap-2.5">
               <HakkiuLogo className="h-6 text-foreground" />
             </Link>
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">

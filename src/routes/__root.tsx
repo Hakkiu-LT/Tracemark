@@ -132,6 +132,16 @@ gtag('consent', 'default', {
 });`,
           }}
         />
+        {/*
+          Force light mode — the app ships a single light theme (no toggle).
+          Strip any stale `.dark` class and persisted preference from earlier
+          builds before hydration so returning visitors never see dark mode.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{document.documentElement.classList.remove('dark');localStorage.removeItem('theme');}catch(e){}`,
+          }}
+        />
       </head>
       <body>
         {children}

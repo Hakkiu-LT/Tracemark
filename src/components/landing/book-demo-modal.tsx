@@ -2,13 +2,6 @@
 
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,9 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowRight, CalendarCheck, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { trackLead } from "@/lib/analytics";
 import { apiErrorMessage } from "@/lib/api-error";
+import { LeadModalShell } from "./lead-modal-shell";
 import { LeadSuccess } from "./lead-success";
 
 const BASE =
@@ -41,6 +35,18 @@ const PROTECT_OPTIONS = [
   "Not sure yet",
 ];
 
+// Maps to the backend `brand_count_range` field. Values MUST match the CHECK
+// constraint on sales_leads ('1','2-3','4-5','6-10','11-20','20+') so the lead
+// persists and shows in the Admin Portal "Brands" column + notification email.
+const BRAND_COUNT_OPTIONS = [
+  { value: "1", label: "1 brand" },
+  { value: "2-3", label: "2–3 brands" },
+  { value: "4-5", label: "4–5 brands" },
+  { value: "6-10", label: "6–10 brands" },
+  { value: "11-20", label: "11–20 brands" },
+  { value: "20+", label: "20+ brands" },
+];
+
 interface BookDemoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,6 +58,7 @@ export function BookDemoModal({ open, onOpenChange }: BookDemoModalProps) {
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [website, setWebsite] = useState("");
+  const [brandCount, setBrandCount] = useState("");
   const [protect, setProtect] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,6 +67,10 @@ export function BookDemoModal({ open, onOpenChange }: BookDemoModalProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!brandCount) {
+      setError("Please tell us how many brands you protect.");
+      return;
+    }
     if (!protect) {
       setError("Please tell us what you'd like to protect.");
       return;
@@ -78,6 +89,7 @@ export function BookDemoModal({ open, onOpenChange }: BookDemoModalProps) {
           email,
           company,
           website,
+          brand_count_range: brandCount || undefined,
           primary_goal: protect && protect !== "Not sure yet" ? [protect] : undefined,
           message: message || undefined,
         }),
@@ -114,6 +126,7 @@ export function BookDemoModal({ open, onOpenChange }: BookDemoModalProps) {
         setEmail("");
         setCompany("");
         setWebsite("");
+        setBrandCount("");
         setProtect("");
         setMessage("");
         setError(null);
@@ -124,42 +137,27 @@ export function BookDemoModal({ open, onOpenChange }: BookDemoModalProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className={submitted ? "sm:max-w-[560px] sm:rounded-3xl" : "sm:max-w-lg sm:rounded-2xl"}
-      >
-        {submitted ? (
-          <LeadSuccess
-            illustrationLight="/thank-you-booking-demo-black.webp"
-            illustrationDark="/thank-you-booking-demo-white.webp"
-            illustrationAlt="Demo request received"
-            title="Thank you for booking a demo"
-            subtitle="Your request has been received. We'll reach out shortly to confirm a time."
-            badge="Demo request submitted"
-            onClose={() => handleClose(false)}
-          />
-        ) : (
-          <>
-            <DialogHeader className="space-y-2 pb-1 text-left">
-              <DialogTitle className="font-display text-2xl font-semibold tracking-tight">
-                Book a demo
-              </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                See how HAKKIU protects your brand across every marketplace.
-              </DialogDescription>
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-0.5 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarCheck className="h-3.5 w-3.5 text-emerald-500" />
-                  30-minute walkthrough
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  No commitment
-                </span>
-              </div>
-            </DialogHeader>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
+    <LeadModalShell
+      open={open}
+      onOpenChange={handleClose}
+      submitted={submitted}
+      eyebrow="Book a demo"
+      title="See HAKKIU on your channels."
+      subtitle="Tell us what you need to protect. We'll tailor a focused 30-minute walkthrough."
+      bullets={["No setup fee", "Tailored to your channels", "NDA available"]}
+      success={
+        <LeadSuccess
+          illustrationLight="/thank-you-booking-demo-black.webp"
+          illustrationDark="/thank-you-booking-demo-white.webp"
+          illustrationAlt="Demo request received"
+          title="Thank you for booking a demo"
+          subtitle="Your request has been received. We'll reach out shortly to confirm a time."
+          badge="Demo request submitted"
+          onClose={() => handleClose(false)}
+        />
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="bd-first">First name</Label>
@@ -224,6 +222,22 @@ export function BookDemoModal({ open, onOpenChange }: BookDemoModalProps) {
               </div>
 
               <div className="space-y-1.5">
+                <Label htmlFor="bd-brands">How many brands do you protect?</Label>
+                <Select value={brandCount} onValueChange={setBrandCount} required>
+                  <SelectTrigger id="bd-brands" className="h-11 w-full rounded-lg">
+                    <SelectValue placeholder="Select a range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAND_COUNT_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label htmlFor="bd-protect">What would you like to protect?</Label>
                 <Select value={protect} onValueChange={setProtect} required>
                   <SelectTrigger id="bd-protect" className="h-11 w-full rounded-lg">
@@ -282,10 +296,7 @@ export function BookDemoModal({ open, onOpenChange }: BookDemoModalProps) {
                 </Link>
                 .
               </p>
-            </form>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+      </form>
+    </LeadModalShell>
   );
 }

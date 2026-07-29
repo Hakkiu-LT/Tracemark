@@ -54,7 +54,7 @@ WORKDIR /app/dist/server
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD node -e "require('http').get('http://127.0.0.1:8080/landing',r=>process.exit(r.statusCode<400?0:1)).on('error',()=>process.exit(1))"
+  CMD node -e "require('http').get('http://127.0.0.1:8080/',r=>process.exit(r.statusCode<400?0:1)).on('error',()=>process.exit(1))"
 
 # npx resolves wrangler from /app/node_modules/.bin (npm walks up from this cwd).
 # --local runs the real workerd runtime offline (no Cloudflare login/network needed).

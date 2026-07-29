@@ -34,7 +34,7 @@ sales consultation. There are no self-serve plans or per-detection / per-takedow
 
 ## Public pages
 
-- [Home / product overview](https://hakkiu.com/landing): Main marketing page — hero, coverage
+- [Home / product overview](https://hakkiu.com/): Main marketing page — hero, coverage
   channels, how it works, platform features and brand exposure calculator.
 - [Request a demo](https://hakkiu.com/request-demo): Book a product demo or a sales call via a
   short qualification form (the primary way to get started).

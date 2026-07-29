@@ -96,11 +96,11 @@ export function LegalLayout({
       {/* Minimal top bar */}
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/landing" className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5">
             <HakkiuLogo className="h-6 text-foreground" />
           </Link>
           <Link
-            to="/landing"
+            to="/"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             ← Back to home

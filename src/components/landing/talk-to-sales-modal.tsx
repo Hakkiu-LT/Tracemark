@@ -2,13 +2,6 @@
 
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,9 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Clock, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { trackLead } from "@/lib/analytics";
 import { apiErrorMessage } from "@/lib/api-error";
+import { LeadModalShell } from "./lead-modal-shell";
 import { LeadSuccess } from "./lead-success";
 
 const BASE =
@@ -37,6 +31,18 @@ const INTEREST_OPTIONS = [
   "Something else",
 ];
 
+// Maps to the backend `brand_count_range` field. Values MUST match the CHECK
+// constraint on sales_leads ('1','2-3','4-5','6-10','11-20','20+') so the lead
+// persists and shows in the Admin Portal "Brands" column + notification email.
+const BRAND_COUNT_OPTIONS = [
+  { value: "1", label: "1 brand" },
+  { value: "2-3", label: "2–3 brands" },
+  { value: "4-5", label: "4–5 brands" },
+  { value: "6-10", label: "6–10 brands" },
+  { value: "11-20", label: "11–20 brands" },
+  { value: "20+", label: "20+ brands" },
+];
+
 interface TalkToSalesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,6 +54,7 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
+  const [brandCount, setBrandCount] = useState("");
   const [interest, setInterest] = useState("");
   const [help, setHelp] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,6 +63,10 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!brandCount) {
+      setError("Please tell us how many brands you protect.");
+      return;
+    }
     if (!interest) {
       setError("Please tell us what you're interested in.");
       return;
@@ -75,6 +86,7 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
           email,
           company,
           phone,
+          brand_count_range: brandCount || undefined,
           message,
         }),
       });
@@ -109,6 +121,7 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
         setEmail("");
         setCompany("");
         setPhone("");
+        setBrandCount("");
         setInterest("");
         setHelp("");
         setError(null);
@@ -119,38 +132,27 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className={submitted ? "sm:max-w-[560px] sm:rounded-3xl" : "sm:max-w-lg sm:rounded-2xl"}
-      >
-        {submitted ? (
-          <LeadSuccess
-            illustrationLight="/thank-you-contacting-us-black.webp"
-            illustrationDark="/thank-you-contacting-us-white.webp"
-            illustrationAlt="Message received"
-            title="Thank you for contacting us"
-            subtitle="Your message has been received. Our team will get back to you within one business day."
-            badge="Message delivered"
-            onClose={() => handleClose(false)}
-          />
-        ) : (
-          <>
-            <DialogHeader className="space-y-2 pb-1 text-left">
-              <DialogTitle className="font-display text-2xl font-semibold tracking-tight">
-                Talk to sales
-              </DialogTitle>
-              <DialogDescription className="text-sm text-muted-foreground">
-                Tell us what you need and our team will get back to you.
-              </DialogDescription>
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-0.5 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-emerald-500" />
-                  Typically replies within one business day
-                </span>
-              </div>
-            </DialogHeader>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
+    <LeadModalShell
+      open={open}
+      onOpenChange={handleClose}
+      submitted={submitted}
+      eyebrow="Request a call"
+      title="Talk to our team."
+      subtitle="Tell us what you need and our team will get back to you within one business day."
+      bullets={["Replies within one business day", "Direct line to a specialist", "No commitment"]}
+      success={
+        <LeadSuccess
+          illustrationLight="/thank-you-contacting-us-black.webp"
+          illustrationDark="/thank-you-contacting-us-white.webp"
+          illustrationAlt="Message received"
+          title="Thank you for contacting us"
+          subtitle="Your message has been received. Our team will get back to you within one business day."
+          badge="Message delivered"
+          onClose={() => handleClose(false)}
+        />
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="ts-first">First name</Label>
@@ -216,6 +218,22 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
               </div>
 
               <div className="space-y-1.5">
+                <Label htmlFor="ts-brands">How many brands do you protect?</Label>
+                <Select value={brandCount} onValueChange={setBrandCount} required>
+                  <SelectTrigger id="ts-brands" className="h-11 w-full rounded-lg">
+                    <SelectValue placeholder="Select a range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAND_COUNT_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label htmlFor="ts-interest">I'm interested in</Label>
                 <Select value={interest} onValueChange={setInterest} required>
                   <SelectTrigger id="ts-interest" className="h-11 w-full rounded-lg">
@@ -270,10 +288,7 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
                 </Link>
                 .
               </p>
-            </form>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+      </form>
+    </LeadModalShell>
   );
 }

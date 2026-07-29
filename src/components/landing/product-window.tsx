@@ -1,11 +1,11 @@
 import { AlertTriangle, Sparkles, ShieldCheck, Search, Lock, FileText } from "lucide-react";
+import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { cn } from "@/lib/utils";
 
 /**
  * The live-monitoring product window — a solid, high-contrast mock of the
  * HAKKIU app (real-time detections on the left, an evidence dossier + 1-click
- * takedown on the right). Shared by the hero and the product-proof section so
- * the two never drift apart. Solid surfaces only: the technical-paper dot grid
+ * takedown on the right). Anchored in the hero. Solid surfaces only: the technical-paper dot grid
  * must never bleed into it. The whole mock is decorative — `aria-hidden` — so
  * the fake in-product buttons are not exposed to assistive tech or the tab order.
  *
@@ -84,17 +84,20 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
 
         {/* Titlebar */}
         <div className="flex h-11 items-center justify-between border-b border-border/60 bg-muted/40 px-4">
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full bg-rose-500/80" />
-            <span className="h-3 w-3 rounded-full bg-amber-500/80" />
-            <span className="h-3 w-3 rounded-full bg-emerald-500/80" />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-rose-500/80" />
+              <span className="h-3 w-3 rounded-full bg-amber-500/80" />
+              <span className="h-3 w-3 rounded-full bg-emerald-500/80" />
+            </div>
+            <HakkiuLogo className="hidden h-3 text-foreground/80 sm:block" />
           </div>
-          <div className="hidden items-center gap-2 rounded-md border border-border/60 bg-background px-3 py-1 font-mono text-[11px] text-muted-foreground sm:flex">
+          <div className="hidden items-center gap-2 rounded-md border border-border/60 bg-background px-3 py-1 font-mono text-[11px] text-muted-foreground md:flex">
             <Lock className="h-3 w-3 text-emerald-500" />
             app.hakkiu.com/live-monitoring
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="hakkiu-pulse-soft h-1.5 w-1.5 rounded-full bg-emerald-500" />
             ACTIVE
           </span>
         </div>
@@ -102,7 +105,15 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
         {/* Content: detections + evidence dossier */}
         <div className="grid grid-cols-1 divide-y divide-border/60 lg:grid-cols-12 lg:divide-x lg:divide-y-0">
           {/* Detections feed */}
-          <div className="space-y-3 p-5 lg:col-span-7">
+          <div className="relative space-y-3 overflow-hidden p-5 lg:col-span-7">
+            {/* faint sweep drifting down the feed — reinforces "always watching" */}
+            <div
+              className="hakkiu-sweep pointer-events-none absolute inset-x-0 top-0 z-10 h-14"
+              style={{
+                background:
+                  "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--mint, #18c889) 12%, transparent), transparent)",
+              }}
+            />
             <div className="flex items-center justify-between border-b border-border/40 pb-3">
               <span className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <Search className="h-3.5 w-3.5" />
@@ -113,16 +124,17 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
               </span>
             </div>
 
-            {DETECTIONS.map((d) => {
+            {DETECTIONS.map((d, i) => {
               const tone = TONES[d.tone];
               const Icon = d.icon;
               return (
                 <div
                   key={d.channel}
                   className={cn(
-                    "flex items-start justify-between rounded-lg border p-3 text-xs",
+                    "hakkiu-row-in relative flex items-start justify-between rounded-lg border p-3 text-xs",
                     tone.card,
                   )}
+                  style={{ animationDelay: `${0.5 + i * 0.18}s` }}
                 >
                   <div className="flex items-start gap-3">
                     <span
@@ -140,6 +152,7 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
                           className={cn(
                             "rounded px-1.5 py-0.5 text-[10px] font-semibold",
                             tone.chip,
+                            d.tone === "rose" && "hakkiu-pulse-soft",
                           )}
                         >
                           {d.badge}
@@ -181,6 +194,9 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
                     )}
                   >
                     {row.value}
+                    {row.label === "Evidence hash" && (
+                      <span className="hakkiu-blink ml-0.5 text-emerald-500">▋</span>
+                    )}
                   </span>
                 </div>
               ))}
@@ -197,9 +213,10 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
                 Files a formal trademark takedown to the marketplace legal portal with
                 cryptographically hashed evidence.
               </p>
-              <span className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-foreground text-xs font-semibold text-background">
-                <FileText className="h-3.5 w-3.5" />
-                Submit takedown
+              <span className="relative flex h-8 w-full items-center justify-center gap-1.5 overflow-hidden rounded-md bg-foreground text-xs font-semibold text-background">
+                <span className="hakkiu-sheen pointer-events-none absolute inset-0" />
+                <FileText className="relative h-3.5 w-3.5" />
+                <span className="relative">Submit takedown</span>
               </span>
             </div>
           </div>

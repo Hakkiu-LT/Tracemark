@@ -1,9 +1,61 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 28 — landing + info/legal page frontend polish)
+> Last updated: 2026-07-29 (session 31 — brands-count field in lead modals, landing moved to site root)
 
 ---
+
+## 🔢 Brands-count field + landing at root (2026-07-29, session 31)
+
+- [x] Added a required "How many brands do you protect?" Select to BOTH lead modals
+  (`book-demo-modal.tsx`, `talk-to-sales-modal.tsx`). Posts existing `brand_count_range`
+  (`1 / 2-3 / 4-5 / 6-10 / 11-20 / 20+`, matching the `sales_leads` CHECK constraint).
+- [x] End-to-end wiring confirmed with NO backend changes: the field already existed in the
+  `LeadRequest` model, the `sales_leads` column, the `new_lead_html` staff-email "Brands (count)"
+  row, and the Admin Portal Leads "Brands" column — the forms just weren't sending it.
+- [x] Moved the landing page from `/landing` to site root `/`: `routes/index.tsx` IS the landing
+  page now; `routes/landing.tsx` is a permanent redirect to `/` (preserves `?book=demo|sales`).
+- [x] Updated every `/landing` reference: nav (4), footer (4), sidebar (1), legal-layout (2),
+  auth-screen (2); redirects in `request-demo.tsx` + `auth.sign-up.tsx`; confirmation-email CTA;
+  Docker healthcheck; SEO `sitemap.xml` / `robots.txt` / `llms.txt`.
+- [x] Verified: `tsc` clean, `vite build` OK (route tree regenerated), `/` → 200,
+  `/landing` → 307 to `/`, both modals show the new field via headless screenshots.
+
+## 🧩 Lead modals redesign + light-only (2026-07-29, session 30)
+
+- [x] Deleted the ProductProof section (`product-proof.tsx` + its `landing.tsx` wiring + stale
+  comment in `product-window.tsx`); landing now flows Hero → SocialProof → Coverage → …
+- [x] NEW `lead-modal-shell.tsx` — shared two-column dialog frame (branded left panel: HAKKIU
+  logo + eyebrow + heading + subtitle + reassurance checklist; form on the right; "handled
+  securely" footer). Wider `sm:max-w-3xl`, `p-0` panels, X top-right.
+- [x] `book-demo-modal.tsx` + `talk-to-sales-modal.tsx` refactored onto the shell — **fields,
+  validation, submit, and API payloads unchanged**. Eyebrows "Book a demo" / "Request a call".
+- [x] Removed the light/dark theme toggle everywhere: deleted `theme-toggle.tsx`, stripped it
+  from `app-header.tsx` and the inline toggle from `landing-nav.tsx` (Sun/Moon + isDark state).
+- [x] Forced light-only: inline guard in `__root.tsx` strips any stale `.dark` class +
+  `localStorage.theme` before hydration. Inert `dark:` utility classes left as-is (harmless).
+- [x] Verified: `tsc` clean, `vite build` OK, headless screenshots confirm both modals + nav.
+
+## 🎬 Landing sections → reference mockups + motion (2026-07-29, session 29)
+
+Ported the reference `~/Downloads/hakkiu` mockup designs into the real customer landing and
+brought each to life. All motion transform/opacity only, once-on-reveal, `prefers-reduced-motion`
+safe (new keyframes in `src/styles.css`).
+
+- [x] Shared primitives: `count-up.tsx` (rAF easeOutExpo counter, reuses `useInView`),
+  `progress-bar.tsx` (fill-to-width on reveal). `src/styles.css` — `hakkiu-row-in`,
+  `hakkiu-sweep`, `hakkiu-blink`, `hakkiu-sheen`, `hakkiu-pulse-soft`, `hakkiu-scan-x`.
+- [x] SS1 — `product-window.tsx` animated: HAKKIU logo in titlebar, staggered detection rows,
+  live vertical sweep, blinking evidence-hash cursor, sheen takedown CTA, pulsing critical badge.
+- [x] SS2 — NEW `social-proof.tsx` (count-up metrics grid + testimonial); wired into `landing.tsx`
+  after ProductProof.
+- [x] SS3 — `features/index.tsx` rebuilt as a bento grid (AI matcher HAKKIU® vs HAKK1U-Outlet,
+  24/7 surveillance animated bars, forensic dossier rows, 1-click enforcement dispatch flow),
+  replacing the quadrant/engine diagram.
+- [x] SS4 — `workflow.tsx` step cards now carry per-stage preview panels (brand assets uploaded /
+  live scan / sealed legal packet) instead of bullet lists.
+- [x] Verified: `tsc` clean, `vite build` OK, headless screenshots confirm all four render.
+- [ ] Replace placeholder metrics + testimonial in `social-proof.tsx` with verified figures.
 
 ## 🎨 Landing page "technical-paper" redesign (2026-07-28, session 27)
 
