@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function AppHeader() {
   const persona = useStore((s) => s.persona);
@@ -34,6 +35,7 @@ export function AppHeader() {
             </SelectContent>
           </Select>
         )}
+        <ThemeToggle />
         <UserMenu />
       </div>
     </header>

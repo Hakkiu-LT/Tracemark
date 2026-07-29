@@ -205,13 +205,11 @@ gtag('consent', 'default', {
           }}
         />
         {/*
-          Force light mode — the app ships a single light theme (no toggle).
-          Strip any stale `.dark` class and persisted preference from earlier
-          builds before hydration so returning visitors never see dark mode.
+          Initialize theme preference before hydration to prevent FOUC.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{document.documentElement.classList.remove('dark');localStorage.removeItem('theme');}catch(e){}`,
+            __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}`,
           }}
         />
       </head>
