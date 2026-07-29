@@ -19,14 +19,17 @@ import { COMPANY } from "@/lib/company";
 const PATH = "/solutions/brand-owners";
 const TITLE = "Brand Protection Software for Brand Owners";
 const DESCRIPTION =
-  "HAKKIU monitors Amazon, eBay, social media, app stores and domains for counterfeits, unauthorized sellers and lookalike domains — with legal-review-ready evidence and no per-takedown charge. Book a demo.";
+  "HAKKIU monitors Amazon, eBay, social media, app stores and domains for counterfeits, unauthorized sellers and lookalike domains — no per-takedown fee.";
 
 export const Route = createFileRoute("/solutions/brand-owners")({
   head: () => ({
     meta: [
       { title: `${TITLE} | ${COMPANY.brand}` },
       { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: `${COMPANY.brand} for Brand Owners` },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: DESCRIPTION },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: DESCRIPTION },
       {
         "script:ld+json": {
           "@context": "https://schema.org",
@@ -37,6 +40,9 @@ export const Route = createFileRoute("/solutions/brand-owners")({
           description: DESCRIPTION,
           isPartOf: { "@id": `${COMPANY.baseUrl}/#website` },
           about: { "@id": `${COMPANY.baseUrl}/#organization` },
+          datePublished: "2026-07-29",
+          dateModified: "2026-07-29",
+          author: { "@id": `${COMPANY.baseUrl}/#organization` },
         },
       },
       {
@@ -45,8 +51,7 @@ export const Route = createFileRoute("/solutions/brand-owners")({
           "@type": "BreadcrumbList",
           itemListElement: [
             { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
-            { "@type": "ListItem", position: 2, name: "Solutions", item: `${COMPANY.baseUrl}/solutions/brand-owners` },
-            { "@type": "ListItem", position: 3, name: "Brand Owners", item: `${COMPANY.baseUrl}${PATH}` },
+            { "@type": "ListItem", position: 2, name: "For brand owners", item: `${COMPANY.baseUrl}${PATH}` },
           ],
         },
       },

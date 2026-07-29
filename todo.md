@@ -9,6 +9,36 @@
 
 ---
 
+## SEO A-group — quick truthful wins on the new pages (2026-07-29, session 38) — ✅ DONE
+
+> Re-ran 5 SEO subagents (technical 74, schema 78, GEO 52, SXO 41) against the live compare/solution
+> pages. "A group" = the fast, no-fabrication fixes they surfaced. Marketing-site meta/static only →
+> **no Admin Portal parity needed**. Bigger "B group" (content depth, question-headings, FAQPage schema,
+> 900+ word expansions) deferred to a later session.
+- [x] **og:description + twitter:title + twitter:description** added per page on all 5 new routes
+  (were inheriting the generic sitewide fallback). `compare.{red-points,brandshield,corsearch}.tsx`,
+  `solutions.{law-firms,brand-owners}.tsx`.
+- [x] **og:title** on both solutions pages fixed: was short "HAKKIU for Law Firms / Brand Owners"
+  (lost the keyword) → now the full keyword-rich `TITLE`.
+- [x] **Meta descriptions trimmed to ≤155 chars** (were 167–203, truncating in SERPs). Verified:
+  red-points 151, brandshield 146, corsearch 142, law-firms 149, brand-owners 150.
+- [x] **BreadcrumbList fix** — position 2 & 3 both pointed at the leaf URL (invalid, could suppress
+  rich result). Collapsed to a valid 2-level crumb: Home → page. All 5 pages.
+- [x] **WebPage JSON-LD** — added `datePublished` / `dateModified` / `author` (@id → #organization)
+  on all 5 pages (freshness + authorship signals for AI/search).
+- [x] **robots.txt** — added explicit `Allow: /solutions/` + `Allow: /compare/` to the `*` block
+  (were only implicitly allowed).
+- [x] **llms.txt v1.2 → v1.3** — added all 5 new pages to the Public-pages index (AI systems use it
+  to discover content; the highest-value comparison pages were missing).
+- [x] **Caddyfile** — trailing-slash redirect forced from TanStack's temporary **307 → permanent 301**
+  (`@trailingSlash path_regexp ^(.+)/$` → `redir … permanent`; root `/` excluded). Prod-only; Caddy
+  reload is atomic so a bad config can't cause downtime.
+- [x] Verified: `tsc --noEmit` 0, `npm run build` 0, local SSR curl on all 5 pages — unique
+  og/twitter, ≤155 desc, 1 H1, 2-item breadcrumb (no dup URL), WebPage dates+author all present;
+  robots.txt + llms.txt serve the updates. Post-deploy: subagents re-verify on prod.
+
+---
+
 ## Site edits — Facebook link + HQ city (2026-07-29, session 37) — ✅ DONE
 
 - [x] Footer: added Facebook social icon (`COMPANY.facebook` → profile 61592029420493), same style as LinkedIn/Instagram (`src/lib/company.ts` + `src/components/landing/footer.tsx`).

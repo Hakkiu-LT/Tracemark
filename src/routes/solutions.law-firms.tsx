@@ -19,14 +19,17 @@ import { COMPANY } from "@/lib/company";
 const PATH = "/solutions/law-firms";
 const TITLE = "Trademark Monitoring Software for IP Law Firms";
 const DESCRIPTION =
-  "HAKKIU gives IP law firms one platform for trademark and marketplace monitoring, legal-review-ready evidence, and multi-client enforcement workflows. Book a firm demo.";
+  "HAKKIU gives IP law firms one platform for trademark and marketplace monitoring, legal-review-ready evidence, and multi-client enforcement workflows.";
 
 export const Route = createFileRoute("/solutions/law-firms")({
   head: () => ({
     meta: [
       { title: `${TITLE} | ${COMPANY.brand}` },
       { name: "description", content: DESCRIPTION },
-      { property: "og:title", content: `${COMPANY.brand} for Law Firms` },
+      { property: "og:title", content: TITLE },
+      { property: "og:description", content: DESCRIPTION },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: DESCRIPTION },
       {
         "script:ld+json": {
           "@context": "https://schema.org",
@@ -37,6 +40,9 @@ export const Route = createFileRoute("/solutions/law-firms")({
           description: DESCRIPTION,
           isPartOf: { "@id": `${COMPANY.baseUrl}/#website` },
           about: { "@id": `${COMPANY.baseUrl}/#organization` },
+          datePublished: "2026-07-29",
+          dateModified: "2026-07-29",
+          author: { "@id": `${COMPANY.baseUrl}/#organization` },
         },
       },
       {
@@ -45,8 +51,7 @@ export const Route = createFileRoute("/solutions/law-firms")({
           "@type": "BreadcrumbList",
           itemListElement: [
             { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
-            { "@type": "ListItem", position: 2, name: "Solutions", item: `${COMPANY.baseUrl}/solutions/law-firms` },
-            { "@type": "ListItem", position: 3, name: "Law Firms", item: `${COMPANY.baseUrl}${PATH}` },
+            { "@type": "ListItem", position: 2, name: "For law firms", item: `${COMPANY.baseUrl}${PATH}` },
           ],
         },
       },

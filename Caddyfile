@@ -19,6 +19,14 @@
 hakkiu.com {
 	encode zstd gzip
 
+	# Trailing-slash normalisation. TanStack Start strips a trailing slash with a
+	# *temporary* 307, which does not consolidate link equity or resolve the
+	# canonical URL for crawlers. Do it here first with a *permanent* 301 so
+	# e.g. /about/ → /about is a clean, cacheable redirect. The regex requires at
+	# least one character before the slash, so the root "/" is never matched.
+	@trailingSlash path_regexp trailingslash ^(.+)/$
+	redir @trailingSlash {re.trailingslash.1} permanent
+
 	# Immutable caching for content-hashed static assets. Vite emits
 	# /assets/<name>-<hash>.(js|css) and we self-host fonts under /fonts/*.woff2
 	# — the filename changes whenever the content does, so they can be cached for

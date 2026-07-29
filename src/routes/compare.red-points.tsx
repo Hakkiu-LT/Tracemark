@@ -5,7 +5,7 @@ import { COMPANY } from "@/lib/company";
 const PATH = "/compare/red-points";
 const TITLE = "Red Points Alternative — HAKKIU vs Red Points Compared";
 const DESCRIPTION =
-  "HAKKIU vs Red Points: an honest, EU-based comparison of AI brand protection — detection, legal-review evidence and takedown coverage, with no per-takedown charge. Book a demo.";
+  "HAKKIU vs Red Points — an honest, EU-based comparison of AI brand protection: detection, legal-review evidence and takedowns, with no per-takedown fee.";
 
 export const Route = createFileRoute("/compare/red-points")({
   head: () => ({
@@ -13,6 +13,9 @@ export const Route = createFileRoute("/compare/red-points")({
       { title: `${TITLE} | ${COMPANY.brand}` },
       { name: "description", content: DESCRIPTION },
       { property: "og:title", content: TITLE },
+      { property: "og:description", content: DESCRIPTION },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: DESCRIPTION },
       {
         "script:ld+json": {
           "@context": "https://schema.org",
@@ -23,6 +26,9 @@ export const Route = createFileRoute("/compare/red-points")({
           description: DESCRIPTION,
           isPartOf: { "@id": `${COMPANY.baseUrl}/#website` },
           about: { "@id": `${COMPANY.baseUrl}/#organization` },
+          datePublished: "2026-07-29",
+          dateModified: "2026-07-29",
+          author: { "@id": `${COMPANY.baseUrl}/#organization` },
         },
       },
       {
@@ -31,8 +37,7 @@ export const Route = createFileRoute("/compare/red-points")({
           "@type": "BreadcrumbList",
           itemListElement: [
             { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
-            { "@type": "ListItem", position: 2, name: "Compare", item: `${COMPANY.baseUrl}/compare/red-points` },
-            { "@type": "ListItem", position: 3, name: "HAKKIU vs Red Points", item: `${COMPANY.baseUrl}${PATH}` },
+            { "@type": "ListItem", position: 2, name: "HAKKIU vs Red Points", item: `${COMPANY.baseUrl}${PATH}` },
           ],
         },
       },

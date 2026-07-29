@@ -5,7 +5,7 @@ import { COMPANY } from "@/lib/company";
 const PATH = "/compare/corsearch";
 const TITLE = "Corsearch Alternative — HAKKIU vs Corsearch Compared";
 const DESCRIPTION =
-  "HAKKIU vs Corsearch: an honest comparison. Corsearch is a full-lifecycle enterprise IP suite; HAKKIU is a leaner, AI-native, EU-based option for growing brands and smaller IP teams. Book a demo.";
+  "HAKKIU vs Corsearch — an honest comparison: Corsearch is a full-lifecycle enterprise IP suite; HAKKIU is a leaner, AI-native, EU-based option.";
 
 export const Route = createFileRoute("/compare/corsearch")({
   head: () => ({
@@ -13,6 +13,9 @@ export const Route = createFileRoute("/compare/corsearch")({
       { title: `${TITLE} | ${COMPANY.brand}` },
       { name: "description", content: DESCRIPTION },
       { property: "og:title", content: TITLE },
+      { property: "og:description", content: DESCRIPTION },
+      { name: "twitter:title", content: TITLE },
+      { name: "twitter:description", content: DESCRIPTION },
       {
         "script:ld+json": {
           "@context": "https://schema.org",
@@ -23,6 +26,9 @@ export const Route = createFileRoute("/compare/corsearch")({
           description: DESCRIPTION,
           isPartOf: { "@id": `${COMPANY.baseUrl}/#website` },
           about: { "@id": `${COMPANY.baseUrl}/#organization` },
+          datePublished: "2026-07-29",
+          dateModified: "2026-07-29",
+          author: { "@id": `${COMPANY.baseUrl}/#organization` },
         },
       },
       {
@@ -31,8 +37,7 @@ export const Route = createFileRoute("/compare/corsearch")({
           "@type": "BreadcrumbList",
           itemListElement: [
             { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
-            { "@type": "ListItem", position: 2, name: "Compare", item: `${COMPANY.baseUrl}/compare/corsearch` },
-            { "@type": "ListItem", position: 3, name: "HAKKIU vs Corsearch", item: `${COMPANY.baseUrl}${PATH}` },
+            { "@type": "ListItem", position: 2, name: "HAKKIU vs Corsearch", item: `${COMPANY.baseUrl}${PATH}` },
           ],
         },
       },
