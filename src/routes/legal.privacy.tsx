@@ -11,6 +11,7 @@ export const Route = createFileRoute("/legal/privacy")({
         content: "How HAKKIU collects, uses, shares and protects personal data, and your rights under the GDPR.",
       },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/privacy` }],
   }),
   component: PrivacyPage,
 });

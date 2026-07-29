@@ -8,6 +8,7 @@ export const Route = createFileRoute("/legal/terms")({
       { title: "Terms of Service — HAKKIU" },
       { name: "description", content: "The terms governing use of the HAKKIU website and platform." },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/terms` }],
   }),
   component: TermsPage,
 });

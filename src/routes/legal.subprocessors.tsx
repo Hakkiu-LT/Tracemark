@@ -8,6 +8,7 @@ export const Route = createFileRoute("/legal/subprocessors")({
       { title: "Sub-processors — HAKKIU" },
       { name: "description", content: "The third-party sub-processors HAKKIU uses to deliver the Service." },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/subprocessors` }],
   }),
   component: SubprocessorsPage,
 });

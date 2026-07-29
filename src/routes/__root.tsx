@@ -16,6 +16,7 @@ import { ErrorState } from "@/components/error-state";
 import { ConsentManager } from "@/components/consent/consent-banner";
 import { LeadModalsProvider } from "@/components/landing/lead-modals";
 import { AuthProvider, RequireAuth } from "@/lib/auth";
+import { COMPANY } from "@/lib/company";
 
 import appCss from "../styles.css?url";
 
@@ -84,10 +85,48 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "HAKKIU — Trademark & Brand Protection" },
       { property: "og:description", content: "Monitor your trademarks, detect infringements, and automate takedowns across Amazon, Shopify, and the web." },
       { name: "twitter:description", content: "Monitor your trademarks, detect infringements, and automate takedowns across Amazon, Shopify, and the web." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/02a1ed82-8227-4b72-ba6c-8a1653239b9e/id-preview-ce27147c--15c49e3c-cecc-4003-b12c-7f67ca80d572.lovable.app-1779024978982.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/02a1ed82-8227-4b72-ba6c-8a1653239b9e/id-preview-ce27147c--15c49e3c-cecc-4003-b12c-7f67ca80d572.lovable.app-1779024978982.png" },
+      // Self-hosted OG image (was an external r2.dev UUID URL). Served from
+      // public/og-image.png → https://hakkiu.com/og-image.png. Absolute URL is
+      // required — social scrapers reject relative paths.
+      { property: "og:image", content: `${COMPANY.baseUrl}/og-image.png` },
+      { name: "twitter:image", content: `${COMPANY.baseUrl}/og-image.png` },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
+      // Site-wide structured data — Organization + WebSite. Rendered into
+      // <head> by the router's built-in script:ld+json handler (SSR-safe,
+      // auto-escaped). Facts come from src/lib/company.ts (single source of
+      // truth) so they stay in sync with the legal/footer pages.
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": `${COMPANY.baseUrl}/#organization`,
+              name: COMPANY.brand,
+              url: COMPANY.baseUrl,
+              logo: `${COMPANY.baseUrl}/hakkiu-mark.png`,
+              description:
+                "AI-powered trademark and brand-protection platform. Continuous monitoring across marketplaces, social channels, app stores and domains, with forensic evidence capture and automated takedowns.",
+              email: COMPANY.email.general,
+              contactPoint: {
+                "@type": "ContactPoint",
+                contactType: "sales",
+                email: COMPANY.email.general,
+                url: `${COMPANY.baseUrl}/contact`,
+              },
+              sameAs: [COMPANY.linkedin, COMPANY.instagram],
+            },
+            {
+              "@type": "WebSite",
+              "@id": `${COMPANY.baseUrl}/#website`,
+              url: COMPANY.baseUrl,
+              name: COMPANY.brand,
+              publisher: { "@id": `${COMPANY.baseUrl}/#organization` },
+            },
+          ],
+        },
+      },
     ],
     links: [
       { rel: "icon", href: "/favicon.ico", sizes: "any" },

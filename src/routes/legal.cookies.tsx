@@ -8,6 +8,7 @@ export const Route = createFileRoute("/legal/cookies")({
       { title: "Cookie Policy — HAKKIU" },
       { name: "description", content: "What cookies HAKKIU uses, why, and how to manage your consent." },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/cookies` }],
   }),
   component: CookiesPage,
 });

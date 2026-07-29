@@ -8,6 +8,7 @@ export const Route = createFileRoute("/legal/dpa")({
       { title: "Data Processing Agreement — HAKKIU" },
       { name: "description", content: "HAKKIU's Data Processing Agreement (GDPR Article 28) for customer personal data." },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/dpa` }],
   }),
   component: DpaPage,
 });

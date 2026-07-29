@@ -1,7 +1,58 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 32 — landing page mobile responsiveness)
+> Last updated: 2026-07-29 (session 33 — SEO audit fix plan added + Sprint 1 IMPLEMENTED, see PRIORITY 13)
+
+---
+
+## PRIORITY 13 — SEO audit fixes (2026-07-29, session 33)
+
+> Source: `/seo audit https://hakkiu.com/` → Health Score **58/100**. These are marketing-site /
+> meta / static-content changes only → **no Admin Portal parity needed** (no customer data touched).
+> Do Sprint 1 first (all code, no external deps). Sprints in `plan.md`.
+
+### Sprint 1 — code fixes (no external deps) — ✅ DONE (session 33)
+- [x] **C1** Removed the whole SocialProof section (per user: "remove this section"). Deleted
+  `src/components/landing/social-proof.tsx` + `src/components/landing/count-up.tsx` (dead — was
+  its only caller), removed import + render from `index.tsx`, renumbered section comments.
+  Verified: 0 refs remain; fabricated 1,842 / 99.4% / testimonial gone from rendered SSR.
+- [x] **C2** JSON-LD via TanStack built-in `{"script:ld+json": {...}}` meta (renders in `<head>`,
+  SSR-safe, auto-escaped — confirmed by subagent investigation):
+  - [x] `__root.tsx` — Organization + WebSite `@graph`, facts imported from `src/lib/company.ts`
+  - [x] `index.tsx` — SoftwareApplication (NO offers/price — contact-only pricing)
+  - [x] `about.tsx` — AboutPage + BreadcrumbList · `contact.tsx` — ContactPage + BreadcrumbList
+  - (`request-demo.tsx` skipped — it's a redirect to `/`, renders no head)
+- [x] **~~C3~~** OBSOLETE — CountUp's only caller was SocialProof; deleted the file instead of
+  making it SSR-safe. No "0" stats problem remains because the stats are gone.
+- [x] **H1** `index.tsx` title/og:title/twitter:title → "HAKKIU — Trademark Monitoring & Brand Protection Software"
+- [x] **H2** `{ rel: "canonical", href }` added to index, about, contact + all 8 legal pages
+  (absolute `${COMPANY.baseUrl}/...`). request-demo skipped (redirect).
+- [x] **M4** OG image → `public/og-image.png` (1920×1080, 162KB, re-hosted from the old r2.dev URL);
+  `__root.tsx` og:image + twitter:image now `${COMPANY.baseUrl}/og-image.png`.
+- [x] Verified: `tsc --noEmit` exit 0 · dev HTTP 200 · SSR HTML confirmed (JSON-LD valid, canonical,
+  new title, self-hosted OG). ⏳ Still TODO externally: Google Rich Results Test on live deploy.
+- [ ] **Follow-up (user decision):** the same illustrative numbers "99.4%" / "1,842" remain in TWO
+  decorative `aria-hidden` product mockups — `product-window.tsx:21` badge and `workflow.tsx:95/108`
+  diagram. Lower risk than the social-proof block, but decide whether to neutralize them for consistency.
+
+### Sprint 2 — content + on-page (~1 week)
+- [ ] **H4** Question-format H2/H3 in coverage / features / workflow sections
+- [ ] **H6** Expand each section intro to 80–120 words (hero currently ~28 → not citable)
+- [ ] **M3** Q&A section with **QAPage** schema (NOT FAQPage), 5–7 definitional/process questions
+- [ ] **H3** Named + attributed testimonial with a metric *(needs client approval — external)*
+- [ ] **H5** Middle-intent CTA (sample evidence packet / pricing anchor) — not just "book a demo"
+- [ ] **M1** `/about` — founding year + 1–2 named team members
+- [ ] **M2** `public/llms.txt` — add `/about`, `/contact`, `/legal/security` + version/last-updated header
+- [ ] **L1** `public/sitemap.xml` — ensure `<lastmod>` stamped at build
+
+### Sprint 3 — content program + authority (weeks)
+- [ ] **C4** 3 SERP-matching pages: comparison (vs Red Points), solution (for law firms), guide (Amazon counterfeits)
+- [ ] **M5** G2 / Capterra / YouTube / LinkedIn footprint
+- [ ] Wikipedia notability groundwork (press, Crunchbase)
+
+### Deferred / needs credentials
+- [ ] Measure Core Web Vitals — set `GOOGLE_API_KEY`, then `/seo google` or `lcp_subparts.py`
+- [ ] Backlink DA/PA — add Moz/Bing keys (currently Common Crawl tier only)
 
 ---
 

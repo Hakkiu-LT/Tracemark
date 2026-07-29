@@ -8,6 +8,7 @@ export const Route = createFileRoute("/legal/security")({
       { title: "Trust & Security — HAKKIU" },
       { name: "description", content: "How HAKKIU protects customer data: hosting, encryption, access control, and responsible disclosure." },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/security` }],
   }),
   component: SecurityPage,
 });

@@ -2,11 +2,76 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-29 (session 31 — added "How many brands do you protect?" field to both lead modals (wired to existing brand_count_range → email + admin), moved landing page from /landing to site root "/" with a permanent redirect from the old URL)
+> Last updated: 2026-07-29 (session 33 — SEO audit of hakkiu.com (Health Score 58/100) + **Sprint 1 IMPLEMENTED**: removed fabricated SocialProof section, added Organization/WebSite/SoftwareApplication/Breadcrumb JSON-LD, canonicals on all public pages, keyword-first homepage title, self-hosted OG image. tsc clean + SSR verified. Sprints 2-3 still pending.)
 
 ---
 
-## 🎨 Latest — Brands-count field + landing at root (session 31)
+## 🔍 Active — SEO audit fix plan (session 33)
+
+`/seo audit https://hakkiu.com/` scored the marketing site **58/100**. Strong foundation
+(SSR works, robots.txt + security headers A+, llms.txt present, all images have alt) but
+four Critical gaps. Full findings live in `todo.md` → "PRIORITY 13 — SEO audit fixes".
+
+**Scope note (CLAUDE.md parity rule):** these are marketing-site / meta / static-content
+changes only. They do NOT create, store, or change *customer* data, so **no Admin Portal
+wiring is required** for any item here. Do not add admin-api routes for SEO meta/schema.
+
+### Sprint 1 — code fixes, no external deps — ✅ DONE (session 33)
+> Implemented: SocialProof section removed (social-proof.tsx + count-up.tsx deleted); JSON-LD via
+> TanStack `script:ld+json` meta (Org+WebSite in __root, SoftwareApplication on /, AboutPage/
+> ContactPage + BreadcrumbList on about/contact); canonicals on / + about + contact + 8 legal pages;
+> keyword-first homepage title; OG image self-hosted at public/og-image.png. C3 dropped as obsolete
+> (CountUp deleted with its only caller). Verified tsc --noEmit=0 + SSR HTML. Original items:
+
+1. **C1 — fabricated social proof (integrity risk).** `src/components/landing/social-proof.tsx`
+   ships a `// TODO: swap the metrics + quote for verified figures before launch` with 4 made-up
+   numbers (1,842 / 99.4% / <4h / 12) + an anonymous "Head of Legal, Vilnius" quote, all LIVE.
+   → Remove the unverified counts and anonymous quote (or replace with real, attributable ones).
+   Blocks all other SEO work — E-E-A-T penalty + reputational risk while it's up.
+2. **C2 — zero structured data.** Add JSON-LD via TanStack `head()` `scripts`:
+   `__root.tsx` → Organization + WebSite (@graph, every page); `index.tsx` → SoftwareApplication
+   (NO `offers`/price — pricing is contact-only per the book-a-demo pivot); `about.tsx` /
+   `contact.tsx` / `request-demo.tsx` → BreadcrumbList + AboutPage/ContactPage/WebPage.
+   ⚠️ Verify the `scripts` key actually renders inside `<head>` via `<HeadContent />`.
+3. **C3 — CountUp renders "0" in SSR HTML.** `src/components/landing/count-up.tsx` inits
+   `useState(0)` → crawlers without JS read "0". Init `value` to `to` and gate the animation
+   behind a client-only `mounted` flag so SSR + first hydration show the final number.
+4. **H1 — keyword-less title.** `index.tsx` title "…Protect your brand at internet speed"
+   → "HAKKIU — Trademark Monitoring & Brand Protection Software" (also og:title/twitter:title).
+5. **H2 — no canonical anywhere.** Add per-route `{ rel: "canonical", href }` to index/about/
+   contact/request-demo/legal.* head().
+6. **M4 — OG image on r2.dev UUID URL.** Serve from `hakkiu.com/og-image.png`; update `__root.tsx`.
+   Verify: `tsc --noEmit` clean, dev 200, Google Rich Results Test passes, re-run `/seo schema`.
+
+### Sprint 2 — content + on-page (~1 week)
+7. **H4** question-format H2/H3 in coverage/features/workflow ("How does AI detect counterfeits?").
+8. **H6** expand each section intro to 80–120 words (currently hero ~28 words → not citable).
+9. **M3** add a Q&A section marked up with **QAPage** (NOT FAQPage — Google retired FAQ rich
+   results May 2026); 5–7 definitional/process questions.
+10. **H3** replace testimonial with a named, attributed quote + metric (needs client approval).
+11. **H5** add a middle-intent CTA (sample evidence packet / "how pricing works" anchor) —
+    today every CTA forces a demo booking.
+12. **M1** `/about` — add founding year + 1–2 named team members.
+13. **M2** `public/llms.txt` — add `/about`, `/contact`, `/legal/security` + version/last-updated header.
+14. **L1** ensure `public/sitemap.xml` `<lastmod>` is stamped at build.
+
+### Sprint 3 — content program + external authority (weeks, higher effort)
+15. **C4** 3 SERP-matching pages: comparison ("HAKKIU vs Red Points"), solution ("Trademark
+    Monitoring for Law Firms"), guide ("How to detect counterfeits on Amazon"). The homepage
+    can't rank for buyer queries — those SERPs reward comparison/solution page types.
+16. **M5** establish G2 / Capterra / YouTube / LinkedIn footprint (strongest AI-citation signals).
+17. Wikipedia notability groundwork (press, Crunchbase) — long tail.
+
+**Leading indicator (don't re-audit to check):** GSC non-branded impressions + Rich Results
+Test status after schema deploy. If non-branded impressions stay flat 4 weeks post Sprint 3,
+the new pages still don't match SERP page-type — revisit content format.
+
+**Not measurable this session:** Core Web Vitals (needs `GOOGLE_API_KEY` for PSI/CrUX);
+backlinks limited to Common Crawl tier (add Moz/Bing keys for DA/PA).
+
+---
+
+## 🎨 Previous — Brands-count field + landing at root (session 31)
 
 Two changes to the public site (customer app):
 - **Brands-count field** — added a required "How many brands do you protect?" Select

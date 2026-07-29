@@ -24,7 +24,31 @@ export const Route = createFileRoute("/contact")({
         content: "Get in touch with HAKKIU — book a demo, ask about the platform, or reach our privacy, security and legal teams.",
       },
       { property: "og:title", content: "Contact HAKKIU" },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          "@id": `${COMPANY.baseUrl}/contact#webpage`,
+          url: `${COMPANY.baseUrl}/contact`,
+          name: "Contact HAKKIU",
+          description:
+            "Get in touch with HAKKIU — book a demo, ask about the platform, or reach our privacy, security and legal teams.",
+          isPartOf: { "@id": `${COMPANY.baseUrl}/#website` },
+          about: { "@id": `${COMPANY.baseUrl}/#organization` },
+        },
+      },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
+            { "@type": "ListItem", position: 2, name: "Contact", item: `${COMPANY.baseUrl}/contact` },
+          ],
+        },
+      },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/contact` }],
   }),
   component: ContactPage,
 });

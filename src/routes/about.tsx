@@ -26,7 +26,31 @@ export const Route = createFileRoute("/about")({
           "HAKKIU is an EU-based brand-protection platform that helps brand owners and law firms detect infringements and automate takedowns across marketplaces and the open web.",
       },
       { property: "og:title", content: "About HAKKIU" },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          "@id": `${COMPANY.baseUrl}/about#webpage`,
+          url: `${COMPANY.baseUrl}/about`,
+          name: "About HAKKIU",
+          description:
+            "HAKKIU is an EU-based brand-protection platform that helps brand owners and law firms detect infringements and automate takedowns across marketplaces and the open web.",
+          isPartOf: { "@id": `${COMPANY.baseUrl}/#website` },
+          about: { "@id": `${COMPANY.baseUrl}/#organization` },
+        },
+      },
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
+            { "@type": "ListItem", position: 2, name: "About", item: `${COMPANY.baseUrl}/about` },
+          ],
+        },
+      },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/about` }],
   }),
   component: AboutPage,
 });

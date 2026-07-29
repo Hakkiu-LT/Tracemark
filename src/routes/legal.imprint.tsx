@@ -8,6 +8,7 @@ export const Route = createFileRoute("/legal/imprint")({
       { title: "Legal Notice / Imprint — HAKKIU" },
       { name: "description", content: "Company identification and legal notice for HAKKIU." },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/imprint` }],
   }),
   component: ImprintPage,
 });

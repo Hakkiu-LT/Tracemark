@@ -8,6 +8,7 @@ export const Route = createFileRoute("/legal/acceptable-use")({
       { title: "Acceptable Use Policy — HAKKIU" },
       { name: "description", content: "Rules for acceptable use of the HAKKIU platform." },
     ],
+    links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/acceptable-use` }],
   }),
   component: AcceptableUsePage,
 });
