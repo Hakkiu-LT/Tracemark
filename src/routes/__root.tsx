@@ -205,11 +205,11 @@ gtag('consent', 'default', {
           }}
         />
         {/*
-          Initialize theme preference before hydration to prevent FOUC.
+          Initialize theme preference before hydration (defaults to light mode).
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}`,
+            __html: `try{if(localStorage.getItem('theme')==='dark'){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}`,
           }}
         />
       </head>
