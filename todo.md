@@ -1,7 +1,9 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 34 — Sprint 2 IMPLEMENTED: FAQ section + FAQPage schema, question headings, FAQ nav link, llms.txt; H3/M1 blocked on real facts. See PRIORITY 13)
+> Last updated: 2026-07-29 (session 36 — Batch 1 SEO fixes DONE + verified (tsc 0, SSR checked,
+> 4 valid JSON-LD blocks). Uncommitted. NEXT: Batch 2 (Performance/CWV: fonts, unused JS, hero H1)
+> — pair with the Caddy immutable-caching snippet for Martynas. See "RE-AUDIT BACKLOG" in PRIORITY 13.)
 
 ---
 
@@ -64,14 +66,88 @@
 - [x] Verified: `tsc --noEmit`=0 · all public routes 200 · SSR HTML carries FAQ answers + new
   question headings · 4 JSON-LD types (Organization/WebSite/SoftwareApplication/FAQPage) valid.
 
-### Sprint 3 — content program + authority (weeks)
-- [ ] **C4** 3 SERP-matching pages: comparison (vs Red Points), solution (for law firms), guide (Amazon counterfeits)
-- [ ] **M5** G2 / Capterra / YouTube / LinkedIn footprint
-- [ ] Wikipedia notability groundwork (press, Crunchbase)
+---
+
+## 🔁 RE-AUDIT BACKLOG (2026-07-29, session 35) — everything still open
+
+> Full `/seo audit` re-run on LIVE prod after Sprint 1+2+M1. **Health Score 58 → ~70/100.**
+> Measured mobile CWV (Google API key now configured in `~/.config/claude-seo/google-api.json`):
+> Lighthouse **SEO 100 · Best-Practices 100 · A11y 97 · Performance 72**. CWV: **LCP 4.4s 🔴,
+> FCP 4.4s 🔴, CLS 0 🟢, TBT 0ms 🟢**. CrUX field data = none (site traffic too low yet).
+> Below = the consolidated, de-duped remaining work across technical/content/schema/GEO agents.
+
+### BATCH 1 — quick safe code wins — ✅ DONE (session 36, 2026-07-29)
+- [x] **B1-1** Organization `logo` → `ImageObject` {url,width:512,height:421} in `__root.tsx`. Verified
+  real file `public/hakkiu-mark.png` IS 512×421 so schema is truthful. Google Knowledge-Panel eligible.
+- [x] **B1-2** `og:url` added to every public route head, mirroring the existing canonical:
+  index (`https://hakkiu.com/`), about, contact + all 8 legal pages (`${COMPANY.baseUrl}/...`).
+- [x] **B1-3** `/request-demo` — was ALREADY absent from `sitemap.xml` (removed session 31). Completed
+  the intent by also dropping `Allow: /request-demo` from `robots.txt` (it 307-redirects → no point
+  advertising a redirect to crawlers; the robots block has no blanket `Disallow: /` so nothing new is blocked).
+- [x] **B1-4** `WebPage` JSON-LD on `/` with `datePublished:"2026-07-01"` + `dateModified:"2026-07-29"`
+  (isPartOf website, about organization). Comment tells maintainers to bump dateModified w/ sitemap lastmod.
+- [x] **B1-5** `/about` `<title>` → "About HAKKIU — EU Brand Protection for IP Teams" (keyword-rich).
+- [x] **B1-6** `og:image:width` 1920 + `og:image:height` 1080 (match real og-image.png) +
+  `<meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">` in `__root.tsx`.
+- [x] **B1-7** ContactPoint gained `areaServed:"Worldwide"` + `availableLanguage:"English"` in `__root.tsx`.
+- [x] Verified: `tsc --noEmit`=0 · dev `/`,`/about`,`/legal/privacy` all HTTP 200 · SSR HTML confirmed
+  (Python substring checks — grep unreliable on long lines) carries every new tag · all **4 homepage
+  JSON-LD blocks parse as valid JSON** (Organization+WebSite / SoftwareApplication / FAQPage / WebPage).
+  ⏳ Not yet committed/deployed; re-run Google Rich Results + PageSpeed after Batch 2 lands.
+
+### BATCH 2 — Performance / CWV (fix LCP 4.4s → <2.5s; biggest technical lever)
+- [ ] **B2-1** Google Fonts render-blocking (~820ms): self-host OR `<link rel=preload>` the 2 display fonts + confirm `&display=swap` — `__root.tsx` — HIGH
+- [ ] **B2-2** ⚙️INFRA (Caddy on server, not repo): `/assets/*` → `Cache-Control: public, max-age=31536000, immutable` (hashed files; currently `max-age=0`) — HIGH. *I'll hand Martynas the exact Caddyfile snippet.*
+- [ ] **B2-3** Reduce unused JS ~176KiB / ~1040ms (lazy-load heavy landing components / route-split) — MED
+- [ ] **B2-4** Hero `<h1>` ships `opacity-0` initial state → animate after hydration instead (avoid Googlebot indexing invisible H1) — `hero-v3.tsx` — LOW
+- [ ] **B2-5** 1 a11y colour-contrast warning (foreground/background) — CSS — LOW
+
+### BATCH 3 — content depth (safe copy; some need user facts)
+> ⚠️ Evidence (session 36): an external crawler flagged **low text-HTML ratio** on 4 pages —
+> `/` 6.2%, `/about` 6.1%, `/contact` 4.1%, `/legal/imprint` 6.7% (measured locally too). Cause is
+> heavy decorative markup + Tailwind classes vs. little visible copy (inline `<script>` is only 6–19%,
+> NOT the culprit). It's a WEAK signal (Google has no ideal ratio, no penalty) but a real proxy for
+> thin content. B3-1 (FAQ) + B3-2 (/about) fix it as a side effect; `/contact` is thinnest (mostly a form).
+- [ ] **B3-1** Expand all 6 FAQ answers from ~45 → 130–160 words (`faq.tsx` FAQ_ITEMS; schema auto-updates) — **highest GEO ROI** — GEO CRITICAL
+- [ ] **B3-2** `/about` is thin (414 words, no real H2s): add real `<h2>` per section (Mission/What we do/Who for/Team/Where) + expand to 500+ words + 1-line role/bio per member — Content CRITICAL *(BLOCKED on roles/bios from user)*
+- [ ] **B3-3** Hero mock "live" data (ASIN B089…, sha256 of empty string) reads as fake → label "Example" / make non-obviously-synthetic — `product-window.tsx` — Content HIGH
+- [ ] **B3-4** Exposure calculator: add 1-sentence methodology note under the estimate — `exposure-calculator.tsx` — Content MED
+- [ ] **B3-5** FAQ duplication: "Which marketplaces…" & "How does AI detect…" appear both as section H3 AND FAQ Q — differentiate or merge — Content MED
+- [ ] **B3-6** Internal links from `/about` capability mentions → `/legal/security`, coverage, etc. — Content MED
+- [ ] **B3-7** Visible "Last updated: <month year>" on FAQ or footer — freshness — Content MED
+- [ ] **B3-8** HowTo schema on the 3-step Connect→Detect→Enforce workflow — `workflow.tsx`/`index.tsx` — GEO MED
+- [ ] **B3-9** Add a comparison FAQ/section naming category + competitors (Red Points, BrandShield, Corsearch) → captures "alternatives to X" AI queries — GEO MED
+- [ ] **B3-10** `llms.txt`: add `/request-demo` entry + a "## Preferred citation" block (canonical name/desc) — GEO MED
+
+### BATCH 4 — off-site authority (Sprint 3; external, not code — biggest remaining lever)
+- [ ] **B4-1** Claim **G2** + **Capterra** profiles (0 today) → later feeds `aggregateRating` schema
+- [ ] **B4-2** **YouTube** channel + 1 product-walkthrough video (0.737 correlation w/ AI citation — strongest single off-site signal)
+- [ ] **B4-3** **Wikidata** entity (no notability bar) + add its URI to Organization `sameAs`
+- [ ] **B4-4** Blog/resources: 2–3 long-form guides (800–1200w) — "detect counterfeits on Amazon", "forensic dossier for IP enforcement", "marketplace DMCA takedown"
+- [ ] **B4-5** SERP-matching pages: comparison ("HAKKIU vs Red Points"), solution ("for Law Firms"), guide (was C4)
+- [ ] **B4-6** ProductHunt listing; press/Crunchbase for eventual Wikipedia notability
+
+### BLOCKED — need input from Martynas
+- [ ] **H3** real customer testimonial (named client + quote + metric) — was the last Sprint-2 item
+- [ ] **B3-2 roles/bios** — do we publish role titles? what are they?
+- [ ] **Martynas LinkedIn URL** — current `sameAs` has Lithuanian chars (š,č); LinkedIn slugs are usually ASCII → may be a broken link. Need exact URL from his browser. (`src/lib/company.ts` TEAM[0])
 
 ### Deferred / needs credentials
-- [ ] Measure Core Web Vitals — set `GOOGLE_API_KEY`, then `/seo google` or `lcp_subparts.py`
+- [x] Core Web Vitals — DONE, key configured; re-measure after B2 fixes to confirm LCP drop
 - [ ] Backlink DA/PA — add Moz/Bing keys (currently Common Crawl tier only)
+- [ ] Google Search Console — verify domain + submit sitemap + Request-Indexing homepage/about (favicon + new title will refresh after Google re-crawls; currently SERP shows OLD title = not re-crawled yet)
+
+### NON-findings (do NOT "fix" — avoid re-flagging)
+- "48 images missing alt" — marketplace logos use `alt=""` WITH adjacent text labels (correct for decorative); mock panels are `aria-hidden`; team photos have real alt. Fine as-is.
+- FAQPage yields no Google SERP rich result (retired 2026-05) — value is AI/Bing only; keep it.
+- `foundingDate 2026` "too new" — resolves naturally with age.
+- CrUX field data absent — low traffic; appears automatically as traffic grows.
+
+### Suggested sequencing
+1. **Batch 1 + Batch 2 (code parts)** in one "Sprint 2.5" session → biggest measurable jump (Perf 72→~90, Schema/On-Page↑). Then re-run PageSpeed to confirm LCP.
+2. **Caddy B2-2** — Martynas applies on server (hand him the snippet).
+3. **Batch 3** — content session (needs roles/bios + FAQ-expansion approval).
+4. **Batch 4** — Sprint 3, gradual, mostly non-code.
 
 ---
 

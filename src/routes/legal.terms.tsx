@@ -7,6 +7,7 @@ export const Route = createFileRoute("/legal/terms")({
     meta: [
       { title: "Terms of Service — HAKKIU" },
       { name: "description", content: "The terms governing use of the HAKKIU website and platform." },
+      { property: "og:url", content: `${COMPANY.baseUrl}/legal/terms` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/terms` }],
   }),

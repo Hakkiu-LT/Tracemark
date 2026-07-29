@@ -7,6 +7,7 @@ export const Route = createFileRoute("/legal/subprocessors")({
     meta: [
       { title: "Sub-processors — HAKKIU" },
       { name: "description", content: "The third-party sub-processors HAKKIU uses to deliver the Service." },
+      { property: "og:url", content: `${COMPANY.baseUrl}/legal/subprocessors` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/subprocessors` }],
   }),

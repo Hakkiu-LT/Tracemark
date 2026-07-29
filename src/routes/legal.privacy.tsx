@@ -10,6 +10,7 @@ export const Route = createFileRoute("/legal/privacy")({
         name: "description",
         content: "How HAKKIU collects, uses, shares and protects personal data, and your rights under the GDPR.",
       },
+      { property: "og:url", content: `${COMPANY.baseUrl}/legal/privacy` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/privacy` }],
   }),

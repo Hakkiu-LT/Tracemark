@@ -30,7 +30,7 @@ function initials(name: string): string {
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About — HAKKIU" },
+      { title: "About HAKKIU — EU Brand Protection for IP Teams" },
       {
         name: "description",
         content:
@@ -60,6 +60,7 @@ export const Route = createFileRoute("/about")({
           ],
         },
       },
+      { property: "og:url", content: `${COMPANY.baseUrl}/about` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/about` }],
   }),

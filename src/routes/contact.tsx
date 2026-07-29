@@ -47,6 +47,7 @@ export const Route = createFileRoute("/contact")({
           ],
         },
       },
+      { property: "og:url", content: `${COMPANY.baseUrl}/contact` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/contact` }],
   }),

@@ -7,6 +7,7 @@ export const Route = createFileRoute("/legal/imprint")({
     meta: [
       { title: "Legal Notice / Imprint — HAKKIU" },
       { name: "description", content: "Company identification and legal notice for HAKKIU." },
+      { property: "og:url", content: `${COMPANY.baseUrl}/legal/imprint` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/imprint` }],
   }),

@@ -79,6 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // Let search engines and AI answer engines use full-length text snippets
+      // and large image previews (the default silently caps snippet length).
+      // max-video-preview:-1 is harmless today (no video) and future-proofs.
+      { name: "robots", content: "index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1" },
       { title: "HAKKIU — Trademark & Brand Protection" },
       { name: "description", content: "Monitor your trademarks, detect infringements, and automate takedowns across Amazon, Shopify, and the web." },
       { property: "og:title", content: "HAKKIU — Trademark & Brand Protection" },
@@ -89,6 +93,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       // public/og-image.png → https://hakkiu.com/og-image.png. Absolute URL is
       // required — social scrapers reject relative paths.
       { property: "og:image", content: `${COMPANY.baseUrl}/og-image.png` },
+      // Explicit dimensions let social scrapers render the card without first
+      // downloading the image (match the real file: public/og-image.png).
+      { property: "og:image:width", content: "1920" },
+      { property: "og:image:height", content: "1080" },
       { name: "twitter:image", content: `${COMPANY.baseUrl}/og-image.png` },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
@@ -105,7 +113,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               "@id": `${COMPANY.baseUrl}/#organization`,
               name: COMPANY.brand,
               url: COMPANY.baseUrl,
-              logo: `${COMPANY.baseUrl}/hakkiu-mark.png`,
+              // ImageObject (not a bare URL string) with real pixel dimensions
+              // — Google's logo Knowledge-Panel eligibility prefers this shape.
+              // Matches the actual file public/hakkiu-mark.png (512×421).
+              logo: {
+                "@type": "ImageObject",
+                url: `${COMPANY.baseUrl}/hakkiu-mark.png`,
+                width: 512,
+                height: 421,
+              },
               description:
                 "AI-powered trademark and brand-protection platform. Continuous monitoring across marketplaces, social channels, app stores and domains, with forensic evidence capture and automated takedowns.",
               foundingDate: COMPANY.foundedYear,
@@ -115,6 +131,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
                 contactType: "sales",
                 email: COMPANY.email.general,
                 url: `${COMPANY.baseUrl}/contact`,
+                areaServed: "Worldwide",
+                availableLanguage: "English",
               },
               // Named people + their LinkedIn profiles strengthen the entity
               // graph (a key AI-citation signal). No jobTitle — roles TBD.

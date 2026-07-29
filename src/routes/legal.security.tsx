@@ -7,6 +7,7 @@ export const Route = createFileRoute("/legal/security")({
     meta: [
       { title: "Trust & Security — HAKKIU" },
       { name: "description", content: "How HAKKIU protects customer data: hosting, encryption, access control, and responsible disclosure." },
+      { property: "og:url", content: `${COMPANY.baseUrl}/legal/security` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/security` }],
   }),

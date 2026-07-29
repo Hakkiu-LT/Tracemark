@@ -27,6 +27,9 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:title", content: "HAKKIU — Trademark Monitoring & Brand Protection Software" },
       { name: "twitter:title", content: "HAKKIU — Trademark Monitoring & Brand Protection Software" },
+      // og:url = the page's own canonical URL (mirrors the canonical link
+      // below) so social/AI scrapers resolve the same address every time.
+      { property: "og:url", content: "https://hakkiu.com/" },
       {
         property: "og:description",
         content:
@@ -74,6 +77,25 @@ export const Route = createFileRoute("/")({
             name: item.q,
             acceptedAnswer: { "@type": "Answer", text: item.a },
           })),
+        },
+      },
+      // WebPage node carrying datePublished/dateModified — an explicit content
+      // freshness signal that AI answer engines weight. Bump dateModified
+      // whenever the homepage copy changes (keep in step with sitemap.xml
+      // <lastmod>). Ties this page into the site @graph (website + organization).
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "@id": "https://hakkiu.com/#webpage",
+          url: "https://hakkiu.com/",
+          name: "HAKKIU — Trademark Monitoring & Brand Protection Software",
+          description:
+            "HAKKIU monitors marketplaces and the open web 24/7, detects infringements with AI, and automates takedowns — built for brand owners and law firms.",
+          isPartOf: { "@id": "https://hakkiu.com/#website" },
+          about: { "@id": "https://hakkiu.com/#organization" },
+          datePublished: "2026-07-01",
+          dateModified: "2026-07-29",
         },
       },
     ],
