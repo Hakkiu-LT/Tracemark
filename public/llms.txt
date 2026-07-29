@@ -1,5 +1,7 @@
 # HAKKIU
 
+<!-- llms.txt · Version 1.1 · Last updated: 2026-07-29 · License: CC BY 4.0 -->
+
 > HAKKIU is an AI-powered trademark and brand-protection platform that monitors online
 > marketplaces, social commerce, app stores, domain registries and the open web 24/7 to
 > detect counterfeits, trademark abuse and unauthorized sellers — then captures forensic,
@@ -35,9 +37,16 @@ sales consultation. There are no self-serve plans or per-detection / per-takedow
 ## Public pages
 
 - [Home / product overview](https://hakkiu.com/): Main marketing page — hero, coverage
-  channels, how it works, platform features and brand exposure calculator.
-- [Request a demo](https://hakkiu.com/request-demo): Book a product demo or a sales call via a
-  short qualification form (the primary way to get started).
+  channels, how it works, platform features, brand exposure calculator, and an FAQ answering
+  how detection, evidence, takedowns and pricing work.
+- [About](https://hakkiu.com/about): Company mission and how HAKKIU approaches brand protection
+  for brand owners and IP law firms.
+- [Contact](https://hakkiu.com/contact): Ways to reach HAKKIU — book a demo, or contact the
+  privacy, security and legal teams directly.
+- [Trust & Security](https://hakkiu.com/legal/security): How HAKKIU protects customer data —
+  hosting, encryption, access control, GDPR posture and responsible disclosure.
+- [Request a demo](https://hakkiu.com/request-demo): Book a product demo or a sales call
+  (the primary way to get started).
 
 ## Notes
 

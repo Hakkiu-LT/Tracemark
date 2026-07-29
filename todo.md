@@ -1,7 +1,7 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 33 — SEO audit fix plan added + Sprint 1 IMPLEMENTED, see PRIORITY 13)
+> Last updated: 2026-07-29 (session 34 — Sprint 2 IMPLEMENTED: FAQ section + FAQPage schema, question headings, FAQ nav link, llms.txt; H3/M1 blocked on real facts. See PRIORITY 13)
 
 ---
 
@@ -35,15 +35,28 @@
   decorative `aria-hidden` product mockups — `product-window.tsx:21` badge and `workflow.tsx:95/108`
   diagram. Lower risk than the social-proof block, but decide whether to neutralize them for consistency.
 
-### Sprint 2 — content + on-page (~1 week)
-- [ ] **H4** Question-format H2/H3 in coverage / features / workflow sections
-- [ ] **H6** Expand each section intro to 80–120 words (hero currently ~28 → not citable)
-- [ ] **M3** Q&A section with **QAPage** schema (NOT FAQPage), 5–7 definitional/process questions
-- [ ] **H3** Named + attributed testimonial with a metric *(needs client approval — external)*
-- [ ] **H5** Middle-intent CTA (sample evidence packet / pricing anchor) — not just "book a demo"
-- [ ] **M1** `/about` — founding year + 1–2 named team members
-- [ ] **M2** `public/llms.txt` — add `/about`, `/contact`, `/legal/security` + version/last-updated header
-- [ ] **L1** `public/sitemap.xml` — ensure `<lastmod>` stamped at build
+### Sprint 2 — content + on-page (session 34) — mostly DONE
+- [x] **H4/H6** Question-format `<h3>` + expanded truthful copy added to Coverage, Workflow,
+  Features (mirrored the `Reveal` delay ladder; no layout/animation regressions). Only
+  defensible facts used (12+ channels, named platforms, AI vision+text, forensic dossier, DMCA).
+- [x] **M3** New FAQ section `src/components/landing/faq.tsx` (6 Q&A). Collapsible via native
+  `<details>`/`<summary>` (question shown, click to expand) — chosen over a JS accordion because
+  `<details>` keeps the answer text in SSR HTML while collapsed, so AI/crawlers still read every
+  answer. Question is an `<h3>` inside `<summary>` (passage anchor). Wired into index.tsx before
+  FinalCTA. **Schema: FAQPage** built from the same exported `FAQ_ITEMS` (single source).
+  > NOTE: used **FAQPage** (correct type for multi-Q&A), not QAPage (QAPage = single community
+  > question). Neither yields a Google rich result post-May-2026; value is AI/Bing comprehension.
+- [x] **H5** Middle-intent path = "FAQ" hash link added to `landing-nav.tsx` (frontend-only, no
+  backend/asset). Pricing question answered truthfully in the FAQ ("quote-based, never charged
+  per detection/takedown"). A dedicated pricing section / sample-dossier download deferred (needs
+  a real asset).
+- [x] **M2** `public/llms.txt` — added /about, /contact, /legal/security + version/last-updated
+  header (v1.1); Home entry now mentions the FAQ.
+- [x] **L1** `public/sitemap.xml` — homepage `<lastmod>` already 2026-07-29 (today); no change needed.
+- [ ] **H3** Named + attributed testimonial *(BLOCKED — need a real client name/quote+metric)*
+- [ ] **M1** `/about` founding year + named team *(BLOCKED — need real facts; won't invent)*
+- [x] Verified: `tsc --noEmit`=0 · all public routes 200 · SSR HTML carries FAQ answers + new
+  question headings · 4 JSON-LD types (Organization/WebSite/SoftwareApplication/FAQPage) valid.
 
 ### Sprint 3 — content program + authority (weeks)
 - [ ] **C4** 3 SERP-matching pages: comparison (vs Red Points), solution (for law firms), guide (Amazon counterfeits)

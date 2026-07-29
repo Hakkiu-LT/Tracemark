@@ -47,6 +47,9 @@ export function LandingNav() {
             <Link to="/" hash="coverage" className="transition-colors hover:text-foreground">
               Coverage
             </Link>
+            <Link to="/" hash="faq" className="transition-colors hover:text-foreground">
+              FAQ
+            </Link>
             <Link to="/legal/security" className="transition-colors hover:text-foreground">
               Security
             </Link>

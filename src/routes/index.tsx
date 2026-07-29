@@ -6,6 +6,7 @@ import { Coverage } from "@/components/landing/coverage";
 import { Workflow } from "@/components/landing/workflow";
 import { Features } from "@/components/landing/features";
 import { ExposureCalculator } from "@/components/landing/exposure-calculator";
+import { Faq, FAQ_ITEMS } from "@/components/landing/faq";
 import { FinalCTA } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 
@@ -57,6 +58,24 @@ export const Route = createFileRoute("/")({
           ],
         },
       },
+      // Structured data — FAQPage, built from the SAME FAQ_ITEMS the visible
+      // section renders (single source of truth, so copy and schema can't
+      // drift). FAQPage (not QAPage) is the correct type for a multi-question
+      // marketing FAQ; QAPage is only for a single community-answered question.
+      // Google retired FAQ rich results in May 2026, so this earns no SERP
+      // feature — its value is machine comprehension (AI answer engines, Bing).
+      {
+        "script:ld+json": {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "@id": "https://hakkiu.com/#faq",
+          mainEntity: FAQ_ITEMS.map((item) => ({
+            "@type": "Question",
+            name: item.q,
+            acceptedAnswer: { "@type": "Answer", text: item.a },
+          })),
+        },
+      },
     ],
     links: [{ rel: "canonical", href: "https://hakkiu.com/" }],
   }),
@@ -90,7 +109,10 @@ function LandingPage() {
       {/* 05 · BRAND EXPOSURE CALCULATOR */}
       <ExposureCalculator />
 
-      {/* 06 · FINAL CTA (dark) */}
+      {/* 06 · FAQ (always-visible Q&A + FAQPage schema) */}
+      <Faq />
+
+      {/* 07 · FINAL CTA (dark) */}
       <FinalCTA />
 
         {/* 08 · FOOTER */}

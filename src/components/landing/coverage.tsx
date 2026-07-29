@@ -71,6 +71,19 @@ export function Coverage() {
             Continuous AI monitoring across marketplaces, social platforms, domains, and app
             ecosystems — one workspace watching them all.
           </Reveal>
+          <Reveal
+            as="h3"
+            delay={130}
+            className="mt-8 font-display text-xl font-bold tracking-tight text-foreground"
+          >
+            Which marketplaces and channels does HAKKIU monitor?
+          </Reveal>
+          <Reveal as="p" delay={145} className="mt-3 max-w-lg text-base text-muted-foreground">
+            HAKKIU watches 12+ channels around the clock from a single workspace — the major
+            marketplaces (Amazon, Shopify, eBay, Alibaba, AliExpress, Etsy), social and ad
+            platforms (Instagram, TikTok, Facebook, Meta and Google ads), and web domains —
+            so nothing slips through a gap between separate tools.
+          </Reveal>
           <Reveal delay={160}>
             <button
               type="button"

@@ -175,6 +175,19 @@ export function Workflow() {
           <Reveal as="p" delay={120} className="mt-4 text-base text-muted-foreground">
             A continuous workflow your team can audit at every step.
           </Reveal>
+          <Reveal
+            as="h3"
+            delay={180}
+            className="mt-8 font-display text-xl font-bold tracking-tight text-foreground"
+          >
+            How does HAKKIU turn a detection into a takedown?
+          </Reveal>
+          <Reveal as="p" delay={240} className="mt-3 max-w-xl text-base text-muted-foreground">
+            You connect your trademarks, logos and authorized sellers once. From there AI scans
+            your channels continuously, scores every match and captures tamper-evident evidence —
+            then a DMCA or trademark notice goes out to the marketplace or registrar with that
+            dossier attached, and each case is tracked to resolution.
+          </Reveal>
         </div>
 
         {/* Process datum: a horizontal line links the three stations on desktop. */}

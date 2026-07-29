@@ -71,6 +71,18 @@ export function Features() {
             >
               Monitoring, evidence, and enforcement in one chain of custody.
             </Reveal>
+            <Reveal
+              as="h3"
+              delay={90}
+              className="mt-5 font-display text-xl font-bold tracking-tight text-foreground"
+            >
+              How does AI detect counterfeit listings?
+            </Reveal>
+            <Reveal as="p" delay={110} className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">
+              Vision and language models compare every listing against your registered marks, so
+              modified logos, typosquats and evasive wording get caught — not just exact keyword
+              matches.
+            </Reveal>
           </div>
           <Reveal
             as="p"

@@ -2,7 +2,7 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-29 (session 33 — SEO audit of hakkiu.com (Health Score 58/100) + **Sprint 1 IMPLEMENTED**: removed fabricated SocialProof section, added Organization/WebSite/SoftwareApplication/Breadcrumb JSON-LD, canonicals on all public pages, keyword-first homepage title, self-hosted OG image. tsc clean + SSR verified. Sprints 2-3 still pending.)
+> Last updated: 2026-07-29 (session 34 — **Sprint 2 IMPLEMENTED**: FAQ section + FAQPage JSON-LD, question-format headings + expanded copy on Coverage/Workflow/Features, FAQ nav link, llms.txt v1.1. tsc=0, routes 200, 4 JSON-LD types valid. H3 testimonial + M1 /about team BLOCKED on real facts. Sprint 1 done session 33.)
 
 ---
 
@@ -43,7 +43,14 @@ wiring is required** for any item here. Do not add admin-api routes for SEO meta
 6. **M4 — OG image on r2.dev UUID URL.** Serve from `hakkiu.com/og-image.png`; update `__root.tsx`.
    Verify: `tsc --noEmit` clean, dev 200, Google Rich Results Test passes, re-run `/seo schema`.
 
-### Sprint 2 — content + on-page (~1 week)
+### Sprint 2 — content + on-page — ✅ MOSTLY DONE (session 34)
+> Implemented: new always-visible FAQ section (faq.tsx, 6 truthful Q&A, `<h3>`+`<p>` so answers
+> are in SSR HTML) + FAQPage JSON-LD from shared FAQ_ITEMS; question-format `<h3>` + expanded
+> copy on Coverage/Workflow/Features; "FAQ" nav hash link (H5 middle-intent path); llms.txt v1.1
+> (+/about,/contact,/legal/security + version header). Used FAQPage not QAPage (correct type for
+> multi-Q&A; no Google rich result either way post-May-2026 — value is AI/Bing). tsc=0, routes 200,
+> 4 valid JSON-LD types. BLOCKED on real facts: H3 (named testimonial), M1 (/about team+founding).
+> Original items:
 7. **H4** question-format H2/H3 in coverage/features/workflow ("How does AI detect counterfeits?").
 8. **H6** expand each section intro to 80–120 words (currently hero ~28 words → not citable).
 9. **M3** add a Q&A section marked up with **QAPage** (NOT FAQPage — Google retired FAQ rich
