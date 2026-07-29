@@ -159,7 +159,7 @@ function AboutPage() {
         <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
           <div className="mx-auto max-w-5xl px-6">
             <Reveal
-              as="p"
+              as="h2"
               className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
             >
               Our mission
@@ -179,7 +179,9 @@ function AboutPage() {
             >
               {COMPANY.brand} exists to close that gap: we help brand owners and the law firms that
               represent them find infringements the moment they appear and act on them without
-              drowning in manual review.
+              drowning in manual review. We believe enforcement should be fast, evidence-based and
+              defensible — so brand and legal teams can protect their reputation without scaling
+              headcount to match the problem.
             </Reveal>
           </div>
         </section>
@@ -188,7 +190,7 @@ function AboutPage() {
         <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
           <div className="mx-auto max-w-6xl px-6">
             <Reveal
-              as="p"
+              as="h2"
               className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
             >
               What we do
@@ -200,9 +202,18 @@ function AboutPage() {
             >
               {COMPANY.brand} continuously monitors online marketplaces (such as Amazon, Shopify,
               eBay and Alibaba) and the wider web for listings, domains and content that misuse our
-              customers' brands. Our platform combines large-scale scraping with AI vision analysis
-              to score likely infringements, capture evidence, and prepare and deliver takedown
-              requests — turning a slow, manual enforcement process into a fast, repeatable one.
+              customers' brands. Our platform combines large-scale scanning with AI vision-and-text
+              analysis to score likely infringements, capture evidence, and prepare and route
+              takedown requests — turning a slow, manual enforcement process into a fast, repeatable
+              one. We watch more than a dozen channels around the clock; see the full list on our{" "}
+              <Link
+                to="/"
+                hash="coverage"
+                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
+              >
+                coverage overview
+              </Link>
+              .
             </Reveal>
 
             <div className="mt-10 grid gap-6 md:grid-cols-3">
@@ -231,7 +242,7 @@ function AboutPage() {
         <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
           <div className="mx-auto max-w-6xl px-6">
             <Reveal
-              as="p"
+              as="h2"
               className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
             >
               Who we build for
@@ -243,7 +254,9 @@ function AboutPage() {
             >
               We build for in-house brand and IP teams and for law firms managing enforcement on
               behalf of multiple clients. Our platform supports multi-client, multi-region workflows
-              so a small team can protect a large brand footprint.
+              so a small team can protect a large brand footprint. Whether you defend a single
+              flagship brand or manage enforcement across many clients, {COMPANY.brand} keeps
+              detection, evidence and takedowns in one auditable workspace.
             </Reveal>
 
             <div className="mt-10 grid gap-6 md:grid-cols-2">
@@ -268,11 +281,50 @@ function AboutPage() {
           </div>
         </section>
 
+        {/* HOW IT WORKS */}
+        <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
+          <div className="mx-auto max-w-5xl px-6">
+            <Reveal
+              as="h2"
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+            >
+              How it works
+            </Reveal>
+            <Reveal
+              as="p"
+              delay={70}
+              className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
+            >
+              Getting protected takes three steps. You connect your registered trademarks, logos and
+              authorized sellers once; our AI then scans your channels continuously, scores every
+              match, and captures tamper-evident evidence; and when something infringes, a DMCA or
+              trademark notice goes out with that evidence attached while each case is tracked to
+              resolution. You can{" "}
+              <Link
+                to="/"
+                hash="how"
+                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
+              >
+                see the full workflow
+              </Link>{" "}
+              and{" "}
+              <Link
+                to="/"
+                hash="features"
+                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
+              >
+                explore the platform
+              </Link>{" "}
+              on our homepage.
+            </Reveal>
+          </div>
+        </section>
+
         {/* THE TEAM */}
         <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
           <div className="mx-auto max-w-6xl px-6">
             <Reveal
-              as="p"
+              as="h2"
               className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
             >
               The team
@@ -283,7 +335,8 @@ function AboutPage() {
               className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
             >
               Founded in {COMPANY.foundedYear}, {COMPANY.brand} is built by a small, hands-on team
-              working across detection, AI and enforcement. Connect with any of us on LinkedIn.
+              working across detection, AI and enforcement — the same people who build the platform
+              talk to the brand owners and law firms who use it. Connect with any of us on LinkedIn.
             </Reveal>
 
             <ul className="mt-12 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
@@ -328,7 +381,7 @@ function AboutPage() {
         <section className="technical-paper relative border-b border-border/60 py-20 md:py-24">
           <div className="mx-auto max-w-5xl px-6">
             <Reveal
-              as="p"
+              as="h2"
               className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
             >
               Where we are
@@ -338,28 +391,38 @@ function AboutPage() {
               delay={70}
               className="mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground"
             >
-              {COMPANY.brand} is an EU-established company. Our company details are set out in our{" "}
-              <Link
-                to="/legal/imprint"
-                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
-              >
-                Legal Notice
-              </Link>
-              , and how we handle data is described in our{" "}
-              <Link
-                to="/legal/privacy"
-                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
-              >
-                Privacy Policy
-              </Link>{" "}
-              and{" "}
+              {COMPANY.brand} is an EU-based company headquartered in Vilnius, Lithuania, and we
+              build for the standards European brand and legal teams expect. Our core infrastructure
+              is hosted in the EEA and we process personal data in line with the GDPR — you can read
+              how in our{" "}
               <Link
                 to="/legal/security"
                 className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
               >
                 Trust &amp; Security
               </Link>{" "}
-              page.
+              overview, our{" "}
+              <Link
+                to="/legal/privacy"
+                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
+              >
+                Privacy Policy
+              </Link>{" "}
+              and our{" "}
+              <Link
+                to="/legal/dpa"
+                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
+              >
+                Data Processing Agreement
+              </Link>
+              . Full company details are set out in our{" "}
+              <Link
+                to="/legal/imprint"
+                className="font-medium text-foreground underline underline-offset-4 hover:no-underline"
+              >
+                Legal Notice
+              </Link>
+              .
             </Reveal>
 
             <Reveal delay={140} className="mt-10">

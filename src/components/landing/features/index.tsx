@@ -239,8 +239,8 @@ export function Features() {
               </span>
             </div>
             <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-              Direct API integrations remove infringing content fast, with the evidence dossier
-              attached to every notice and platform responses tracked back into the case.
+              Each notice is routed to the right portal, registrar or abuse contact with the
+              evidence dossier attached, and every case is tracked in one place through to resolution.
             </p>
             <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
               {DISPATCH.map((s, i) => {

@@ -305,7 +305,8 @@ export function ExposureCalculator() {
             </div>
 
             <p className="mt-4 text-center text-[11px] text-slate-500">
-              Directional estimate based on common exposure patterns.
+              Directional estimate — a share of your monthly ad spend, scaled by brand reach and
+              channel mix. Illustrative, not a measurement of actual losses.
             </p>
           </div>
         </div>

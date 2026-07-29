@@ -60,7 +60,7 @@ const TONES = {
 
 const DOSSIER = [
   { label: "Target URL", value: "amazon.com/dp/B089X…", mono: true },
-  { label: "Evidence hash", value: "sha256:e3b0c44298fc…", mono: true },
+  { label: "Evidence hash", value: "sha256:9f2c1a7be40d…", mono: true },
   { label: "DMCA payload", value: "Verified legal packet", mint: true },
 ];
 
@@ -96,10 +96,17 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
             <Lock className="h-3 w-3 text-emerald-500" />
             app.hakkiu.com/live-monitoring
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-            <span className="hakkiu-pulse-soft h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            ACTIVE
-          </span>
+          <div className="flex items-center gap-2">
+            {/* "Example" makes clear this is an illustrative mock, not live
+                customer data (the listing/hash values below are synthetic). */}
+            <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Example
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="hakkiu-pulse-soft h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              ACTIVE
+            </span>
+          </div>
         </div>
 
         {/* Content: detections + evidence dossier */}
@@ -210,8 +217,8 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
                 </span>
               </div>
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Files a formal trademark takedown to the marketplace legal portal with
-                cryptographically hashed evidence.
+                Generates a formal trademark takedown for the marketplace's reporting channel, with
+                hash-verified evidence attached.
               </p>
               <span className="relative flex h-8 w-full items-center justify-center gap-1.5 overflow-hidden rounded-md bg-foreground text-xs font-semibold text-background">
                 <span className="hakkiu-sheen pointer-events-none absolute inset-0" />

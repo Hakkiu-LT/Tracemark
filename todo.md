@@ -1,10 +1,11 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 36 — Batch 1 (committed 7f6b26e) + Batch 2 SEO/perf DONE.
-> Batch 2: self-hosted fonts, Caddy immutable caching, lazy lead modals, hero eager-reveal LCP fix
-> (all tsc 0 / build 0 / routes 200). B2-5 a11y contrast deferred (need Lighthouse node). NEXT after
-> deploy: re-run PageSpeed to confirm LCP 4.4s→<2.5s + CLS still 0. Then Batch 3 (content depth).)
+> Last updated: 2026-07-29 (session 36 — Batch 1 (7f6b26e) + Batch 2 (53d6824) committed; Batch 3
+> DONE + verified, UNCOMMITTED. Batch 3: FAQ expanded to 7 Q, /about h2s+copy, product mock "Example",
+> calculator note, comparison FAQ, llms.txt v1.2 — AND corrected several truthfulness overclaims found
+> in FAQ/llms/mockup/features. Deferred: B3-2 roles/bios (need Martynas), B3-8 HowTo (deprecated, skip),
+> B2-5 a11y contrast (need node). NEXT: commit, deploy, re-run PageSpeed + GEO audit to confirm gains.)
 
 ---
 
@@ -124,22 +125,47 @@
   ⏳ NEXT (external): re-run PageSpeed after deploy to confirm LCP 4.4s→<2.5s AND that CLS stays 0
   (font swap + eager reveal are the two things to watch; both expected fine).
 
-### BATCH 3 — content depth (safe copy; some need user facts)
-> ⚠️ Evidence (session 36): an external crawler flagged **low text-HTML ratio** on 4 pages —
-> `/` 6.2%, `/about` 6.1%, `/contact` 4.1%, `/legal/imprint` 6.7% (measured locally too). Cause is
-> heavy decorative markup + Tailwind classes vs. little visible copy (inline `<script>` is only 6–19%,
-> NOT the culprit). It's a WEAK signal (Google has no ideal ratio, no penalty) but a real proxy for
-> thin content. B3-1 (FAQ) + B3-2 (/about) fix it as a side effect; `/contact` is thinnest (mostly a form).
-- [ ] **B3-1** Expand all 6 FAQ answers from ~45 → 130–160 words (`faq.tsx` FAQ_ITEMS; schema auto-updates) — **highest GEO ROI** — GEO CRITICAL
-- [ ] **B3-2** `/about` is thin (414 words, no real H2s): add real `<h2>` per section (Mission/What we do/Who for/Team/Where) + expand to 500+ words + 1-line role/bio per member — Content CRITICAL *(BLOCKED on roles/bios from user)*
-- [ ] **B3-3** Hero mock "live" data (ASIN B089…, sha256 of empty string) reads as fake → label "Example" / make non-obviously-synthetic — `product-window.tsx` — Content HIGH
-- [ ] **B3-4** Exposure calculator: add 1-sentence methodology note under the estimate — `exposure-calculator.tsx` — Content MED
-- [ ] **B3-5** FAQ duplication: "Which marketplaces…" & "How does AI detect…" appear both as section H3 AND FAQ Q — differentiate or merge — Content MED
-- [ ] **B3-6** Internal links from `/about` capability mentions → `/legal/security`, coverage, etc. — Content MED
-- [ ] **B3-7** Visible "Last updated: <month year>" on FAQ or footer — freshness — Content MED
-- [ ] **B3-8** HowTo schema on the 3-step Connect→Detect→Enforce workflow — `workflow.tsx`/`index.tsx` — GEO MED
-- [ ] **B3-9** Add a comparison FAQ/section naming category + competitors (Red Points, BrandShield, Corsearch) → captures "alternatives to X" AI queries — GEO MED
-- [ ] **B3-10** `llms.txt`: add `/request-demo` entry + a "## Preferred citation" block (canonical name/desc) — GEO MED
+### BATCH 3 — content depth — ✅ DONE (session 36, except B3-2 roles/bios + B3-8 skipped)
+> ⚠️ Origin: crawler flagged low text-HTML ratio (`/` 6.2%, `/about` 6.1%). After Batch 3:
+> **/about 6.1%→8.2%, home 6.2%→8.8%** (measured locally). Weak signal but improved as a side effect.
+> 🔑 TRUTHFULNESS: investigation found the FAQ + llms.txt + a mockup + a feature card carried
+> **overclaims the code does NOT support** — "dispatches to legal portals / 1-click / Amazon Brand
+> Registry / Direct API removal" (only email-method notices auto-send; web-form portals are prepared
+> for manual submit), "cryptographic SHA-256 timestamps" (hashing yes, no RFC-3161), "0–100% threat
+> score" (no such field), "page HTML archived" (unverified), "court-ready" (→ "for legal review").
+> Expanding the copy was used to CORRECT these, not amplify them (consistent w/ Sprint 1's no-fabrication rule).
+- [x] **B3-1** All FAQ answers expanded to ~130–160 words (`faq.tsx` FAQ_ITEMS; FAQPage schema auto-grew
+  to 7 Q). Rewrote truthfully: tiered detection (keyword/typosquat → pHash → vision-LLM), "scored by
+  risk" not "0–100% threat score", "SHA-256 hash + UTC timestamp" not "cryptographic timestamps",
+  "prepares & routes notices (email/web-form/UDRP)" not "dispatches to portals", "for legal review"
+  not "court-ready". Verified in SSR + valid JSON-LD.
+- [~] **B3-2** `/about`: converted the 5 eyebrow `<p>` labels to real `<h2>` + added a new "How it works"
+  `<h2>` section (6 section h2s now, was 0) + expanded every section's copy. Page text-ratio 6.1%→8.2%.
+  **STILL DEFERRED:** per-member role titles / 1-line bios (BLOCKED — need them from Martynas). Team
+  grid stays name+LinkedIn only (no invented titles).
+- [x] **B3-3** `product-window.tsx`: added an "Example" pill in the titlebar (marks the mock as
+  illustrative), changed the fake `sha256:e3b0c442…` (= hash of empty string, recognisably fake) to a
+  neutral value, and softened "Files a formal takedown to the marketplace legal portal" → "Generates …
+  for the marketplace's reporting channel, with hash-verified evidence."
+- [x] **B3-4** `exposure-calculator.tsx`: methodology note made explicit — "a share of your monthly ad
+  spend, scaled by brand reach and channel mix. Illustrative, not a measurement of actual losses."
+- [x] **B3-5** FAQ answers now go DEEPER than the duplicate section H3s (coverage/features) instead of
+  repeating them (tiered pipeline detail, 40-platform routing detail, consolidation rationale).
+- [x] **B3-6** Internal links added from `/about`: → `/#coverage`, `/#how`, `/#features` (hash Links),
+  `/legal/dpa` (new), keeping the existing security/privacy/imprint/contact links. Verified as real hrefs.
+- [x] **B3-7** "Last reviewed: July 2026" line added to the FAQ section (freshness signal).
+- [⏭️] **B3-8** HowTo schema — **SKIPPED ON PURPOSE**: HowTo is deprecated (Sept 2023) and Google
+  dropped HowTo rich results; the claude-seo rule is "never recommend HowTo schema." Do not add.
+- [x] **B3-9** Added a 7th FAQ: "How does HAKKIU compare to other brand protection tools?" — names the
+  category + Red Points / BrandShield / Corsearch factually (no disparagement), positions HAKKIU's
+  verifiable differences (quote-based/no-metering, brand-owner+law-firm, tiered detection). Captures
+  "alternatives to X" AI queries.
+- [x] **B3-10** `llms.txt` → v1.2: added a "## Preferred citation" block (canonical name/URL/one-liner);
+  softened the same overclaims to match the FAQ; `/request-demo` entry already existed.
+- [x] BONUS truthfulness fix: `features/index.tsx` "Direct API integrations remove infringing content"
+  → "Each notice is routed to the right portal, registrar or abuse contact … every case is tracked."
+- [x] Verified: `tsc`=0 · `build`=0 · `/` + `/about` 200 · 6 `<h2>` on /about · 7 FAQPage Questions ·
+  overclaims gone from SSR · text-ratio up. ⏳ Re-run PageSpeed/GEO after deploy.
 
 ### BATCH 4 — off-site authority (Sprint 3; external, not code — biggest remaining lever)
 - [ ] **B4-1** Claim **G2** + **Capterra** profiles (0 today) → later feeds `aggregateRating` schema

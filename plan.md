@@ -13,7 +13,17 @@
 - **Done this session (Batch 1, NOT yet committed/deployed):** og:url on all 11 public routes; WebPage JSON-LD with datePublished/dateModified on `/`; Organization logo→ImageObject(512×421); robots max-snippet meta + og:image:width/height(1920×1080) in __root; ContactPoint areaServed/availableLanguage; /about keyword title; dropped `Allow: /request-demo` from robots.txt (sitemap was already clean). Verified: tsc 0, 3 routes 200, SSR carries all tags, 4 JSON-LD blocks valid.
 - **Health 58→~70** (pre-Batch-1). SEO/Best-Practices/A11y Lighthouse = 100/100/97; Perf=72 (LCP 4.4s is the one real CWV problem — fonts render-block + unused JS + Caddy asset caching).
 - **Batch 2 DONE this session (uncommitted at time of writing):** B2-1 self-hosted fonts (14 woff2 in public/fonts/, latin+latin-ext, @font-face + preload, Google Fonts link removed — kills the ~820ms render-blocking request); B2-2 Caddy immutable caching for /assets/* + /fonts/* (Caddyfile is repo-mounted so it auto-deploys — not manual; validated); B2-3 lazy-loaded the 2 lead modals (own chunks now); B2-4 hero above-the-fold Reveals use a new `eager` pure-CSS entrance so the LCP H1 paints at first render instead of waiting for JS (likely the biggest LCP win). B2-5 a11y contrast deferred (need the exact Lighthouse node). All tsc 0 / build 0 / routes 200 / no warnings.
-- **Next actions:** deploy, then **re-run PageSpeed** to confirm LCP 4.4s→<2.5s and that CLS stays 0 (watch: font swap + eager reveal). Then **Batch 3** (content depth — FAQ expansion B3-1, /about B3-2; also fixes the low text-HTML-ratio warning).
+- **Batch 3 DONE this session (uncommitted):** FAQ expanded to 130–160-word answers + a 7th
+  comparison Q (FAQPage schema now 7 Q); /about got 6 real `<h2>`s + a "How it works" section +
+  expanded copy + internal links (text-ratio 6.1%→8.2%); product mock labelled "Example" + fake hash
+  neutralised; calculator methodology note; llms.txt v1.2 with a Preferred-citation block. IMPORTANT:
+  used the rewrite to CORRECT truthfulness overclaims (portal auto-dispatch / 1-click / Amazon Brand
+  Registry / "cryptographic timestamps" / "0–100% threat score" / "court-ready" / features "Direct API
+  removal") that the code does not support — kept everything defensible. tsc 0 / build 0 / routes 200.
+- **Deferred:** B3-2 per-member roles+bios (need from Martynas); B3-8 HowTo schema (deprecated — skip);
+  B2-5 one a11y contrast warning (need the exact Lighthouse node).
+- **Next actions:** commit Batch 3, deploy, then **re-run PageSpeed** (LCP 4.4s→<2.5s, CLS still 0)
+  **and a GEO/SEO audit** to confirm content gains. Batch 4 (off-site authority) is the remaining lever.
 - **Blocked on Martynas:** real testimonial (H3); /about role titles+bios; exact Martynas LinkedIn URL (current has š/č, may be broken sameAs).
 
 
