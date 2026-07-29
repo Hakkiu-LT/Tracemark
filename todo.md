@@ -1,9 +1,10 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 36 — Batch 1 SEO fixes DONE + verified (tsc 0, SSR checked,
-> 4 valid JSON-LD blocks). Uncommitted. NEXT: Batch 2 (Performance/CWV: fonts, unused JS, hero H1)
-> — pair with the Caddy immutable-caching snippet for Martynas. See "RE-AUDIT BACKLOG" in PRIORITY 13.)
+> Last updated: 2026-07-29 (session 36 — Batch 1 (committed 7f6b26e) + Batch 2 SEO/perf DONE.
+> Batch 2: self-hosted fonts, Caddy immutable caching, lazy lead modals, hero eager-reveal LCP fix
+> (all tsc 0 / build 0 / routes 200). B2-5 a11y contrast deferred (need Lighthouse node). NEXT after
+> deploy: re-run PageSpeed to confirm LCP 4.4s→<2.5s + CLS still 0. Then Batch 3 (content depth).)
 
 ---
 
@@ -95,12 +96,33 @@
   JSON-LD blocks parse as valid JSON** (Organization+WebSite / SoftwareApplication / FAQPage / WebPage).
   ⏳ Not yet committed/deployed; re-run Google Rich Results + PageSpeed after Batch 2 lands.
 
-### BATCH 2 — Performance / CWV (fix LCP 4.4s → <2.5s; biggest technical lever)
-- [ ] **B2-1** Google Fonts render-blocking (~820ms): self-host OR `<link rel=preload>` the 2 display fonts + confirm `&display=swap` — `__root.tsx` — HIGH
-- [ ] **B2-2** ⚙️INFRA (Caddy on server, not repo): `/assets/*` → `Cache-Control: public, max-age=31536000, immutable` (hashed files; currently `max-age=0`) — HIGH. *I'll hand Martynas the exact Caddyfile snippet.*
-- [ ] **B2-3** Reduce unused JS ~176KiB / ~1040ms (lazy-load heavy landing components / route-split) — MED
-- [ ] **B2-4** Hero `<h1>` ships `opacity-0` initial state → animate after hydration instead (avoid Googlebot indexing invisible H1) — `hero-v3.tsx` — LOW
-- [ ] **B2-5** 1 a11y colour-contrast warning (foreground/background) — CSS — LOW
+### BATCH 2 — Performance / CWV — ✅ DONE (session 36, except B2-5) — verify LCP after deploy
+- [x] **B2-1** Fonts SELF-HOSTED (was render-blocking Google Fonts ~820ms). 14 woff2 in
+  `public/fonts/` (MERGED latin+latin-ext — latin-ext needed for Lithuanian š/č/ž in team names),
+  `@font-face` (font-display:swap) in `styles.css`, Google Fonts preconnect+stylesheet removed from
+  `__root.tsx`, `<link rel=preload>` for the 2 above-the-fold faces (Sora 800 = hero H1, Inter 400 =
+  body). Verified: no googleapis in HTML, fonts 200 `font/woff2`, 14 @font-face in CSS, build emits
+  `dist/client/fonts/*`. NOTE: real prod CSP (Caddyfile, NOT the dead `public/_headers`) already
+  allowed Google Fonts, so this is a pure perf win + drops a 3rd-party dependency.
+- [x] **B2-2** Caddy `/assets/*` + `/fonts/*` → `Cache-Control: public, max-age=31536000, immutable`.
+  Turned out to be a REPO change (Caddyfile is bind-mounted `./Caddyfile:/etc/caddy/Caddyfile:ro`),
+  so it auto-deploys via CI — NOT a manual Martynas task. `@immutable path` matcher; HTML deliberately
+  not matched. `caddy validate` = "Valid configuration"; `caddy fmt` applied. (Confirmed prod was
+  serving hashed `/assets/*.css` with `max-age=0, must-revalidate`.)
+- [x] **B2-3** Lazy-loaded the 2 lead modals (`lead-modals.tsx` → `React.lazy` + per-modal `Suspense`,
+  mounted via a `loaded` latch on first open → preserves open/close anim, zero SSR risk). Build now
+  splits `book-demo-modal-*.js` + `talk-to-sales-modal-*.js` out of the initial `index` chunk
+  (verified the form code is NOT in index/dashboard chunks).
+- [x] **B2-4** Hero above-the-fold `<Reveal>`s (eyebrow/H1/subhead/CTAs/trust) now use a new `eager`
+  prop = pure-CSS entrance (`.hakkiu-reveal-up` keyframe in `styles.css`) that paints at FIRST render
+  instead of the JS+IntersectionObserver-gated `opacity-0` (an opacity:0 element is not an LCP
+  candidate → was delaying LCP until hydration). Verified SSR H1 now carries `hakkiu-reveal-up`, not
+  `opacity-0`. **This is likely the single biggest LCP win.** Below-the-fold reveals unchanged.
+- [ ] **B2-5** 1 a11y colour-contrast warning — DEFERRED: need the SPECIFIC failing element/selector
+  from the Lighthouse report (guessing risks changing the design). Re-run PageSpeed → grab the node.
+- [x] Verified: `tsc --noEmit`=0 · `npm run build` exit 0 · dev all routes 200 · no dev warnings.
+  ⏳ NEXT (external): re-run PageSpeed after deploy to confirm LCP 4.4s→<2.5s AND that CLS stays 0
+  (font swap + eager reveal are the two things to watch; both expected fine).
 
 ### BATCH 3 — content depth (safe copy; some need user facts)
 > ⚠️ Evidence (session 36): an external crawler flagged **low text-HTML ratio** on 4 pages —

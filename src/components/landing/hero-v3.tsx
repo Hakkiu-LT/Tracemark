@@ -21,6 +21,7 @@ export function HeroV3() {
       <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center px-6 text-center">
         <Reveal
           as="p"
+          eager
           className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
         >
           Autonomous brand protection
@@ -28,6 +29,7 @@ export function HeroV3() {
 
         <Reveal
           as="h1"
+          eager
           delay={70}
           className="mt-6 max-w-4xl font-display text-4xl font-extrabold leading-[1.04] tracking-tight text-foreground sm:text-6xl md:text-7xl"
         >
@@ -37,6 +39,7 @@ export function HeroV3() {
 
         <Reveal
           as="p"
+          eager
           delay={140}
           className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
         >
@@ -44,7 +47,7 @@ export function HeroV3() {
           every marketplace, social channel, and domain — from one workspace.
         </Reveal>
 
-        <Reveal delay={200} className="mt-9 flex flex-wrap items-center justify-center gap-3">
+        <Reveal eager delay={200} className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <RainbowButton
             type="button"
             onClick={openDemo}
@@ -64,6 +67,7 @@ export function HeroV3() {
         </Reveal>
 
         <Reveal
+          eager
           delay={260}
           className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground"
         >

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ElementType, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ElementType, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,6 +56,15 @@ interface RevealProps {
   /** Reveal at this visibility ratio. */
   threshold?: number;
   id?: string;
+  /**
+   * Above-the-fold mode. Skips the IntersectionObserver + hydration-gated
+   * opacity:0 and instead runs a pure-CSS entrance (`.hakkiu-reveal-up`) that
+   * begins at FIRST PAINT. Use this for first-viewport content (hero eyebrow /
+   * H1 / subhead / CTAs): the JS-gated default keeps the element invisible
+   * until React hydrates, which delays LCP because an opacity:0 element is not
+   * an LCP candidate. Same fade-up look, just driven by CSS instead of JS.
+   */
+  eager?: boolean;
 }
 
 /**
@@ -70,8 +79,28 @@ export function Reveal({
   y = 18,
   threshold = 0.2,
   id,
+  eager = false,
 }: RevealProps) {
   const { ref, inView } = useInView<HTMLElement>(threshold);
+
+  // Above-the-fold: pure-CSS entrance that paints immediately (no JS gating).
+  if (eager) {
+    return (
+      <Tag
+        id={id}
+        className={cn("hakkiu-reveal-up", className)}
+        style={
+          {
+            "--reveal-delay": `${delay}ms`,
+            "--reveal-y": `${y}px`,
+          } as CSSProperties
+        }
+      >
+        {children}
+      </Tag>
+    );
+  }
+
   return (
     <Tag
       ref={ref}

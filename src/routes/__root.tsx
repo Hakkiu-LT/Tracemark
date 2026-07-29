@@ -159,9 +159,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/png", href: "/favicon.png" },
       { rel: "apple-touch-icon", href: "/favicon.png" },
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" },
+      // Fonts are now self-hosted (@font-face in styles.css, files in
+      // public/fonts/). Preload ONLY the two above-the-fold faces — hero H1
+      // (Sora 800) + body (Inter 400) — so they download in parallel with the
+      // CSS instead of waiting for it to parse. Everything else loads on
+      // demand. This removed the render-blocking fonts.googleapis.com request
+      // (~820ms off mobile LCP). crossOrigin is required for font preloads.
+      { rel: "preload", href: "/fonts/sora-800.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+      { rel: "preload", href: "/fonts/inter-400.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
     ],
   }),
   shellComponent: RootShell,

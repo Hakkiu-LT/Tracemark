@@ -2,6 +2,30 @@
 @source "../src";
 @import "tw-animate-css";
 
+/* ── Self-hosted fonts (replaces the Google Fonts <link>) ──────────────────
+   Served same-origin from public/fonts/, so there is NO render-blocking
+   third-party request to fonts.googleapis.com on the critical path (this was
+   ~820ms of the mobile LCP). Files are the MERGED latin + latin-ext subsets —
+   latin-ext is required for Lithuanian diacritics (š/č/ž/ū…) in team names on
+   /about. `font-display: swap` keeps text visible while a face loads and
+   matches the previous Google Fonts behaviour, so CLS stays unchanged. The two
+   above-the-fold faces (Sora 800 = hero H1, Inter 400 = body) are additionally
+   <link rel=preload>ed in __root.tsx so they arrive in parallel with the CSS. */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/inter-400.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/inter-500.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/inter-600.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/inter-700.woff2") format("woff2"); }
+@font-face { font-family: "Sora"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/sora-500.woff2") format("woff2"); }
+@font-face { font-family: "Sora"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/sora-600.woff2") format("woff2"); }
+@font-face { font-family: "Sora"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/sora-700.woff2") format("woff2"); }
+@font-face { font-family: "Sora"; font-style: normal; font-weight: 800; font-display: swap; src: url("/fonts/sora-800.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/jetbrains-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/jetbrains-mono-500.woff2") format("woff2"); }
+@font-face { font-family: "Hanken Grotesk"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/hanken-grotesk-400.woff2") format("woff2"); }
+@font-face { font-family: "Hanken Grotesk"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/hanken-grotesk-500.woff2") format("woff2"); }
+@font-face { font-family: "Hanken Grotesk"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/hanken-grotesk-600.woff2") format("woff2"); }
+@font-face { font-family: "Hanken Grotesk"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/hanken-grotesk-700.woff2") format("woff2"); }
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -295,6 +319,34 @@
 @keyframes dashmove {
   to {
     stroke-dashoffset: -12;
+  }
+}
+
+/* ── Above-the-fold reveal (LCP-safe) ──────────────────────────────────
+   Hero / first-viewport elements use a PURE-CSS entrance so they paint on
+   first render, instead of the JS-gated <Reveal> (IntersectionObserver) that
+   keeps elements at opacity:0 until React hydrates. A JS-gated LCP element is
+   invisible — and thus not an LCP candidate — until hydration completes, which
+   was delaying LCP badly. This CSS animation begins at first paint, so the
+   largest hero text becomes a valid LCP candidate almost immediately.
+   `--reveal-y` / `--reveal-delay` are set inline per element by <Reveal eager>. */
+@keyframes hakkiu-reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--reveal-y, 18px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hakkiu-reveal-up {
+  animation: hakkiu-reveal-up 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hakkiu-reveal-up {
+    animation: none;
   }
 }
 

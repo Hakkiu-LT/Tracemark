@@ -6,7 +6,6 @@
 #   hakkiu.com, www.hakkiu.com, admin.hakkiu.com, api.hakkiu.com, admin-api.hakkiu.com
 #
 # Certs + ACME state persist in the `caddy_data` volume — never delete it lightly.
-
 {
 	# Email used by Let's Encrypt for expiry warnings. Change to a mailbox you monitor.
 	email admin@hakkiu.com
@@ -19,6 +18,16 @@
 # api.tracemark.ai swapped for api.hakkiu.com, plus Google Fonts allow-listed.
 hakkiu.com {
 	encode zstd gzip
+
+	# Immutable caching for content-hashed static assets. Vite emits
+	# /assets/<name>-<hash>.(js|css) and we self-host fonts under /fonts/*.woff2
+	# — the filename changes whenever the content does, so they can be cached for
+	# a year. Without this the frontend container returns `max-age=0,
+	# must-revalidate`, forcing a revalidation round-trip on every repeat view
+	# (a Lighthouse "efficient cache policy" finding). HTML is intentionally NOT
+	# matched here so each deploy is picked up immediately.
+	@immutable path /assets/* /fonts/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
 	header {
 		X-Frame-Options "DENY"
