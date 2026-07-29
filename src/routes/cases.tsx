@@ -25,6 +25,7 @@ import {
 import { getInfringements, type InfringementFeedItem } from "@/lib/api";
 import { deleteInfringementFromSupabase } from "@/lib/supabase";
 
+import { CaseStatusBadge, CaseStatusSelect, normalizeStatusKey } from "@/components/cases/CaseStatus";
 import { RiskBadge } from "@/components/risk-badge";
 import { PlatformLogo } from "@/components/platform-logo";
 import { ErrorState } from "@/components/error-state";
@@ -60,6 +61,7 @@ const STATUS_ORDER: Record<string, number> = {
   analyzing: 2,
   active: 2,
   escalated: 3,
+  takedown_sent: 3,
   complete: 4,
   completed: 4,
   resolved: 4,
@@ -68,47 +70,6 @@ const STATUS_ORDER: Record<string, number> = {
   dismissed: 6,
   error: 7,
 };
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground border-border font-mono",
-  flagged: "bg-muted text-muted-foreground border-border font-mono",
-  analyzing: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
-  reviewed: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
-  active: "bg-blue-500/10 text-blue-600 border-blue-500/30 font-semibold",
-  escalated: "bg-purple-500/10 text-purple-600 border-purple-500/30 font-semibold",
-  complete: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
-  completed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
-  resolved: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-semibold",
-  safe: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-  dismissed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-  declined: "bg-red-500/10 text-red-600 border-red-500/30 font-semibold",
-  rejected: "bg-red-500/10 text-red-600 border-red-500/30 font-semibold",
-  error: "bg-red-500/10 text-red-600 border-red-500/30",
-};
-
-/** Per-copycat rows still awaiting triage (default initial state: pending). */
-const PENDING_STATUSES = new Set(["pending", "flagged"]);
-
-function CaseStatusBadge({ status }: { status: string }) {
-  const norm = (status || "pending").toLowerCase();
-  let label = norm;
-  if (norm === "flagged") label = "pending";
-  if (norm === "reviewed" || norm === "active" || norm === "analyzing") label = "analyzing";
-  if (norm === "complete" || norm === "resolved" || norm === "completed") label = "completed";
-  if (norm === "declined") label = "rejected";
-  if (norm === "dismissed") label = "safe";
-
-  return (
-    <span
-      className={cn(
-        "inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold capitalize",
-        STATUS_STYLES[label] ?? STATUS_STYLES[norm] ?? "bg-muted text-muted-foreground border-border",
-      )}
-    >
-      {label === "analyzing" ? "In Analysis" : label.replace(/_/g, " ")}
-    </span>
-  );
-}
 
 function inDateRange(dateStr: string, range: DateRange | undefined) {
   if (!range?.from) return true;
@@ -236,6 +197,13 @@ function CasesList() {
     }
   };
 
+  // Merge a status change (inline dropdown or case detail) into the loaded
+  // list so the new status is reflected instantly — and it stays on refetch
+  // because the API persisted it to the database.
+  const handleStatusUpdated = (updated: InfringementFeedItem) => {
+    setAll((prev) => prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)));
+  };
+
   const renderCaseRow = (c: InfringementFeedItem) => {
     // Prefer the real detection region; fall back to the legacy hash for rows
     // persisted before per-copycat regions were stored.
@@ -275,7 +243,7 @@ function CasesList() {
           <RiskBadge risk={c.risk_level.toLowerCase() as "high" | "medium" | "low"} />
         </TableCell>
         <TableCell>
-          <CaseStatusBadge status={c.status} />
+          <CaseStatusSelect caseItem={c} onUpdated={handleStatusUpdated} />
         </TableCell>
         <TableCell className="text-sm text-muted-foreground">
           {new Date(c.flagged_at || c.created_at).toLocaleDateString()}
@@ -359,7 +327,9 @@ function CasesList() {
 
   const countByRisk = (risk: string) => all.filter((c) => c.risk_level === risk).length;
 
-  const statusOptions = Array.from(new Set(all.map((c) => c.status))).sort(
+  // Filter by canonical status key so legacy aliases (reviewed → analyzing,
+  // dismissed → safe, …) group into a single option per workflow state.
+  const statusOptions = Array.from(new Set(all.map((c) => normalizeStatusKey(c.status)))).sort(
     (a, b) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99),
   );
 
@@ -376,7 +346,7 @@ function CasesList() {
         (c.brand_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
         c.source_url.toLowerCase().includes(search.toLowerCase()),
     )
-    .filter((c) => statusFilter.length === 0 || statusFilter.includes(c.status))
+    .filter((c) => statusFilter.length === 0 || statusFilter.includes(normalizeStatusKey(c.status)))
     .filter((c) => inDateRange(c.flagged_at || c.created_at, dateRange))
     .filter((c) => (c.match_score ?? 0) * 100 >= minConfidence)
     .filter((c) => {
@@ -392,7 +362,9 @@ function CasesList() {
       else if (sortBy === "risk")
         cmp = (RISK_ORDER[a.risk_level ?? ""] ?? 0) - (RISK_ORDER[b.risk_level ?? ""] ?? 0);
       else if (sortBy === "status")
-        cmp = (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+        cmp =
+          (STATUS_ORDER[normalizeStatusKey(a.status)] ?? 99) -
+          (STATUS_ORDER[normalizeStatusKey(b.status)] ?? 99);
       else if (sortBy === "confidence") cmp = (a.match_score ?? 0) - (b.match_score ?? 0);
       else
         cmp =
@@ -401,8 +373,8 @@ function CasesList() {
       return sortDir === "asc" ? cmp : -cmp;
     });
 
-  const pendingCases = filtered.filter((c) => PENDING_STATUSES.has(c.status));
-  const otherCases = filtered.filter((c) => !PENDING_STATUSES.has(c.status));
+  const pendingCases = filtered.filter((c) => normalizeStatusKey(c.status) === "pending");
+  const otherCases = filtered.filter((c) => normalizeStatusKey(c.status) !== "pending");
 
   const totalPages = Math.max(1, Math.ceil(otherCases.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);

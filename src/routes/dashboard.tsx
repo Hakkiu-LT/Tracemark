@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ShieldCheck, AlertTriangle, CheckCircle2, TrendingUp, ArrowUpRight } from "lucide-react";
 import { useScopedMarks, useStore } from "@/lib/store";
 import { InfringementAlertFeed } from "@/components/cases/InfringementAlertFeed";
+import { normalizeStatusKey } from "@/components/cases/CaseStatus";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell, Legend } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { getInfringements } from "@/lib/api";
@@ -22,9 +23,16 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 /** Per-copycat status groups (one infringement row = one copycat case). */
-const AWAITING_REVIEW_STATUSES = new Set(["flagged", "active"]);
 const RESOLVED_STATUSES = new Set(["resolved", "complete", "completed"]);
 const DECLINED_STATUSES = new Set(["declined", "dismissed", "safe"]);
+
+/**
+ * A copycat case is "active" until the user closes it — i.e. anything NOT
+ * marked safe, complete/completed/resolved, or rejected (declined/dismissed).
+ * Legacy aliases collapse through normalizeStatusKey (dismissed→safe,
+ * completed/resolved→complete).
+ */
+const CLOSED_STATUSES = new Set(["safe", "complete", "declined"]);
 
 function Dashboard() {
   const marks = useScopedMarks();
@@ -45,7 +53,7 @@ function Dashboard() {
     return mReg === selectedMacroRegion;
   });
 
-  const active = filteredInfringements.filter((i) => AWAITING_REVIEW_STATUSES.has(i.status)).length;
+  const active = filteredInfringements.filter((i) => !CLOSED_STATUSES.has(normalizeStatusKey(i.status))).length;
 
   // Successful takedowns: copycat marked resolved/complete
   const successfulTakedowns = filteredInfringements.filter((i) => RESOLVED_STATUSES.has(i.status)).length;
@@ -137,7 +145,7 @@ function Dashboard() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metric icon={ShieldCheck} label="Monitored marks" value={marks.length} sub="across all platforms" />
-        <Metric icon={AlertTriangle} label="Active infringements" value={active} sub="awaiting review" tone="risk" />
+        <Metric icon={AlertTriangle} label="Active infringements" value={active} sub="not yet closed" tone="risk" />
         <Metric icon={CheckCircle2} label="Successful takedowns" value={successfulTakedowns} sub="this quarter" tone="success" />
         <Metric icon={TrendingUp} label="Success rate" value={`${successRate}%`} sub="30-day rolling avg" tone="accent" />
       </div>

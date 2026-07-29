@@ -82,7 +82,9 @@ const RISK = ["HIGH", "MEDIUM", "LOW"];
 const ACTIONS = ["TAKEDOWN", "MONITOR", "DISMISS"];
 const VERDICTS = ["obvious_copycat", "likely_copycat", "ambiguous", "obvious_non_match"];
 const CONFIDENCES = ["high", "medium", "low"];
-const INFR_STATUS = ["flagged", "reviewed", "dismissed"];
+// Mirrors the per-copycat workflow constraint (migration 20260729000001) so
+// staff set the same statuses customers can pick in the customer app.
+const INFR_STATUS = ["pending", "flagged", "analyzing", "escalated", "takedown_sent", "complete", "safe", "declined", "error"];
 const MATCH_TYPES = ["keyword", "image", "both"];
 const TD_STATUS = ["pending", "sent", "acknowledged"];
 

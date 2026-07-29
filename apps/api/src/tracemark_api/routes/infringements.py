@@ -236,6 +236,28 @@ class UpdateStatusRequest(BaseModel):
     status: str
     decline_reason: str | None = None
 
+
+# Canonical per-copycat workflow — mirrors the CHECK constraint added by
+# migration 20260729000001_infringements_status_workflow.sql. Validated here so
+# an unknown status fails fast with a clear 422 instead of a DB error.
+ALLOWED_INFRINGEMENT_STATUSES = frozenset({
+    "pending",
+    "flagged",
+    "analyzing",
+    "active",
+    "reviewed",
+    "escalated",
+    "takedown_sent",
+    "complete",
+    "completed",
+    "resolved",
+    "declined",
+    "safe",
+    "dismissed",
+    "error",
+})
+
+
 @router.patch("/{infringement_id}/status", response_model=InfringementItem)
 def update_infringement_status(
     infringement_id: str,
@@ -248,23 +270,15 @@ def update_infringement_status(
     independently in the customer frontend; scan-level status changes happen on
     the scan-result page via the monitoring routes.
     """
+    status = (payload.status or "").strip().lower()
+    if status not in ALLOWED_INFRINGEMENT_STATUSES:
+        raise HTTPException(status_code=422, detail=f"Invalid status: {payload.status}")
+
     sb = get_supabase()
     # Verify ownership via parent case (prevents cross-tenant status writes).
     _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
 
-    STATUS_FALLBACK_MAP = {
-        "analyzing": "reviewed",
-        "active": "reviewed",
-        "complete": "reviewed",
-        "completed": "reviewed",
-        "resolved": "reviewed",
-        "escalated": "reviewed",
-        "takedown_sent": "reviewed",
-        "declined": "dismissed",
-        "safe": "dismissed",
-    }
-
-    updates = {"status": payload.status}
+    updates = {"status": status}
     if payload.decline_reason is not None:
         updates["decline_reason"] = payload.decline_reason
 
@@ -276,44 +290,22 @@ def update_infringement_status(
             .execute()
         )
     except Exception as e:
-        err_str = str(e)
-        if "infringements_status_check" in err_str or "23514" in err_str:
-            fallback_status = STATUS_FALLBACK_MAP.get(payload.status, "reviewed")
-            updates["status"] = fallback_status
-            try:
-                result = (
-                    sb.table("infringements")
-                    .update(updates)
-                    .eq("id", infringement_id)
-                    .execute()
-                )
-            except Exception as e2:
-                if "decline_reason" in str(e2):
-                    result = (
-                        sb.table("infringements")
-                        .update({"status": fallback_status})
-                        .eq("id", infringement_id)
-                        .execute()
-                    )
-                else:
-                    raise e2
-        elif "decline_reason" in err_str:
+        # Older DBs may lack the decline_reason column — retry without it so the
+        # status change itself is never lost.
+        if "decline_reason" in str(e) and "decline_reason" in updates:
             result = (
                 sb.table("infringements")
-                .update({"status": payload.status})
+                .update({"status": status})
                 .eq("id", infringement_id)
                 .execute()
             )
-            print(f"[Infringements] Decline reason fallback: {payload.decline_reason}")
         else:
-            raise e
+            raise
 
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to update status")
 
-    # Return the fully hydrated item with status matching requested payload
+    # Return the fully hydrated item as actually stored — the response must
+    # reflect the DB truth so the cases list and detail page stay in sync.
     updated = _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
-    flat = _flatten_case_fields(updated)
-    flat["status"] = payload.status
-    flat["case_status"] = payload.status
-    return flat
+    return _flatten_case_fields(updated)

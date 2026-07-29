@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RiskBadge } from "@/components/risk-badge";
+import { CaseStatusBadge, CASE_STATUS_OPTIONS, normalizeStatusKey } from "@/components/cases/CaseStatus";
 import { getInfringements, type InfringementFeedItem } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
@@ -84,7 +85,8 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
     queryFn: () =>
       getInfringements({
         risk_level: riskFilter.length === 1 ? riskFilter[0] : undefined,
-        status: statusFilter.length === 1 ? statusFilter[0] : undefined,
+        // Status stays client-side: the filter works on canonical keys, which
+        // also groups legacy aliases (reviewed → analyzing, dismissed → safe).
         platform: platformFilter.length === 1 ? platformFilter[0] : undefined,
         limit: 100,
       }),
@@ -100,7 +102,7 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
   // Clientside filtering fallback for multiple selections and date / search
   const filteredItems = items
     .filter((i) => riskFilter.length === 0 || riskFilter.includes(i.risk_level))
-    .filter((i) => statusFilter.length === 0 || statusFilter.includes(i.status))
+    .filter((i) => statusFilter.length === 0 || statusFilter.includes(normalizeStatusKey(i.status)))
     .filter((i) => platformFilter.length === 0 || platformFilter.some((p) => i.platform.toLowerCase().includes(p.toLowerCase())))
     .filter(
       (i) =>
@@ -214,15 +216,15 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
           {/* Status Filter */}
           <FilterPopover label="Status" active={statusActive} onClear={() => setStatusFilter([])}>
             <div className="space-y-2">
-              {["flagged", "reviewed", "dismissed"].map((status) => (
-                <label key={status} className="flex cursor-pointer items-center gap-2 text-xs font-medium capitalize">
+              {CASE_STATUS_OPTIONS.map((status) => (
+                <label key={status} className="flex cursor-pointer items-center gap-2 text-xs font-medium">
                   <Checkbox
                     checked={statusFilter.includes(status)}
                     onCheckedChange={(checked) =>
                       setStatusFilter((prev) => (checked ? [...prev, status] : prev.filter((s) => s !== status)))
                     }
                   />
-                  <span>{status}</span>
+                  <CaseStatusBadge status={status} />
                 </label>
               ))}
             </div>
@@ -329,9 +331,7 @@ export function InfringementAlertFeed({ regionFilter }: { regionFilter?: string 
                         <span className="text-[10px] text-muted-foreground">
                           • {dateString} at {timeString}
                         </span>
-                        <span className="inline-flex rounded-md border px-1.5 py-0 text-[10px] font-medium capitalize bg-muted text-muted-foreground">
-                          {item.status}
-                        </span>
+                        <CaseStatusBadge status={item.status} />
                       </div>
                       <p className="mt-1 truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                         {item.source_url}
