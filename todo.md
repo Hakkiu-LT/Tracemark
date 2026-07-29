@@ -1,11 +1,74 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 36 — Batch 1 (7f6b26e) + Batch 2 (53d6824) committed; Batch 3
-> DONE + verified, UNCOMMITTED. Batch 3: FAQ expanded to 7 Q, /about h2s+copy, product mock "Example",
-> calculator note, comparison FAQ, llms.txt v1.2 — AND corrected several truthfulness overclaims found
-> in FAQ/llms/mockup/features. Deferred: B3-2 roles/bios (need Martynas), B3-8 HowTo (deprecated, skip),
-> B2-5 a11y contrast (need node). NEXT: commit, deploy, re-run PageSpeed + GEO audit to confirm gains.)
+> Last updated: 2026-07-29 (session 40 — Per-copycat status workflow FIXED + Jira-like inline
+> control. Root cause: a schema sync had silently re-created the original 3-value
+> `infringements_status_check`, so the API remapped analyzing/complete/… → reviewed/dismissed and
+> LIED in the PATCH response — the list never reflected the user's choice. New migration
+> 20260729000001 pushed to prod; API now validates + returns DB truth; /cases rows have an inline
+> status dropdown; admin INFR_STATUS aligned. UNCOMMITTED.)
+
+---
+
+## 🎫 Per-copycat status workflow — Jira-like case control (2026-07-29, session 40) — ✅ DONE
+
+> User ask: change each case's status (analyzing, complete, …) inside the case AND have it
+> reflected when leaving/returning to the /cases tab — per-copycat control like Jira tickets.
+> ROOT CAUSE found: prod DB still had the ORIGINAL `CHECK (status IN ('flagged','reviewed',
+> 'dismissed'))` (migration 20260706000001 dropped it, but a later schema sync re-created it).
+> The API's fallback map then stored `reviewed`/`dismissed` while returning the requested status
+> in the PATCH response — detail page looked right, list (DB truth) never matched.
+- [x] Migration `20260729000001_infringements_status_workflow.sql`: drop stale CHECK + re-add with
+  the full canonical set (pending/flagged/analyzing/active/reviewed/escalated/takedown_sent/
+  complete/completed/resolved/declined/safe/dismissed/error). **Pushed to prod** (`supabase db push`);
+  verified: analyzing/complete persist, bogus values rejected (23514), test row reverted.
+- [x] `apps/api/.../routes/infringements.py` PATCH status: validates against
+  `ALLOWED_INFRINGEMENT_STATUSES` (422 on unknown), removed STATUS_FALLBACK_MAP + the
+  `flat["status"] = payload.status` response override — response is now the row as stored.
+  Kept only the decline_reason-missing-column retry.
+- [x] New shared `src/components/cases/CaseStatus.tsx`: alias normalization (reviewed→analyzing,
+  dismissed→safe, …), `CaseStatusBadge`, and `CaseStatusSelect` — Jira-like colored pill dropdown
+  (Pending / In Analysis / Escalated / Completed / Safe / Rejected) that PATCHes the API, spins
+  while saving, toasts, and merges the result into list state instantly.
+- [x] `src/routes/cases.tsx`: status column now uses `CaseStatusSelect` per row (both Pending
+  Review + Triage History tables); status filter options, status sort and the pending/other split
+  all use the same normalized keys (legacy aliases group correctly).
+- [x] Admin parity: `apps/admin/src/pages/CaseDetail.tsx` `INFR_STATUS` → same workflow set
+  (was flag/reviewed/dismissed only); admin-api PATCH already existed with audit log.
+- [x] Verified: customer `tsc` 0 + `vite build` 0; admin `tsc` 0; backend `py_compile` OK; eslint
+  on touched files = only pre-existing repo-wide CRLF/prettier noise + 1 pre-existing `any`.
+- [x] FOLLOW-UP (same session) — `/cases/$caseId/takedown` "Case not found" bug FIXED: the page
+  still read the legacy zustand mock store (`useStore.infringements`, only populated by the old
+  monitoring flow with local `i<timestamp>` IDs), so EVERY real DB-backed case rendered
+  "Case not found.". Rewrote the page on real data: loads via `getInfringementById` (same
+  react-query key as the detail page → instant from there), letters drafted from real
+  brand/platform/URL, evidence sidebar shows the real signed screenshot (or the designed
+  empty-state) + real metadata (no more hardcoded googleusercontent image / fake seller/IP/price /
+  Alibaba-AliExpress copy); removed inert toolbar buttons + dead "attach files" button; "Send via
+  Webhook" now actually POSTs the notice JSON (was mock that never fetched); Download-PDF and
+  webhook success persist `takedown_sent` via `updateInfringementStatus` (was local-store-only)
+  with the same query invalidations as the detail page; loading skeleton + `<ErrorState>` replace
+  the fake not-found. Admin parity: no new admin work — status flows through the same endpoint
+  already editable/audited in admin; documents land in the same `documents` table admin lists.
+  Verified: `tsc` 0, `vite build` 0.
+- [x] FOLLOW-UP 2 (same session) — platform reporting link restored + dashboard Active fixed:
+  - [x] New `src/lib/platform-reporting.ts` — frontend mirror of the backend `PLATFORM_REGISTRY`
+    (takedown.py): per-platform official reporting URL / abuse email / method (web_form | email |
+    udrp), with alias normalization ("Meta Ads"→meta_ads, "Facebook Marketplace"→facebook,
+    "web_domain"/"domains"→ICANN UDRP). Resolver smoke-tested against 12 platform variants via tsx.
+  - [x] `/cases/$id/takedown`: new "Submit to the platform" card in the sidebar — "Go to reporting
+    page" deep-link (or mailto abuse contact / UDRP guidance) + "Mark as Submitted" button that
+    persists `takedown_sent` (disabled when already sent).
+  - [x] Dashboard "Active infringements" metric: was only `flagged`/`active` → now counts every
+    copycat NOT closed (anything except safe/complete/rejected, aliases normalized via
+    `normalizeStatusKey`); sub-label → "not yet closed".
+  - [x] Dashboard live feed aligned: status filter offers the 6 canonical workflow statuses with
+    real badges (was stale flagged/reviewed/dismissed), filtering uses normalized keys, rows show
+    `CaseStatusBadge` instead of raw status text.
+  - [x] Verified: `tsc` 0, `vite build` 0.
+- [ ] USER: restart the main API (uvicorn has no --reload) to pick up the backend change, then
+  click-test: set a status in the list / detail → visit another tab → back to /cases → persists;
+  and open Generate Takedown Notice from any case.
 
 ---
 
