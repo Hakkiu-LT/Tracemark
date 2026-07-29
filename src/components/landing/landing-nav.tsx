@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { cn } from "@/lib/utils";
 import { useLeadModals } from "./lead-modals";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function LandingNav() {
   const { openDemo, openSales } = useLeadModals();
@@ -55,6 +56,7 @@ export function LandingNav() {
             </Link>
           </nav>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Button
               variant="outline"
               onClick={openSales}
