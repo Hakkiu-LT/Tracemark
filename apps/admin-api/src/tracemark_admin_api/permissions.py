@@ -27,6 +27,7 @@ PERMISSIONS: dict[str, str] = {
     "integrations.manage": "Meta token exchange and integration keys",
     "staff.manage": "Create/edit staff and assign permissions",
     "audit.view": "Read the audit log",
+    "notification_log.view": "View the notification delivery log (email/webhook dispatch attempts)",
     "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
     "leads.edit": "Update lead status (mark contacted, close)",
     "leads.delete": "Delete sales leads (destructive)",
@@ -45,6 +46,7 @@ ROLE_PRESETS: dict[str, set[str]] = {
         "brands.view",
         "customers.view",
         "audit.view",
+        "notification_log.view",
     },
     "sales": {
         "customers.view",

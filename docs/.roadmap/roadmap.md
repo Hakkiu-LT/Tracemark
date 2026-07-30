@@ -330,7 +330,8 @@ setup + Python SDK + Supabase Auth SMTP relay support.*
 
 ### Backend & Infrastructure
 - **Template Delivery Engine** | ✅ Done | `services/email.py` Resend wrapper + `email_templates.py` HTML templates (infringement alert, domain lookalike, takedown submitted/removed/failed, welcome, first-detection, new-lead, weekly digest, dunning day-0, test). Wired into existing hooks in `routes/monitoring.py`, `routes/documents.py`, `services/persistence.py`, `routes/brands.py`, `routes/leads.py`.
-- **Weekly digest + onboarding** | ✅ Done | `services/weekly_digest.py` daemon thread (Tuesdays 09:00 UTC); welcome on first brand; first-detection "aha" email. Deferred: 48h/day-14 nudges, day-3/day-7 dunning follow-ups, admin `/email-logs` page.
+- **Weekly digest + onboarding** | ✅ Done | `services/weekly_digest.py` daemon thread (Tuesdays 09:00 UTC); welcome on first brand; first-detection "aha" email. Deferred: 48h/day-14 nudges, day-3/day-7 dunning follow-ups.
+- **Admin Notification Log** | ✅ Done | Read-only cross-org view of `notification_deliveries` (email/webhook dispatch attempts). `apps/admin-api/routes/notification_log.py` (`GET /api/v1/notification-log`, gated `notification_log.view`, org resolved best-effort via infringement/payload→case→org lookups); `apps/admin/pages/NotificationLog.tsx` under Monitoring. Named "Notification Log" (not "email logs") since the table has no recipient/subject columns.
 - **Domain & Sender Verification** | ❌ Missing (USER ACTION) | Verify `hakkiu.com` in Resend (SPF/DKIM DNS), replace the `RESEND_API_KEY` placeholder in `.env` with the real key.
 - **Supabase Auth Custom SMTP Integration** | ❌ Missing (USER ACTION) | Point Supabase Auth SMTP at the Resend relay (host `smtp.resend.com`, port 465, user `resend`, pass = API key) for sign-up/reset tokens. (Admin password reset already bypasses this — it sends via the app's own Resend pipeline.)
 

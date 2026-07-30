@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   "integrations.manage": "Meta token exchange and integration keys",
   "staff.manage": "Create/edit staff and assign permissions",
   "audit.view": "Read the audit log",
+  "notification_log.view": "View the notification delivery log (email/webhook dispatch attempts)",
   "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
   "leads.edit": "Update lead status (mark contacted, close)",
   "leads.delete": "Delete sales leads (destructive)",
@@ -29,7 +30,7 @@ export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
-  dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view"],
+  dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view", "notification_log.view"],
   sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit", "leads.delete"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(

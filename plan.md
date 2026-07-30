@@ -1,5 +1,24 @@
 # HAKKIU — Active Plan
 
+> **Session 44 (2026-07-30) — Admin Notification Log + landing deploy/PSI prep.** Two goals.
+> **Goal 1 (DONE, code):** the Priority-3 "admin email-logs" item. Investigated via 2 Explore agents +
+> a Plan critic that surfaced the key gotcha: `notification_deliveries` has NO organization_id and NO
+> recipient/subject columns — org lives one/two FK hops away (infringement_id→case→org, or payload.case_id),
+> recipient only in some payloads. Decisions (asked user): (a) name it "Notification Log", not "Email Logs"
+> (honest — no recipient/subject); (b) resolve org via read-only lookups, NO migration, NO touching the hot
+> write path in delivery_log.py; NULL-org rows show "System". Built: `apps/admin-api/routes/notification_log.py`
+> (`GET /api/v1/notification-log`, `require_permission("notification_log.view")`, 3 batched flat lookups
+> infringements→cases→organizations — deliberately NOT a 2-hop PostgREST embed, which the critic flagged as
+> unproven here); `notification_log.view` added to permissions.py + permissions.ts + dev preset (admin
+> auto-includes); `apps/admin/pages/NotificationLog.tsx` (Monitoring nav, status/event filters, offset
+> paging, expandable payload). Verified: admin-api imports OK, admin tsc 0, admin build OK.
+> **Goal 2 (BLOCKED on user — no creds in this env):** deploy the already-committed session-41 image/font/
+> JS-split perf work + re-measure PSI. Deploy is manual SSH to Hetzner; PSI needs a key. User will (a) run
+> the deploy manually with `--build`, (b) add `GOOGLE_API_KEY` to `.env` so I can query PSI v5. Deploy cmd:
+> `cd /opt/hakkiu && git reset --hard origin/main && docker compose up -d --build && docker compose restart caddy && docker image prune -f`
+> NEXT: after user deploys + adds the key, run a PSI check on hakkiu.com (mobile) vs baseline 71/FCP 4.2s/LCP 4.7s.
+> Then commit+push session-44 (auto-deploys once live), restart admin-api uvicorn, click-test the page.
+
 > **Session 43 (2026-07-30) — Lead-form honesty pass.** Goal: email + admin portal must show ONLY
 > what a visitor actually fills in the Book-a-demo / Talk-to-sales forms — no invented values.
 > 3 subagents traced the full chain (form → `POST /api/v1/leads` → `sales_leads` → staff email + admin).

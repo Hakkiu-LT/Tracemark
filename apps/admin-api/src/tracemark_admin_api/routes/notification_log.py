@@ -1,0 +1,98 @@
+"""Admin endpoint for the notification delivery log.
+
+Read-only, cross-organization view of every notification dispatch attempt recorded
+in `notification_deliveries` (main-API writes them via services/delivery_log.py).
+
+The table has NO organization_id and NO recipient/subject columns — those only exist
+(when at all) inside the `payload` JSONB. So org is resolved best-effort via two hops
+without a PostgREST embed:
+
+    infringement_id -> infringements.case_id -> cases.organization_id -> organizations.name
+    (fallback) payload.case_id ------------------^
+
+Events with neither an infringement_id nor a payload.case_id (e.g. `takedown_submitted`)
+have no resolvable org and are surfaced with organization = null ("System" in the UI).
+No audit log is written — reads are not audit events.
+"""
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Query
+
+from tracemark_admin_api.clients import customer_sb
+from tracemark_admin_api.dependencies import StaffPrincipal, require_permission
+
+router = APIRouter(prefix="/notification-log", tags=["notification-log"])
+
+
+@router.get("")
+def list_notification_log(
+    status: str | None = Query(None),
+    event_type: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    principal: StaffPrincipal = Depends(require_permission("notification_log.view")),
+):
+    sb = customer_sb()
+
+    # 1) Fetch the page of delivery rows (status/event_type filter on real columns —
+    #    org is derived below, so it can't be a server-side filter without a join).
+    q = sb.table("notification_deliveries").select("*")
+    if status:
+        q = q.eq("status", status)
+    if event_type:
+        q = q.eq("event_type", event_type)
+    result = q.order("delivered_at", desc=True).range(offset, offset + limit - 1).execute()
+    rows = result.data or []
+
+    # 2) Resolve org for the page in three flat batched lookups (no PostgREST embed).
+    inf_ids = [r["infringement_id"] for r in rows if r.get("infringement_id")]
+    inf_to_case: dict[str, str | None] = {}
+    if inf_ids:
+        inf_res = (
+            sb.table("infringements").select("id,case_id").in_("id", list(set(inf_ids))).execute()
+        )
+        inf_to_case = {i["id"]: i.get("case_id") for i in (inf_res.data or [])}
+
+    case_ids: set[str] = {c for c in inf_to_case.values() if c}
+    for r in rows:
+        payload_case = (r.get("payload") or {}).get("case_id")
+        if payload_case:
+            case_ids.add(payload_case)
+
+    case_to_org: dict[str, str | None] = {}
+    if case_ids:
+        case_res = (
+            sb.table("cases").select("id,organization_id").in_("id", list(case_ids)).execute()
+        )
+        case_to_org = {c["id"]: c.get("organization_id") for c in (case_res.data or [])}
+
+    org_ids = {o for o in case_to_org.values() if o}
+    org_to_name: dict[str, str | None] = {}
+    if org_ids:
+        org_res = sb.table("organizations").select("id,name").in_("id", list(org_ids)).execute()
+        org_to_name = {o["id"]: o.get("name") for o in (org_res.data or [])}
+
+    # 3) Flatten each row with its best-effort org + recipient (from payload when present).
+    deliveries = []
+    for r in rows:
+        payload = r.get("payload") or {}
+        case_id = inf_to_case.get(r.get("infringement_id")) or payload.get("case_id")
+        org_id = case_to_org.get(case_id) if case_id else None
+        deliveries.append(
+            {
+                "id": r["id"],
+                "event_type": r.get("event_type"),
+                "status": r.get("status"),
+                "error_message": r.get("error_message"),
+                "delivered_at": r.get("delivered_at"),
+                "created_at": r.get("created_at"),
+                "infringement_id": r.get("infringement_id"),
+                "case_id": case_id,
+                "organization_id": org_id,
+                "organization_name": org_to_name.get(org_id) if org_id else None,
+                "recipient": payload.get("recipient"),
+                "payload": payload,
+            }
+        )
+
+    return {"deliveries": deliveries, "offset": offset, "limit": limit}

@@ -95,8 +95,10 @@
 ## 🟢 SMALLER / OPTIONAL
 
 ### Email lifecycle (Priority 3)
-- [ ] Admin parity: `GET /admin/email-logs` endpoint + `EmailLogs.tsx` (the `notification_deliveries`
-  table is already logged; just needs an admin-facing view).
+- [x] **Admin Notification Log (session 44):** `GET /api/v1/notification-log` (admin-api) + `NotificationLog.tsx`
+  under Monitoring. Read-only cross-org view of `notification_deliveries`; org resolved best-effort via
+  infringement/payload→case→org lookups (table has no org_id). Named "Notification Log" not "email logs"
+  since there are no recipient/subject columns. New perm `notification_log.view` (dev+admin).
 - [ ] Onboarding nudges: "first takedown" (48h) + "day-14" schedulers.
 - [ ] Dunning follow-ups: payment-failed day-3 + day-7 schedulers.
 
@@ -141,6 +143,12 @@
 ---
 
 ## ✅ Recently completed (one-liners — full detail in git log + `docs/.roadmap/todo-archive.md`)
+- **Session 44** — Admin Notification Log (Priority 3 email-lifecycle item). Read-only cross-org view of
+  `notification_deliveries`: new admin-api route `notification_log.py` (`GET /notification-log`, gated
+  `notification_log.view`, org resolved via 3 batched infringement/payload→case→org lookups since the
+  table has no org_id), `NotificationLog.tsx` under Monitoring (filters status/event, offset paging,
+  expandable payload). Named "Notification Log" (no recipient/subject cols → honest framing). Verified:
+  py import OK, tsc 0, build OK. **Goal 2 (deploy + PSI) pending USER: manual SSH deploy + GOOGLE_API_KEY.**
 - **Session 43** — Lead-form honesty pass (3 subagents audited demo/call forms → email → admin).
   Removed the fake `tier` end-to-end (both forms hardcoded professional/enterprise though HAKKIU has no
   tiers): dropped from form payloads, `LeadRequest`, staff email (subject/row/preheader), admin table

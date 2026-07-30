@@ -30,6 +30,7 @@ import { Integrations } from "@/pages/Integrations";
 import { ScraperHealth } from "@/pages/ScraperHealth";
 import { ScraperHealthDetail } from "@/pages/ScraperHealthDetail";
 import { Leads } from "@/pages/Leads";
+import { NotificationLog } from "@/pages/NotificationLog";
 
 const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
@@ -118,6 +119,7 @@ const integrationsRoute = createRoute({ getParentRoute: () => appRoute, path: "/
 const scraperHealthRoute = createRoute({ getParentRoute: () => appRoute, path: "/monitoring/scrapers", component: ScraperHealth });
 const scraperHealthDetailRoute = createRoute({ getParentRoute: () => appRoute, path: "/monitoring/scrapers/$platform", component: ScraperHealthDetail });
 const leadsRoute = createRoute({ getParentRoute: () => appRoute, path: "/leads", component: Leads });
+const notificationLogRoute = createRoute({ getParentRoute: () => appRoute, path: "/monitoring/notifications", component: NotificationLog });
 
 const routeTree = rootRoute.addChildren([
   signInRoute,
@@ -141,6 +143,7 @@ const routeTree = rootRoute.addChildren([
     scraperHealthRoute,
     scraperHealthDetailRoute,
     leadsRoute,
+    notificationLogRoute,
   ]),
 ]);
 
