@@ -29,14 +29,50 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+  /**
+   * True when the current route is a public MARKETING/legal page that never
+   * reads auth state (everything outside the `RequireAuth` app shell, and not an
+   * auth flow). When true, AuthProvider does NOT import the Supabase client — so
+   * the landing/marketing pages stop downloading the ~55 KiB @supabase chunk.
+   * It "activates" (loads supabase + checks the session) the moment the user is
+   * on a route that actually needs auth, and stays activated thereafter.
+   */
+  deferAuth = false,
+}: {
+  children: ReactNode;
+  deferAuth?: boolean;
+}) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  // `loading` stays initially `true` (as before) so RequireAuth — which only
+  // ever mounts on non-public routes (where deferAuth is false) — can never
+  // observe loading=false before a session check has completed. This is what
+  // prevents a logged-in user from being wrongly bounced to sign-in when
+  // navigating from a marketing page into the app.
   const [loading, setLoading] = useState(true);
+  const [activated, setActivated] = useState(!deferAuth);
+
+  // Activate DURING RENDER (not in an effect) the moment we're on a route that
+  // needs auth, and re-enter the loading state synchronously — so RequireAuth
+  // mounts seeing loading=true (spinner), never a premature redirect. Guarded,
+  // so it runs once on the marketing→app transition and never loops.
+  if (!activated && !deferAuth) {
+    setActivated(true);
+    setLoading(true);
+  }
 
   useEffect(() => {
+    if (!activated) {
+      // Public marketing/legal page: no auth consumer, so skip loading supabase.
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
+    setLoading(true);
 
     import("./supabase").then(({ supabase }) => {
       if (cancelled) return;
@@ -61,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       unsubscribe?.();
     };
-  }, []);
+  }, [activated]);
 
   // Keep the profile row in sync with the signed-in user.
   useEffect(() => {
