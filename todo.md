@@ -17,6 +17,9 @@
 - [ ] Lawyer review of all 10 legal pages before relying on them (templates, not advice).
 
 ### Production / ops
+- [x] **Lead-form migration applied to prod (session 43):** `20260730000001_sales_leads_drop_tier.sql`
+  pushed via `supabase db push` — `tier` is now nullable (NOT NULL + CHECK dropped) so demo/call leads
+  insert without the removed `tier` field.
 - [ ] Functional E2E test: sign in on the customer app → run a scan (API + Supabase + scraping end-to-end).
 - [ ] Backups: `apt install postgresql-client`, set `DATABASE_URL` in `.env`, add cron
   `15 3 * * * /opt/hakkiu/scripts/backup.sh` (the script already exists in `scripts/`).
@@ -115,7 +118,7 @@
 ---
 
 ## 🔵 BACKLOG / FUTURE
-- [ ] Social-proof bar "Trusted by X brands" + testimonials (was removed as unverified — needs real data).
+- [ ] Social-proof bar "Trusted by X brands" + testimonials (was removed as unverified — needs real data)./
 - [ ] MFA + domain-restricted logins for admin staff.
 - [ ] Consumption-based pricing tier (pay-per-takedown via Stripe metered billing).
 - [ ] China domestic platform coverage (Pinduoduo, Goofish, WeChat, Douyin).
@@ -138,6 +141,13 @@
 ---
 
 ## ✅ Recently completed (one-liners — full detail in git log + `docs/.roadmap/todo-archive.md`)
+- **Session 43** — Lead-form honesty pass (3 subagents audited demo/call forms → email → admin).
+  Removed the fake `tier` end-to-end (both forms hardcoded professional/enterprise though HAKKIU has no
+  tiers): dropped from form payloads, `LeadRequest`, staff email (subject/row/preheader), admin table
+  (column, badge, filter) + admin-api filter/audit. Dropped 5 dead `/request-demo`-wizard fields
+  (role/regions/brand_names/marketplaces/current_solution) from the admin detail view (always showed
+  "—"). Now email + admin show ONLY what the user actually submitted. Migration
+  `20260730000001` relaxes `tier` NOT NULL — **pending `supabase db push`**.
 - **Session 42** — Admin per-copycat DELETE parity (`DELETE /infringements/{id}` + `infringements.delete`
   permission + gated trash button; mirrors the customer app); TODO/roadmap reconciliation audit (4
   subagents); deleted the stale `feature/admin-per-copycat-delete` branch.

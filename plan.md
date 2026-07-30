@@ -1,5 +1,24 @@
 # HAKKIU — Active Plan
 
+> **Session 43 (2026-07-30) — Lead-form honesty pass.** Goal: email + admin portal must show ONLY
+> what a visitor actually fills in the Book-a-demo / Talk-to-sales forms — no invented values.
+> 3 subagents traced the full chain (form → `POST /api/v1/leads` → `sales_leads` → staff email + admin).
+> Findings & fixes:
+> - **Fake `tier`** (the reported bug): both modals hardcoded `tier: "professional"` / `"enterprise"`
+>   though HAKKIU has no tiers. It surfaced in the staff email (subject fallback + "Tier" row +
+>   preheader) and the admin Leads table (column, badge, tier filter). Removed end-to-end — origin is
+>   already carried by `source` (`request_demo` / `call_request`). Migration `20260730000001` relaxes the
+>   `tier` NOT NULL + CHECK so inserts can omit it (**pending `supabase db push` — REQUIRED**).
+> - **5 dead qualification fields** (`role`, `regions`, `brand_names`, `marketplaces`,
+>   `current_solution`) from the retired `/request-demo` wizard showed as permanent "—" rows in the admin
+>   detail view. No live form sends them → removed from the admin display + `Lead` interface. Kept as
+>   inert optional backend fields (email already hides them when empty) in case the wizard returns.
+> - Left alone: `interest` folded into `message` on Talk-to-sales (honest — it's the user's real choice);
+>   legacy `pricing_modal` source enum (no form emits it, harmless).
+> Files: `src/components/landing/{book-demo,talk-to-sales}-modal.tsx`,
+> `apps/api/.../routes/leads.py`, `apps/api/.../services/email_templates.py`,
+> `apps/admin-api/.../routes/leads.py`, `apps/admin/src/pages/Leads.tsx`, migration `20260730000001`.
+
 > **Session 42 (2026-07-30) — TODO/roadmap reconciliation audit.** Ran 4 subagents to check the
 > tracking files against the ACTUAL code + git state (not just what the docs claimed). Findings:
 > - Working tree is CLEAN; all recent work is committed+merged to `main` (session 40 status

@@ -557,7 +557,6 @@ def first_detection_html(
 def new_lead_html(
     *,
     source: str | None,
-    tier: str,
     first_name: str | None,
     last_name: str | None,
     email: str,
@@ -579,7 +578,6 @@ def new_lead_html(
         "call_request": "Talk to sales",
     }
     source_label = source_labels.get(source or "", source or "Unknown")
-    tier_label = tier.capitalize()
 
     def row(label: str, value: str) -> str:
         return (
@@ -594,7 +592,7 @@ def new_lead_html(
         return f'<a href="{href}" style="color:{_BRAND_COLOR};">{url}</a>'
 
     # Always-present rows.
-    rows = [row("Source", source_label), row("Tier", tier_label)]
+    rows = [row("Source", source_label)]
     if first_name or last_name:
         rows.append(row("Name", f"<strong>{(first_name or '')} {(last_name or '')}</strong>".strip()))
     rows.append(row("Email", f'<a href="mailto:{email}" style="color:{_BRAND_COLOR};">{email}</a>'))
@@ -630,7 +628,7 @@ def new_lead_html(
 {_divider()}
 {_btn("View in Admin Portal", "https://admin.hakkiu.com/leads")}
 """
-    return _base(content, preheader=f"New {tier_label} lead from {email}")
+    return _base(content, preheader=f"New {source_label} lead from {email}")
 
 
 def lead_confirmation_html(
