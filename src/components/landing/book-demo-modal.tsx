@@ -82,7 +82,6 @@ export function BookDemoModal({ open, onOpenChange }: BookDemoModalProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tier: "professional",
           source: "request_demo",
           first_name: firstName,
           last_name: lastName,

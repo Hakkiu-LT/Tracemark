@@ -20,7 +20,6 @@ class UpdateLeadRequest(BaseModel):
 @router.get("")
 def list_leads(
     status: str | None = Query(None),
-    tier: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     principal: StaffPrincipal = Depends(require_permission("leads.view")),
@@ -29,8 +28,6 @@ def list_leads(
     q = sb.table("sales_leads").select("*")
     if status:
         q = q.eq("status", status)
-    if tier:
-        q = q.eq("tier", tier)
     result = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     return {"leads": result.data or [], "offset": offset, "limit": limit}
 
@@ -46,7 +43,7 @@ def update_lead(
         raise HTTPException(status_code=422, detail=f"status must be one of {sorted(VALID_STATUSES)}")
 
     sb = customer_sb()
-    existing = sb.table("sales_leads").select("id,status,email,tier").eq("id", lead_id).maybe_single().execute()
+    existing = sb.table("sales_leads").select("id,status,email").eq("id", lead_id).maybe_single().execute()
     if not existing or not existing.data:
         raise HTTPException(status_code=404, detail="Lead not found")
 
@@ -73,7 +70,7 @@ def delete_lead(
     sb = customer_sb()
     existing = (
         sb.table("sales_leads")
-        .select("id,email,tier,org_id")
+        .select("id,email,org_id")
         .eq("id", lead_id)
         .maybe_single()
         .execute()
@@ -89,7 +86,7 @@ def delete_lead(
         target_type="sales_lead",
         target_id=lead_id,
         target_org_id=existing.data.get("org_id"),
-        metadata={"email": existing.data.get("email"), "tier": existing.data.get("tier")},
+        metadata={"email": existing.data.get("email")},
         ip=request.client.host if request.client else None,
     )
 

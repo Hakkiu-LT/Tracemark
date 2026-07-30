@@ -1,6 +1,8 @@
-"""Public endpoint for Professional/Enterprise pricing lead capture.
+"""Public endpoint for demo/call lead capture.
 
 POST /api/v1/leads — no auth required; rate-limited to 3 requests/hour per IP.
+Stores exactly what the Book-a-demo / Talk-to-sales forms submit; the lead's
+origin is carried by `source` (request_demo / call_request).
 """
 from __future__ import annotations
 
@@ -24,7 +26,6 @@ _log = logging.getLogger(__name__)
 # the demo/sales forms isn't blocked after a few submits.
 _RATE_LIMIT = os.environ.get("LEADS_RATE_LIMIT", "3/hour")
 
-VALID_TIERS = frozenset({"professional", "enterprise"})
 VALID_BRAND_RANGES = frozenset({"1", "2-3", "4-5", "6-10", "11-20", "20+"})
 VALID_SOURCES = frozenset({"pricing_modal", "request_demo", "call_request"})
 
@@ -39,7 +40,6 @@ _NOTIFY_EMAILS = [
 
 
 class LeadRequest(BaseModel):
-    tier: str                           # "professional" | "enterprise"
     email: EmailStr
     source: str | None = None           # "pricing_modal" | "request_demo" | "call_request"
     first_name: str | None = None
@@ -80,7 +80,6 @@ def _send_lead_notification(lead: LeadRequest) -> None:
 
         html = new_lead_html(
             source=lead.source,
-            tier=lead.tier,
             first_name=lead.first_name,
             last_name=lead.last_name,
             email=str(lead.email),
@@ -96,7 +95,7 @@ def _send_lead_notification(lead: LeadRequest) -> None:
             current_solution=lead.current_solution,
             primary_goal=lead.primary_goal,
         )
-        kind_label = _SOURCE_SUBJECTS.get(lead.source or "", lead.tier.capitalize())
+        kind_label = _SOURCE_SUBJECTS.get(lead.source or "", "sales")
         subject = f"New {kind_label} lead — {lead.email}"
         for recipient in _NOTIFY_EMAILS:
             send_email(to=recipient, subject=subject, html=html)
@@ -127,9 +126,6 @@ def _send_lead_confirmation(lead: LeadRequest) -> None:
 async def create_lead(payload: LeadRequest, request: Request) -> dict:
     from fastapi import HTTPException
 
-    if payload.tier not in VALID_TIERS:
-        raise HTTPException(status_code=422, detail="tier must be 'professional' or 'enterprise'")
-
     if payload.brand_count_range is not None and payload.brand_count_range not in VALID_BRAND_RANGES:
         raise HTTPException(status_code=422, detail="invalid brand_count_range")
 
@@ -138,7 +134,6 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
 
     sb = get_supabase()
     sb.table("sales_leads").insert({
-        "tier": payload.tier,
         "source": payload.source,
         "first_name": payload.first_name or None,
         "last_name": payload.last_name or None,

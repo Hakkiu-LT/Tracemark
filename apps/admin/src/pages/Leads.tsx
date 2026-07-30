@@ -27,7 +27,6 @@ import { ErrorState } from "@/components/error-state";
 
 interface Lead {
   id: string;
-  tier: "professional" | "enterprise";
   source: "pricing_modal" | "request_demo" | "call_request" | null;
   first_name: string | null;
   last_name: string | null;
@@ -37,15 +36,10 @@ interface Lead {
   message: string | null;
   status: "pending" | "contacted" | "closed";
   created_at: string;
-  // Pre-demo qualification fields (from the /request-demo wizard)
-  role: string | null;
-  website: string | null;
-  phone: string | null;
-  regions: string[] | null;
-  brand_names: string | null;
-  marketplaces: string[] | null;
-  current_solution: string | null;
-  primary_goal: string[] | null;
+  // Fields the live demo/call forms actually submit.
+  website: string | null;       // Book-a-demo
+  phone: string | null;         // Talk-to-sales
+  primary_goal: string[] | null; // Book-a-demo ("what would you like to protect?")
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -61,19 +55,12 @@ function statusVariant(s: string) {
   return "secondary" as const;
 }
 
-function tierVariant(t: string) {
-  if (t === "enterprise")   return "destructive" as const;
-  if (t === "professional") return "secondary" as const;
-  return "secondary" as const;
-}
-
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function Leads() {
   const [statusFilter, setStatusFilter] = useState("");
-  const [tierFilter, setTierFilter]     = useState("");
   const [expanded, setExpanded]         = useState<Set<string>>(new Set());
   const canEdit = usePermission("leads.edit");
   const canDelete = usePermission("leads.delete");
@@ -91,10 +78,9 @@ export function Leads() {
 
   const params = new URLSearchParams();
   if (statusFilter) params.set("status", statusFilter);
-  if (tierFilter)   params.set("tier", tierFilter);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["leads", statusFilter, tierFilter],
+    queryKey: ["leads", statusFilter],
     queryFn: () =>
       adminFetch<{ leads: Lead[] }>(`/leads${params.toString() ? `?${params}` : ""}`).then(
         (r) => r.leads,
@@ -126,7 +112,7 @@ export function Leads() {
         <div>
           <h1 className="text-2xl font-bold">Sales Leads</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Professional &amp; Enterprise pricing requests
+            Demo bookings &amp; call requests
           </p>
         </div>
       </div>
@@ -140,13 +126,8 @@ export function Leads() {
             <option value="contacted">Contacted</option>
             <option value="closed">Closed</option>
           </Select>
-          <Select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)}>
-            <option value="">All tiers</option>
-            <option value="professional">Professional</option>
-            <option value="enterprise">Enterprise</option>
-          </Select>
-          {(statusFilter || tierFilter) && (
-            <Button variant="ghost" size="sm" onClick={() => { setStatusFilter(""); setTierFilter(""); }}>
+          {statusFilter && (
+            <Button variant="ghost" size="sm" onClick={() => setStatusFilter("")}>
               Clear filters
             </Button>
           )}
@@ -175,7 +156,6 @@ export function Leads() {
                   <TableHead>Contact</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Source</TableHead>
-                  <TableHead>Tier</TableHead>
                   <TableHead>Brands</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
@@ -185,7 +165,7 @@ export function Leads() {
               <TableBody>
                 {(data ?? []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={showActions ? 9 : 8} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={showActions ? 8 : 7} className="py-10 text-center text-muted-foreground">
                       No leads found.
                     </TableCell>
                   </TableRow>
@@ -207,7 +187,6 @@ export function Leads() {
                             ? `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim()
                             : <span className="text-muted-foreground">—</span>}
                         </div>
-                        {lead.role && <div className="text-xs text-muted-foreground">{lead.role}</div>}
                         <div className="text-xs text-muted-foreground">{lead.email}</div>
                         {lead.phone && <div className="text-xs text-muted-foreground">{lead.phone}</div>}
                       </TableCell>
@@ -227,11 +206,6 @@ export function Leads() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {lead.source ? (SOURCE_LABELS[lead.source] ?? lead.source) : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={tierVariant(lead.tier)} className="capitalize">
-                          {lead.tier}
-                        </Badge>
                       </TableCell>
                       <TableCell>{lead.brand_count_range ?? <span className="text-muted-foreground">—</span>}</TableCell>
                       <TableCell>
@@ -305,7 +279,7 @@ export function Leads() {
                     {isOpen && (
                       <TableRow className="bg-muted/30 hover:bg-muted/30">
                         <TableCell></TableCell>
-                        <TableCell colSpan={showActions ? 8 : 7} className="py-4">
+                        <TableCell colSpan={showActions ? 7 : 6} className="py-4">
                           <LeadDetails lead={lead} />
                         </TableCell>
                       </TableRow>
@@ -325,26 +299,19 @@ export function Leads() {
 }
 
 function LeadDetails({ lead }: { lead: Lead }) {
-  const items: { label: string; value: React.ReactNode }[] = [
-    { label: "Role", value: lead.role },
-    { label: "Phone", value: lead.phone },
-    { label: "Markets", value: lead.regions?.length ? lead.regions.join(", ") : null },
-    { label: "Brand names", value: lead.brand_names },
-    { label: "Marketplaces", value: lead.marketplaces?.length ? lead.marketplaces.join(", ") : null },
-    { label: "Primary goals", value: lead.primary_goal?.length ? lead.primary_goal.join(", ") : null },
-    { label: "Current solution", value: lead.current_solution },
-  ];
+  const goals = lead.primary_goal?.length ? lead.primary_goal.join(", ") : null;
 
   return (
     <div className="space-y-3 text-sm">
-      <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((it) => (
-          <div key={it.label}>
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{it.label}</div>
-            <div>{it.value || <span className="text-muted-foreground">—</span>}</div>
-          </div>
-        ))}
-      </div>
+      {goals && (
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Wants to protect</div>
+          <div>{goals}</div>
+        </div>
+      )}
+      {!goals && !lead.message && (
+        <p className="text-muted-foreground">No additional details submitted.</p>
+      )}
       {lead.message && (
         <div>
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Message</div>
