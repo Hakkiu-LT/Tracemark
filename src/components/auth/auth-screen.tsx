@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabase";
 import { InfringementMap } from "@/components/auth/infringement-map";
 
 const GENERIC_ERROR = "Something went wrong. Please try again later.";
@@ -29,6 +28,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
   const [loading, setLoading] = useState(false);
 
   async function onGoogle() {
+    const { supabase } = await import("@/lib/supabase");
     if (!supabase) return toast.error(GENERIC_ERROR);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -38,6 +38,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
   }
 
   async function onForgot() {
+    const { supabase } = await import("@/lib/supabase");
     if (!supabase) return toast.error(GENERIC_ERROR);
     if (!email) return toast.error("Enter your email above, then click Forgot.");
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -49,6 +50,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    const { supabase } = await import("@/lib/supabase");
     if (!supabase) return toast.error(GENERIC_ERROR);
 
     setLoading(true);

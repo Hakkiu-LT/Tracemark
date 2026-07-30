@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useStore, type Client } from "@/lib/store";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Plus, Trash2, Briefcase, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -30,15 +29,15 @@ export function ClientsPage() {
   const [name, setName] = useState(""), [industry, setIndustry] = useState(""), [contact, setContact] = useState("");
 
   useEffect(() => {
-    if (!supabase) {
-      setDbClients(clients);
-      setIsLoading(false);
-      return;
-    }
-
     async function fetchDbClients() {
+      const { supabase } = await import("@/lib/supabase");
+      if (!supabase) {
+        setDbClients(clients);
+        setIsLoading(false);
+        return;
+      }
       try {
-        const { data, error } = await supabase!
+        const { data, error } = await supabase
           .from("clients")
           .select("*")
           .order("created_at", { ascending: false });
@@ -90,6 +89,7 @@ export function ClientsPage() {
 
     addClient(newClientData);
 
+    const { supabase } = await import("@/lib/supabase");
     if (supabase) {
       try {
         const { data, error } = await supabase
@@ -131,6 +131,7 @@ export function ClientsPage() {
     removeClient(id);
     setDbClients(prev => prev.filter(c => c.id !== id));
 
+    const { supabase } = await import("@/lib/supabase");
     if (supabase) {
       try {
         const { error } = await supabase

@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 import { HakkiuMark } from "@/components/hakkiu-mark";
 
 export const Route = createFileRoute("/auth/callback")({
@@ -14,6 +13,7 @@ function CallbackPage() {
 
   useEffect(() => {
     async function exchange() {
+      const { supabase } = await import("@/lib/supabase");
       if (!supabase) {
         navigate({ to: "/auth/sign-in", replace: true });
         return;

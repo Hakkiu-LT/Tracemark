@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate, Outlet, useRouterState } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
-import { fetchCaseFromSupabase } from "@/lib/supabase";
 import { markCasesViewForRestore } from "@/lib/cases-view";
 import { Button } from "@/components/ui/button";
 import { DecisionCard } from "@/components/cases/decision-card";
@@ -56,6 +55,7 @@ function MonitoringScanResultPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard_cases"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard_infringements"] });
       queryClient.invalidateQueries({ queryKey: ["infringements"] });
+      const { fetchCaseFromSupabase } = await import("@/lib/supabase");
       const updatedCase = await fetchCaseFromSupabase(caseId);
       if (updatedCase) {
         setScanResult(caseId, updatedCase);
@@ -95,7 +95,8 @@ function MonitoringScanResultPage() {
     }
     let cancelled = false;
     setLoading(true);
-    fetchCaseFromSupabase(caseId)
+    import("@/lib/supabase")
+      .then(({ fetchCaseFromSupabase }) => fetchCaseFromSupabase(caseId))
       .then((data) => {
         if (cancelled || !data) return;
         setScanResult(caseId, data);

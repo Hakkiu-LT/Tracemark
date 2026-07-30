@@ -1,5 +1,4 @@
 import type { CheckBrandRequest, CheckBrandResponse } from "./api.types";
-import { supabase } from "./supabase";
 
 const BASE =
   typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL
@@ -25,6 +24,9 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  // Lazy-import the Supabase client so @supabase/* is NOT pulled into the shared
+  // entry chunk via this widely-imported module. Module-cached after first call.
+  const { supabase } = await import("./supabase");
   const session = await supabase?.auth.getSession();
   const token = session?.data?.session?.access_token;
 

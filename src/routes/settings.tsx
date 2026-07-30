@@ -22,7 +22,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
 import { ClientsPage } from "@/components/ClientsPage";
 
 export const Route = createFileRoute("/settings")({
@@ -51,14 +50,16 @@ export function SettingsPage() {
   }, [profile]);
 
   useEffect(() => {
-    if (!orgId || !supabase) {
+    if (!orgId) {
       setLoadingProfile(false);
       return;
     }
 
     async function loadOrgSettings() {
       try {
-        const { data, error } = await supabase!
+        const { supabase } = await import("@/lib/supabase");
+        if (!supabase) return;
+        const { data, error } = await supabase
           .from("org_settings")
           .select("notification_email, firm_name")
           .eq("organization_id", orgId)
@@ -86,7 +87,9 @@ export function SettingsPage() {
   }, [orgId, user, persona]);
 
   const handleSaveProfile = async () => {
-    if (!user || !supabase) return;
+    if (!user) return;
+    const { supabase } = await import("@/lib/supabase");
+    if (!supabase) return;
     setSavingProfile(true);
     try {
       // 1. Update profiles table
@@ -179,6 +182,7 @@ export function SettingsPage() {
     if (p === persona) return;
     setPersona(p);
 
+    const { supabase } = await import("@/lib/supabase");
     if (supabase && orgId) {
       try {
         await supabase.from("org_settings").upsert({
