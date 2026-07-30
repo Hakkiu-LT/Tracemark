@@ -1,6 +1,23 @@
 # HAKKIU — Active Plan
 
-> **Session 44 (2026-07-30) — Admin Notification Log + landing deploy/PSI prep.** Two goals.
+> **Session 44 part 2 (2026-07-30) — Notification Log → FULL email log.** User asked to enrich the
+> new log so it shows recipient + subject + org per email. Flow: 2 Explore agents mapped the send path +
+> all 12 `log_delivery` call sites; a Plan critic caught the key error (customer alerts send via DIRECT
+> `send_email()` inside `dispatch_notifications()`, NOT via `send_email_notification()` — so that's the
+> logging choke point). User decisions: full coverage (incl. welcome + weekly_digest, previously
+> unlogged); skips logged as `status='skipped'` with reason; migration applied by me.
+> Built: migration `20260730000004` (add organization_id/recipient/subject nullable + backfill via
+> infringement/payload→case→org + index + RLS direct-org branch); `log_delivery()` gains those params +
+> status override; `dispatch_notifications()` logs at every exit (sent/failed/skipped); removed redundant
+> success logs at 3 call sites (kept exception net); takedown_submitted logs recipient; welcome +
+> weekly_digest instrumented; admin reads columns w/ legacy fallback + Subject column.
+> Migration blocker resolved: the demo-scheduling branch's `...002/...003` migrations were applied to
+> prod but not on main → `db push` refused. Fixed by committing those 2 .sql files to main (reconcile
+> history), renaming mine to `...004`. **Migration applied to prod via `supabase db push`; code deployed
+> `23d338b` (auto-deploy).** Verified py/tsc/build. NEXT: after deploy, reload Notification Log → confirm
+> recipient/subject/org populate on new sends. Then Goal 2 landing PSI (needs GOOGLE_API_KEY).
+
+> **Session 44 part 1 (2026-07-30) — Admin Notification Log + landing deploy/PSI prep.** Two goals.
 > **Goal 1 (DONE, code):** the Priority-3 "admin email-logs" item. Investigated via 2 Explore agents +
 > a Plan critic that surfaced the key gotcha: `notification_deliveries` has NO organization_id and NO
 > recipient/subject columns — org lives one/two FK hops away (infringement_id→case→org, or payload.case_id),

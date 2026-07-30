@@ -143,12 +143,18 @@
 ---
 
 ## ✅ Recently completed (one-liners — full detail in git log + `docs/.roadmap/todo-archive.md`)
-- **Session 44** — Admin Notification Log (Priority 3 email-lifecycle item). Read-only cross-org view of
-  `notification_deliveries`: new admin-api route `notification_log.py` (`GET /notification-log`, gated
-  `notification_log.view`, org resolved via 3 batched infringement/payload→case→org lookups since the
-  table has no org_id), `NotificationLog.tsx` under Monitoring (filters status/event, offset paging,
-  expandable payload). Named "Notification Log" (no recipient/subject cols → honest framing). Verified:
-  py import OK, tsc 0, build OK. **Goal 2 (deploy + PSI) pending USER: manual SSH deploy + GOOGLE_API_KEY.**
+- **Session 44 (part 2)** — Enriched the Notification Log into a FULL email log. Migration
+  `20260730000004` adds `organization_id`/`recipient`/`subject` (nullable) + backfill + index + RLS org
+  branch — **applied to prod via `supabase db push`** (also committed the demo-scheduling `...002/...003`
+  .sql files from `feat/demo-scheduling-calendar` to reconcile migration history that had blocked push).
+  `dispatch_notifications()` now logs at every exit (sent/failed/skipped-with-reason) with recipient+
+  subject+org; instrumented welcome + weekly_digest (were unlogged); admin reads columns w/ legacy
+  fallback + Subject column. Deployed `23d338b`. Verified py/tsc/build. **Goal 2 (landing PSI) still
+  pending USER: GOOGLE_API_KEY.**
+- **Session 44 (part 1)** — Admin Notification Log (Priority 3 email-lifecycle item). Read-only cross-org
+  view of `notification_deliveries`: admin-api `notification_log.py` (`GET /notification-log`, gated
+  `notification_log.view`), `NotificationLog.tsx` under Monitoring. Fixed a runtime 500 (unguarded JSONB
+  payload access). Deployed `ab5b726`+`c50cc0d`.
 - **Session 43** — Lead-form honesty pass (3 subagents audited demo/call forms → email → admin).
   Removed the fake `tier` end-to-end (both forms hardcoded professional/enterprise though HAKKIU has no
   tiers): dropped from form payloads, `LeadRequest`, staff email (subject/row/preheader), admin table
