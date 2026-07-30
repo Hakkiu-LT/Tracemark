@@ -29,6 +29,7 @@ PERMISSIONS: dict[str, str] = {
     "audit.view": "Read the audit log",
     "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
     "leads.edit": "Update lead status (mark contacted, close)",
+    "leads.confirm": "Confirm a requested demo slot and email the customer",
     "leads.delete": "Delete sales leads (destructive)",
 }
 
@@ -53,6 +54,7 @@ ROLE_PRESETS: dict[str, set[str]] = {
         "brands.view",
         "leads.view",
         "leads.edit",
+        "leads.confirm",
         "leads.delete",
     },
     "marketing": {

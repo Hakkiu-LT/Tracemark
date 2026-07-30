@@ -56,6 +56,12 @@ class LeadRequest(BaseModel):
     marketplaces: list[str] | None = None   # marketplaces where they see abuse
     current_solution: str | None = None      # how they handle it today
     primary_goal: list[str] | None = None    # what they want to solve
+    # Demo scheduling (Book-a-demo "Select a Date & Time" step). A REQUEST, not a
+    # locked booking — the visitor offers several times they're free and staff
+    # confirm one later in the Admin Portal.
+    proposed_slots: list[str] | None = None   # ISO-8601 UTC instants the visitor is available
+    scheduled_at: str | None = None           # legacy single slot (kept for back-compat)
+    scheduled_timezone: str | None = None     # IANA tz the visitor picked in (e.g. "Europe/Vilnius")
 
 
 # Friendly labels for the staff notification subject line, keyed by lead source.
@@ -70,6 +76,39 @@ def _lead_kind(lead: LeadRequest) -> str:
     """Which confirmation copy to send the lead: 'sales' for Talk-to-sales,
     'demo' for everything else (Book-a-demo / pricing)."""
     return "sales" if lead.source == "call_request" else "demo"
+
+
+def format_slot(iso: str | None, tz: str | None) -> str | None:
+    """Render a stored UTC slot in the visitor's timezone for humans.
+
+    e.g. ("2026-08-05T11:00:00+00:00", "Europe/Vilnius") ->
+         "Tuesday, 05 August 2026 at 14:00 (Europe/Vilnius)".
+    Falls back to UTC (or None) if the input can't be parsed.
+    """
+    if not iso:
+        return None
+    from datetime import datetime
+
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if tz:
+        try:
+            from zoneinfo import ZoneInfo
+
+            dt = dt.astimezone(ZoneInfo(tz))
+            return dt.strftime("%A, %d %B %Y at %H:%M") + f" ({tz})"
+        except Exception:  # noqa: BLE001 — unknown tz name, fall through to UTC
+            pass
+    return dt.strftime("%A, %d %B %Y at %H:%M") + " (UTC)"
+
+
+def _lead_slots(lead: LeadRequest) -> list[str]:
+    """The visitor's offered slots, formatted for humans (multi- or single-slot)."""
+    raw = lead.proposed_slots or ([lead.scheduled_at] if lead.scheduled_at else [])
+    formatted = [format_slot(iso, lead.scheduled_timezone) for iso in raw]
+    return [f for f in formatted if f]
 
 
 def _send_lead_notification(lead: LeadRequest) -> None:
@@ -94,6 +133,7 @@ def _send_lead_notification(lead: LeadRequest) -> None:
             marketplaces=lead.marketplaces,
             current_solution=lead.current_solution,
             primary_goal=lead.primary_goal,
+            requested_times=_lead_slots(lead),
         )
         kind_label = _SOURCE_SUBJECTS.get(lead.source or "", "sales")
         subject = f"New {kind_label} lead — {lead.email}"
@@ -110,7 +150,11 @@ def _send_lead_confirmation(lead: LeadRequest) -> None:
         from tracemark_api.services.email_templates import lead_confirmation_html
 
         kind = _lead_kind(lead)
-        html = lead_confirmation_html(kind=kind, first_name=lead.first_name)
+        html = lead_confirmation_html(
+            kind=kind,
+            first_name=lead.first_name,
+            requested_times=_lead_slots(lead),
+        )
         subject = (
             "Thanks for booking a demo with HAKKIU"
             if kind == "demo"
@@ -149,6 +193,9 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
         "marketplaces": payload.marketplaces or None,
         "current_solution": payload.current_solution or None,
         "primary_goal": payload.primary_goal or None,
+        "proposed_slots": payload.proposed_slots or None,
+        "scheduled_at": payload.scheduled_at or None,
+        "scheduled_timezone": payload.scheduled_timezone or None,
     }).execute()
 
     _send_lead_notification(payload)

@@ -17,6 +17,9 @@
 - [ ] Lawyer review of all 10 legal pages before relying on them (templates, not advice).
 
 ### Production / ops
+- [x] **Demo-scheduling migrations applied to prod (session 44):** `20260730000002` (scheduled_at,
+  scheduled_timezone, meeting_link, confirmed_at) + `20260730000003` (proposed_slots jsonb) pushed via
+  `supabase db push`. Book-a-demo multi-slot scheduler + admin Confirm are live.
 - [x] **Lead-form migration applied to prod (session 43):** `20260730000001_sales_leads_drop_tier.sql`
   pushed via `supabase db push` — `tier` is now nullable (NOT NULL + CHECK dropped) so demo/call leads
   insert without the removed `tier` field.
@@ -141,6 +144,15 @@
 ---
 
 ## ✅ Recently completed (one-liners — full detail in git log + `docs/.roadmap/todo-archive.md`)
+- **Session 44** — Demo scheduling (Calendly-style, MULTI-slot). Book-a-demo now has a 2nd step
+  (`demo-scheduler.tsx`, reuses `ui/calendar`): visitor picks EVERY time they're free (removable chips),
+  then the same animated success modal. POST `/leads` carries `proposed_slots[]` + `scheduled_timezone`;
+  customer gets a "we received your availability" email listing all times; staff get the alert with the
+  list. Admin `Leads.tsx`: Requested/Confirmed badge + Confirm panel with a **pick-one radio list** of
+  the offered times → paste Meet link → `POST /leads/{id}/confirm` (sets `scheduled_at`) →
+  `send_demo_confirmation` emails the customer the chosen slot + link (audit-logged). New perm
+  `leads.confirm`. Migrations `20260730000002` + `20260730000003` (`proposed_slots jsonb`) **applied to
+  prod**. (Also fixed a 422 caused by a stale pre-session-43 uvicorn — restarted it.)
 - **Session 43** — Lead-form honesty pass (3 subagents audited demo/call forms → email → admin).
   Removed the fake `tier` end-to-end (both forms hardcoded professional/enterprise though HAKKIU has no
   tiers): dropped from form payloads, `LeadRequest`, staff email (subject/row/preheader), admin table
