@@ -87,11 +87,36 @@ def _lead_kind(lead: LeadRequest) -> str:
     return "sales" if lead.source == "call_request" else "demo"
 
 
-def format_slot(iso: str | None, tz: str | None) -> str | None:
-    """Render a stored UTC slot in the visitor's timezone for humans.
+# "Our" timezone — the slot is always shown ALSO in this zone next to the
+# visitor's, so staff never have to convert in their head. Fixed to Lithuania.
+COMPANY_TIMEZONE = "Europe/Vilnius"
 
-    e.g. ("2026-08-05T11:00:00+00:00", "Europe/Vilnius") ->
-         "Tuesday, 05 August 2026 at 14:00 (Europe/Vilnius)".
+
+def _render_in_tz(dt, tz: str | None, note: str | None = None) -> tuple[str, bool]:
+    """Format an aware datetime in `tz`. Returns (label, resolved_ok).
+
+    `note` appends a hint inside the parens, e.g. "our time". Falls back to a
+    "(UTC)" label with resolved_ok=False if `tz` is missing/unknown.
+    """
+    if tz:
+        try:
+            from zoneinfo import ZoneInfo
+
+            local = dt.astimezone(ZoneInfo(tz))
+            label = f"{tz}, {note}" if note else tz
+            return local.strftime("%A, %d %B %Y at %H:%M") + f" ({label})", True
+        except Exception:  # noqa: BLE001 — unknown tz name, fall through to UTC
+            pass
+    return dt.strftime("%A, %d %B %Y at %H:%M") + " (UTC)", False
+
+
+def format_slot(iso: str | None, tz: str | None) -> str | None:
+    """Render a stored UTC slot for humans — in the visitor's timezone AND ours.
+
+    e.g. ("2026-08-05T11:00:00+00:00", "America/New_York") ->
+         "Tuesday, 05 August 2026 at 07:00 (America/New_York)  ·  "
+         "Tuesday, 05 August 2026 at 14:00 (Europe/Vilnius, our time)".
+    When the visitor is already in the company timezone we show a single label.
     Falls back to UTC (or None) if the input can't be parsed.
     """
     if not iso:
@@ -102,15 +127,14 @@ def format_slot(iso: str | None, tz: str | None) -> str | None:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     except ValueError:
         return None
-    if tz:
-        try:
-            from zoneinfo import ZoneInfo
 
-            dt = dt.astimezone(ZoneInfo(tz))
-            return dt.strftime("%A, %d %B %Y at %H:%M") + f" ({tz})"
-        except Exception:  # noqa: BLE001 — unknown tz name, fall through to UTC
-            pass
-    return dt.strftime("%A, %d %B %Y at %H:%M") + " (UTC)"
+    visitor_label, _ = _render_in_tz(dt, tz)
+    # Append OUR time only when it genuinely differs from the visitor's zone.
+    if tz and tz != COMPANY_TIMEZONE:
+        ours_label, ok = _render_in_tz(dt, COMPANY_TIMEZONE, note="our time")
+        if ok:
+            return f"{visitor_label}  ·  {ours_label}"
+    return visitor_label
 
 
 def _lead_slots(lead: LeadRequest) -> list[str]:

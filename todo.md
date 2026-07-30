@@ -166,6 +166,10 @@
 ---
 
 ## ✅ Recently completed (one-liners — full detail in git log + `docs/.roadmap/todo-archive.md`)
+- **Session 46** — Dual-timezone demo slots: every requested/confirmed slot now shows the visitor's
+  time AND ours (`Europe/Vilnius`, "our time") in Slack, both lead emails, the confirmation email, and
+  admin `Leads.tsx`. Backend: new `COMPANY_TIMEZONE` + `_render_in_tz` helper in `leads.py::format_slot`
+  (single label when visitor is already in our zone). Admin: matching `fmtSlot`/`fmtInTz`. No DB change.
 - **Session 45** — Slack lead notifications (two channels) + merged the demo-scheduling calendar.
   New `services/slack.py` (`post_to_slack`, best-effort httpx, no-op if unset); `leads.py`
   `_send_slack_notification` routes by `source` (demo→`SLACK_WEBHOOK_DEMO`, call→`SLACK_WEBHOOK_CALL`)

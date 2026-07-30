@@ -56,20 +56,35 @@ interface Lead {
   confirmed_at: string | null; // set when staff confirmed + emailed
 }
 
-/** Render a stored UTC slot in the visitor's own timezone (falls back to local). */
+// "Our" timezone — every slot is shown ALSO in this zone next to the visitor's,
+// so staff never convert in their head. Kept in sync with COMPANY_TIMEZONE (API).
+const COMPANY_TIMEZONE = "Europe/Vilnius";
+
+/** Format one UTC instant in a given IANA timezone, with the zone name appended. */
+function fmtInTz(iso: string, tz: string, note?: string) {
+  const when = new Date(iso).toLocaleString("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: tz,
+  });
+  return `${when} (${note ? `${tz}, ${note}` : tz})`;
+}
+
+/**
+ * Render a stored UTC slot in the visitor's timezone AND ours (Europe/Vilnius),
+ * so staff see both. Only one label when the visitor is already in our zone.
+ * Falls back to the browser's local time if the visitor tz is missing/invalid.
+ */
 function fmtSlot(iso: string, tz: string | null) {
   try {
-    return (
-      new Date(iso).toLocaleString("en-GB", {
-        weekday: "short",
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        ...(tz ? { timeZone: tz } : {}),
-      }) + (tz ? ` (${tz})` : "")
-    );
+    if (!tz) return new Date(iso).toLocaleString();
+    const visitor = fmtInTz(iso, tz);
+    if (tz === COMPANY_TIMEZONE) return visitor;
+    return `${visitor}  ·  ${fmtInTz(iso, COMPANY_TIMEZONE, "our time")}`;
   } catch {
     return new Date(iso).toLocaleString();
   }
