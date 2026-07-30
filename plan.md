@@ -1,5 +1,20 @@
 # HAKKIU — Active Plan
 
+> **Session 45 (2026-07-30) — Slack lead notifications (two channels).** User: post a Slack
+> notification for every new lead, into TWO SEPARATE channels — demo bookings vs call/sales requests.
+> 2 Explore agents mapped the lead flow + config/HTTP conventions. Findings: leads land in
+> `routes/leads.py::create_lead` → `sales_leads` insert → `_send_lead_notification` (Resend, best-effort
+> try/except) → `_send_lead_confirmation`; `source ∈ {request_demo, call_request, pricing_modal}`; config
+> is plain `os.environ.get` (no Settings class); outbound HTTP uses `httpx.post` with a timeout; no prior
+> Slack code. Built: `services/slack.py` (`post_to_slack(webhook_env_var, text, blocks)` — httpx 10s,
+> best-effort, never raises, no-op if env unset); `leads.py` `_SOURCE_SLACK_WEBHOOK` routing map
+> (request_demo→SLACK_WEBHOOK_DEMO, call_request+pricing_modal→SLACK_WEBHOOK_CALL) + `_send_slack_notification`
+> called after the staff email; Block Kit message mirrors ONLY submitted fields (honesty pass). Env docs in
+> `.env.example` + `.env.production.example`. Verified py_compile + import + a routing/no-op unit check.
+> **Feature is a safe no-op until webhooks are configured.** NEXT (USER): create 2 incoming webhooks at
+> api.slack.com/apps (one per channel), give me the URLs → I set them in root `.env`, you set them on the
+> Hetzner `.env` + restart the main API. Then commit+push (auto-deploys).
+
 > **Session 44 part 3 (2026-07-30) — Show the actual email body.** User wanted to see the real email,
 > not the JSON. Migration `20260730000005` adds `body_html TEXT` (applied to prod). Capture point:
 > `send_email_notification()` now returns its rendered html; `dispatch_notifications._sent` + welcome +

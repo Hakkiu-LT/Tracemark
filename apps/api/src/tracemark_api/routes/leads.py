@@ -65,6 +65,15 @@ _SOURCE_SUBJECTS = {
     "pricing_modal": "Pricing enquiry",
 }
 
+# Which Slack incoming-webhook env var each lead source routes to. Demo bookings
+# go to the demo channel; call/sales requests (and the legacy pricing modal) go to
+# the call channel. Missing env var → post is skipped cleanly (see services/slack.py).
+_SOURCE_SLACK_WEBHOOK = {
+    "request_demo": "SLACK_WEBHOOK_DEMO",
+    "call_request": "SLACK_WEBHOOK_CALL",
+    "pricing_modal": "SLACK_WEBHOOK_CALL",
+}
+
 
 def _lead_kind(lead: LeadRequest) -> str:
     """Which confirmation copy to send the lead: 'sales' for Talk-to-sales,
@@ -101,6 +110,54 @@ def _send_lead_notification(lead: LeadRequest) -> None:
             send_email(to=recipient, subject=subject, html=html)
     except Exception:
         _log.exception("Failed to send lead notification email")
+
+
+def _send_slack_notification(lead: LeadRequest) -> None:
+    """Post a Slack alert to the channel that matches the lead's source.
+
+    Demo bookings and call/sales requests go to two SEPARATE channels (routed via
+    _SOURCE_SLACK_WEBHOOK). Best-effort: mirrors ONLY the fields the visitor actually
+    submitted — no invented values — consistent with the lead-form honesty pass.
+    """
+    try:
+        from tracemark_api.services.slack import post_to_slack
+
+        webhook_var = _SOURCE_SLACK_WEBHOOK.get(lead.source or "")
+        if webhook_var is None:
+            return  # unknown / absent source — no channel to route to
+
+        kind_label = _SOURCE_SUBJECTS.get(lead.source or "", "sales")
+
+        # Only include fields the visitor actually filled in.
+        name = " ".join(p for p in (lead.first_name, lead.last_name) if p) or None
+        fields: list[tuple[str, str]] = []
+        if name:
+            fields.append(("Name", name))
+        fields.append(("Email", str(lead.email)))
+        if lead.company:
+            fields.append(("Company", lead.company))
+        if lead.brand_count_range:
+            fields.append(("Brands", lead.brand_count_range))
+        if lead.phone:
+            fields.append(("Phone", lead.phone))
+        if lead.website:
+            fields.append(("Website", lead.website))
+
+        detail_lines = "\n".join(f"*{label}:* {value}" for label, value in fields)
+        text = f":inbox_tray: New *{kind_label}* lead — {lead.email}"
+
+        blocks: list = [
+            {"type": "header",
+             "text": {"type": "plain_text", "text": f"New {kind_label} lead"}},
+            {"type": "section", "text": {"type": "mrkdwn", "text": detail_lines}},
+        ]
+        if lead.message:
+            blocks.append({"type": "section",
+                           "text": {"type": "mrkdwn", "text": f"*Message:*\n{lead.message}"}})
+
+        post_to_slack(webhook_var, text=text, blocks=blocks)
+    except Exception:
+        _log.exception("Failed to send lead Slack notification")
 
 
 def _send_lead_confirmation(lead: LeadRequest) -> None:
@@ -152,6 +209,7 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
     }).execute()
 
     _send_lead_notification(payload)
+    _send_slack_notification(payload)
     _send_lead_confirmation(payload)
 
     return {"ok": True}

@@ -102,6 +102,25 @@
 - [ ] Onboarding nudges: "first takedown" (48h) + "day-14" schedulers.
 - [ ] Dunning follow-ups: payment-failed day-3 + day-7 schedulers.
 
+### Slack lead notifications (NEW — requested 2026-07-30)
+> When a visitor submits a lead, in addition to the existing `sales_leads` insert + Resend staff
+> email, post a Slack notification. **Two SEPARATE channels:** one for demo bookings
+> (`source = request_demo`), one for call requests (`source = call_request` / talk-to-sales).
+- [x] **Backend (main API) — DONE (session 45).** New `services/slack.py` (`post_to_slack()`,
+  `httpx.post` timeout 10s, best-effort, never raises, skips cleanly if env unset). `routes/leads.py`
+  now calls `_send_slack_notification()` after the staff email; routes by `source` via
+  `_SOURCE_SLACK_WEBHOOK` (`request_demo`→`SLACK_WEBHOOK_DEMO`, `call_request`+`pricing_modal`→
+  `SLACK_WEBHOOK_CALL`). Block Kit message shows ONLY fields the visitor submitted (name/email/
+  company/brands/phone/website/message) — no invented values. Env registered in `.env.example` +
+  `.env.production.example`. Verified: py_compile + import + routing/no-op unit check.
+- [x] **Admin parity check — N/A.** Leads already visible/manageable in the Admin Portal Leads view;
+  Slack is an outbound notification only, so no new admin CRUD. (If a delivery log is wanted later,
+  mirror the `notification_deliveries` pattern.)
+- [ ] **USER ACTION — create the 2 Slack webhooks & give me the URLs.** api.slack.com/apps → create
+  app → Incoming Webhooks → add one webhook to `#leads-demo`, another to `#leads-call`. Then I set
+  `SLACK_WEBHOOK_DEMO` / `SLACK_WEBHOOK_CALL` in root `.env` (dev) + you set them on the Hetzner
+  server `.env`, restart the main API. Until set, the feature is a safe no-op.
+
 ### Scraper health (Priority 6)
 - [ ] Optional Slack / SMTP push alerting for degraded platforms (currently in-page warnings only).
 
