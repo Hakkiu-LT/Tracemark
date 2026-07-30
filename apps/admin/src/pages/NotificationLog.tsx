@@ -34,6 +34,7 @@ interface Delivery {
   organization_name: string | null;
   recipient: string | null;
   subject: string | null;
+  body_html: string | null;
   payload: Record<string, unknown> | null;
 }
 
@@ -299,27 +300,63 @@ export function NotificationLog() {
 }
 
 function DeliveryDetails({ row }: { row: Delivery }) {
+  const [showPayload, setShowPayload] = useState(false);
+
   return (
-    <div className="space-y-3 text-sm">
+    <div className="space-y-4 text-sm">
+      {/* The actual email, exactly as the recipient received it. Rendered in a
+          sandboxed iframe (no scripts / same-origin) so stored HTML can never
+          run or restyle the admin app. */}
+      <div>
+        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Email preview
+        </div>
+        {row.body_html ? (
+          <iframe
+            title="Email preview"
+            sandbox=""
+            srcDoc={row.body_html}
+            className="h-96 w-full rounded-md border border-border bg-white"
+          />
+        ) : (
+          <p className="rounded-md border border-dashed border-border p-4 text-muted-foreground">
+            No email body stored for this row
+            {row.status === "skipped" ? " (no email was sent)." : " (sent before body capture was added)."}
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Field label="Case ID" value={row.case_id} mono />
         <Field label="Infringement ID" value={row.infringement_id} mono />
         <Field label="Organization ID" value={row.organization_id} mono />
         <Field label="Delivery ID" value={row.id} mono />
       </div>
+
       {row.error_message && (
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Error</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {row.status === "skipped" ? "Skip reason" : "Error"}
+          </div>
           <div className="whitespace-pre-wrap text-destructive">{row.error_message}</div>
         </div>
       )}
+
       <div>
-        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Payload</div>
-        <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-muted/50 p-3 text-xs">
-          {row.payload && Object.keys(row.payload).length > 0
-            ? JSON.stringify(row.payload, null, 2)
-            : "No payload recorded."}
-        </pre>
+        <button
+          type="button"
+          onClick={() => setShowPayload((v) => !v)}
+          className="text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+        >
+          {showPayload ? "▾" : "▸"} Technical payload
+        </button>
+        {showPayload && (
+          <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-muted/50 p-3 text-xs">
+            {row.payload && Object.keys(row.payload).length > 0
+              ? JSON.stringify(row.payload, null, 2)
+              : "No payload recorded."}
+          </pre>
+        )}
       </div>
     </div>
   );

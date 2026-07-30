@@ -96,10 +96,13 @@ def _infringement_details(infringement_id: str) -> dict:
 
 # ─── Public API ──────────────────────────────────────────────────────────────
 
-def send_email_notification(event: dict, recipient_email: str) -> None:
+def send_email_notification(event: dict, recipient_email: str) -> str | None:
     """
     Send an email for a specific event to a known recipient address.
     Used for: test emails, takedown notices sent to platforms, and admin-triggered sends.
+
+    Returns the rendered HTML body that was sent (or None), so callers that log
+    the delivery can persist the actual email body.
     """
     event_type = event.get("type", "unknown")
 
@@ -107,7 +110,7 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
         brand_name = event.get("brand_name", "Test Brand")
         html = test_email_html(brand_name=brand_name)
         send_email(to=recipient_email, subject="HAKKIU — test email", html=html)
-        return
+        return html
 
     if event_type == "takedown_submitted":
         case_id = event.get("case_id", "")
@@ -125,7 +128,7 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
             subject=f"Takedown submitted — {event.get('platform', 'marketplace').title()}",
             html=html,
         )
-        return
+        return html
 
     if event_type == "takedown_removed":
         html = takedown_removed_html(
@@ -143,7 +146,7 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
             subject=f"✓ Listing removed — {event.get('brand_name', 'your brand')}",
             html=html,
         )
-        return
+        return html
 
     if event_type == "takedown_failed":
         html = takedown_failed_html(
@@ -161,11 +164,12 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
             subject=f"Action needed: takedown not successful — {event.get('platform', 'marketplace').title()}",
             html=html,
         )
-        return
+        return html
 
     # Fallback: send test email for unhandled types
     html = test_email_html(brand_name=event.get("brand_name", "HAKKIU"))
     send_email(to=recipient_email, subject="HAKKIU notification", html=html)
+    return html
 
 
 def dispatch_notifications(event: dict) -> None:
@@ -206,7 +210,7 @@ def dispatch_notifications(event: dict) -> None:
         except Exception as exc:
             print(f"[Notifications] failed to log skipped delivery: {exc}")
 
-    def _sent(subject: str, ok: bool, organization_id: str, recipient: str) -> None:
+    def _sent(subject: str, ok: bool, organization_id: str, recipient: str, body_html: str) -> None:
         try:
             log_delivery(
                 event_type,
@@ -216,6 +220,7 @@ def dispatch_notifications(event: dict) -> None:
                 organization_id=organization_id,
                 recipient=recipient,
                 subject=subject,
+                body_html=body_html,
                 error=None if ok else "send_email returned False",
             )
         except Exception as exc:
@@ -308,7 +313,7 @@ def dispatch_notifications(event: dict) -> None:
             )
             subject = f"[Alert] Infringement detected on {platform.title()} — {brand_name}"
             ok = send_email(to=recipient, subject=subject, html=html)
-        return _sent(subject, ok, org_id, recipient)
+        return _sent(subject, ok, org_id, recipient, html)
 
     if event_type in ("case_escalated", "takedown_generated"):
         source_url = event.get("infringing_url") or inf_data.get("source_url", "")
@@ -325,7 +330,7 @@ def dispatch_notifications(event: dict) -> None:
         )
         subject = f"Takedown notice prepared — {(platform or 'marketplace').title()}"
         ok = send_email(to=recipient, subject=subject, html=html)
-        return _sent(subject, ok, org_id, recipient)
+        return _sent(subject, ok, org_id, recipient, html)
 
     if event_type == "case_dismissed":
         # No email for dismissals — customer took action intentionally

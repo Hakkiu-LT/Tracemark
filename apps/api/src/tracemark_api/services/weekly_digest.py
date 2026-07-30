@@ -175,6 +175,7 @@ def send_weekly_digests() -> None:
                     organization_id=org["org_id"],
                     recipient=org["email"],
                     subject=subject,
+                    body_html=html,
                 )
             except Exception as log_exc:
                 print(f"[WeeklyDigest] Failed to log delivery for org {org['org_id']}: {log_exc}")

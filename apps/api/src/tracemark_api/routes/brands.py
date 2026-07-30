@@ -49,6 +49,7 @@ def _send_welcome_email(profile) -> None:
                 organization_id=profile.organization_id,
                 recipient=recipient,
                 subject=subject,
+                body_html=html,
             )
         except Exception:
             pass

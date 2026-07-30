@@ -113,6 +113,7 @@ def list_notification_log(
                 "organization_name": org_to_name.get(org_id) if org_id else None,
                 "recipient": r.get("recipient") or payload.get("recipient"),
                 "subject": r.get("subject"),
+                "body_html": r.get("body_html"),
                 "payload": payload,
             }
         )

@@ -498,13 +498,14 @@ def send_takedown_email_endpoint(
             "message": notice_text,
             "brand_name": "Takedown Notice",
         }
-        send_email_notification(event, recipient)
+        body_html = send_email_notification(event, recipient)
 
         # Log delivery
         log_delivery(
             event_type="takedown_submitted",
             ok=True,
             recipient=recipient,
+            body_html=body_html,
             payload={"takedown_report_id": id, "recipient": recipient},
         )
 

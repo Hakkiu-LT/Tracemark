@@ -17,6 +17,7 @@ def log_delivery(
     organization_id: str | None = None,
     recipient: str | None = None,
     subject: str | None = None,
+    body_html: str | None = None,
     status: str | None = None,
 ) -> str:
     """
@@ -32,6 +33,7 @@ def log_delivery(
         organization_id: The org the email belongs to (None for platform/test emails).
         recipient:       The address the email was sent to.
         subject:         The email subject line.
+        body_html:       The rendered HTML body of the email that was sent.
         status:          Override the status directly ('sent' | 'failed' | 'skipped').
                          When omitted it is derived from `ok`.
 
@@ -48,5 +50,6 @@ def log_delivery(
         "organization_id": organization_id,
         "recipient": recipient,
         "subject": subject,
+        "body_html": body_html,
     }).execute()
     return result.data[0]["id"]

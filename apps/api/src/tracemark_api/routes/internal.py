@@ -139,7 +139,7 @@ def internal_send_takedown_email(takedown_id: str, _ok: bool = Depends(verify_in
     from tracemark_api.services.delivery_log import log_delivery
 
     try:
-        send_email_notification(
+        body_html = send_email_notification(
             {"type": "test", "message": report.get("notice_text", ""), "brand_name": "Takedown Notice"},
             recipient,
         )
@@ -147,7 +147,7 @@ def internal_send_takedown_email(takedown_id: str, _ok: bool = Depends(verify_in
         sb.table("takedown_reports").update({"status": "sent", "submitted_at": submitted_at}).eq(
             "id", takedown_id
         ).execute()
-        log_delivery(event_type="takedown_submitted", ok=True, recipient=recipient, payload={"takedown_report_id": takedown_id, "recipient": recipient})
+        log_delivery(event_type="takedown_submitted", ok=True, recipient=recipient, body_html=body_html, payload={"takedown_report_id": takedown_id, "recipient": recipient})
         return {"success": True, "recipient": recipient, "submitted_at": submitted_at}
     except Exception as e:  # noqa: BLE001
         log_delivery(event_type="takedown_submitted", ok=False, error=str(e), recipient=recipient, payload={"takedown_report_id": takedown_id})
