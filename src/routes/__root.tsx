@@ -43,6 +43,18 @@ const PUBLIC_PATHS = new Set([
   "/legal/imprint",
 ]);
 
+// Auth-flow paths: these ARE public (no session required to view) but they DO
+// use Supabase (sign-in, OAuth exchange). Keep AuthProvider active on them so the
+// supabase chunk is warm and any future "already-signed-in" redirect keeps
+// working. The supabase-defer optimization applies to PUBLIC_PATHS minus these.
+const AUTH_PATHS = new Set([
+  "/auth/sign-in",
+  "/auth/sign-up",
+  "/auth/callback",
+  "/legacy/login",
+  "/legacy/signup",
+]);
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -225,10 +237,13 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const isPublic = PUBLIC_PATHS.has(pathname);
+  // Marketing/legal pages (public, and not an auth flow) never read auth state,
+  // so tell AuthProvider to skip loading the Supabase client there.
+  const deferAuth = isPublic && !AUTH_PATHS.has(pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+      <AuthProvider deferAuth={deferAuth}>
         <LeadModalsProvider>
           {isPublic ? (
             <>

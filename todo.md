@@ -34,6 +34,21 @@
     Only heavy landing lib = `motion` (Framer Motion, 772K in node_modules).
   - `src/routes/index.tsx` statically imports ALL 8 sections (Hero→Footer), so below-the-fold
     sections ship + hydrate eagerly in the initial chunk.
+## ⚡ Public-page auth defer (Lever A) + CSS (Lever B) (2026-07-30, session 41) — ✅ A DONE / B DECLINED, branch `perf/landing-css-and-public-auth`
+
+> Same careful process: 2 investigation subagents → plan (docs/.roadmap/public-auth-and-css-plan.md)
+> → self-review → independent review agent (caught a real logged-in-redirect race → fixed) → step verification.
+- [x] Lever A: AuthProvider `deferAuth` prop — public marketing/legal pages no longer load the
+  ~55 KiB @supabase chunk (was loaded post-hydration by the eager session check). Auth flows
+  (/auth/*, /legacy/*) keep it. Activation flips during render + loading stays initially true so
+  RequireAuth never wrongly redirects a logged-in user (independent-review fix).
+- [x] Verified: tsc 0, build 0; wrangler-log proof landing requests NO supabase chunk; landing +
+  sign-in render identically; login/book-demo/talk-to-sales/request-demo all self-contained (safe).
+- [x] Lever B (render-blocking 27 KiB CSS): INVESTIGATED, DECLINED. Async-CSS swap risks FOUC
+  (violates no-visual-change rule) for ~0-3 lab points; SSR-only build blocks auto critical-CSS
+  tools; single Tailwind-v4 sheet can't be safely shrunk. Real FCP lever is TTFB/hydration (bigger).
+- [x] Merged to main + deployed (see below decision).
+
 ## ⚡ Landing JS — Supabase lazy-split refactor (2026-07-30, session 41) — ✅ DONE on branch `perf/landing-js-split`
 
 > Full careful refactor per user request: subagents investigated → detailed plan
