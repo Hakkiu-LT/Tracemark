@@ -34,10 +34,32 @@
     Only heavy landing lib = `motion` (Framer Motion, 772K in node_modules).
   - `src/routes/index.tsx` statically imports ALL 8 sections (Hero→Footer), so below-the-fold
     sections ship + hydrate eagerly in the initial chunk.
-- [ ] NEXT (real lever, needs care): cut landing initial JS. Options — lazy-load below-fold
-  sections and/or trim motion usage. RISK: TanStack Start SSR + hydration; React.lazy is
-  client-only and can break SSR/hydration → must be done carefully & verified, or it violates
-  the "look the same / don't break" rule. Awaiting go/no-go on this risk.
+## ⚡ Landing JS — Supabase lazy-split refactor (2026-07-30, session 41) — ✅ DONE on branch `perf/landing-js-split`
+
+> Full careful refactor per user request: subagents investigated → detailed plan
+> (docs/.roadmap/landing-js-refactor-plan.md) → 3× self-review → independent agent review
+> (GO WITH CORRECTIONS, all 3 applied) → step-by-step execution with tsc+build between each →
+> before/after verification. NOT merged to main yet (awaiting decision).
+- [x] Converted all 8 remaining static `import {supabase|helper}` → dynamic `await import()`:
+  auth.callback, cases, monitoring.$caseId, settings, ClientsPage, auth-screen, both takedown
+  routes. (api.ts + auth.tsx done earlier.) All call sites already async; guards+loading-state
+  preserved; landing has zero supabase dep.
+- [x] Removed a stray macOS-duplicate `src/routes/cases 2.tsx` (was creating a bogus /cases 2
+  route + chunk); routeTree.gen.ts back to main state.
+- [x] BUNDLE PROOF (deterministic): landing entry chunk 253 → 198 KiB gzip (−55 KiB). @supabase
+  (54 KiB gzip) now a lazy `supabase-*.js` chunk, NOT modulepreloaded on "/". Verified in built
+  HTML. Entry chunk has 0 supabase markers. tsc 0, vite build 0 at every step.
+- [x] VISUAL parity: landing + sign-in screenshots (local prod build) identical to live main.
+- [x] LIGHTHOUSE before/after (controlled, same local prod serve, 3 runs each, MEDIAN):
+  - BEFORE (main): score 64, FCP 5.0s, LCP 6.6s, SI 5.0s
+  - AFTER (branch): score 64, FCP 5.0s, LCP 6.7s, SI 5.0s
+  - **HONEST RESULT: score UNCHANGED.** The −55 KiB helps download but the lab bottleneck is
+    render/main-thread (TBT was only 30-70ms; FCP is render-blocking-CSS + font/LCP bound), not
+    this chunk. On real slow-4G the download saving may shave a little, but no dramatic jump.
+- [ ] DECISION: merge branch to main? It's SAFE + identical + a genuine −55 KiB + cleaner
+  architecture (public site no longer ships the Supabase client), but does NOT move the lab
+  score. The real score levers remain: (a) render-blocking 27 KiB CSS (FCP), (b) reduce total
+  app JS hydrated on landing (bigger split), (c) LCP hero text/font.
 - [ ] DEFERRED (risky, needs care to avoid FOUC / look change): critical-CSS inlining or
   route-based CSS code-split to cut the ~27 KiB render-blocking stylesheet (190ms). Decide
   after measuring the image wins.
