@@ -16,12 +16,18 @@ No audit log is written — reads are not audit events.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from tracemark_admin_api.clients import customer_sb
 from tracemark_admin_api.dependencies import StaffPrincipal, require_permission
 
 router = APIRouter(prefix="/notification-log", tags=["notification-log"])
+
+
+def _payload_dict(payload) -> dict:
+    """Return payload as a dict. JSONB usually deserializes to a dict, but guard
+    against a stray string/list/None so `.get()` can never raise a 500."""
+    return payload if isinstance(payload, dict) else {}
 
 
 @router.get("")
@@ -41,41 +47,51 @@ def list_notification_log(
         q = q.eq("status", status)
     if event_type:
         q = q.eq("event_type", event_type)
-    result = q.order("delivered_at", desc=True).range(offset, offset + limit - 1).execute()
+    try:
+        result = q.order("delivered_at", desc=True).range(offset, offset + limit - 1).execute()
+    except Exception as e:  # surface a readable, CORS-headed error instead of an opaque 500
+        raise HTTPException(status_code=502, detail=f"Failed to read notification log: {e}")
     rows = result.data or []
 
     # 2) Resolve org for the page in three flat batched lookups (no PostgREST embed).
-    inf_ids = [r["infringement_id"] for r in rows if r.get("infringement_id")]
+    #    Org is best-effort metadata — if any lookup fails we degrade to null rather
+    #    than 500 the whole log. `payload` is JSONB: usually a dict, but guard for a
+    #    stray string/list so one odd row can't take the endpoint down.
     inf_to_case: dict[str, str | None] = {}
-    if inf_ids:
-        inf_res = (
-            sb.table("infringements").select("id,case_id").in_("id", list(set(inf_ids))).execute()
-        )
-        inf_to_case = {i["id"]: i.get("case_id") for i in (inf_res.data or [])}
-
-    case_ids: set[str] = {c for c in inf_to_case.values() if c}
-    for r in rows:
-        payload_case = (r.get("payload") or {}).get("case_id")
-        if payload_case:
-            case_ids.add(payload_case)
-
     case_to_org: dict[str, str | None] = {}
-    if case_ids:
-        case_res = (
-            sb.table("cases").select("id,organization_id").in_("id", list(case_ids)).execute()
-        )
-        case_to_org = {c["id"]: c.get("organization_id") for c in (case_res.data or [])}
-
-    org_ids = {o for o in case_to_org.values() if o}
     org_to_name: dict[str, str | None] = {}
-    if org_ids:
-        org_res = sb.table("organizations").select("id,name").in_("id", list(org_ids)).execute()
-        org_to_name = {o["id"]: o.get("name") for o in (org_res.data or [])}
+    try:
+        inf_ids = [r["infringement_id"] for r in rows if r.get("infringement_id")]
+        if inf_ids:
+            inf_res = (
+                sb.table("infringements").select("id,case_id").in_("id", list(set(inf_ids))).execute()
+            )
+            inf_to_case = {i["id"]: i.get("case_id") for i in (inf_res.data or [])}
+
+        case_ids: set[str] = {c for c in inf_to_case.values() if c}
+        for r in rows:
+            payload_case = _payload_dict(r.get("payload")).get("case_id")
+            if payload_case:
+                case_ids.add(payload_case)
+
+        if case_ids:
+            case_res = (
+                sb.table("cases").select("id,organization_id").in_("id", list(case_ids)).execute()
+            )
+            case_to_org = {c["id"]: c.get("organization_id") for c in (case_res.data or [])}
+
+        org_ids = {o for o in case_to_org.values() if o}
+        if org_ids:
+            org_res = sb.table("organizations").select("id,name").in_("id", list(org_ids)).execute()
+            org_to_name = {o["id"]: o.get("name") for o in (org_res.data or [])}
+    except Exception:
+        # Org enrichment is non-critical — fall back to unresolved org for the whole page.
+        inf_to_case, case_to_org, org_to_name = {}, {}, {}
 
     # 3) Flatten each row with its best-effort org + recipient (from payload when present).
     deliveries = []
     for r in rows:
-        payload = r.get("payload") or {}
+        payload = _payload_dict(r.get("payload"))
         case_id = inf_to_case.get(r.get("infringement_id")) or payload.get("case_id")
         org_id = case_to_org.get(case_id) if case_id else None
         deliveries.append(
