@@ -119,10 +119,11 @@
 - [x] **Admin parity check — N/A.** Leads already visible/manageable in the Admin Portal Leads view;
   Slack is an outbound notification only, so no new admin CRUD. (If a delivery log is wanted later,
   mirror the `notification_deliveries` pattern.)
-- [ ] **USER ACTION — create the 2 Slack webhooks & give me the URLs.** api.slack.com/apps → create
-  app → Incoming Webhooks → add one webhook to `#leads-demo`, another to `#leads-call`. Then I set
-  `SLACK_WEBHOOK_DEMO` / `SLACK_WEBHOOK_CALL` in root `.env` (dev) + you set them on the Hetzner
-  server `.env`, restart the main API. Until set, the feature is a safe no-op.
+- [x] **LIVE in prod (session 45).** User created the 2 incoming webhooks (`#leads-demo` / `#leads-call`);
+  `SLACK_WEBHOOK_DEMO` + `SLACK_WEBHOOK_CALL` set in root `.env` (dev) AND on the Hetzner server `.env`;
+  `api` container force-recreated to load them. End-to-end tested on hakkiu.com: Book-a-demo → `#leads-demo`
+  (with requested times), Talk-to-sales → `#leads-call`. NOTE: the webhook↔channel mapping was initially
+  swapped and corrected on the server (DEMO=`B0BLGEKAGKZ`, CALL=`B0BLUGJ1R7X`).
 
 ### Scraper health (Priority 6)
 - [ ] Optional Slack / SMTP push alerting for degraded platforms (currently in-page warnings only).
