@@ -19,7 +19,25 @@
 - [x] `src/images/platforms/*.png` (12 files) resized 256×256 → max 96px (−25%). Shown ≤40px.
 - [x] Verified largest platform-logo display is h-10 (40px, dashboard) — 96px still sharp.
 - [x] `npm run build` passes, no visual change.
+- [x] Subset Inter fonts (the 52 KiB outliers): dropped 113 phonetic/IPA/modifier glyphs that
+  are NEVER rendered. Kept ALL Latin/Lithuanian/European + Vietnamese + € ™ − × ↑↓ etc. Verified
+  no visible codepoint dropped (→/← were already absent in the original, so no regression).
+  inter-400/500/600/700 ~52 KiB → ~44 KiB each (−16%). Rendering identical. Originals in
+  /tmp/hakkiu-img-backup/fonts/. Did NOT touch Sora/JetBrains/Hanken (already small).
 - [ ] Deploy + re-run PSI to measure mobile Perf delta.
+- [x] Ran REAL Lighthouse (mobile, live hakkiu.com) — the honest diagnosis:
+  - Score ~65, FCP 4.2s, LCP 5.5s, SI 6.8s. TTFB=50ms (server FAST), TBT=70ms, CLS=0 (all fine).
+  - **ROOT CAUSE = JavaScript, not CSS/fonts/images.** Landing ships `index-*.js` 253 KiB with
+    **149 KiB (59%) unused**, + `landing-nav` 41 KiB (29 unused). Main-thread work 1.8s. On
+    slow-4G + 4× CPU that download+hydration is what pushes FCP/LCP/SI.
+  - jsPDF/html2canvas do NOT leak into landing (properly route-split ✓). Three.js is NOT a dep.
+    Only heavy landing lib = `motion` (Framer Motion, 772K in node_modules).
+  - `src/routes/index.tsx` statically imports ALL 8 sections (Hero→Footer), so below-the-fold
+    sections ship + hydrate eagerly in the initial chunk.
+- [ ] NEXT (real lever, needs care): cut landing initial JS. Options — lazy-load below-fold
+  sections and/or trim motion usage. RISK: TanStack Start SSR + hydration; React.lazy is
+  client-only and can break SSR/hydration → must be done carefully & verified, or it violates
+  the "look the same / don't break" rule. Awaiting go/no-go on this risk.
 - [ ] DEFERRED (risky, needs care to avoid FOUC / look change): critical-CSS inlining or
   route-based CSS code-split to cut the ~27 KiB render-blocking stylesheet (190ms). Decide
   after measuring the image wins.
