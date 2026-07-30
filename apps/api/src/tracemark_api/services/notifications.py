@@ -96,10 +96,13 @@ def _infringement_details(infringement_id: str) -> dict:
 
 # ─── Public API ──────────────────────────────────────────────────────────────
 
-def send_email_notification(event: dict, recipient_email: str) -> None:
+def send_email_notification(event: dict, recipient_email: str) -> str | None:
     """
     Send an email for a specific event to a known recipient address.
     Used for: test emails, takedown notices sent to platforms, and admin-triggered sends.
+
+    Returns the rendered HTML body that was sent (or None), so callers that log
+    the delivery can persist the actual email body.
     """
     event_type = event.get("type", "unknown")
 
@@ -107,7 +110,7 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
         brand_name = event.get("brand_name", "Test Brand")
         html = test_email_html(brand_name=brand_name)
         send_email(to=recipient_email, subject="HAKKIU — test email", html=html)
-        return
+        return html
 
     if event_type == "takedown_submitted":
         case_id = event.get("case_id", "")
@@ -125,7 +128,7 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
             subject=f"Takedown submitted — {event.get('platform', 'marketplace').title()}",
             html=html,
         )
-        return
+        return html
 
     if event_type == "takedown_removed":
         html = takedown_removed_html(
@@ -143,7 +146,7 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
             subject=f"✓ Listing removed — {event.get('brand_name', 'your brand')}",
             html=html,
         )
-        return
+        return html
 
     if event_type == "takedown_failed":
         html = takedown_failed_html(
@@ -161,18 +164,26 @@ def send_email_notification(event: dict, recipient_email: str) -> None:
             subject=f"Action needed: takedown not successful — {event.get('platform', 'marketplace').title()}",
             html=html,
         )
-        return
+        return html
 
     # Fallback: send test email for unhandled types
     html = test_email_html(brand_name=event.get("brand_name", "HAKKIU"))
     send_email(to=recipient_email, subject="HAKKIU notification", html=html)
+    return html
 
 
 def dispatch_notifications(event: dict) -> None:
     """
     Resolve the recipient for an org-scoped event and send the appropriate email.
     Called from persist_infringement, case status changes, and document sends.
+
+    Every exit path records one notification_deliveries row so the Admin Portal
+    log is a true email log: `sent`/`failed` when an email is attempted, and
+    `skipped` (with a reason) when the event intentionally sends nothing (e.g. a
+    dismissal, a non-HIGH-risk detection, or a missing recipient).
     """
+    from tracemark_api.services.delivery_log import log_delivery
+
     event_type = event.get("type", "unknown")
 
     # Resolve case_id from available event fields
@@ -184,19 +195,47 @@ def dispatch_notifications(event: dict) -> None:
         inf_data = _infringement_details(infringement_id)
         case_id = inf_data.get("case_id")
 
+    def _skip(reason: str, organization_id: str | None = None, recipient: str | None = None) -> None:
+        print(f"[Notifications] dispatch_notifications: {reason} (event {event_type})")
+        try:
+            log_delivery(
+                event_type,
+                status="skipped",
+                infringement_id=infringement_id,
+                payload=event,
+                error=reason,
+                organization_id=organization_id,
+                recipient=recipient,
+            )
+        except Exception as exc:
+            print(f"[Notifications] failed to log skipped delivery: {exc}")
+
+    def _sent(subject: str, ok: bool, organization_id: str, recipient: str, body_html: str) -> None:
+        try:
+            log_delivery(
+                event_type,
+                ok=ok,
+                infringement_id=infringement_id,
+                payload=event,
+                organization_id=organization_id,
+                recipient=recipient,
+                subject=subject,
+                body_html=body_html,
+                error=None if ok else "send_email returned False",
+            )
+        except Exception as exc:
+            print(f"[Notifications] failed to log delivery: {exc}")
+
     if not case_id:
-        print(f"[Notifications] dispatch_notifications: no case_id for event {event_type}")
-        return
+        return _skip("no case_id")
 
     org_id, brand_name = _org_from_case(case_id)
     if not org_id:
-        print(f"[Notifications] dispatch_notifications: could not resolve org from case {case_id}")
-        return
+        return _skip(f"could not resolve org from case {case_id}")
 
     recipient = _recipient_for_org(org_id)
     if not recipient:
-        print(f"[Notifications] dispatch_notifications: no recipient email for org {org_id}")
-        return
+        return _skip(f"no recipient email for org {org_id}", organization_id=org_id)
 
     if not inf_data and infringement_id:
         inf_data = _infringement_details(infringement_id)
@@ -215,7 +254,7 @@ def dispatch_notifications(event: dict) -> None:
 
         # Only email on HIGH risk to avoid alert fatigue
         if risk_level != "HIGH":
-            return
+            return _skip(f"risk {risk_level} is not HIGH", organization_id=org_id, recipient=recipient)
 
         # Check if this is the org's first-ever infringement (aha moment)
         is_first = False
@@ -258,11 +297,8 @@ def dispatch_notifications(event: dict) -> None:
                 top_platform=platform,
                 dashboard_url=dashboard_url,
             )
-            send_email(
-                to=recipient,
-                subject=f"First scan complete — infringement detected for {brand_name}",
-                html=html,
-            )
+            subject = f"First scan complete — infringement detected for {brand_name}"
+            ok = send_email(to=recipient, subject=subject, html=html)
         else:
             html = infringement_alert_html(
                 brand_name=brand_name or "your brand",
@@ -275,12 +311,9 @@ def dispatch_notifications(event: dict) -> None:
                 infringement_id=infringement_id or "",
                 dashboard_url=dashboard_url,
             )
-            send_email(
-                to=recipient,
-                subject=f"[Alert] Infringement detected on {platform.title()} — {brand_name}",
-                html=html,
-            )
-        return
+            subject = f"[Alert] Infringement detected on {platform.title()} — {brand_name}"
+            ok = send_email(to=recipient, subject=subject, html=html)
+        return _sent(subject, ok, org_id, recipient, html)
 
     if event_type in ("case_escalated", "takedown_generated"):
         source_url = event.get("infringing_url") or inf_data.get("source_url", "")
@@ -295,15 +328,12 @@ def dispatch_notifications(event: dict) -> None:
             case_id=case_id,
             dashboard_url=dashboard_url,
         )
-        send_email(
-            to=recipient,
-            subject=f"Takedown notice prepared — {(platform or 'marketplace').title()}",
-            html=html,
-        )
-        return
+        subject = f"Takedown notice prepared — {(platform or 'marketplace').title()}"
+        ok = send_email(to=recipient, subject=subject, html=html)
+        return _sent(subject, ok, org_id, recipient, html)
 
     if event_type == "case_dismissed":
         # No email for dismissals — customer took action intentionally
-        return
+        return _skip("dismissal — no email sent", organization_id=org_id, recipient=recipient)
 
-    print(f"[Notifications] dispatch_notifications: unhandled event '{event_type}' for case {case_id}")
+    return _skip(f"unhandled event '{event_type}'", organization_id=org_id, recipient=recipient)

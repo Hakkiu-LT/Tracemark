@@ -1,9 +1,12 @@
 """Admin endpoints for sales leads (Professional/Enterprise request-pricing forms)."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from tracemark_admin_api import main_api
 from tracemark_admin_api.clients import customer_sb
 from tracemark_admin_api.dependencies import StaffPrincipal, require_permission
 from tracemark_admin_api.services.audit import write_audit_log
@@ -17,10 +20,16 @@ class UpdateLeadRequest(BaseModel):
     status: str
 
 
+class ConfirmLeadRequest(BaseModel):
+    meeting_link: str | None = None
+    # Optional reschedule — if omitted, the customer's requested slot is confirmed as-is.
+    scheduled_at: str | None = None
+    scheduled_timezone: str | None = None
+
+
 @router.get("")
 def list_leads(
     status: str | None = Query(None),
-    tier: str | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     principal: StaffPrincipal = Depends(require_permission("leads.view")),
@@ -29,8 +38,6 @@ def list_leads(
     q = sb.table("sales_leads").select("*")
     if status:
         q = q.eq("status", status)
-    if tier:
-        q = q.eq("tier", tier)
     result = q.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     return {"leads": result.data or [], "offset": offset, "limit": limit}
 
@@ -46,7 +53,7 @@ def update_lead(
         raise HTTPException(status_code=422, detail=f"status must be one of {sorted(VALID_STATUSES)}")
 
     sb = customer_sb()
-    existing = sb.table("sales_leads").select("id,status,email,tier").eq("id", lead_id).maybe_single().execute()
+    existing = sb.table("sales_leads").select("id,status,email").eq("id", lead_id).maybe_single().execute()
     if not existing or not existing.data:
         raise HTTPException(status_code=404, detail="Lead not found")
 
@@ -64,6 +71,71 @@ def update_lead(
     return {"ok": True}
 
 
+@router.post("/{lead_id}/confirm")
+def confirm_lead(
+    lead_id: str,
+    body: ConfirmLeadRequest,
+    request: Request,
+    principal: StaffPrincipal = Depends(require_permission("leads.confirm")),
+):
+    """Confirm a requested demo slot and email the customer the final time + link.
+
+    Writes the customer-facing `sales_leads` row (so the confirmation reflects on
+    both sides), then hands the email to the MAIN API's Resend pipeline. Staff may
+    reschedule by passing a new `scheduled_at`; otherwise the requested slot stands.
+    """
+    sb = customer_sb()
+    existing = sb.table("sales_leads").select("*").eq("id", lead_id).maybe_single().execute()
+    if not existing or not existing.data:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead = existing.data
+
+    scheduled_at = body.scheduled_at or lead.get("scheduled_at")
+    if not scheduled_at:
+        raise HTTPException(
+            status_code=422,
+            detail="This lead has no requested time to confirm (provide scheduled_at to set one).",
+        )
+    scheduled_timezone = body.scheduled_timezone or lead.get("scheduled_timezone")
+
+    update: dict = {
+        "confirmed_at": datetime.now(timezone.utc).isoformat(),
+        "meeting_link": body.meeting_link or None,
+        "status": "contacted",  # confirming a demo means we're now engaged with them
+    }
+    if body.scheduled_at:
+        update["scheduled_at"] = body.scheduled_at
+    if body.scheduled_timezone:
+        update["scheduled_timezone"] = body.scheduled_timezone
+    sb.table("sales_leads").update(update).eq("id", lead_id).execute()
+
+    # Deliver the confirmation email (main API owns Resend). If this fails the row
+    # is already saved, so staff can retry without losing the confirmation state.
+    email_result = main_api.send_demo_confirmation(
+        email=lead["email"],
+        first_name=lead.get("first_name"),
+        scheduled_at=scheduled_at,
+        scheduled_timezone=scheduled_timezone,
+        meeting_link=body.meeting_link or None,
+    )
+
+    write_audit_log(
+        principal,
+        "leads.confirm_demo",
+        target_type="sales_lead",
+        target_id=lead_id,
+        target_org_id=lead.get("org_id"),
+        metadata={
+            "scheduled_at": scheduled_at,
+            "scheduled_timezone": scheduled_timezone,
+            "meeting_link": body.meeting_link or None,
+        },
+        ip=request.client.host if request.client else None,
+    )
+
+    return {"ok": True, "email": email_result}
+
+
 @router.delete("/{lead_id}")
 def delete_lead(
     lead_id: str,
@@ -73,7 +145,7 @@ def delete_lead(
     sb = customer_sb()
     existing = (
         sb.table("sales_leads")
-        .select("id,email,tier,org_id")
+        .select("id,email,org_id")
         .eq("id", lead_id)
         .maybe_single()
         .execute()
@@ -89,7 +161,7 @@ def delete_lead(
         target_type="sales_lead",
         target_id=lead_id,
         target_org_id=existing.data.get("org_id"),
-        metadata={"email": existing.data.get("email"), "tier": existing.data.get("tier")},
+        metadata={"email": existing.data.get("email")},
         ip=request.client.host if request.client else None,
     )
 

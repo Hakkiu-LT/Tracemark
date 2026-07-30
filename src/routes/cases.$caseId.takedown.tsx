@@ -30,7 +30,6 @@ import { PlatformLogo } from "@/components/platform-logo";
 import evidencePlaceholder from "@/images/evidence-placeholder.png";
 import { getInfringementById, updateInfringementStatus, type InfringementFeedItem } from "@/lib/api";
 import { getPlatformReporting } from "@/lib/platform-reporting";
-import { supabase } from "@/lib/supabase";
 import { ensureAbsoluteUrl } from "@/lib/utils";
 
 export const Route = createFileRoute("/cases/$caseId/takedown")({
@@ -176,6 +175,7 @@ function TakedownPage() {
       const timestamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
       const fileName = `${i.id}/${template}-${timestamp}.pdf`;
 
+      const { supabase } = await import("@/lib/supabase");
       if (!supabase) {
         throw new Error("Supabase client is not initialized.");
       }

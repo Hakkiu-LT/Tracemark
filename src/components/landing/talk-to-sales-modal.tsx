@@ -79,7 +79,6 @@ export function TalkToSalesModal({ open, onOpenChange }: TalkToSalesModalProps) 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tier: "enterprise",
           source: "call_request",
           first_name: firstName,
           last_name: lastName,

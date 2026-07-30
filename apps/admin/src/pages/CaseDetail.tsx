@@ -196,9 +196,34 @@ export function CaseDetail() {
                   <div className="flex items-center gap-2">
                     <PlatformLogo platform={inf.platform} className="h-5 w-5" imgClassName="p-0.5" />
                     <Badge variant="outline">{inf.platform}</Badge>
-                    <a href={ensureAbsoluteUrl(inf.source_url) || "#"} target="_blank" rel="noopener noreferrer" className="truncate text-xs text-accent hover:underline">
+                    <a href={ensureAbsoluteUrl(inf.source_url) || "#"} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-xs text-accent hover:underline">
                       {inf.source_url}
                     </a>
+                    <Can permission="infringements.delete">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="ml-auto shrink-0 text-destructive"
+                        aria-label="Delete copycat"
+                        title="Delete copycat"
+                        onClick={() =>
+                          confirm.open({
+                            title: "Delete this copycat?",
+                            description:
+                              "This permanently deletes just this one infringement (its screenshot, evidence and documents). The scan case and its other copycats are kept.",
+                            confirmLabel: "Delete copycat",
+                            destructive: true,
+                            onConfirm: async () => {
+                              await adminFetch(`/infringements/${inf.id}`, { method: "DELETE" });
+                              toast.success("Copycat deleted");
+                              invalidate();
+                            },
+                          })
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Can>
                   </div>
                   <Can permission="customers.edit" fallback={<div className="text-xs text-muted-foreground">risk {inf.risk_level} · {inf.match_type} · {inf.match_score}</div>}>
                     <div className="flex flex-wrap items-center gap-2">

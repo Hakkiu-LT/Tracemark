@@ -39,7 +39,20 @@ def _send_welcome_email(profile) -> None:
         user_name = full_name.split()[0] if full_name.strip() else "there"
         app_url = os.environ.get("CUSTOMER_APP_URL", "https://hakkiu.com").rstrip("/")
         html = welcome_html(user_name=user_name, dashboard_url=app_url + "/dashboard")
-        send_email(to=recipient, subject="Welcome to HAKKIU — your monitoring is setting up", html=html)
+        subject = "Welcome to HAKKIU — your monitoring is setting up"
+        ok = send_email(to=recipient, subject=subject, html=html)
+        try:
+            from tracemark_api.services.delivery_log import log_delivery
+            log_delivery(
+                "welcome",
+                ok=ok,
+                organization_id=profile.organization_id,
+                recipient=recipient,
+                subject=subject,
+                body_html=html,
+            )
+        except Exception:
+            pass
     except Exception as exc:
         print(f"[Brands] Failed to send welcome email: {exc}")
 

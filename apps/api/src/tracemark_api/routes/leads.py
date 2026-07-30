@@ -1,6 +1,8 @@
-"""Public endpoint for Professional/Enterprise pricing lead capture.
+"""Public endpoint for demo/call lead capture.
 
 POST /api/v1/leads — no auth required; rate-limited to 3 requests/hour per IP.
+Stores exactly what the Book-a-demo / Talk-to-sales forms submit; the lead's
+origin is carried by `source` (request_demo / call_request).
 """
 from __future__ import annotations
 
@@ -24,7 +26,6 @@ _log = logging.getLogger(__name__)
 # the demo/sales forms isn't blocked after a few submits.
 _RATE_LIMIT = os.environ.get("LEADS_RATE_LIMIT", "3/hour")
 
-VALID_TIERS = frozenset({"professional", "enterprise"})
 VALID_BRAND_RANGES = frozenset({"1", "2-3", "4-5", "6-10", "11-20", "20+"})
 VALID_SOURCES = frozenset({"pricing_modal", "request_demo", "call_request"})
 
@@ -39,7 +40,6 @@ _NOTIFY_EMAILS = [
 
 
 class LeadRequest(BaseModel):
-    tier: str                           # "professional" | "enterprise"
     email: EmailStr
     source: str | None = None           # "pricing_modal" | "request_demo" | "call_request"
     first_name: str | None = None
@@ -56,6 +56,12 @@ class LeadRequest(BaseModel):
     marketplaces: list[str] | None = None   # marketplaces where they see abuse
     current_solution: str | None = None      # how they handle it today
     primary_goal: list[str] | None = None    # what they want to solve
+    # Demo scheduling (Book-a-demo "Select a Date & Time" step). A REQUEST, not a
+    # locked booking — the visitor offers several times they're free and staff
+    # confirm one later in the Admin Portal.
+    proposed_slots: list[str] | None = None   # ISO-8601 UTC instants the visitor is available
+    scheduled_at: str | None = None           # legacy single slot (kept for back-compat)
+    scheduled_timezone: str | None = None     # IANA tz the visitor picked in (e.g. "Europe/Vilnius")
 
 
 # Friendly labels for the staff notification subject line, keyed by lead source.
@@ -65,11 +71,77 @@ _SOURCE_SUBJECTS = {
     "pricing_modal": "Pricing enquiry",
 }
 
+# Which Slack incoming-webhook env var each lead source routes to. Demo bookings
+# go to the demo channel; call/sales requests (and the legacy pricing modal) go to
+# the call channel. Missing env var → post is skipped cleanly (see services/slack.py).
+_SOURCE_SLACK_WEBHOOK = {
+    "request_demo": "SLACK_WEBHOOK_DEMO",
+    "call_request": "SLACK_WEBHOOK_CALL",
+    "pricing_modal": "SLACK_WEBHOOK_CALL",
+}
+
 
 def _lead_kind(lead: LeadRequest) -> str:
     """Which confirmation copy to send the lead: 'sales' for Talk-to-sales,
     'demo' for everything else (Book-a-demo / pricing)."""
     return "sales" if lead.source == "call_request" else "demo"
+
+
+# "Our" timezone — the slot is always shown ALSO in this zone next to the
+# visitor's, so staff never have to convert in their head. Fixed to Lithuania.
+COMPANY_TIMEZONE = "Europe/Vilnius"
+
+
+def _render_in_tz(dt, tz: str | None, note: str | None = None) -> tuple[str, bool]:
+    """Format an aware datetime in `tz`. Returns (label, resolved_ok).
+
+    `note` appends a hint inside the parens, e.g. "our time". Falls back to a
+    "(UTC)" label with resolved_ok=False if `tz` is missing/unknown.
+    """
+    if tz:
+        try:
+            from zoneinfo import ZoneInfo
+
+            local = dt.astimezone(ZoneInfo(tz))
+            label = f"{tz}, {note}" if note else tz
+            return local.strftime("%A, %d %B %Y at %H:%M") + f" ({label})", True
+        except Exception:  # noqa: BLE001 — unknown tz name, fall through to UTC
+            pass
+    return dt.strftime("%A, %d %B %Y at %H:%M") + " (UTC)", False
+
+
+def format_slot(iso: str | None, tz: str | None) -> str | None:
+    """Render a stored UTC slot for humans — in the visitor's timezone AND ours.
+
+    e.g. ("2026-08-05T11:00:00+00:00", "America/New_York") ->
+         "Tuesday, 05 August 2026 at 07:00 (America/New_York)  ·  "
+         "Tuesday, 05 August 2026 at 14:00 (Europe/Vilnius, our time)".
+    When the visitor is already in the company timezone we show a single label.
+    Falls back to UTC (or None) if the input can't be parsed.
+    """
+    if not iso:
+        return None
+    from datetime import datetime
+
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    visitor_label, _ = _render_in_tz(dt, tz)
+    # Append OUR time only when it genuinely differs from the visitor's zone.
+    if tz and tz != COMPANY_TIMEZONE:
+        ours_label, ok = _render_in_tz(dt, COMPANY_TIMEZONE, note="our time")
+        if ok:
+            return f"{visitor_label}  ·  {ours_label}"
+    return visitor_label
+
+
+def _lead_slots(lead: LeadRequest) -> list[str]:
+    """The visitor's offered slots, formatted for humans (multi- or single-slot)."""
+    raw = lead.proposed_slots or ([lead.scheduled_at] if lead.scheduled_at else [])
+    formatted = [format_slot(iso, lead.scheduled_timezone) for iso in raw]
+    return [f for f in formatted if f]
 
 
 def _send_lead_notification(lead: LeadRequest) -> None:
@@ -80,7 +152,6 @@ def _send_lead_notification(lead: LeadRequest) -> None:
 
         html = new_lead_html(
             source=lead.source,
-            tier=lead.tier,
             first_name=lead.first_name,
             last_name=lead.last_name,
             email=str(lead.email),
@@ -95,13 +166,72 @@ def _send_lead_notification(lead: LeadRequest) -> None:
             marketplaces=lead.marketplaces,
             current_solution=lead.current_solution,
             primary_goal=lead.primary_goal,
+            requested_times=_lead_slots(lead),
         )
-        kind_label = _SOURCE_SUBJECTS.get(lead.source or "", lead.tier.capitalize())
+        kind_label = _SOURCE_SUBJECTS.get(lead.source or "", "sales")
         subject = f"New {kind_label} lead — {lead.email}"
         for recipient in _NOTIFY_EMAILS:
             send_email(to=recipient, subject=subject, html=html)
     except Exception:
         _log.exception("Failed to send lead notification email")
+
+
+def _send_slack_notification(lead: LeadRequest) -> None:
+    """Post a Slack alert to the channel that matches the lead's source.
+
+    Demo bookings and call/sales requests go to two SEPARATE channels (routed via
+    _SOURCE_SLACK_WEBHOOK). Best-effort: mirrors ONLY the fields the visitor actually
+    submitted — no invented values — consistent with the lead-form honesty pass.
+    """
+    try:
+        from tracemark_api.services.slack import post_to_slack
+
+        webhook_var = _SOURCE_SLACK_WEBHOOK.get(lead.source or "")
+        if webhook_var is None:
+            return  # unknown / absent source — no channel to route to
+
+        kind_label = _SOURCE_SUBJECTS.get(lead.source or "", "sales")
+
+        # Only include fields the visitor actually filled in.
+        name = " ".join(p for p in (lead.first_name, lead.last_name) if p) or None
+        fields: list[tuple[str, str]] = []
+        if name:
+            fields.append(("Name", name))
+        fields.append(("Email", str(lead.email)))
+        if lead.company:
+            fields.append(("Company", lead.company))
+        if lead.brand_count_range:
+            fields.append(("Brands", lead.brand_count_range))
+        if lead.phone:
+            fields.append(("Phone", lead.phone))
+        if lead.website:
+            fields.append(("Website", lead.website))
+
+        detail_lines = "\n".join(f"*{label}:* {value}" for label, value in fields)
+        text = f":inbox_tray: New *{kind_label}* lead — {lead.email}"
+
+        blocks: list = [
+            {"type": "header",
+             "text": {"type": "plain_text", "text": f"New {kind_label} lead"}},
+            {"type": "section", "text": {"type": "mrkdwn", "text": detail_lines}},
+        ]
+
+        # Demo bookings carry the time slots the visitor is available for
+        # ("Select a Date & Time" step). List them so staff can confirm one.
+        slots = _lead_slots(lead)
+        if slots:
+            slot_lines = "\n".join(f"• {s}" for s in slots)
+            blocks.append({"type": "section",
+                           "text": {"type": "mrkdwn",
+                                    "text": f"*Requested times:*\n{slot_lines}"}})
+
+        if lead.message:
+            blocks.append({"type": "section",
+                           "text": {"type": "mrkdwn", "text": f"*Message:*\n{lead.message}"}})
+
+        post_to_slack(webhook_var, text=text, blocks=blocks)
+    except Exception:
+        _log.exception("Failed to send lead Slack notification")
 
 
 def _send_lead_confirmation(lead: LeadRequest) -> None:
@@ -111,7 +241,11 @@ def _send_lead_confirmation(lead: LeadRequest) -> None:
         from tracemark_api.services.email_templates import lead_confirmation_html
 
         kind = _lead_kind(lead)
-        html = lead_confirmation_html(kind=kind, first_name=lead.first_name)
+        html = lead_confirmation_html(
+            kind=kind,
+            first_name=lead.first_name,
+            requested_times=_lead_slots(lead),
+        )
         subject = (
             "Thanks for booking a demo with HAKKIU"
             if kind == "demo"
@@ -127,9 +261,6 @@ def _send_lead_confirmation(lead: LeadRequest) -> None:
 async def create_lead(payload: LeadRequest, request: Request) -> dict:
     from fastapi import HTTPException
 
-    if payload.tier not in VALID_TIERS:
-        raise HTTPException(status_code=422, detail="tier must be 'professional' or 'enterprise'")
-
     if payload.brand_count_range is not None and payload.brand_count_range not in VALID_BRAND_RANGES:
         raise HTTPException(status_code=422, detail="invalid brand_count_range")
 
@@ -138,7 +269,6 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
 
     sb = get_supabase()
     sb.table("sales_leads").insert({
-        "tier": payload.tier,
         "source": payload.source,
         "first_name": payload.first_name or None,
         "last_name": payload.last_name or None,
@@ -154,9 +284,13 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
         "marketplaces": payload.marketplaces or None,
         "current_solution": payload.current_solution or None,
         "primary_goal": payload.primary_goal or None,
+        "proposed_slots": payload.proposed_slots or None,
+        "scheduled_at": payload.scheduled_at or None,
+        "scheduled_timezone": payload.scheduled_timezone or None,
     }).execute()
 
     _send_lead_notification(payload)
+    _send_slack_notification(payload)
     _send_lead_confirmation(payload)
 
     return {"ok": True}

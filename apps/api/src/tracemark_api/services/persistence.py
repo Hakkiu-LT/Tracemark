@@ -235,8 +235,10 @@ def _trigger_new_infringement_notification(
             "source_url": source_url,
             "platform": platform,
         }
+        # dispatch_notifications records its own notification_deliveries row
+        # (sent / failed / skipped). The except below is only a safety net for
+        # exceptions raised before dispatch could log.
         dispatch_notifications(event)
-        log_delivery("new_infringement", ok=True, infringement_id=infringement_id, payload=event)
     except ImportError:
         pass
     except Exception as e:

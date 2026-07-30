@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
-import { fetchCaseFromSupabase, supabase } from "@/lib/supabase";
 import { updateTakedownReport, sendTakedownEmail } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -229,6 +228,7 @@ function TakedownNoticesPage() {
         .slice(0, 14);
       const fileName = `${caseId}/${selected.submission_method}-${timestamp}.pdf`;
 
+      const { supabase } = await import("@/lib/supabase");
       if (!supabase) {
         throw new Error("Supabase client is not initialized.");
       }
@@ -269,6 +269,7 @@ function TakedownNoticesPage() {
 
   const loadCase = async () => {
     try {
+      const { fetchCaseFromSupabase } = await import("@/lib/supabase");
       const data = await fetchCaseFromSupabase(caseId);
       if (data) setScanResult(caseId, data);
     } catch (e) {
@@ -283,7 +284,8 @@ function TakedownNoticesPage() {
     }
     let cancelled = false;
     setLoading(true);
-    fetchCaseFromSupabase(caseId)
+    import("@/lib/supabase")
+      .then(({ fetchCaseFromSupabase }) => fetchCaseFromSupabase(caseId))
       .then((data) => {
         if (cancelled || !data) return;
         setScanResult(caseId, data);

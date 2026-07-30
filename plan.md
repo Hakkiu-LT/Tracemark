@@ -1,8 +1,157 @@
 # HAKKIU — Active Plan
 
+> **Session 45 (2026-07-30) — Slack lead notifications (two channels).** User: post a Slack
+> notification for every new lead, into TWO SEPARATE channels — demo bookings vs call/sales requests.
+> 2 Explore agents mapped the lead flow + config/HTTP conventions. Findings: leads land in
+> `routes/leads.py::create_lead` → `sales_leads` insert → `_send_lead_notification` (Resend, best-effort
+> try/except) → `_send_lead_confirmation`; `source ∈ {request_demo, call_request, pricing_modal}`; config
+> is plain `os.environ.get` (no Settings class); outbound HTTP uses `httpx.post` with a timeout; no prior
+> Slack code. Built: `services/slack.py` (`post_to_slack(webhook_env_var, text, blocks)` — httpx 10s,
+> best-effort, never raises, no-op if env unset); `leads.py` `_SOURCE_SLACK_WEBHOOK` routing map
+> (request_demo→SLACK_WEBHOOK_DEMO, call_request+pricing_modal→SLACK_WEBHOOK_CALL) + `_send_slack_notification`
+> called after the staff email; Block Kit message mirrors ONLY submitted fields (honesty pass). Env docs in
+> `.env.example` + `.env.production.example`. Verified py_compile + import + a routing/no-op unit check.
+> **Feature is a safe no-op until webhooks are configured.** NEXT (USER): create 2 incoming webhooks at
+> api.slack.com/apps (one per channel), give me the URLs → I set them in root `.env`, you set them on the
+> Hetzner `.env` + restart the main API. Then commit+push (auto-deploys).
+
+> **Session 44 part 3 (2026-07-30) — Show the actual email body.** User wanted to see the real email,
+> not the JSON. Migration `20260730000005` adds `body_html TEXT` (applied to prod). Capture point:
+> `send_email_notification()` now returns its rendered html; `dispatch_notifications._sent` + welcome +
+> weekly_digest + takedown_submitted persist it via `log_delivery(body_html=...)`. Admin expandable row
+> renders it in a `<iframe sandbox="" srcDoc={html}>` (no scripts / isolated styles) as the primary view;
+> JSON payload demoted to a collapsible toggle; placeholder for skipped/historical rows. Deployed
+> `ac2bc8c`. Verified py/tsc/build. NEXT: after deploy, generate a real email (add a brand → welcome, or
+> a HIGH-risk detection) to see a fully-rendered row. Then Goal 2 landing PSI (needs GOOGLE_API_KEY).
+
+> **Session 44 part 2 (2026-07-30) — Notification Log → FULL email log.** User asked to enrich the
+> new log so it shows recipient + subject + org per email. Flow: 2 Explore agents mapped the send path +
+> all 12 `log_delivery` call sites; a Plan critic caught the key error (customer alerts send via DIRECT
+> `send_email()` inside `dispatch_notifications()`, NOT via `send_email_notification()` — so that's the
+> logging choke point). User decisions: full coverage (incl. welcome + weekly_digest, previously
+> unlogged); skips logged as `status='skipped'` with reason; migration applied by me.
+> Built: migration `20260730000004` (add organization_id/recipient/subject nullable + backfill via
+> infringement/payload→case→org + index + RLS direct-org branch); `log_delivery()` gains those params +
+> status override; `dispatch_notifications()` logs at every exit (sent/failed/skipped); removed redundant
+> success logs at 3 call sites (kept exception net); takedown_submitted logs recipient; welcome +
+> weekly_digest instrumented; admin reads columns w/ legacy fallback + Subject column.
+> Migration blocker resolved: the demo-scheduling branch's `...002/...003` migrations were applied to
+> prod but not on main → `db push` refused. Fixed by committing those 2 .sql files to main (reconcile
+> history), renaming mine to `...004`. **Migration applied to prod via `supabase db push`; code deployed
+> `23d338b` (auto-deploy).** Verified py/tsc/build. NEXT: after deploy, reload Notification Log → confirm
+> recipient/subject/org populate on new sends. Then Goal 2 landing PSI (needs GOOGLE_API_KEY).
+
+> **Session 44 part 1 (2026-07-30) — Admin Notification Log + landing deploy/PSI prep.** Two goals.
+> **Goal 1 (DONE, code):** the Priority-3 "admin email-logs" item. Investigated via 2 Explore agents +
+> a Plan critic that surfaced the key gotcha: `notification_deliveries` has NO organization_id and NO
+> recipient/subject columns — org lives one/two FK hops away (infringement_id→case→org, or payload.case_id),
+> recipient only in some payloads. Decisions (asked user): (a) name it "Notification Log", not "Email Logs"
+> (honest — no recipient/subject); (b) resolve org via read-only lookups, NO migration, NO touching the hot
+> write path in delivery_log.py; NULL-org rows show "System". Built: `apps/admin-api/routes/notification_log.py`
+> (`GET /api/v1/notification-log`, `require_permission("notification_log.view")`, 3 batched flat lookups
+> infringements→cases→organizations — deliberately NOT a 2-hop PostgREST embed, which the critic flagged as
+> unproven here); `notification_log.view` added to permissions.py + permissions.ts + dev preset (admin
+> auto-includes); `apps/admin/pages/NotificationLog.tsx` (Monitoring nav, status/event filters, offset
+> paging, expandable payload). Verified: admin-api imports OK, admin tsc 0, admin build OK.
+> **Goal 2 (BLOCKED on user — no creds in this env):** deploy the already-committed session-41 image/font/
+> JS-split perf work + re-measure PSI. Deploy is manual SSH to Hetzner; PSI needs a key. User will (a) run
+> the deploy manually with `--build`, (b) add `GOOGLE_API_KEY` to `.env` so I can query PSI v5. Deploy cmd:
+> `cd /opt/hakkiu && git reset --hard origin/main && docker compose up -d --build && docker compose restart caddy && docker image prune -f`
+> NEXT: after user deploys + adds the key, run a PSI check on hakkiu.com (mobile) vs baseline 71/FCP 4.2s/LCP 4.7s.
+> Then commit+push session-44 (auto-deploys once live), restart admin-api uvicorn, click-test the page.
+
+> **Session 44b (2026-07-30) — Multi-slot upgrade + stale-server fix.** Two follow-ups after the
+> initial single-slot build: (1) the customer-reported 422 "Field required (tier)" was a STALE main-API
+> process from before session 43 — fixed by restarting uvicorn (CLAUDE.md: always restart after main-API
+> edits). (2) Per user request, the scheduler is now **multi-select**: the visitor picks EVERY time
+> they're free (removable chips), and staff pick the ONE that suits us in the admin Confirm panel (radio
+> list → sets `scheduled_at`). New column `proposed_slots jsonb` (migration `20260730000003`, APPLIED to
+> prod). Emails now list all offered times; the "confirmed" email still sends the single chosen slot.
+> Frontend `DemoSlot`→`DemoAvailability` (`slots: string[]`); POST sends `proposed_slots` (not
+> `scheduled_at`). Admin `DemoScheduling` shows the offered list as pick-one radios. Migrations
+> `20260730000002` + `20260730000003` both APPLIED to prod.
+
+> **Session 44 (2026-07-30) — Demo scheduling (Calendly-style booking) — IN PROGRESS.**
+> Goal: after the Book-a-demo form, insert a "Select a Date & Time" step (like Calendly). Visitor
+> picks a day + 30-min time slot (any time — it is a *request*, no calendar sync, no slot locking),
+> then the SAME animated "Thank you" modal appears. Staff manage it in the Admin Portal: they see the
+> requested slot, and **Confirm** it (entering a video meeting link) which emails the customer.
+> Decisions (confirmed with user): availability = free request; multiple bookings per slot allowed;
+> meeting = video, link pasted by admin at confirm; emails = 2 to customer ("received" on submit +
+> "confirmed" on admin action) + existing staff alert.
+> Data: migration `20260730000002` adds `scheduled_at timestamptz`, `scheduled_timezone text`,
+> `meeting_link text`, `confirmed_at timestamptz` to `sales_leads` (booking state derived:
+> scheduled_at set + confirmed_at null = "requested"; confirmed_at set = "confirmed").
+> Flow: customer FE `book-demo-modal.tsx` gains a `step: "form" | "schedule"` gate; new
+> `demo-scheduler.tsx` (reuses `ui/calendar` = react-day-picker) collects the slot; POST `/api/v1/leads`
+> now carries `scheduled_at` + `scheduled_timezone`. Main API sends a "received" confirmation showing the
+> requested time. New `POST /internal/leads/send-demo-confirmation` sends the "confirmed" email
+> (time + Meet link). Admin: new `leads.confirm` permission (both catalogs), `POST /leads/{id}/confirm`
+> in admin-api (updates row → calls main_api → audit log), Confirm UI in `Leads.tsx` detail row.
+> Files: NEW `src/components/landing/demo-scheduler.tsx`, `supabase/migrations/20260730000002_*`;
+> EDIT `book-demo-modal.tsx`, `lead-modal-shell.tsx`, `apps/api/.../routes/{leads,internal}.py`,
+> `apps/api/.../services/email_templates.py`, `apps/admin-api/.../routes/leads.py`,
+> `apps/admin-api/.../{permissions.py,main_api.py}`, `apps/admin/src/{lib/permissions.ts,pages/Leads.tsx}`.
+
+> **Session 43 (2026-07-30) — Lead-form honesty pass.** Goal: email + admin portal must show ONLY
+> what a visitor actually fills in the Book-a-demo / Talk-to-sales forms — no invented values.
+> 3 subagents traced the full chain (form → `POST /api/v1/leads` → `sales_leads` → staff email + admin).
+> Findings & fixes:
+> - **Fake `tier`** (the reported bug): both modals hardcoded `tier: "professional"` / `"enterprise"`
+>   though HAKKIU has no tiers. It surfaced in the staff email (subject fallback + "Tier" row +
+>   preheader) and the admin Leads table (column, badge, tier filter). Removed end-to-end — origin is
+>   already carried by `source` (`request_demo` / `call_request`). Migration `20260730000001` relaxes the
+>   `tier` NOT NULL + CHECK so inserts can omit it (**pending `supabase db push` — REQUIRED**).
+> - **5 dead qualification fields** (`role`, `regions`, `brand_names`, `marketplaces`,
+>   `current_solution`) from the retired `/request-demo` wizard showed as permanent "—" rows in the admin
+>   detail view. No live form sends them → removed from the admin display + `Lead` interface. Kept as
+>   inert optional backend fields (email already hides them when empty) in case the wizard returns.
+> - Left alone: `interest` folded into `message` on Talk-to-sales (honest — it's the user's real choice);
+>   legacy `pricing_modal` source enum (no form emits it, harmless).
+> Files: `src/components/landing/{book-demo,talk-to-sales}-modal.tsx`,
+> `apps/api/.../routes/leads.py`, `apps/api/.../services/email_templates.py`,
+> `apps/admin-api/.../routes/leads.py`, `apps/admin/src/pages/Leads.tsx`, migration `20260730000001`.
+
+> **Session 42 (2026-07-30) — TODO/roadmap reconciliation audit.** Ran 4 subagents to check the
+> tracking files against the ACTUAL code + git state (not just what the docs claimed). Findings:
+> - Working tree is CLEAN; all recent work is committed+merged to `main` (session 40 status
+>   workflow, session 38 SEO, session 41 `perf/landing-js-split` merged in `565aec2`). The old
+>   "UNCOMMITTED" notes were stale — corrected.
+> - Checked off items already done in code but left unticked: Gemini-Vision `generate_evidence_analysis`
+>   IS wired into the pipeline (`persistence.py:214` → `ai.py`), Google Ads Transparency + Meta Ad
+>   Library scrapers exist (`marketplace.py`), `scripts/backup.sh` exists, phishing groundwork
+>   (`detection_funnel.py` lookalike/typosquat categorization). roadmap.md "Gemini Visual
+>   Verification ❌ Missing" was WRONG → fixed to ✅ Done.
+> - Confirmed genuinely NOT done (correctly still open): Automation Rules Builder, Multi-Model AI
+>   Routing, Seller Network Clustering, Org Multi-Member Self-Serve, admin email-logs page,
+>   onboarding nudge/dunning schedulers, scraper push alerting, blog guides, landing social-proof bar.
+> - **Admin per-copycat DELETE — DONE (re-implemented fresh on `main`).** The customer app could
+>   delete one copycat but admin-api could not (only PATCH). Rather than raw-merge the stale
+>   `feature/admin-per-copycat-delete` branch (82 commits behind, conflicts), I re-applied the tiny
+>   delta fresh on main: `DELETE /infringements/{id}` in `infringements_admin.py` (best-effort
+>   screenshot cleanup + org-resolved `write_audit_log`), new `infringements.delete` destructive
+>   permission in both `permissions.py` + `permissions.ts`, and a `<Can>`-gated trash button per
+>   copycat row in admin `CaseDetail.tsx`. Verified: backend py_compile OK, admin tsc 0, admin build
+>   OK. The stale branch was then deleted (local + remote; commit was `fbebbce`, recoverable via reflog).
+> NEXT: commit + push (auto-deploys to Hetzner); after deploy, restart admin-api uvicorn (no --reload)
+>   and click-test the delete button. Then session-41 work below — deploy + re-run PSI, decide on CSS.
+
+> **Session 41 (2026-07-30) — Mobile perf: safe image optimization.** PSI on hakkiu.com:
+> mobile Perf 71 (FCP 4.2s / LCP 4.7s), desktop 95. Diagnosed via subagents: render-blocking
+> CSS (~27KiB gzip, 190ms), many self-hosted font files in the critical chain, and oversized
+> logos. Did the ZERO-RISK, visually-identical wins only: `public/hakkiu-lockup.png` 1054×300
+> 76KiB → 421×120 26KiB (−65%; it's an alpha mask shown ≤36px, so downscaling is invisible);
+> all 12 `src/images/platforms/*.png` 256×256 → max 96px (−25%, shown ≤40px). No code changes
+> (same filenames/format/imports). Build ✓, no visual change. Did NOT preload the lockup (it's
+> the nav logo, not LCP — preloading would compete with critical CSS/fonts). DEFERRED the big
+> lever — critical-CSS inlining / route CSS-split — because it risks FOUC and could change the
+> look; agreed to measure image wins first. Originals backed up in /tmp/hakkiu-img-backup/.
+> NEXT: deploy, re-run PSI, then decide on the CSS work.
+
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-29 (session 40 — **Per-copycat status workflow FIXED** + **takedown page
+> Last updated: 2026-07-30 (session 42 reconciliation audit — see top block. History below from
+> session 40 — **Per-copycat status workflow FIXED** + **takedown page
 > un-broken**. 1) Prod DB had the original 3-value `infringements_status_check` re-created by a
 > schema sync, so the API silently remapped analyzing/complete/… → reviewed/dismissed while
 > returning the requested status — the /cases list never reflected the user's choice. Fix:

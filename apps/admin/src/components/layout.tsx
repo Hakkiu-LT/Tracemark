@@ -10,6 +10,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
+  Mail,
   Package,
   ScrollText,
   Shield,
@@ -63,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "API Usage", to: "/monitoring/api", icon: Activity, permission: "resources.view" },
       { label: "Scraper Health", to: "/monitoring/scrapers", icon: Activity, permission: "scraper_health.view" },
+      { label: "Notification Log", to: "/monitoring/notifications", icon: Mail, permission: "notification_log.view" },
       { label: "Resources", to: "/monitoring/resources", icon: HardDrive, permission: "resources.view" },
     ],
   },

@@ -557,7 +557,6 @@ def first_detection_html(
 def new_lead_html(
     *,
     source: str | None,
-    tier: str,
     first_name: str | None,
     last_name: str | None,
     email: str,
@@ -572,6 +571,7 @@ def new_lead_html(
     marketplaces: list[str] | None = None,
     current_solution: str | None = None,
     primary_goal: list[str] | None = None,
+    requested_times: list[str] | None = None,
 ) -> str:
     source_labels = {
         "pricing_modal": "Pricing enquiry",
@@ -579,7 +579,6 @@ def new_lead_html(
         "call_request": "Talk to sales",
     }
     source_label = source_labels.get(source or "", source or "Unknown")
-    tier_label = tier.capitalize()
 
     def row(label: str, value: str) -> str:
         return (
@@ -594,7 +593,7 @@ def new_lead_html(
         return f'<a href="{href}" style="color:{_BRAND_COLOR};">{url}</a>'
 
     # Always-present rows.
-    rows = [row("Source", source_label), row("Tier", tier_label)]
+    rows = [row("Source", source_label)]
     if first_name or last_name:
         rows.append(row("Name", f"<strong>{(first_name or '')} {(last_name or '')}</strong>".strip()))
     rows.append(row("Email", f'<a href="mailto:{email}" style="color:{_BRAND_COLOR};">{email}</a>'))
@@ -613,6 +612,10 @@ def new_lead_html(
     maybe("Brands (count)", brand_count_range)
     maybe("Brands (names)", brand_names)
     maybe("Marketplaces", ", ".join(marketplaces) if marketplaces else None)
+    if requested_times:
+        slots_html = "<br>".join(f"<strong>{t}</strong>" for t in requested_times)
+        label = "Availability" if len(requested_times) > 1 else "Requested time"
+        maybe(label, slots_html)
     maybe("Primary goal", ", ".join(primary_goal) if primary_goal else None)
     maybe("Current solution", current_solution)
     maybe("Message", f'<span style="white-space:pre-wrap;">{message}</span>' if message else None)
@@ -630,20 +633,25 @@ def new_lead_html(
 {_divider()}
 {_btn("View in Admin Portal", "https://admin.hakkiu.com/leads")}
 """
-    return _base(content, preheader=f"New {tier_label} lead from {email}")
+    return _base(content, preheader=f"New {source_label} lead from {email}")
 
 
 def lead_confirmation_html(
     *,
     kind: str,               # "demo" | "sales"
     first_name: str | None = None,
+    requested_times: list[str] | None = None,
 ) -> str:
     """Auto-confirmation sent to the person who submitted a lead form.
 
     `kind` selects the copy: "demo" for the Book-a-demo modal, "sales" for the
     Talk-to-sales modal. Staff still get the separate `new_lead_html` alert.
+
+    `requested_times` (demo only) are the pre-formatted slots the visitor offered
+    as their availability; when present the copy lists them and says we'll pick one.
     """
     greeting = f"Hi {first_name}," if first_name else "Hi there,"
+    slots_block = ""
 
     if kind == "sales":
         heading = "Thanks for contacting us"
@@ -656,6 +664,30 @@ def lead_confirmation_html(
             "we should know about your brand."
         )
         preheader = "We've received your message — we'll reply within one business day."
+    elif requested_times:
+        heading = "Thanks for booking a demo"
+        multi = len(requested_times) > 1
+        body = (
+            "We've received the times you're available below. We'll confirm "
+            "<strong>one of them</strong> shortly by email with your video meeting link."
+            if multi else
+            "We've received your requested time below. We'll confirm shortly by "
+            "email with your video meeting link."
+        )
+        items = "".join(
+            f'<li style="margin:0 0 6px;font-size:15px;color:{_DARK};">{t}</li>'
+            for t in requested_times
+        )
+        slots_block = (
+            f'<p style="margin:0 0 6px;font-size:13px;color:{_MUTED};text-transform:uppercase;'
+            f'letter-spacing:0.05em;">{"Your availability" if multi else "Requested time"}</p>'
+            f'<ul style="margin:0 0 16px;padding-left:20px;">{items}</ul>'
+        )
+        what_next = (
+            "We'll tailor the walkthrough to your brand and the marketplaces you "
+            "care about — no preparation needed on your side."
+        )
+        preheader = "Your demo request is in — we'll confirm one of your times shortly."
     else:
         heading = "Thanks for booking a demo"
         body = (
@@ -672,12 +704,64 @@ def lead_confirmation_html(
 <h2 style="margin:0 0 16px;font-size:22px;color:{_DARK};">{heading}</h2>
 <p style="margin:0 0 16px;font-size:15px;color:{_TEXT};">{greeting}</p>
 <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:{_TEXT};">{body}</p>
+{slots_block}
 <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:{_TEXT};">{what_next}</p>
 {_divider()}
 <p style="margin:0;font-size:14px;color:{_MUTED};">— The HAKKIU team</p>
 {_btn("Explore HAKKIU", f"{_APP_URL}")}
 """
     return _base(content, preheader=preheader)
+
+
+def demo_confirmed_html(
+    *,
+    first_name: str | None = None,
+    confirmed_time: str,       # pre-formatted slot, e.g. "Tuesday, 05 August 2026 at 14:00 (Europe/Vilnius)"
+    meeting_link: str | None = None,
+) -> str:
+    """Sent to the customer when staff CONFIRM their requested demo slot.
+
+    `confirmed_time` is already formatted in the customer's timezone. When a
+    `meeting_link` is present it's shown as the primary CTA button.
+    """
+    greeting = f"Hi {first_name}," if first_name else "Hi there,"
+
+    # The slot card — the single most important thing in this email.
+    slot_card = (
+        f'<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;'
+        f'border:1px solid {_BORDER};border-radius:8px;background:{_LIGHT_BG};margin:8px 0 4px;">'
+        f'<tr><td style="padding:16px 20px;">'
+        f'<div style="font-size:12px;color:{_MUTED};text-transform:uppercase;letter-spacing:0.05em;">Your demo</div>'
+        f'<div style="font-size:18px;font-weight:700;color:{_DARK};margin-top:4px;">{confirmed_time}</div>'
+        f'<div style="font-size:13px;color:{_MUTED};margin-top:4px;">30-minute video walkthrough</div>'
+        f'</td></tr></table>'
+    )
+
+    cta = _btn("Join the meeting", meeting_link) if meeting_link else ""
+    link_note = (
+        f'<p style="margin:16px 0 0;font-size:13px;color:{_MUTED};line-height:1.6;">'
+        f'Meeting link: <a href="{meeting_link}" style="color:{_BRAND_COLOR};">{meeting_link}</a></p>'
+        if meeting_link else
+        '<p style="margin:16px 0 0;font-size:13px;color:#64748b;line-height:1.6;">'
+        "We'll send the video meeting link separately before the call.</p>"
+    )
+
+    content = f"""
+<h2 style="margin:0 0 16px;font-size:22px;color:{_DARK};">Your demo is confirmed ✓</h2>
+<p style="margin:0 0 16px;font-size:15px;color:{_TEXT};">{greeting}</p>
+<p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:{_TEXT};">
+  Great news — your HAKKIU demo is booked for the time below.
+</p>
+{slot_card}
+{cta}
+{link_note}
+{_divider()}
+<p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:{_TEXT};">
+  Need to reschedule? Just reply to this email and we'll sort out a new time.
+</p>
+<p style="margin:0;font-size:14px;color:{_MUTED};">— The HAKKIU team</p>
+"""
+    return _base(content, preheader=f"Your HAKKIU demo is confirmed for {confirmed_time}")
 
 
 def test_email_html(*, brand_name: str = "Test Brand") -> str:

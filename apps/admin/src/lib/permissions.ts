@@ -8,6 +8,7 @@ export const PERMISSIONS = {
   "customers.edit": "Edit customer profile / workspace type",
   "customers.delete": "Delete customers (destructive)",
   "customers.impersonate": "Log in as a customer (destructive)",
+  "infringements.delete": "Delete a single copycat infringement (destructive)",
   "brands.view": "View all brands across every org",
   "brands.edit": "Edit any brand",
   "brands.delete": "Delete any brand",
@@ -16,8 +17,10 @@ export const PERMISSIONS = {
   "integrations.manage": "Meta token exchange and integration keys",
   "staff.manage": "Create/edit staff and assign permissions",
   "audit.view": "Read the audit log",
+  "notification_log.view": "View the notification delivery log (email/webhook dispatch attempts)",
   "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
   "leads.edit": "Update lead status (mark contacted, close)",
+  "leads.confirm": "Confirm a requested demo slot and email the customer",
   "leads.delete": "Delete sales leads (destructive)",
 } as const;
 
@@ -28,8 +31,8 @@ export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
-  dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view"],
-  sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit", "leads.delete"],
+  dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view", "notification_log.view"],
+  sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit", "leads.confirm", "leads.delete"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(
     (p) => p !== "customers.delete" && p !== "customers.impersonate",

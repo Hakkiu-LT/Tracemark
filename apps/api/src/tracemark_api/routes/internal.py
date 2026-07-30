@@ -139,7 +139,7 @@ def internal_send_takedown_email(takedown_id: str, _ok: bool = Depends(verify_in
     from tracemark_api.services.delivery_log import log_delivery
 
     try:
-        send_email_notification(
+        body_html = send_email_notification(
             {"type": "test", "message": report.get("notice_text", ""), "brand_name": "Takedown Notice"},
             recipient,
         )
@@ -147,10 +147,10 @@ def internal_send_takedown_email(takedown_id: str, _ok: bool = Depends(verify_in
         sb.table("takedown_reports").update({"status": "sent", "submitted_at": submitted_at}).eq(
             "id", takedown_id
         ).execute()
-        log_delivery(event_type="takedown_submitted", ok=True, payload={"takedown_report_id": takedown_id, "recipient": recipient})
+        log_delivery(event_type="takedown_submitted", ok=True, recipient=recipient, body_html=body_html, payload={"takedown_report_id": takedown_id, "recipient": recipient})
         return {"success": True, "recipient": recipient, "submitted_at": submitted_at}
     except Exception as e:  # noqa: BLE001
-        log_delivery(event_type="takedown_submitted", ok=False, error=str(e), payload={"takedown_report_id": takedown_id})
+        log_delivery(event_type="takedown_submitted", ok=False, error=str(e), recipient=recipient, payload={"takedown_report_id": takedown_id})
         raise HTTPException(status_code=500, detail=f"Failed to send: {e}")
 
 
@@ -215,6 +215,47 @@ def internal_send_password_reset(body: PasswordResetEmail, _ok: bool = Depends(v
     if not ok:
         raise HTTPException(status_code=502, detail="Email provider not configured or send failed")
     return {"success": True}
+
+
+class DemoConfirmationEmail(BaseModel):
+    email: str
+    first_name: str | None = None
+    scheduled_at: str                    # ISO-8601 UTC instant of the confirmed slot
+    scheduled_timezone: str | None = None  # IANA tz to render the slot in for the customer
+    meeting_link: str | None = None
+
+
+@router.post("/leads/send-demo-confirmation")
+def internal_send_demo_confirmation(
+    body: DemoConfirmationEmail, _ok: bool = Depends(verify_internal_secret)
+):
+    """Send the customer their CONFIRMED demo slot (+ video link) via Resend.
+
+    Called by admin-api after a staff member confirms a requested slot. The slot
+    is formatted in the customer's timezone here so the copy is consistent with
+    the "request received" email the same person already got.
+    """
+    from tracemark_api.routes.leads import format_slot
+    from tracemark_api.services.email import send_email
+    from tracemark_api.services.email_templates import demo_confirmed_html
+
+    confirmed_time = format_slot(body.scheduled_at, body.scheduled_timezone)
+    if not confirmed_time:
+        raise HTTPException(status_code=400, detail="Invalid scheduled_at")
+
+    html = demo_confirmed_html(
+        first_name=body.first_name,
+        confirmed_time=confirmed_time,
+        meeting_link=body.meeting_link or None,
+    )
+    ok = send_email(
+        to=body.email,
+        subject="Your HAKKIU demo is confirmed",
+        html=html,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail="Email provider not configured or send failed")
+    return {"success": True, "confirmed_time": confirmed_time}
 
 
 # ── Resource + usage metrics (read-only passthrough of in-process state) ───────

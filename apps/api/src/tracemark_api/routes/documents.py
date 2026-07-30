@@ -79,8 +79,8 @@ def send_document_email_endpoint(
             "platform": platform,
             "infringing_url": infringing_url,
         }
+        # dispatch_notifications records its own notification_deliveries row.
         dispatch_notifications(event)
-        log_delivery("takedown_generated", ok=True, infringement_id=infringement_id, payload=event)
 
         # Update document record
         sent_at = datetime.now(timezone.utc).isoformat()
