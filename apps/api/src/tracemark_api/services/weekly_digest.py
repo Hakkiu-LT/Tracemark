@@ -166,7 +166,18 @@ def send_weekly_digests() -> None:
                 if new_count > 0
                 else f"Your brand report: {week_label} — all clear ✓"
             )
-            send_email(to=org["email"], subject=subject, html=html)
+            ok = send_email(to=org["email"], subject=subject, html=html)
+            try:
+                from tracemark_api.services.delivery_log import log_delivery
+                log_delivery(
+                    "weekly_digest",
+                    ok=ok,
+                    organization_id=org["org_id"],
+                    recipient=org["email"],
+                    subject=subject,
+                )
+            except Exception as log_exc:
+                print(f"[WeeklyDigest] Failed to log delivery for org {org['org_id']}: {log_exc}")
         except Exception as exc:
             print(f"[WeeklyDigest] Failed for org {org['org_id']}: {exc}")
 

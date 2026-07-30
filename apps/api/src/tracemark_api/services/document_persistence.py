@@ -106,8 +106,8 @@ def persist_document(
             "platform": platform,
             "infringing_url": infringing_url,
         }
+        # dispatch_notifications records its own notification_deliveries row.
         dispatch_notifications(event)
-        log_delivery("takedown_generated", ok=True, infringement_id=infringement_id, payload=event)
     except Exception as e:
         try:
             from tracemark_api.services.delivery_log import log_delivery

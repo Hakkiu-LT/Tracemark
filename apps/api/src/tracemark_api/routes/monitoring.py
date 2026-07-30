@@ -504,6 +504,7 @@ def send_takedown_email_endpoint(
         log_delivery(
             event_type="takedown_submitted",
             ok=True,
+            recipient=recipient,
             payload={"takedown_report_id": id, "recipient": recipient},
         )
 
@@ -527,6 +528,7 @@ def send_takedown_email_endpoint(
                 event_type="takedown_submitted",
                 ok=False,
                 error=str(e),
+                recipient=recipient,
                 payload={"takedown_report_id": id, "recipient": recipient},
             )
         except Exception:

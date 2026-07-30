@@ -33,6 +33,7 @@ interface Delivery {
   organization_id: string | null;
   organization_name: string | null;
   recipient: string | null;
+  subject: string | null;
   payload: Record<string, unknown> | null;
 }
 
@@ -43,6 +44,8 @@ const EVENT_TYPES = [
   "takedown_submitted",
   "case_escalated",
   "case_dismissed",
+  "weekly_digest",
+  "welcome",
 ];
 
 const EVENT_LABELS: Record<string, string> = {
@@ -51,6 +54,8 @@ const EVENT_LABELS: Record<string, string> = {
   takedown_submitted: "Takedown submitted",
   case_escalated: "Case escalated",
   case_dismissed: "Case dismissed",
+  weekly_digest: "Weekly digest",
+  welcome: "Welcome",
 };
 
 const PAGE_SIZE = 50;
@@ -188,13 +193,14 @@ export function NotificationLog() {
                     <TableHead>Event</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Recipient</TableHead>
+                    <TableHead>Subject</TableHead>
                     <TableHead>Error</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                         No notifications found.
                       </TableCell>
                     </TableRow>
@@ -230,6 +236,9 @@ export function NotificationLog() {
                             <TableCell className="text-xs text-muted-foreground">
                               {row.recipient ?? "—"}
                             </TableCell>
+                            <TableCell className="max-w-[18rem] truncate text-xs" title={row.subject ?? undefined}>
+                              {row.subject ?? <span className="text-muted-foreground">—</span>}
+                            </TableCell>
                             <TableCell className="max-w-[16rem] truncate text-xs text-destructive">
                               {row.error_message ?? ""}
                             </TableCell>
@@ -237,7 +246,7 @@ export function NotificationLog() {
                           {isOpen && (
                             <TableRow className="bg-muted/30 hover:bg-muted/30">
                               <TableCell></TableCell>
-                              <TableCell colSpan={6} className="py-4">
+                              <TableCell colSpan={7} className="py-4">
                                 <DeliveryDetails row={row} />
                               </TableCell>
                             </TableRow>

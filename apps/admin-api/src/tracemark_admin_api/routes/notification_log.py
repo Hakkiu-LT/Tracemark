@@ -53,15 +53,18 @@ def list_notification_log(
         raise HTTPException(status_code=502, detail=f"Failed to read notification log: {e}")
     rows = result.data or []
 
-    # 2) Resolve org for the page in three flat batched lookups (no PostgREST embed).
+    # 2) Resolve org for the page. New rows carry organization_id directly; older
+    #    (pre-migration) rows only reach org via infringement/payload -> case -> org,
+    #    so we run the flat lookups ONLY for rows still missing a direct org.
     #    Org is best-effort metadata — if any lookup fails we degrade to null rather
-    #    than 500 the whole log. `payload` is JSONB: usually a dict, but guard for a
-    #    stray string/list so one odd row can't take the endpoint down.
+    #    than 500 the whole log. `payload` is JSONB: guard for a stray string/list.
     inf_to_case: dict[str, str | None] = {}
     case_to_org: dict[str, str | None] = {}
     org_to_name: dict[str, str | None] = {}
     try:
-        inf_ids = [r["infringement_id"] for r in rows if r.get("infringement_id")]
+        legacy_rows = [r for r in rows if not r.get("organization_id")]
+
+        inf_ids = [r["infringement_id"] for r in legacy_rows if r.get("infringement_id")]
         if inf_ids:
             inf_res = (
                 sb.table("infringements").select("id,case_id").in_("id", list(set(inf_ids))).execute()
@@ -69,7 +72,7 @@ def list_notification_log(
             inf_to_case = {i["id"]: i.get("case_id") for i in (inf_res.data or [])}
 
         case_ids: set[str] = {c for c in inf_to_case.values() if c}
-        for r in rows:
+        for r in legacy_rows:
             payload_case = _payload_dict(r.get("payload")).get("case_id")
             if payload_case:
                 case_ids.add(payload_case)
@@ -80,7 +83,9 @@ def list_notification_log(
             )
             case_to_org = {c["id"]: c.get("organization_id") for c in (case_res.data or [])}
 
-        org_ids = {o for o in case_to_org.values() if o}
+        # Names for every org referenced this page (direct column + resolved legacy).
+        org_ids = {r["organization_id"] for r in rows if r.get("organization_id")}
+        org_ids |= {o for o in case_to_org.values() if o}
         if org_ids:
             org_res = sb.table("organizations").select("id,name").in_("id", list(org_ids)).execute()
             org_to_name = {o["id"]: o.get("name") for o in (org_res.data or [])}
@@ -88,12 +93,12 @@ def list_notification_log(
         # Org enrichment is non-critical — fall back to unresolved org for the whole page.
         inf_to_case, case_to_org, org_to_name = {}, {}, {}
 
-    # 3) Flatten each row with its best-effort org + recipient (from payload when present).
+    # 3) Flatten each row, preferring the stored columns over derived values.
     deliveries = []
     for r in rows:
         payload = _payload_dict(r.get("payload"))
         case_id = inf_to_case.get(r.get("infringement_id")) or payload.get("case_id")
-        org_id = case_to_org.get(case_id) if case_id else None
+        org_id = r.get("organization_id") or (case_to_org.get(case_id) if case_id else None)
         deliveries.append(
             {
                 "id": r["id"],
@@ -106,7 +111,8 @@ def list_notification_log(
                 "case_id": case_id,
                 "organization_id": org_id,
                 "organization_name": org_to_name.get(org_id) if org_id else None,
-                "recipient": payload.get("recipient"),
+                "recipient": r.get("recipient") or payload.get("recipient"),
+                "subject": r.get("subject"),
                 "payload": payload,
             }
         )
