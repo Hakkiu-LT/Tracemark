@@ -143,6 +143,12 @@
 ---
 
 ## ✅ Recently completed (one-liners — full detail in git log + `docs/.roadmap/todo-archive.md`)
+- **Session 44 (part 3)** — Store + render the actual email body. Migration `20260730000005` adds
+  `body_html TEXT` (nullable, applied to prod). Every send now captures its rendered HTML
+  (`send_email_notification` returns it; `dispatch_notifications._sent` + welcome + digest + takedown
+  persist it); admin expandable row renders it in a sandboxed iframe (`sandbox=""`) as the primary view,
+  JSON payload demoted to a collapsible toggle. Historical/skipped rows show a placeholder. Deployed
+  `ac2bc8c`. Verified py/tsc/build.
 - **Session 44 (part 2)** — Enriched the Notification Log into a FULL email log. Migration
   `20260730000004` adds `organization_id`/`recipient`/`subject` (nullable) + backfill + index + RLS org
   branch — **applied to prod via `supabase db push`** (also committed the demo-scheduling `...002/...003`

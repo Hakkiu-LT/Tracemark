@@ -1,5 +1,14 @@
 # HAKKIU — Active Plan
 
+> **Session 44 part 3 (2026-07-30) — Show the actual email body.** User wanted to see the real email,
+> not the JSON. Migration `20260730000005` adds `body_html TEXT` (applied to prod). Capture point:
+> `send_email_notification()` now returns its rendered html; `dispatch_notifications._sent` + welcome +
+> weekly_digest + takedown_submitted persist it via `log_delivery(body_html=...)`. Admin expandable row
+> renders it in a `<iframe sandbox="" srcDoc={html}>` (no scripts / isolated styles) as the primary view;
+> JSON payload demoted to a collapsible toggle; placeholder for skipped/historical rows. Deployed
+> `ac2bc8c`. Verified py/tsc/build. NEXT: after deploy, generate a real email (add a brand → welcome, or
+> a HIGH-risk detection) to see a fully-rendered row. Then Goal 2 landing PSI (needs GOOGLE_API_KEY).
+
 > **Session 44 part 2 (2026-07-30) — Notification Log → FULL email log.** User asked to enrich the
 > new log so it shows recipient + subject + org per email. Flow: 2 Explore agents mapped the send path +
 > all 12 `log_delivery` call sites; a Plan critic caught the key error (customer alerts send via DIRECT
