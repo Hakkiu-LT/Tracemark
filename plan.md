@@ -1,5 +1,29 @@
 # HAKKIU — Active Plan
 
+> **Session 42 (2026-07-30) — TODO/roadmap reconciliation audit.** Ran 4 subagents to check the
+> tracking files against the ACTUAL code + git state (not just what the docs claimed). Findings:
+> - Working tree is CLEAN; all recent work is committed+merged to `main` (session 40 status
+>   workflow, session 38 SEO, session 41 `perf/landing-js-split` merged in `565aec2`). The old
+>   "UNCOMMITTED" notes were stale — corrected.
+> - Checked off items already done in code but left unticked: Gemini-Vision `generate_evidence_analysis`
+>   IS wired into the pipeline (`persistence.py:214` → `ai.py`), Google Ads Transparency + Meta Ad
+>   Library scrapers exist (`marketplace.py`), `scripts/backup.sh` exists, phishing groundwork
+>   (`detection_funnel.py` lookalike/typosquat categorization). roadmap.md "Gemini Visual
+>   Verification ❌ Missing" was WRONG → fixed to ✅ Done.
+> - Confirmed genuinely NOT done (correctly still open): Automation Rules Builder, Multi-Model AI
+>   Routing, Seller Network Clustering, Org Multi-Member Self-Serve, admin email-logs page,
+>   onboarding nudge/dunning schedulers, scraper push alerting, blog guides, landing social-proof bar.
+> - **Admin per-copycat DELETE — DONE (re-implemented fresh on `main`).** The customer app could
+>   delete one copycat but admin-api could not (only PATCH). Rather than raw-merge the stale
+>   `feature/admin-per-copycat-delete` branch (82 commits behind, conflicts), I re-applied the tiny
+>   delta fresh on main: `DELETE /infringements/{id}` in `infringements_admin.py` (best-effort
+>   screenshot cleanup + org-resolved `write_audit_log`), new `infringements.delete` destructive
+>   permission in both `permissions.py` + `permissions.ts`, and a `<Can>`-gated trash button per
+>   copycat row in admin `CaseDetail.tsx`. Verified: backend py_compile OK, admin tsc 0, admin build
+>   OK. The stale branch was then deleted (local + remote; commit was `fbebbce`, recoverable via reflog).
+> NEXT: commit + push (auto-deploys to Hetzner); after deploy, restart admin-api uvicorn (no --reload)
+>   and click-test the delete button. Then session-41 work below — deploy + re-run PSI, decide on CSS.
+
 > **Session 41 (2026-07-30) — Mobile perf: safe image optimization.** PSI on hakkiu.com:
 > mobile Perf 71 (FCP 4.2s / LCP 4.7s), desktop 95. Diagnosed via subagents: render-blocking
 > CSS (~27KiB gzip, 190ms), many self-hosted font files in the critical chain, and oversized
@@ -14,7 +38,8 @@
 
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
-> Last updated: 2026-07-29 (session 40 — **Per-copycat status workflow FIXED** + **takedown page
+> Last updated: 2026-07-30 (session 42 reconciliation audit — see top block. History below from
+> session 40 — **Per-copycat status workflow FIXED** + **takedown page
 > un-broken**. 1) Prod DB had the original 3-value `infringements_status_check` re-created by a
 > schema sync, so the API silently remapped analyzing/complete/… → reviewed/dismissed while
 > returning the requested status — the /cases list never reflected the user's choice. Fix:

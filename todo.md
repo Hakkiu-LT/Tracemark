@@ -1,12 +1,45 @@
 # HAKKIU — TODO
 
 > Tick items as they are completed. Add new items as they are discovered.
-> Last updated: 2026-07-29 (session 40 — Per-copycat status workflow FIXED + Jira-like inline
-> control. Root cause: a schema sync had silently re-created the original 3-value
-> `infringements_status_check`, so the API remapped analyzing/complete/… → reviewed/dismissed and
-> LIED in the PATCH response — the list never reflected the user's choice. New migration
-> 20260729000001 pushed to prod; API now validates + returns DB truth; /cases rows have an inline
-> status dropdown; admin INFR_STATUS aligned. UNCOMMITTED.)
+> Last updated: 2026-07-30 (session 42 — TODO reconciliation audit via 4 subagents. Reconciled the
+> checklist against the ACTUAL code + git state. Working tree is CLEAN and all recent work is
+> committed+merged to main: session 40 per-copycat status workflow (`CaseStatus.tsx` + migration
+> `20260729000001` are committed), session 38 SEO batches, and session 41 perf branch
+> `perf/landing-js-split` (merged in `565aec2`). Checked off items that were already done in code
+> but left unticked — see the inline "(Verified session 42 audit)" notes. Then re-implemented the
+> **admin per-copycat DELETE** fresh on `main` (see the new section below) and DELETED the stale
+> `feature/admin-per-copycat-delete` branch (local + remote) since its delta is now on main.)
+>
+> Previous (session 40) — Per-copycat status workflow FIXED + Jira-like inline control. Root cause:
+> a schema sync had silently re-created the original 3-value `infringements_status_check`, so the
+> API remapped analyzing/complete/… → reviewed/dismissed and LIED in the PATCH response. Migration
+> 20260729000001 pushed to prod; API validates + returns DB truth; /cases rows have an inline status
+> dropdown; admin INFR_STATUS aligned. (Now committed — see session 42 note above.)
+
+---
+
+## 🗑️ Admin per-copycat DELETE parity (2026-07-30, session 42) — ✅ DONE
+
+> The customer app could delete one copycat (`deleteInfringementFromSupabase`, `cases.tsx`) but the
+> Admin Portal could only PATCH — a real parity gap (CLAUDE.md mandatory rule). Re-implemented fresh
+> on `main` (the old `feature/admin-per-copycat-delete` branch was 82 commits behind w/ conflicts →
+> deleted local+remote instead of merged). Investigated with 2 subagents → planned → implemented.
+- [x] Backend `apps/admin-api/.../routes/infringements_admin.py`: new `DELETE /infringements/{id}` —
+  looks up the row (404 if missing), resolves the parent case's `organization_id` for the audit
+  trail, best-effort screenshot removal from the `evidence-screenshots` bucket (`_delete_screenshot`,
+  never raises), hard-deletes the one infringement row (evidence/documents cascade in DB), then
+  `write_audit_log("infringements.delete", …)`. Gated by `require_permission("infringements.delete")`.
+- [x] Permission `infringements.delete` added to BOTH `apps/admin-api/.../permissions.py` and
+  `apps/admin/src/lib/permissions.ts` (kept in sync). Auto-included in the `admin` preset (via
+  ALL_PERMISSIONS) + super-admin; NOT in dev/sales/marketing presets.
+- [x] Frontend `apps/admin/src/pages/CaseDetail.tsx`: `<Can permission="infringements.delete">`-gated
+  trash button on each copycat row → `useConfirm` destructive dialog ("Delete this copycat? … other
+  copycats are kept") → `adminFetch(DELETE)` → toast + `invalidate(["case", caseId])`. Mirrors the
+  existing "Delete case" idiom.
+- [x] Verified: backend `py_compile` OK; admin `tsc --noEmit` 0; admin `vite build` OK (chunk-size
+  warning is pre-existing, unrelated).
+- [ ] USER: after deploy, restart admin-api uvicorn (no --reload) + click-test the delete button on a
+  case with multiple copycats (confirm only the one row + its screenshot go, case + siblings stay).
 
 ---
 
@@ -71,10 +104,9 @@
   - **HONEST RESULT: score UNCHANGED.** The −55 KiB helps download but the lab bottleneck is
     render/main-thread (TBT was only 30-70ms; FCP is render-blocking-CSS + font/LCP bound), not
     this chunk. On real slow-4G the download saving may shave a little, but no dramatic jump.
-- [ ] DECISION: merge branch to main? It's SAFE + identical + a genuine −55 KiB + cleaner
-  architecture (public site no longer ships the Supabase client), but does NOT move the lab
-  score. The real score levers remain: (a) render-blocking 27 KiB CSS (FCP), (b) reduce total
-  app JS hydrated on landing (bigger split), (c) LCP hero text/font.
+- [x] DECISION: **MERGED to main** (commit `565aec2` "Merge perf/landing-js-split"). Verified in
+  git log (session 42 audit). The real score levers remain: (a) render-blocking 27 KiB CSS (FCP),
+  (b) reduce total app JS hydrated on landing (bigger split), (c) LCP hero text/font.
 - [ ] DEFERRED (risky, needs care to avoid FOUC / look change): critical-CSS inlining or
   route-based CSS code-split to cut the ~27 KiB render-blocking stylesheet (190ms). Decide
   after measuring the image wins.
@@ -855,8 +887,10 @@ commit `5679df9` deployed clean, all 4 domains 200. No more manual SSH deploys n
 - [x] **Supabase Auth URLs** — Site URL `https://hakkiu.com`; Redirect URLs `https://hakkiu.com/**`,
   `https://admin.hakkiu.com/**`; enable Confirm email.
 - [ ] Functional test: sign in on customer app → run a scan (API + Supabase + scraping E2E).
-- [ ] Backups: `apt install postgresql-client`, set `DATABASE_URL` in .env, cron
-  `15 3 * * * /opt/hakkiu/scripts/backup.sh`.
+- [~] Backups: the script `scripts/backup.sh` EXISTS in the repo (nightly pg_dump → local +
+  optional off-site Hetzner Storage Box, 14-day retention). (Verified session 42 audit.) **USER
+  ACTION remaining (server-side only):** `apt install postgresql-client`, set `DATABASE_URL` in
+  .env, add cron `15 3 * * * /opt/hakkiu/scripts/backup.sh`.
 - [ ] Optional: set `GOOGLE_SERP_API` / `SEARCHCANS_API` in .env (blank → those scraper sources inactive).
 ---
 
@@ -870,6 +904,10 @@ commit `5679df9` deployed clean, all 4 domains 200. No more manual SSH deploys n
 ---
 
 ## 🟡 PRIORITY 7 — Phishing Site Detection + Domain Takedown Pipeline
+> Session 42 audit: PARTIAL groundwork already exists — `apps/api/.../services/detection_funnel.py`
+> already categorizes results as `lookalike_domain` / `typosquatting`, and there's a "domain has
+> mail servers configured — potential phishing" note in `email_templates.py`. The items below are
+> the remaining, dedicated phishing pipeline (registrar automation + phishing case type).
 - [ ] Extend WHOIS domain surveillance with newly-registered lookalike domain detection
 - [ ] Add MX record detection for phishing-capable domains
 - [ ] Automated ICANN/registrar abuse report submission
@@ -901,9 +939,12 @@ commit `5679df9` deployed clean, all 4 domains 200. No more manual SSH deploys n
 - [ ] Admin portal parity: rogue app cases view + management
 
 ### Paid Ad Abuse Monitoring
-- [ ] Extend Google Ads Transparency scraper for unauthorized brand ads
-- [ ] Extend Meta Ad Library scraper for unauthorized brand ads
-- [ ] Surface paid ad abuse cases in customer dashboard
+- [x] Google Ads Transparency scraper EXISTS — `apps/api/.../services/marketplace.py` (~L1775-1793,
+  SerpApi Google Ads search). (Verified session 42 audit.)
+- [x] Meta Ad Library scraper EXISTS — `apps/api/.../services/marketplace.py` (~L1361-1410, Meta
+  Graph API). (Verified session 42 audit.)
+- [ ] Surface paid ad abuse cases in customer dashboard (ads currently land in `evidence.ads[]`,
+  NOT as a separate "paid ad abuse" case type — still open).
 - [ ] Admin portal parity: paid ad cases view + management
 
 ---
@@ -938,8 +979,10 @@ commit `5679df9` deployed clean, all 4 domains 200. No more manual SSH deploys n
 ## PRIORITY 14 — Advanced Logo & Image Similarity
 - [ ] `embedder.py` — CLIP embeddings replacing pHash for robust visual matching; evaluate
   DeepSeek-VL / Qwen-VL vs OpenAI/Gemini for price-performance
-- [ ] `gemini_check.py` — wire `generate_evidence_analysis` into Tier 2 pipeline for Gemini
-  Vision adjudication (1 call per copycat screenshot, after Tier 0/1 filters)
+- [x] `generate_evidence_analysis` Gemini-Vision adjudication is wired into the Tier 2 pipeline —
+  lives in `apps/api/.../services/ai.py` (~L465-580), called during evidence persistence in
+  `services/persistence.py`. (Verified session 42 audit — done, though it's in `ai.py`, not a
+  separate `gemini_check.py`.)
 - [ ] CV-based logo cropping — Gemini-based or OpenCV/YOLO logo region extraction before embedding
 
 ---

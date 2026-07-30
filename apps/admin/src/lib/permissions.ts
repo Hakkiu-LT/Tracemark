@@ -8,6 +8,7 @@ export const PERMISSIONS = {
   "customers.edit": "Edit customer profile / workspace type",
   "customers.delete": "Delete customers (destructive)",
   "customers.impersonate": "Log in as a customer (destructive)",
+  "infringements.delete": "Delete a single copycat infringement (destructive)",
   "brands.view": "View all brands across every org",
   "brands.edit": "Edit any brand",
   "brands.delete": "Delete any brand",
