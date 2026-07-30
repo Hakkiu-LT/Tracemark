@@ -60,6 +60,9 @@ export const COMPANY = {
 
   // Effective / last-updated date shown on every policy. Bump when you revise.
   effectiveDate: "28 July 2026",
+  // Same date in ISO 8601 for structured data (schema.org dateModified must be
+  // ISO, not the human-readable string above). Keep the two in sync.
+  effectiveDateISO: "2026-07-28",
 } as const;
 
 // Copyright line helper (year is computed at render time).
@@ -75,7 +78,9 @@ export function copyrightLine(): string {
 // initials avatar to a real photo (LinkedIn images can't be hotlinked — their
 // CDN URLs expire and hotlinking breaks LinkedIn's terms).
 export const TEAM: { name: string; linkedin: string; photo?: string }[] = [
-  { name: "Martynas Paškevičius", linkedin: "https://www.linkedin.com/in/martynas-paškevičius-70568b25a", photo: "/team/martynas.jpeg" },
+  // LinkedIn slug percent-encoded (š → %C5%A1, č → %C4%8D). Resolves identically
+  // to the raw non-ASCII URL but is canonical/valid in JSON-LD and og tags.
+  { name: "Martynas Paškevičius", linkedin: "https://www.linkedin.com/in/martynas-pa%C5%A1kevi%C4%8Dius-70568b25a", photo: "/team/martynas.jpeg" },
   { name: "Gabriel Sequera", linkedin: "https://www.linkedin.com/in/gabriel-sequera-ba4bb8161", photo: "/team/gabriel.jpeg" },
   { name: "Modestas Akelis", linkedin: "https://www.linkedin.com/in/modestas-akelis-profile", photo: "/team/modestas.jpeg" },
   { name: "Mantas Samulionis", linkedin: "https://www.linkedin.com/in/mantas-samulionis", photo: "/team/mantas.jpeg" },

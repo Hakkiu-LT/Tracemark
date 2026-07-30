@@ -17,6 +17,9 @@
 - [ ] Lawyer review of all 10 legal pages before relying on them (templates, not advice).
 
 ### Production / ops
+- [x] **Demo-scheduling migration applied to prod (session 44):** `20260730000002_sales_leads_scheduling.sql`
+  pushed via `supabase db push` — `sales_leads` now has `scheduled_at`, `scheduled_timezone`,
+  `meeting_link`, `confirmed_at` (additive, nullable). Book-a-demo scheduler + admin Confirm now live.
 - [x] **Lead-form migration applied to prod (session 43):** `20260730000001_sales_leads_drop_tier.sql`
   pushed via `supabase db push` — `tier` is now nullable (NOT NULL + CHECK dropped) so demo/call leads
   insert without the removed `tier` field.
@@ -35,6 +38,19 @@
   backlink measurement.) Feeds a real `aggregateRating` later.
 - [ ] BLOCKED on real facts: named + attributed testimonial (client + quote + metric); `/about` role
   titles + 1-line bios.
+
+### SEO deep-scan fixes — session 45 (2026-07-30) — DONE (safe subset)
+Full audit in `hakkiu.com-audit/` (score 64/100). Scope honored: **no competitor comparisons, no
+pricing page, no third-party testimonials** (per user). All verified (tsc clean, build ✓, routes 200):
+- [x] `/solutions` index page (was 404) — real 2-card hub, added to `PUBLIC_PATHS`, CollectionPage + Breadcrumb schema.
+- [x] `/about` + `/contact` — unique `og:description` + `twitter:description` (were inheriting root default).
+- [x] Organization schema: `contactType` `sales`→`customer support`; percent-encoded Martynas LinkedIn URL (š/č); added a `Service` node (no price — fits demo-led sales).
+- [x] 8 `/legal/*` pages — `WebPage` + `BreadcrumbList` + `dateModified` via shared `LegalLayout` (zero route churn).
+- [x] Marketplace icons externalized (`vite.config.ts` `assetsInlineLimit` fn) — 12 logos now external files, no repeated base64 in SSR HTML.
+- [x] `dns-prefetch` for GTM + GA (fonts are self-hosted → no `fonts.gstatic` hint needed).
+- **Deferred (risky, need visual QA — user chose skip):** critical-CSS split for mobile LCP; GPU-compositing the `rainbow`/`sheen`/`pulse-red-alert` animations + lazy-loading heavy Motion components (dot-field/radar/scroll-velocity) for desktop INP.
+- **Corrected stale audit claims:** schema IS server-rendered; fonts already self-hosted w/ `font-display:swap`; Hanken Grotesk is public-only (not a dashboard font); dead FAQPage kept deliberately for AI/Bing.
+- [ ] BLOCKED on H4: fill real legal entity in `company.ts` → unblocks Imprint + Organization `legalName`/`address` (same as Company/legal item above).
 
 ---
 
@@ -141,6 +157,15 @@
 ---
 
 ## ✅ Recently completed (one-liners — full detail in git log + `docs/.roadmap/todo-archive.md`)
+- **Session 44** — Demo scheduling (Calendly-style). Book-a-demo form now has a 2nd step:
+  `demo-scheduler.tsx` (reuses `ui/calendar`) lets the visitor pick a weekday + 30-min slot (a
+  *request* — no calendar sync, no locking); POST `/leads` carries `scheduled_at` +
+  `scheduled_timezone`; same animated success modal follows. Customer gets a "request received"
+  email showing their slot; staff get the alert with the requested time. Admin `Leads.tsx` shows a
+  Requested/Confirmed badge + a Confirm panel (paste Meet link → `POST /leads/{id}/confirm` →
+  `main_api.send_demo_confirmation` → `/internal/leads/send-demo-confirmation` emails the customer
+  the confirmed time + link; audit-logged). New perm `leads.confirm` (both catalogs). Migration
+  `20260730000002` (4 nullable cols) — **pending `supabase db push` (blocked by auto-mode)**.
 - **Session 43** — Lead-form honesty pass (3 subagents audited demo/call forms → email → admin).
   Removed the fake `tier` end-to-end (both forms hardcoded professional/enterprise though HAKKIU has no
   tiers): dropped from form payloads, `LeadRequest`, staff email (subject/row/preheader), admin table

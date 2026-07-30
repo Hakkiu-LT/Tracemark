@@ -38,6 +38,17 @@ export const Route = createFileRoute("/about")({
       },
       { property: "og:title", content: "About HAKKIU" },
       {
+        property: "og:description",
+        content:
+          "HAKKIU is an EU-based brand-protection platform that helps brand owners and law firms detect infringements and automate takedowns across marketplaces and the open web.",
+      },
+      { name: "twitter:title", content: "About HAKKIU" },
+      {
+        name: "twitter:description",
+        content:
+          "HAKKIU is an EU-based brand-protection platform that helps brand owners and law firms detect infringements and automate takedowns across marketplaces and the open web.",
+      },
+      {
         "script:ld+json": {
           "@context": "https://schema.org",
           "@type": "AboutPage",

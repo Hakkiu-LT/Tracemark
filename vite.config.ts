@@ -12,4 +12,16 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
+  vite: {
+    build: {
+      // Keep the marketplace/platform logos (Amazon, eBay, …) as external files
+      // instead of base64 data-URIs. The Coverage marquee repeats each logo chip
+      // several times, so an inlined logo would embed the full base64 blob on
+      // every duplicate in the SSR HTML. As external assets the browser fetches
+      // and caches one small file and the HTML holds only a short URL.
+      // Everything else falls back to Vite's default 4KB inline threshold.
+      assetsInlineLimit: (filePath: string) =>
+        filePath.includes("/images/platforms/") ? false : undefined,
+    },
+  },
 });

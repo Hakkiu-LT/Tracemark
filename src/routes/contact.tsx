@@ -25,6 +25,17 @@ export const Route = createFileRoute("/contact")({
       },
       { property: "og:title", content: "Contact HAKKIU" },
       {
+        property: "og:description",
+        content:
+          "Get in touch with HAKKIU — book a demo, ask about the platform, or reach our privacy, security and legal teams.",
+      },
+      { name: "twitter:title", content: "Contact HAKKIU" },
+      {
+        name: "twitter:description",
+        content:
+          "Get in touch with HAKKIU — book a demo, ask about the platform, or reach our privacy, security and legal teams.",
+      },
+      {
         "script:ld+json": {
           "@context": "https://schema.org",
           "@type": "ContactPage",

@@ -19,6 +19,7 @@ import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CasesRouteImport } from './routes/cases'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SolutionsIndexRouteImport } from './routes/solutions.index'
 import { Route as SolutionsLawFirmsRouteImport } from './routes/solutions.law-firms'
 import { Route as SolutionsBrandOwnersRouteImport } from './routes/solutions.brand-owners'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
@@ -91,6 +92,11 @@ const AboutRoute = AboutRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolutionsIndexRoute = SolutionsIndexRouteImport.update({
+  id: '/solutions/',
+  path: '/solutions/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SolutionsLawFirmsRoute = SolutionsLawFirmsRouteImport.update({
@@ -242,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof SettingsProfileRoute
   '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
   '/solutions/law-firms': typeof SolutionsLawFirmsRoute
+  '/solutions/': typeof SolutionsIndexRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -277,6 +284,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof SettingsProfileRoute
   '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
   '/solutions/law-firms': typeof SolutionsLawFirmsRoute
+  '/solutions': typeof SolutionsIndexRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -313,6 +321,7 @@ export interface FileRoutesById {
   '/settings/profile': typeof SettingsProfileRoute
   '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
   '/solutions/law-firms': typeof SolutionsLawFirmsRoute
+  '/solutions/': typeof SolutionsIndexRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
   '/monitoring/$caseId/takedown': typeof MonitoringCaseIdTakedownRoute
 }
@@ -350,6 +359,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/solutions/brand-owners'
     | '/solutions/law-firms'
+    | '/solutions/'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   fileRoutesByTo: FileRoutesByTo
@@ -385,6 +395,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/solutions/brand-owners'
     | '/solutions/law-firms'
+    | '/solutions'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   id:
@@ -420,6 +431,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/solutions/brand-owners'
     | '/solutions/law-firms'
+    | '/solutions/'
     | '/cases/$caseId/takedown'
     | '/monitoring/$caseId/takedown'
   fileRoutesById: FileRoutesById
@@ -450,6 +462,7 @@ export interface RootRouteChildren {
   LegalTermsRoute: typeof LegalTermsRoute
   SolutionsBrandOwnersRoute: typeof SolutionsBrandOwnersRoute
   SolutionsLawFirmsRoute: typeof SolutionsLawFirmsRoute
+  SolutionsIndexRoute: typeof SolutionsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -522,6 +535,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solutions/': {
+      id: '/solutions/'
+      path: '/solutions'
+      fullPath: '/solutions/'
+      preLoaderRoute: typeof SolutionsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/solutions/law-firms': {
@@ -777,6 +797,7 @@ const rootRouteChildren: RootRouteChildren = {
   LegalTermsRoute: LegalTermsRoute,
   SolutionsBrandOwnersRoute: SolutionsBrandOwnersRoute,
   SolutionsLawFirmsRoute: SolutionsLawFirmsRoute,
+  SolutionsIndexRoute: SolutionsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

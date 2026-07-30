@@ -1,0 +1,173 @@
+{
+  "summary": {
+    "health_score": 64,
+    "business_type": "B2B SaaS — Trademark Monitoring / Brand Protection",
+    "audited_url": "https://hakkiu.com",
+    "audit_date": "2026-07-30",
+    "pages_in_sitemap": 14,
+    "field_data_available": false,
+    "scope_constraints": [
+      "No competitor-comparison / alternatives / vs content (legal risk)",
+      "No pricing page (sales are demo/meeting-led)",
+      "No third-party testimonials yet (pre-customers)"
+    ],
+    "top_findings": [
+      "Mobile LCP 4.4s (threshold 2.5s) — render-blocking 165KiB CSS + 291KiB fonts, no critical-CSS split.",
+      "/solutions parent returns 404 — crawl dead-end on a linked hub.",
+      "Dead FAQPage schema on 3 pages (retired 2026-05-07) + homepage schema split across 4 scripts instead of one @graph.",
+      "Thin content (~350 words/page) with no educational resource hub — main non-branded organic gap.",
+      "Generic OG descriptions on /about + /contact; incomplete legal identity (company.ts placeholders)."
+    ],
+    "quick_wins": [
+      "Fix /solutions 404 (index page or 301).",
+      "Unique OG descriptions/titles on /about + /contact.",
+      "Remove dead FAQPage JSON-LD; consolidate homepage schema into one @graph.",
+      "Externalize 28 base64 icons; logo -> WebP; icons -> SVG (~40KiB + smaller HTML).",
+      "Organization schema: add legalName/address, encode LinkedIn URL, fix contactType."
+    ],
+    "data_accuracy_note": "seo-geo reported 'no server-rendered schema'. INCORRECT — direct render (render_page.py, is_spa=false, mode=raw) confirmed 4 valid JSON-LD blocks in the server HTML. Schema IS present and server-rendered; recommendations are 'improve', not 'add'."
+  },
+  "categories": [
+    {
+      "name": "Technical SEO",
+      "score": 74,
+      "what_works": [
+        "HTTPS + HSTS preload, correct www->apex 301, no long redirect chains",
+        "Server-side rendered (not an SPA shell) — confirmed is_spa=false",
+        "robots.txt correctly gates the app and explicitly welcomes AI crawlers",
+        "Valid sitemap declared; self-referencing canonicals on all pages",
+        "Comprehensive security headers (CSP, X-Frame-Options DENY, nosniff, Permissions-Policy)"
+      ],
+      "findings": [
+        {"title": "Generic OG description on /contact and /about", "severity": "High", "description": "Both pages inherit the homepage OG description verbatim; link previews show irrelevant copy.", "recommendation": "Set unique og:description + title per route in meta config."},
+        {"title": "84KiB of base64-inlined marketplace logos in HTML", "severity": "High", "description": "28 data-URI PNG icons inflate HTML to ~260KiB before parse; Shopify logo is already externalized correctly.", "recommendation": "Externalize all 28 icons to /assets (or inline SVG) following the Shopify pattern."},
+        {"title": "/solutions parent returns 404", "severity": "Medium", "description": "Two child pages with a 404 parent is a crawl dead-end.", "recommendation": "Add /solutions index page or 301 to a child."},
+        {"title": "No preconnect for external origins", "severity": "Medium", "description": "Google Fonts + GTM origins have no preconnect hints, adding a round-trip per origin.", "recommendation": "Add <link rel=preconnect> for fonts.gstatic.com and GTM."},
+        {"title": "/contact title only 16 chars; /about meta desc 167 chars", "severity": "Medium", "description": "Contact title lacks keyword signal; About description will truncate in SERPs.", "recommendation": "Contact: 'Book a Demo — HAKKIU Trademark Monitoring'. About: trim to <=155 chars."},
+        {"title": "No IndexNow", "severity": "Low", "description": "Cheapest way to push URL updates to Bing/Yandex on deploy.", "recommendation": "Add IndexNow key + ping on deploy."}
+      ]
+    },
+    {
+      "name": "Content Quality & E-E-A-T",
+      "score": 58,
+      "what_works": [
+        "5-person named team with real LinkedIn profiles + headshots on /about",
+        "Technical specificity (perceptual hashing, SHA-256 timestamps, UDRP, edit-distance) signals real expertise",
+        "Clearly differentiated product story ('autonomous', 'court-ready evidence')",
+        "Interactive brand-exposure calculator adds unique use-case content"
+      ],
+      "findings": [
+        {"title": "Very thin word count on every page", "severity": "High", "description": "~350 words vs the depth needed to rank/be cited.", "recommendation": "Launch an educational resource hub (how-to guides, evidence checklists) — informational only, no competitor comparisons."},
+        {"title": "Authority rests only on the team page", "severity": "High", "description": "No press, no owned research/data content, no author bylines on content.", "recommendation": "Publish own-expertise educational content with named author bylines + dates; build a neutral Crunchbase profile. (Customer proof: add your own case studies later, once you have consenting clients.)"},
+        {"title": "Incomplete legal identity", "severity": "Medium", "description": "company.ts entity facts are placeholders; imprint lacks legalName/address/VAT — Trustworthiness gap.", "recommendation": "Fill real legal entity details on /legal/imprint."}
+      ]
+    },
+    {
+      "name": "On-Page SEO",
+      "score": 65,
+      "what_works": [
+        "Strong, differentiated homepage title and H1",
+        "Named 12+ platforms create concrete entity anchors",
+        "Clean semantic heading structure with question-format H3s"
+      ],
+      "findings": [
+        {"title": "Head keywords are informational/roundup-intent, not product-intent", "severity": "Medium", "description": "Generic head terms are hard for a product homepage to win.", "recommendation": "Target long-tail informational queries with the educational hub; let the homepage own branded + high-intent product queries."},
+        {"title": "Thin internal linking; no content hub to link from", "severity": "Medium", "description": "Only marketing pages exist; no editorial linking surface.", "recommendation": "Add the resource hub + an internal link matrix once content exists."}
+      ]
+    },
+    {
+      "name": "Schema / Structured Data",
+      "score": 61,
+      "what_works": [
+        "All blocks are valid JSON-LD, server-rendered (4 blocks on homepage)",
+        "Organization has @id, logo w/ dimensions, sameAs, employees, ContactPoint",
+        "BreadcrumbList present on all four content pages"
+      ],
+      "findings": [
+        {"title": "FAQPage schema is dead markup", "severity": "Critical", "description": "Google retired FAQ rich results for all sites 2026-05-07; present on 3 pages.", "recommendation": "Remove FAQPage JSON-LD (keep the visible FAQ content)."},
+        {"title": "Homepage schema split across 4 scripts, not one @graph", "severity": "Medium", "description": "Cross-references (isPartOf #website) cannot resolve across separate documents.", "recommendation": "Consolidate into a single @graph."},
+        {"title": "SoftwareApplication conveys little without an offering node", "severity": "Medium", "description": "No pricing is disclosed (demo-led), so an Offer with price is not appropriate.", "recommendation": "Add a Service node (serviceType, provider, areaServed, audience) — describes the offering without any price data."},
+        {"title": "Organization missing legalName/address; contactType 'sales' unsupported; LinkedIn URL not percent-encoded", "severity": "Medium", "description": "Knowledge-panel + EU imprint quality gaps.", "recommendation": "Add legalName+address, use contactType 'customer support', encode non-ASCII in URLs."},
+        {"title": "8 /legal/* pages have no WebPage/BreadcrumbList", "severity": "Low", "description": "Missing breadcrumb + freshness signals.", "recommendation": "Add WebPage + BreadcrumbList to legal pages."}
+      ]
+    },
+    {
+      "name": "Performance (Core Web Vitals)",
+      "score": 72,
+      "what_works": [
+        "CLS = 0 (zero layout shift) on mobile and desktop",
+        "Desktop LCP 0.9s (fast)"
+      ],
+      "findings": [
+        {"title": "Mobile LCP 4.4s (Poor)", "severity": "Critical", "description": "Render-blocking 165KiB CSS (~1,350ms block) + 291KiB fonts across 9 requests + 650KiB uncompressed main JS.", "recommendation": "Inline critical CSS + async-load rest; preload only above-fold fonts; code-split JS."},
+        {"title": "Desktop TBT 780ms / non-composited animations", "severity": "High", "description": "landing-nav JS runs 8,993ms; 11 CSS animations run on main thread; forced reflow flagged.", "recommendation": "Use will-change:transform/GPU-composited animations; lazy-load landing-nav JS."},
+        {"title": "131KiB unused JavaScript", "severity": "High", "description": "index bundle 51% unused, landing-nav 72% unused.", "recommendation": "Code-split and tree-shake; defer non-critical chunks."},
+        {"title": "Dashboard-only fonts load on public pages", "severity": "Medium", "description": "Hanken Grotesk + JetBrains Mono ship on the marketing homepage (~90KiB, 4 requests).", "recommendation": "Scope those fonts to the app bundle only."}
+      ]
+    },
+    {
+      "name": "AI Search Readiness (GEO)",
+      "score": 52,
+      "what_works": [
+        "robots.txt explicitly allows GPTBot, ClaudeBot, OAI-SearchBot, PerplexityBot, Google-Extended",
+        "llms.txt present (rare for a 2026 brand) — names platforms, personas, offering",
+        "Question-format FAQ H3s match AI query patterns; answers open with a direct statement",
+        "Schema IS server-rendered (contrary to the GEO specialist's note — verified via raw render)"
+      ],
+      "findings": [
+        {"title": "FAQ answers too short for AI citation", "severity": "High", "description": "Answers are 39-62 words; optimal AI-citation range is ~134-167 words.", "recommendation": "Expand each answer with one concrete example + one process detail + one outcome, keeping the direct answer first."},
+        {"title": "Thin off-site presence", "severity": "High", "description": "No neutral company profile, no press, no author bylines.", "recommendation": "Build a Crunchbase profile, add author bylines, pursue trade-press mentions — all rules-safe (no comparison/reviews)."},
+        {"title": "No long-form content to be cited", "severity": "Medium", "description": "The site is built to convert, not to be cited.", "recommendation": "Publish SSR educational answer pages (600-1,000 words) with named author, date, cited sources."}
+      ]
+    },
+    {
+      "name": "Images",
+      "score": 60,
+      "what_works": [
+        "No layout shift from images (CLS 0)",
+        "Shopify logo already externalized as an asset"
+      ],
+      "findings": [
+        {"title": "Logo + icons not in modern formats", "severity": "Medium", "description": "hakkiu-lockup.png 26.5KiB (18KiB wasted); 20x20 icons served as full-res PNGs.", "recommendation": "Convert logo to WebP/AVIF; replace platform icons with inline SVG (~40KiB total savings)."},
+        {"title": "No fetchpriority / font unicode-range subsetting", "severity": "Low", "description": "LCP image (if any) not prioritized; fonts serve full unicode range.", "recommendation": "Add fetchpriority=high to LCP image; add unicode-range Latin subsets."}
+      ]
+    }
+  ],
+  "action_plan": {
+    "phases": [
+      {"name": "Phase 1: Critical Fixes", "timeframe": "Week 1", "items": [
+        "Fix mobile LCP: inline critical CSS, async-load remainder, scope dashboard fonts out of marketing pages",
+        "Fix /solutions parent 404 (index or 301)",
+        "Remove dead FAQPage schema; consolidate homepage schema into one @graph",
+        "Add unique OG descriptions/titles to /about and /contact"
+      ]},
+      {"name": "Phase 2: High-Impact Improvements", "timeframe": "Weeks 2-3", "items": [
+        "Externalize 28 base64 icons; convert logo to WebP; icons to SVG",
+        "Code-split landing-nav JS + fix non-composited animations (desktop INP)",
+        "Organization schema fixes + add Service node (no price)",
+        "Fill real legal entity details (imprint: legalName, address, VAT)",
+        "Add WebPage + BreadcrumbList to legal pages; add preconnect for fonts + GTM"
+      ]},
+      {"name": "Phase 3: Content & Authority", "timeframe": "Month 2", "items": [
+        "Launch educational resource hub (takedown guides, UDRP evidence, perceptual hashing) — informational only, no competitor comparisons",
+        "Expand FAQ answers to ~140 words each for AI citability",
+        "Add author bylines + dates; build a neutral Crunchbase profile"
+      ]},
+      {"name": "Phase 4: Monitoring & Iteration", "timeframe": "Ongoing", "items": [
+        "Connect Google Search Console + GA4 (enables field CWV, indexation, traffic data)",
+        "Add IndexNow ping on deploy",
+        "Build-stamp sitemap lastmod; strip changefreq/priority",
+        "Re-run this audit monthly; track CrUX field data once traffic qualifies"
+      ]}
+    ]
+  },
+  "excluded_per_direction": [
+    "Competitor comparison / alternatives / vs pages (legal risk)",
+    "Pricing page (demo/meeting-led sales)",
+    "Third-party testimonials / G2 / Capterra review listings (pre-customers)"
+  ],
+  "artifacts": {
+    "findings_dir": "findings/",
+    "screenshots_dir": "screenshots/"
+  }
+}

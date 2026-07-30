@@ -31,6 +31,7 @@ const PUBLIC_PATHS = new Set([
   "/request-demo",
   "/about",
   "/contact",
+  "/solutions",
   "/solutions/law-firms",
   "/solutions/brand-owners",
   "/legal/privacy",
@@ -142,7 +143,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               email: COMPANY.email.general,
               contactPoint: {
                 "@type": "ContactPoint",
-                contactType: "sales",
+                contactType: "customer support",
                 email: COMPANY.email.general,
                 url: `${COMPANY.baseUrl}/contact`,
                 areaServed: "Worldwide",
@@ -164,6 +165,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               name: COMPANY.brand,
               publisher: { "@id": `${COMPANY.baseUrl}/#organization` },
             },
+            // Service node describes WHAT we offer (the enforcement service)
+            // without any price — the right shape for demo-led sales (a
+            // SoftwareApplication rich result would need an Offer with a price
+            // we deliberately don't publish). Gives Google a clean entity for
+            // the offering itself.
+            {
+              "@type": "Service",
+              "@id": `${COMPANY.baseUrl}/#service`,
+              name: "HAKKIU Brand Protection",
+              serviceType: "Trademark monitoring & brand protection",
+              provider: { "@id": `${COMPANY.baseUrl}/#organization` },
+              areaServed: "Worldwide",
+              audience: {
+                "@type": "Audience",
+                audienceType: "Brand owners and IP law firms",
+              },
+              description:
+                "Autonomous detection of counterfeit listings, court-ready evidence preservation, and automated takedowns across marketplaces, social channels and domains.",
+            },
           ],
         },
       },
@@ -172,6 +192,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", sizes: "any" },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
       { rel: "apple-touch-icon", href: "/favicon.png" },
+      // Warm up DNS for the analytics origins (loaded only after cookie
+      // consent). dns-prefetch (not preconnect) keeps it cheap — no wasted
+      // socket for visitors who decline. Fonts are self-hosted, so there is no
+      // fonts.gstatic.com hint to add.
+      { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
+      { rel: "dns-prefetch", href: "https://www.google-analytics.com" },
       { rel: "stylesheet", href: appCss },
       // Fonts are now self-hosted (@font-face in styles.css, files in
       // public/fonts/). Preload ONLY the two above-the-fold faces — hero H1

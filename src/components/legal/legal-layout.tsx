@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { ArrowUp, Clock } from "lucide-react";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { Footer } from "@/components/landing/footer";
@@ -61,6 +61,36 @@ export function LegalLayout({
   const [toc, setToc] = useState<TocItem[]>([]);
   const [activeId, setActiveId] = useState<string>("");
 
+  // Per-page structured data for every /legal/* page: a WebPage node (with a
+  // freshness signal) + a Home → <page> BreadcrumbList. Rendered here (once,
+  // from the shared layout) using the live pathname, so all 8 legal routes get
+  // it without touching each file. JSON-LD is valid in <body>; Google reads it
+  // anywhere. SSR-safe — useRouterState resolves the path during server render.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const legalUrl = `${COMPANY.baseUrl}${pathname}`;
+  const legalLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `${legalUrl}#webpage`,
+        url: legalUrl,
+        name: `${title} — ${COMPANY.brand}`,
+        description: subtitle ?? title,
+        isPartOf: { "@id": `${COMPANY.baseUrl}/#website` },
+        publisher: { "@id": `${COMPANY.baseUrl}/#organization` },
+        dateModified: COMPANY.effectiveDateISO,
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: `${COMPANY.baseUrl}/` },
+          { "@type": "ListItem", position: 2, name: title, item: legalUrl },
+        ],
+      },
+    ],
+  };
+
   // Build the table of contents from the rendered <h2> headings (assigning a
   // slug id to each) and keep the active section in sync while scrolling.
   useEffect(() => {
@@ -93,6 +123,10 @@ export function LegalLayout({
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-body-alt text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(legalLd) }}
+      />
       {/* Minimal top bar */}
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
