@@ -7,8 +7,15 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { supabase, fetchProfile, type Profile } from "./supabase";
+import type { Profile } from "./supabase";
 import { useStore } from "./store";
+
+// The Supabase client (@supabase/*, ~60 KiB gzip) is imported DYNAMICALLY, not
+// statically, so it is code-split into its own async chunk instead of riding in
+// the initial/root bundle that EVERY page (incl. the public landing) downloads
+// and hydrates. AuthProvider still runs its session check on mount exactly as
+// before — the import just resolves right after hydration, off the render path.
+// The dynamic import() is module-cached, so repeated calls reuse one download.
 
 interface AuthState {
   session: Session | null;
@@ -28,21 +35,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
+    import("./supabase").then(({ supabase }) => {
+      if (cancelled) return;
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+
+      supabase.auth.getSession().then(({ data }) => {
+        if (cancelled) return;
+        setSession(data.session);
+        setLoading(false);
+      });
+
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+        setSession(next);
+      });
+      unsubscribe = () => sub.subscription.unsubscribe();
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
-    });
-
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   // Keep the profile row in sync with the signed-in user.
@@ -53,25 +71,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     let cancelled = false;
-    fetchProfile(userId).then(async (p) => {
-      if (!cancelled) {
-        setProfile(p);
+    import("./supabase").then(async ({ supabase, fetchProfile }) => {
+      const p = await fetchProfile(userId);
+      if (cancelled) return;
+      setProfile(p);
 
-        // Load persona from org_settings if available
-        if (p && supabase) {
-          const orgId = p.organization_id || userId;
-          try {
-            const { data, error } = await supabase
-              .from("org_settings")
-              .select("persona")
-              .eq("organization_id", orgId)
-              .maybeSingle();
-            if (!cancelled && !error && data?.persona) {
-              useStore.getState().setPersona(data.persona as any);
-            }
-          } catch (err) {
-            console.warn("Failed to load persona from Supabase:", err);
+      // Load persona from org_settings if available
+      if (p && supabase) {
+        const orgId = p.organization_id || userId;
+        try {
+          const { data, error } = await supabase
+            .from("org_settings")
+            .select("persona")
+            .eq("organization_id", orgId)
+            .maybeSingle();
+          if (!cancelled && !error && data?.persona) {
+            useStore.getState().setPersona(data.persona as any);
           }
+        } catch (err) {
+          console.warn("Failed to load persona from Supabase:", err);
         }
       }
     });
@@ -81,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session?.user.id]);
 
   async function signOut() {
+    const { supabase } = await import("./supabase");
     await supabase?.auth.signOut();
     setSession(null);
     setProfile(null);
@@ -89,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function refreshProfile() {
     const userId = session?.user.id;
     if (userId) {
+      const { fetchProfile } = await import("./supabase");
       const p = await fetchProfile(userId);
       setProfile(p);
     }

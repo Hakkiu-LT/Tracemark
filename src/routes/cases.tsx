@@ -23,7 +23,6 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { getInfringements, type InfringementFeedItem } from "@/lib/api";
-import { deleteInfringementFromSupabase } from "@/lib/supabase";
 
 import { CaseStatusBadge, CaseStatusSelect, normalizeStatusKey } from "@/components/cases/CaseStatus";
 import { RiskBadge } from "@/components/risk-badge";
@@ -187,6 +186,7 @@ function CasesList() {
 
   const handleDeleteCase = async (infringementId: string) => {
     try {
+      const { deleteInfringementFromSupabase } = await import("@/lib/supabase");
       const ok = await deleteInfringementFromSupabase(infringementId);
       if (!ok) throw new Error("Could not complete delete operation.");
       setAll((prev) => prev.filter((c) => c.id !== infringementId));
