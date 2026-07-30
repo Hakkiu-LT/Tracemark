@@ -94,6 +94,52 @@ def _match_type(item: MarketplaceEvidence | AdEvidence | DomainEvidence | Social
     return "both"
 
 
+# Statuses that "close" a per-copycat record. Once an infringement reaches one
+# of these, a future scan may re-detect the same URL. Everything else —
+# including `safe`/`dismissed` — blocks re-detection until the user changes the
+# status (e.g. back to Complete via Re-analyze). So a page the user judged Safe
+# is never re-added for that org+brand until they explicitly move it.
+_TERMINAL_STATUSES = ("complete", "completed", "resolved", "declined")
+
+
+def _find_open_infringement(sb, source_url: str, organization_id, brand_name) -> str | None:
+    """Return the id of an existing non-terminal infringement for the same
+    source_url under the same org+brand, else None (best-effort — never raises)."""
+    try:
+        # All infringements for this URL across the DB are a small set (one row
+        # per scan that found it); load them, then resolve parent cases' org &
+        # brand in one shot — avoids an unbounded IN-list on case_id.
+        res = (
+            sb.table("infringements")
+            .select("id,case_id,status")
+            .eq("source_url", source_url)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            return None
+        case_ids = list({r["case_id"] for r in rows if r.get("case_id")})
+        if not case_ids:
+            return None
+        cases_res = (
+            sb.table("cases")
+            .select("id,organization_id,brand_name")
+            .in_("id", case_ids)
+            .execute()
+        )
+        wanted = {
+            c["id"]
+            for c in (cases_res.data or [])
+            if c.get("organization_id") == organization_id and c.get("brand_name") == brand_name
+        }
+        for r in rows:
+            if r.get("case_id") in wanted and r.get("status") not in _TERMINAL_STATUSES:
+                return r["id"]
+    except Exception as e:
+        print(f"[warn] _find_open_infringement failed for {source_url}: {e}")
+    return None
+
+
 def persist_infringement(
     case_id: str,
     item: MarketplaceEvidence | AdEvidence | DomainEvidence | SocialEvidence,
@@ -121,12 +167,27 @@ def persist_infringement(
 
     sb = get_supabase()
     client_id = None
+    organization_id = None
+    brand_name = None
     try:
-        case_res = sb.table("cases").select("client_id").eq("id", case_id).maybe_single().execute()
+        case_res = sb.table("cases").select("client_id, organization_id, brand_name").eq("id", case_id).maybe_single().execute()
         if case_res.data:
             client_id = case_res.data.get("client_id")
+            organization_id = case_res.data.get("organization_id")
+            brand_name = case_res.data.get("brand_name")
     except Exception as e:
-        print(f"[warn] Failed to fetch client_id for case {case_id}: {e}")
+        print(f"[warn] Failed to fetch case context for {case_id}: {e}")
+
+    # ── Cross-case dedup ───────────────────────────────────────────────────
+    # Don't re-add a copycat URL that already has an OPEN infringement for the
+    # same org+brand — until that earlier case is closed (status Complete or
+    # Rejected). Safe/dismissed counts as "open forever" here, so a page the
+    # user judged non-infringing is never re-detected for that brand (until
+    # the user changes the status, e.g. back to Complete via Re-analyze).
+    if organization_id and brand_name and source_url:
+        prior_id = _find_open_infringement(sb, source_url, organization_id, brand_name)
+        if prior_id:
+            return prior_id
 
     result = (
         sb.table("infringements")

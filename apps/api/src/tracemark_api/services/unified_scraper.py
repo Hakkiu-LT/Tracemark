@@ -33,6 +33,7 @@ from tracemark_api.services.api_usage_tracker import (
     ApiLimitError,
 )
 from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
+from tracemark_api.services.scrape_cache import get_cached, put_cached
 
 # ---------------------------------------------------------------------------
 # Shared browser-like request headers
@@ -334,6 +335,7 @@ class UnifiedScrapeResult:
     success: bool = True
     error_message: str | None = None
     scraper_used: str = SCRAPE_STATIC   # "static" or "js"
+    from_cache: bool = False            # True when served from the cross-scan URL cache
 
 
 class UnifiedScraper:
@@ -372,6 +374,22 @@ class UnifiedScraper:
         Raises:
             ApiLimitError: If the relevant API's daily/monthly limit is exhausted.
         """
+        # ── Cross-scan URL cache: skip re-fetching pages we already scraped
+        # within the TTL. The detection funnel still runs on the cached
+        # content, so changing brand reference assets re-evaluate correctly.
+        # Covers EVERY scrape — every per-platform scraper calls this method.
+        cached = get_cached(url)
+        if cached:
+            return UnifiedScrapeResult(
+                url=url,
+                title=cached.get("title"),
+                markdown=cached.get("markdown") or "",
+                html=None,
+                success=True,
+                scraper_used=cached.get("scraper_used") or SCRAPE_STATIC,
+                from_cache=True,
+            )
+
         site_type = DomainRegistry.classify(url)
 
         if site_type == SCRAPE_JS:
@@ -458,6 +476,7 @@ class UnifiedScraper:
                 )
 
             markdown, title = _html_to_markdown(resp.text, url)
+            put_cached(url, markdown, title, SCRAPE_STATIC)
             return UnifiedScrapeResult(
                 url=url,
                 title=title,
@@ -539,6 +558,7 @@ class UnifiedScraper:
                 scraper_used=SCRAPE_JS,
             )
 
+        put_cached(url, fc_result.markdown, fc_result.title, SCRAPE_JS)
         return UnifiedScrapeResult(
             url=url,
             title=fc_result.title,

@@ -72,6 +72,44 @@
 
 ---
 
+## ♻ Cross-scan scrape cache + copycat dedup (2026-07-30, session 41) — ✅ DONE (uncommitted)
+
+> User ask: keep a local cache so we don't re-scrape the same URLs across scans and waste
+> resources; re-scans shouldn't re-add copycats that already have an open case until that case is
+> marked Complete/Rejected; a case marked Safe should never be scraped/detected again for that brand.
+> ⚠️ **Prod migration drift found:** `supabase migration list` shows remote-only
+> `20260730000002..000005` (teammate migrations not in this checkout) + a collision on
+> `20260730000001`, so `supabase db push` is BLOCKED. Workaround applied: the scrape_cache table
+> was created directly via `supabase db query --linked`; the migration file is
+> `20260730000006_scrape_cache.sql` (idempotent — `CREATE TABLE IF NOT EXISTS` + `DROP POLICY IF
+> EXISTS`) so a future `db push` once drift is reconciled will apply cleanly. Action still needed
+> (owner): reconcile the missing `2026073*` migrations (`supabase db pull` or get the files from
+> whoever pushed them) before the next squash.
+- [x] `services/scrape_cache.py`: in-mem LRU (512) → `scrape_cache` table → live; 24h TTL via
+  `SCRAPE_CACHE_TTL_HOURS`; stores markdown+title+scraper (not raw HTML — keeps rows small); URL
+  normalizer (lowercase host, drop `www `, default port, fragment, sort query) so equivalent pages
+  share one cache key even across token rotation.
+- [x] `unified_scraper.py`: `get_cached` at the top of `scrape()` (the single chokepoint every
+  per-platform scraper uses — Amazon/Ebay/Alibaba/Etsy/AliExpress/Shopify/Facebook/TikTok/
+  Instagram/Google Shopping/Meta Ads/Google SERP all call it); `put_cached` at the success return
+  of `_scrape_static` and `_scrape_js`; added `from_cache: bool` to `UnifiedScrapeResult`. The
+  existing 24h in-mem `_js_cache` kept as a hot negative-cache layer.
+- [x] `persistence.py`: `_find_open_infringement` checks across ALL the org+brand's cases for an
+  existing infringement at the same `source_url` whose status is NOT in
+  `(complete, completed, resolved, declined)`. If found → return the existing infringement id and
+  skip the upsert + skip the "new infringement" notification. Safe/dismissed are not terminal →
+  block forever (until the user changes status, e.g. via Re-analyze → Complete). Verified on prod
+  against the live `analyzing` row `005b5eb0…`.
+- [x] Verified: `py_compile` on all three modules; prod DB round-trip (cache write/read) +
+  skip-query sanity check (returns the open infringement). Admin parity not needed: scrape_cache
+  is infra (RLS deny-all, service-role only); the skip reuses the existing `infringements.status`
+  column already editable/audited in admin from session 40.
+- [ ] USER: restart the main API (`apps/api` uvicorn — no `--reload`) so logger/cache module loads;
+  then re-scan a brand whose previous scan already producedetypes — confirm duplicates aren't
+  re-added and a re-scan of a Safe URL never re-creates it.
+
+---
+
 ## Brand + domain sweep: Tracemark → HAKKIU / hakkiu.com (2026-07-29, session 39)
 
 > Scope confirmed with Martynas: change USER-FACING brand text + domains only. Internal Python

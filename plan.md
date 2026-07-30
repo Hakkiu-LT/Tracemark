@@ -16,7 +16,19 @@
 > dashboard "Active infringements" to count every copycat not closed (safe/complete/rejected),
 > live-feed status filter aligned to the canonical workflow. tsc 0 / build 0 / DB verified.
 > **Uncommitted.** NEXT: restart main API, click-test, commit+push+deploy. Session-38 SEO
-> batches remain uncommitted too.)
+> batches remain uncommitted too.) Session 41 (2026-07-30) — built the **cross-scan scrape cache + detection dedup:**
+> new `scrape_cache` table + `services/scrape_cache.py` (in-mem LRU → DB → live fetch, 24h TTL via
+> `SCRAPE_CACHE_TTL_HOURS`, URL normalization so token rotation/param order don't split the cache);
+> wired into `UnifiedScraper.scrape()` so EVERY per-platform scraper hits it; added `from_cache` flag
+> on `UnifiedScrapeResult` + `put_cached` at the static & JS success paths (replaces the ephemeral
+> `_js_cache`). `persistence.py`: `_find_open_infringement` skips re-adding a copycat URL that already
+> has an OPEN infringement for the same org+brand until that case → Complete/Rejected; safe/dismissed
+> block forever (matches the user's "safe = never scrape again" ask). Verified against prod:
+> cache write/read round-trip + skip-query finds the live `analyzing` infringement `005b5eb0…`.
+> ⚠️ Prod migration drift: remote has untracked `20260730000002..000005` (someone else's) and a
+> collision on `20260730000001`; `db push` is blocked, so `scrape_cache` was created via `db query`
+> and the file is renamed to idempotent `20260730000006_scrape_cache.sql` for when drift is
+> reconciled. **Restart the main API** to load it; all uncommitted.
 
 ## 🔎 SEO — where we are (session 36 snapshot for post-compaction)
 - **Done & live in prod:** Sprint 1 (schema foundation, canonicals, keyword title, self-hosted OG, removed fabricated stats), Sprint 2 (FAQ + FAQPage schema, question-format H3s, expanded copy, FAQ nav link, llms.txt v1.1), M1 (/about "The team" 5 members + real photos in `public/team/*.jpeg` + LinkedIn + foundingDate 2026 + Organization `employee` schema). AI Overview already cites HAKKIU.
