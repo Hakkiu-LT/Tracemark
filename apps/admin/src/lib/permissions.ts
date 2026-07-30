@@ -20,6 +20,7 @@ export const PERMISSIONS = {
   "notification_log.view": "View the notification delivery log (email/webhook dispatch attempts)",
   "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
   "leads.edit": "Update lead status (mark contacted, close)",
+  "leads.confirm": "Confirm a requested demo slot and email the customer",
   "leads.delete": "Delete sales leads (destructive)",
 } as const;
 
@@ -31,7 +32,7 @@ export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
   dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view", "notification_log.view"],
-  sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit", "leads.delete"],
+  sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit", "leads.confirm", "leads.delete"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(
     (p) => p !== "customers.delete" && p !== "customers.impersonate",

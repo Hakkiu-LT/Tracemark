@@ -217,6 +217,47 @@ def internal_send_password_reset(body: PasswordResetEmail, _ok: bool = Depends(v
     return {"success": True}
 
 
+class DemoConfirmationEmail(BaseModel):
+    email: str
+    first_name: str | None = None
+    scheduled_at: str                    # ISO-8601 UTC instant of the confirmed slot
+    scheduled_timezone: str | None = None  # IANA tz to render the slot in for the customer
+    meeting_link: str | None = None
+
+
+@router.post("/leads/send-demo-confirmation")
+def internal_send_demo_confirmation(
+    body: DemoConfirmationEmail, _ok: bool = Depends(verify_internal_secret)
+):
+    """Send the customer their CONFIRMED demo slot (+ video link) via Resend.
+
+    Called by admin-api after a staff member confirms a requested slot. The slot
+    is formatted in the customer's timezone here so the copy is consistent with
+    the "request received" email the same person already got.
+    """
+    from tracemark_api.routes.leads import format_slot
+    from tracemark_api.services.email import send_email
+    from tracemark_api.services.email_templates import demo_confirmed_html
+
+    confirmed_time = format_slot(body.scheduled_at, body.scheduled_timezone)
+    if not confirmed_time:
+        raise HTTPException(status_code=400, detail="Invalid scheduled_at")
+
+    html = demo_confirmed_html(
+        first_name=body.first_name,
+        confirmed_time=confirmed_time,
+        meeting_link=body.meeting_link or None,
+    )
+    ok = send_email(
+        to=body.email,
+        subject="Your HAKKIU demo is confirmed",
+        html=html,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail="Email provider not configured or send failed")
+    return {"success": True, "confirmed_time": confirmed_time}
+
+
 # ── Resource + usage metrics (read-only passthrough of in-process state) ───────
 @router.get("/resources/metrics")
 def internal_resource_metrics(_ok: bool = Depends(verify_internal_secret)):

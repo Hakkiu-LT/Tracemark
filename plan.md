@@ -60,6 +60,39 @@
 > NEXT: after user deploys + adds the key, run a PSI check on hakkiu.com (mobile) vs baseline 71/FCP 4.2s/LCP 4.7s.
 > Then commit+push session-44 (auto-deploys once live), restart admin-api uvicorn, click-test the page.
 
+> **Session 44b (2026-07-30) — Multi-slot upgrade + stale-server fix.** Two follow-ups after the
+> initial single-slot build: (1) the customer-reported 422 "Field required (tier)" was a STALE main-API
+> process from before session 43 — fixed by restarting uvicorn (CLAUDE.md: always restart after main-API
+> edits). (2) Per user request, the scheduler is now **multi-select**: the visitor picks EVERY time
+> they're free (removable chips), and staff pick the ONE that suits us in the admin Confirm panel (radio
+> list → sets `scheduled_at`). New column `proposed_slots jsonb` (migration `20260730000003`, APPLIED to
+> prod). Emails now list all offered times; the "confirmed" email still sends the single chosen slot.
+> Frontend `DemoSlot`→`DemoAvailability` (`slots: string[]`); POST sends `proposed_slots` (not
+> `scheduled_at`). Admin `DemoScheduling` shows the offered list as pick-one radios. Migrations
+> `20260730000002` + `20260730000003` both APPLIED to prod.
+
+> **Session 44 (2026-07-30) — Demo scheduling (Calendly-style booking) — IN PROGRESS.**
+> Goal: after the Book-a-demo form, insert a "Select a Date & Time" step (like Calendly). Visitor
+> picks a day + 30-min time slot (any time — it is a *request*, no calendar sync, no slot locking),
+> then the SAME animated "Thank you" modal appears. Staff manage it in the Admin Portal: they see the
+> requested slot, and **Confirm** it (entering a video meeting link) which emails the customer.
+> Decisions (confirmed with user): availability = free request; multiple bookings per slot allowed;
+> meeting = video, link pasted by admin at confirm; emails = 2 to customer ("received" on submit +
+> "confirmed" on admin action) + existing staff alert.
+> Data: migration `20260730000002` adds `scheduled_at timestamptz`, `scheduled_timezone text`,
+> `meeting_link text`, `confirmed_at timestamptz` to `sales_leads` (booking state derived:
+> scheduled_at set + confirmed_at null = "requested"; confirmed_at set = "confirmed").
+> Flow: customer FE `book-demo-modal.tsx` gains a `step: "form" | "schedule"` gate; new
+> `demo-scheduler.tsx` (reuses `ui/calendar` = react-day-picker) collects the slot; POST `/api/v1/leads`
+> now carries `scheduled_at` + `scheduled_timezone`. Main API sends a "received" confirmation showing the
+> requested time. New `POST /internal/leads/send-demo-confirmation` sends the "confirmed" email
+> (time + Meet link). Admin: new `leads.confirm` permission (both catalogs), `POST /leads/{id}/confirm`
+> in admin-api (updates row → calls main_api → audit log), Confirm UI in `Leads.tsx` detail row.
+> Files: NEW `src/components/landing/demo-scheduler.tsx`, `supabase/migrations/20260730000002_*`;
+> EDIT `book-demo-modal.tsx`, `lead-modal-shell.tsx`, `apps/api/.../routes/{leads,internal}.py`,
+> `apps/api/.../services/email_templates.py`, `apps/admin-api/.../routes/leads.py`,
+> `apps/admin-api/.../{permissions.py,main_api.py}`, `apps/admin/src/{lib/permissions.ts,pages/Leads.tsx}`.
+
 > **Session 43 (2026-07-30) — Lead-form honesty pass.** Goal: email + admin portal must show ONLY
 > what a visitor actually fills in the Book-a-demo / Talk-to-sales forms — no invented values.
 > 3 subagents traced the full chain (form → `POST /api/v1/leads` → `sales_leads` → staff email + admin).

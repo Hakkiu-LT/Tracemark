@@ -67,6 +67,28 @@ def send_password_reset_email(email: str, reset_link: str) -> Any:
     )
 
 
+def send_demo_confirmation(
+    *,
+    email: str,
+    first_name: str | None,
+    scheduled_at: str,
+    scheduled_timezone: str | None,
+    meeting_link: str | None,
+) -> Any:
+    """Email the customer their CONFIRMED demo slot via the main API's Resend pipeline."""
+    return _request(
+        "POST",
+        "/internal/leads/send-demo-confirmation",
+        json={
+            "email": email,
+            "first_name": first_name,
+            "scheduled_at": scheduled_at,
+            "scheduled_timezone": scheduled_timezone,
+            "meeting_link": meeting_link,
+        },
+    )
+
+
 # ── Brand assets (photos) ─────────────────────────────────────────────────────
 def list_brand_assets(brand_id: str) -> Any:
     return _request("GET", f"/internal/brands/{brand_id}/assets")
