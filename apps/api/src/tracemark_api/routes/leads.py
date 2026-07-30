@@ -191,6 +191,16 @@ def _send_slack_notification(lead: LeadRequest) -> None:
              "text": {"type": "plain_text", "text": f"New {kind_label} lead"}},
             {"type": "section", "text": {"type": "mrkdwn", "text": detail_lines}},
         ]
+
+        # Demo bookings carry the time slots the visitor is available for
+        # ("Select a Date & Time" step). List them so staff can confirm one.
+        slots = _lead_slots(lead)
+        if slots:
+            slot_lines = "\n".join(f"• {s}" for s in slots)
+            blocks.append({"type": "section",
+                           "text": {"type": "mrkdwn",
+                                    "text": f"*Requested times:*\n{slot_lines}"}})
+
         if lead.message:
             blocks.append({"type": "section",
                            "text": {"type": "mrkdwn", "text": f"*Message:*\n{lead.message}"}})
