@@ -10,6 +10,24 @@
 
 ---
 
+## ⚡ Mobile PageSpeed — image optimization (2026-07-30, session 41) — ✅ DONE (safe wins)
+
+> PSI hakkiu.com: mobile Perf 71 (FCP 4.2s / LCP 4.7s), desktop 95. Only safe, visually-identical
+> changes done this session — no code changes, same filenames/format/imports, build ✓.
+- [x] `public/hakkiu-lockup.png` resized 1054×300 (76 KiB) → 421×120 (26 KiB, −65%). Alpha mask
+  shown ≤36px so downscale is invisible. Originals in /tmp/hakkiu-img-backup/.
+- [x] `src/images/platforms/*.png` (12 files) resized 256×256 → max 96px (−25%). Shown ≤40px.
+- [x] Verified largest platform-logo display is h-10 (40px, dashboard) — 96px still sharp.
+- [x] `npm run build` passes, no visual change.
+- [ ] Deploy + re-run PSI to measure mobile Perf delta.
+- [ ] DEFERRED (risky, needs care to avoid FOUC / look change): critical-CSS inlining or
+  route-based CSS code-split to cut the ~27 KiB render-blocking stylesheet (190ms). Decide
+  after measuring the image wins.
+- [ ] OPTIONAL later: drop truly-unused font weights / subset fonts (only if provably unused —
+  changing a used weight changes the look).
+
+---
+
 ## 🎫 Per-copycat status workflow — Jira-like case control (2026-07-29, session 40) — ✅ DONE
 
 > User ask: change each case's status (analyzing, complete, …) inside the case AND have it

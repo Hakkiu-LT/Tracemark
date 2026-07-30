@@ -1,5 +1,17 @@
 # HAKKIU — Active Plan
 
+> **Session 41 (2026-07-30) — Mobile perf: safe image optimization.** PSI on hakkiu.com:
+> mobile Perf 71 (FCP 4.2s / LCP 4.7s), desktop 95. Diagnosed via subagents: render-blocking
+> CSS (~27KiB gzip, 190ms), many self-hosted font files in the critical chain, and oversized
+> logos. Did the ZERO-RISK, visually-identical wins only: `public/hakkiu-lockup.png` 1054×300
+> 76KiB → 421×120 26KiB (−65%; it's an alpha mask shown ≤36px, so downscaling is invisible);
+> all 12 `src/images/platforms/*.png` 256×256 → max 96px (−25%, shown ≤40px). No code changes
+> (same filenames/format/imports). Build ✓, no visual change. Did NOT preload the lockup (it's
+> the nav logo, not LCP — preloading would compete with critical CSS/fonts). DEFERRED the big
+> lever — critical-CSS inlining / route CSS-split — because it risks FOUC and could change the
+> look; agreed to measure image wins first. Originals backed up in /tmp/hakkiu-img-backup/.
+> NEXT: deploy, re-run PSI, then decide on the CSS work.
+
 > Update this file after every session or planning conversation.
 > Keep it SHORT: what we are building right now, why, and how. History lives in git + `todo.md`.
 > Last updated: 2026-07-29 (session 40 — **Per-copycat status workflow FIXED** + **takedown page
