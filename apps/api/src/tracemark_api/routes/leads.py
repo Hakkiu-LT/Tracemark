@@ -6,6 +6,7 @@ origin is carried by `source` (request_demo / call_request).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 
@@ -176,12 +177,22 @@ def _send_lead_notification(lead: LeadRequest) -> None:
         _log.exception("Failed to send lead notification email")
 
 
-def _send_slack_notification(lead: LeadRequest) -> None:
+def _lead_raw_slots(lead: LeadRequest) -> list[str]:
+    """The visitor's offered slots as raw ISO strings (for the Slack confirm button)."""
+    raw = lead.proposed_slots or ([lead.scheduled_at] if lead.scheduled_at else [])
+    return [s for s in raw if s]
+
+
+def _send_slack_notification(lead: LeadRequest, lead_id: str | None = None) -> None:
     """Post a Slack alert to the channel that matches the lead's source.
 
     Demo bookings and call/sales requests go to two SEPARATE channels (routed via
     _SOURCE_SLACK_WEBHOOK). Best-effort: mirrors ONLY the fields the visitor actually
     submitted — no invented values — consistent with the lead-form honesty pass.
+
+    For demo bookings, when the interactive Slack app is configured (SLACK_BOT_TOKEN +
+    SLACK_SIGNING_SECRET), a "✅ Confirm demo" button is attached so staff can confirm a
+    slot + paste the meeting link straight from Slack (see routes/slack_interactions.py).
     """
     try:
         from tracemark_api.services.slack import post_to_slack
@@ -229,6 +240,32 @@ def _send_slack_notification(lead: LeadRequest) -> None:
             blocks.append({"type": "section",
                            "text": {"type": "mrkdwn", "text": f"*Message:*\n{lead.message}"}})
 
+        # Interactive "Confirm demo" button — only for demo bookings that have real
+        # slots, a known lead id, AND a configured interactive Slack app. Without the
+        # bot token / signing secret the button would be dead, so we omit it entirely.
+        raw_slots = _lead_raw_slots(lead)
+        if (
+            lead.source == "request_demo"
+            and raw_slots
+            and lead_id
+            and os.environ.get("SLACK_BOT_TOKEN")
+            and os.environ.get("SLACK_SIGNING_SECRET")
+        ):
+            button_value = json.dumps(
+                {"lead_id": lead_id, "slots": raw_slots[:10], "tz": lead.scheduled_timezone}
+            )
+            blocks.append({
+                "type": "actions",
+                "block_id": "confirm_demo_actions",
+                "elements": [{
+                    "type": "button",
+                    "action_id": "confirm_demo",
+                    "style": "primary",
+                    "text": {"type": "plain_text", "text": "✅ Confirm demo"},
+                    "value": button_value,
+                }],
+            })
+
         post_to_slack(webhook_var, text=text, blocks=blocks)
     except Exception:
         _log.exception("Failed to send lead Slack notification")
@@ -268,7 +305,7 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
         raise HTTPException(status_code=422, detail="invalid source")
 
     sb = get_supabase()
-    sb.table("sales_leads").insert({
+    inserted = sb.table("sales_leads").insert({
         "source": payload.source,
         "first_name": payload.first_name or None,
         "last_name": payload.last_name or None,
@@ -289,8 +326,17 @@ async def create_lead(payload: LeadRequest, request: Request) -> dict:
         "scheduled_timezone": payload.scheduled_timezone or None,
     }).execute()
 
+    # The lead id lets the Slack notification attach a "Confirm demo" button that
+    # points back at this exact row. Best-effort — never block on parsing it.
+    lead_id: str | None = None
+    try:
+        if inserted and inserted.data:
+            lead_id = inserted.data[0].get("id")
+    except Exception:  # noqa: BLE001
+        lead_id = None
+
     _send_lead_notification(payload)
-    _send_slack_notification(payload)
+    _send_slack_notification(payload, lead_id)
     _send_lead_confirmation(payload)
 
     return {"ok": True}

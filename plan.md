@@ -1,5 +1,32 @@
 # HAKKIU — Active Plan
 
+> **Session 46 (2026-07-31) — Slack "Confirm demo" button (interactive).** User: extend the demo
+> flow so a demo can be CONFIRMED from Slack — see the customer's requested times, pick one, paste a
+> Google Meet link, confirm — exactly like the admin portal does. 2 Explore agents mapped the full
+> admin demo-confirm flow (`sales_leads` table: `proposed_slots`/`scheduled_at`/`meeting_link`/
+> `confirmed_at`/`status`; admin-api `POST /leads/{id}/confirm` → update row + `main_api.send_demo_confirmation`
+> email + `write_audit_log`, gated by `leads.confirm`) and the existing Slack code. Key facts that
+> shaped the design: Slack FREE tier = no Workflow Builder + 90-day history + 10-app cap, so the OWN
+> backend is the automation engine and Slack is just the delivery/interaction surface; `admin_audit_log.staff_id`
+> is NULLABLE (FK ON DELETE SET NULL) so a Slack action can be audited without a staff session.
+> **Design (all in MAIN api — it's reliably public, already writes `sales_leads`, owns the Resend email,
+> and can reach `admin_audit_log`):** demo notification gets a "✅ Confirm demo" button (lead_id + raw
+> slots in its value) → click = `block_actions` → `views.open` a modal (radio of slots in OUR tz + a
+> meeting-link input; needs a BOT TOKEN) → submit = `view_submission` → BackgroundTask confirms
+> (update `sales_leads` confirmed_at/meeting_link/scheduled_at/status=contacted → SAME "demo confirmed"
+> Resend email → `admin_audit_log` insert with `staff_email=slack:<user>`) → rewrite the source message
+> to "✅ Confirmed" via `response_url`. Auth = Slack request SIGNATURE (`SLACK_SIGNING_SECRET`, v0 HMAC,
+> 5-min replay window); the Slack workspace is the trust boundary (staff-only), mirroring `leads.confirm`.
+> Parity rule satisfied: writes the SAME table the admin UI writes (reflects on both sides) + audits.
+> Built: `services/slack.py` (+`verify_slack_signature`/`slack_api`/`respond_via_response_url`);
+> `routes/slack_interactions.py` (`POST /api/v1/slack/interactions`); `leads.py` (capture lead id + attach
+> button, gated on both env vars so it's dormant/omitted when unconfigured); `main.py` router; env docs.
+> Verified import + signature smoke test + modal builder + route registration. **Dormant until the user
+> sets `SLACK_BOT_TOKEN` + `SLACK_SIGNING_SECRET` and points the app's Interactivity Request URL at
+> `/api/v1/slack/interactions`.** Broader context: this was step 1 of a Slack free-tier ideation — other
+> high-ROI ideas parked in todo/roadmap (tee existing detection/takedown events to Slack, reliability
+> alerts, daily digest, more slash commands).
+
 > **Session 45 (2026-07-30) — Slack lead notifications (two channels).** User: post a Slack
 > notification for every new lead, into TWO SEPARATE channels — demo bookings vs call/sales requests.
 > 2 Explore agents mapped the lead flow + config/HTTP conventions. Findings: leads land in
