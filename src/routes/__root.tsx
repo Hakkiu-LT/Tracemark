@@ -103,15 +103,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "HAKKIU — Trademark & Brand Protection" },
       { property: "og:description", content: "Monitor your trademarks, detect infringements, and automate takedowns across Amazon, Shopify, and the web." },
       { name: "twitter:description", content: "Monitor your trademarks, detect infringements, and automate takedowns across Amazon, Shopify, and the web." },
-      // Self-hosted OG image (was an external r2.dev UUID URL). Served from
-      // public/og-image.png → https://hakkiu.com/og-image.png. Absolute URL is
-      // required — social scrapers reject relative paths.
-      { property: "og:image", content: `${COMPANY.baseUrl}/og-image.png` },
+      // Self-hosted OG image = a screenshot of the landing-page hero. Served from
+      // public/og-image-v2.png → https://hakkiu.com/og-image-v2.png. Absolute URL
+      // is required — social scrapers reject relative paths. The "-v2" suffix busts
+      // stale caches (crawlers key on the URL) after replacing the old dashboard image.
+      { property: "og:image", content: `${COMPANY.baseUrl}/og-image-v2.png` },
       // Explicit dimensions let social scrapers render the card without first
-      // downloading the image (match the real file: public/og-image.png).
-      { property: "og:image:width", content: "1920" },
-      { property: "og:image:height", content: "1080" },
-      { name: "twitter:image", content: `${COMPANY.baseUrl}/og-image.png` },
+      // downloading the image (match the real file: public/og-image-v2.png).
+      { property: "og:image:width", content: "2400" },
+      { property: "og:image:height", content: "1260" },
+      { name: "twitter:image", content: `${COMPANY.baseUrl}/og-image-v2.png` },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
       // Site-wide structured data — Organization + WebSite. Rendered into
