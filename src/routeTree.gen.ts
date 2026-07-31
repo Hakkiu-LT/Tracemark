@@ -21,6 +21,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SolutionsLawFirmsRouteImport } from './routes/solutions.law-firms'
 import { Route as SolutionsBrandOwnersRouteImport } from './routes/solutions.brand-owners'
+import { Route as SettingsSupportRouteImport } from './routes/settings.support'
 import { Route as SettingsProfileRouteImport } from './routes/settings.profile'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings.notifications'
 import { Route as SettingsClientsRouteImport } from './routes/settings.clients'
@@ -116,6 +117,11 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
 const SettingsClientsRoute = SettingsClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsSupportRoute = SettingsSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
   getParentRoute: () => SettingsRoute,
 } as any)
 const MonitoringNewRoute = MonitoringNewRouteImport.update({
@@ -240,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/support': typeof SettingsSupportRoute
   '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
   '/solutions/law-firms': typeof SolutionsLawFirmsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
@@ -275,6 +282,7 @@ export interface FileRoutesByTo {
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/support': typeof SettingsSupportRoute
   '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
   '/solutions/law-firms': typeof SolutionsLawFirmsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
@@ -311,6 +319,7 @@ export interface FileRoutesById {
   '/settings/clients': typeof SettingsClientsRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/profile': typeof SettingsProfileRoute
+  '/settings/support': typeof SettingsSupportRoute
   '/solutions/brand-owners': typeof SolutionsBrandOwnersRoute
   '/solutions/law-firms': typeof SolutionsLawFirmsRoute
   '/cases/$caseId/takedown': typeof CasesCaseIdTakedownRoute
@@ -348,6 +357,7 @@ export interface FileRouteTypes {
     | '/settings/clients'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/support'
     | '/solutions/brand-owners'
     | '/solutions/law-firms'
     | '/cases/$caseId/takedown'
@@ -383,6 +393,7 @@ export interface FileRouteTypes {
     | '/settings/clients'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/support'
     | '/solutions/brand-owners'
     | '/solutions/law-firms'
     | '/cases/$caseId/takedown'
@@ -418,6 +429,7 @@ export interface FileRouteTypes {
     | '/settings/clients'
     | '/settings/notifications'
     | '/settings/profile'
+    | '/settings/support'
     | '/solutions/brand-owners'
     | '/solutions/law-firms'
     | '/cases/$caseId/takedown'
@@ -557,6 +569,13 @@ declare module '@tanstack/react-router' {
       path: '/clients'
       fullPath: '/settings/clients'
       preLoaderRoute: typeof SettingsClientsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/support': {
+      id: '/settings/support'
+      path: '/support'
+      fullPath: '/settings/support'
+      preLoaderRoute: typeof SettingsSupportRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/monitoring/new': {
@@ -739,12 +758,14 @@ interface SettingsRouteChildren {
   SettingsClientsRoute: typeof SettingsClientsRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsProfileRoute: typeof SettingsProfileRoute
+  SettingsSupportRoute: typeof SettingsSupportRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsClientsRoute: SettingsClientsRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsProfileRoute: SettingsProfileRoute,
+  SettingsSupportRoute: SettingsSupportRoute,
 }
 
 const SettingsRouteWithChildren = SettingsRoute._addFileChildren(

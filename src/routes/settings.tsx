@@ -11,18 +11,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useStore, type Persona } from "@/lib/store";
 import {
   Building2,
   Check,
   Loader2,
   Mail,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { useAuth } from "@/lib/auth";
 import { ClientsPage } from "@/components/ClientsPage";
+import { apiFetch } from "@/lib/api";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — HAKKIU" }] }),
@@ -157,6 +161,7 @@ export function SettingsPage() {
     if (path.endsWith("/profile")) return "profile";
     if (path.endsWith("/notifications")) return "notifications";
     if (path.endsWith("/clients")) return "clients";
+    if (path.endsWith("/support")) return "support";
     return "profile";
   };
 
@@ -173,6 +178,8 @@ export function SettingsPage() {
       navigate({ to: "/settings/notifications" });
     } else if (value === "clients") {
       navigate({ to: "/settings/clients" });
+    } else if (value === "support") {
+      navigate({ to: "/settings/support" });
     } else {
       setActiveTab(value);
     }
@@ -211,6 +218,7 @@ export function SettingsPage() {
           {persona === "law_firm" && <TabsTrigger value="clients">Clients</TabsTrigger>}
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="api">API & Webhooks</TabsTrigger>
+          <TabsTrigger value="support">Contact Support</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-4">
@@ -326,6 +334,10 @@ export function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="support" className="mt-4">
+          <ContactSupportPanel userEmail={user?.email} />
+        </TabsContent>
       </Tabs>
 
     </div>
@@ -371,5 +383,109 @@ function PersonaCard({
       <p className="font-semibold">{title}</p>
       <p className="text-xs text-muted-foreground">{desc}</p>
     </button>
+  );
+}
+
+/* ── Contact Support panel ──────────────────────────────────────────── */
+
+function ContactSupportPanel({ userEmail }: { userEmail?: string }) {
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const canSend = subject.trim().length > 0 && message.trim().length > 0;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSend) return;
+    setSending(true);
+    try {
+      await apiFetch("/support/contact", {
+        method: "POST",
+        body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
+      });
+      toast.success("Message sent! We'll get back to you shortly.");
+      setSent(true);
+      setSubject("");
+      setMessage("");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send message. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Card className="border-border/40 bg-card/60 backdrop-blur-md">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-accent" />
+          Contact Support
+        </CardTitle>
+        <CardDescription>
+          Have a question, bug report, or feature request? Send us a message and we'll get back to you.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {sent ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10">
+              <Check className="h-6 w-6 text-accent" />
+            </div>
+            <p className="font-medium">Message sent successfully</p>
+            <p className="text-sm text-muted-foreground">
+              Our team will review your message and respond shortly.
+            </p>
+            <Button variant="outline" size="sm" className="mt-2" onClick={() => setSent(false)}>
+              Send another message
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="support-subject">Subject</Label>
+              <Input
+                id="support-subject"
+                placeholder="e.g. Issue with brand monitoring"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="bg-background/50"
+                maxLength={200}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="support-message">Message</Label>
+              <Textarea
+                id="support-message"
+                placeholder="Describe your issue or question in detail..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="bg-background/50 min-h-[140px]"
+                maxLength={5000}
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {message.length} / 5,000
+              </p>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button type="submit" disabled={!canSend || sending}>
+                {sending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send Message
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
+      </CardContent>
+    </Card>
   );
 }
