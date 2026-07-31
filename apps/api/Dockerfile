@@ -35,7 +35,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# --proxy-headers + trust the internal docker network so request.client.host is
-# the real client IP (behind Caddy) — needed for correct rate-limit keys and
-# audit-log IPs. The container is only reachable via Caddy on the internal net.
-CMD ["uvicorn", "tracemark_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# --proxy-headers + trust X-Forwarded-* ONLY from the pinned docker bridge subnet
+# (Caddy), not "*". uvicorn 0.49 parses the CIDR as a trusted network. This keeps
+# request.client.host correct behind Caddy while stopping any other peer from
+# spoofing client IPs (which would poison rate-limit keys / audit-log IPs).
+CMD ["uvicorn", "tracemark_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "172.28.0.0/16"]

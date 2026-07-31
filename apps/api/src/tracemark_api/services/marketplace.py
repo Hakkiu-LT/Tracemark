@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from langchain_google_genai import ChatGoogleGenerativeAI
 from tracemark_api.services.firecrawl_client import scrape_page, ScrapeResult
 from tracemark_api.services.domain_whitelist import whitelist_service
+from tracemark_api.services.ssrf import safe_get
 from dotenv import find_dotenv
 from tracemark_api.services.ai import Evidence, MarketplaceEvidence, DomainEvidence, AdEvidence, SocialEvidence
 from tracemark_api.services.geo import (
@@ -769,7 +770,9 @@ class ShopifyScraper:
                     products_url = f"{store_url}/products.json?limit=20"
                     resp = call_with_tracking(
                         "html_scraper", caller_id, "/shopify-products",
-                        lambda: requests.get(products_url, headers=HEADERS, timeout=10, allow_redirects=True)
+                        # SSRF-safe: re-validates each redirect hop (the store URL
+                        # is extracted from scraped Google SERP HTML — attacker-influenceable).
+                        lambda: safe_get(products_url, headers=HEADERS, timeout=10)
                     )
                     if resp.status_code == 200:
                         data = resp.json()

@@ -151,7 +151,13 @@ def test_persist_document_inserts_db_row():
         assert payload["document_type"] == "dmca"
         assert payload["file_format"] == "pdf"
         assert payload["status"] == "draft"
-        assert payload["file_url"] == FAKE_FILE_URL
+        # H7: the private bucket means we store the BARE storage path (not a public
+        # URL that would 404); readers sign it on demand. It must equal the path we
+        # uploaded, and must not be a public http(s) URL.
+        uploaded_path = sb.storage.from_.return_value.upload.call_args[0][0]
+        assert payload["file_url"] == uploaded_path
+        assert not payload["file_url"].startswith("http")
+        assert FAKE_INFRINGEMENT_ID in payload["file_url"]
 
 
 # ──────────────────────────────────────────────────────────────────────────────

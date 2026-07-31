@@ -445,7 +445,11 @@ def update_takedown_report_endpoint(
 
 
 class TestEmailRequest(BaseModel):
-    email: EmailStr
+    # Kept for backward compatibility but IGNORED — the recipient is always the
+    # authenticated caller's own verified email (see below). This prevents the
+    # endpoint from being abused as an open relay to send HAKKIU-branded mail to
+    # arbitrary addresses.
+    email: EmailStr | None = None
 
 
 @router.post("/notifications/test/email")
@@ -456,8 +460,16 @@ def test_email_notification_endpoint(
     current_user=Depends(get_current_user),
 ):
     """
-    Fire a test email notification payload to check connectivity.
+    Fire a test email to the CALLER'S OWN verified address to check connectivity.
+    The request body's ``email`` is ignored — we never send to an arbitrary
+    recipient (open-relay / phishing prevention).
     """
+    recipient = (current_user.email or "").strip()
+    if not recipient:
+        raise HTTPException(
+            status_code=400,
+            detail="Your account has no verified email address to send the test to.",
+        )
     try:
         from tracemark_api.services.notifications import send_email_notification
         event = {
@@ -465,10 +477,13 @@ def test_email_notification_endpoint(
             "message": "This is a test notification from HAKKIU to verify SMTP configuration.",
             "brand_name": "Test Brand",
         }
-        send_email_notification(event, payload.email)
-        return {"success": True, "message": f"Test email sent to {payload.email}"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to send test email: {str(e)}")
+        send_email_notification(event, recipient)
+        return {"success": True, "message": f"Test email sent to {recipient}"}
+    except HTTPException:
+        raise
+    except Exception:
+        # Don't leak internal exception text to the client (info-leak hardening).
+        raise HTTPException(status_code=502, detail="Failed to send test email.")
 
 
 @router.post("/takedowns/{id}/send-email")

@@ -22,6 +22,10 @@ from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
 
 BUCKET = "evidence-screenshots"
 BRAND_ASSETS_BUCKET = "brand-assets"
+LEGAL_DOCS_BUCKET = "legal-documents"
+# Emailed takedown-notice links must stay valid long enough for a recipient to
+# open them; use a 7-day signed URL for legal documents.
+LEGAL_DOC_SIGN_TTL = 60 * 60 * 24 * 7
 WEBP_QUALITY = 85
 
 # Signed-URL TTLs (seconds). Short for in-app viewing, long for emails whose
@@ -163,6 +167,33 @@ def sign_screenshot_url(stored: str | None, ttl: int = SCREENSHOT_SIGN_TTL) -> s
         return signed or None
     except Exception as e:
         print(f"[Storage] Failed to sign screenshot url: {e}")
+        return None
+
+
+def sign_legal_document_url(stored: str | None, ttl: int = LEGAL_DOC_SIGN_TTL) -> str | None:
+    """Return a signed URL for a stored legal-document reference (private bucket).
+
+    The ``legal-documents`` bucket is private, so a stored ``get_public_url`` value
+    404s. This signs on read, accepting BOTH new bare paths and legacy full public
+    URLs (both contain the ``/legal-documents/`` marker). Foreign http URLs with no
+    marker are returned unchanged. Mirrors :func:`sign_screenshot_url`.
+    """
+    if not stored:
+        return None
+    marker = "/legal-documents/"
+    if marker not in stored and stored.startswith("http"):
+        return stored
+    idx = stored.find(marker)
+    path = stored[idx + len(marker):] if idx != -1 else stored
+    if not path:
+        return stored
+    try:
+        sb = get_supabase()
+        res = sb.storage.from_(LEGAL_DOCS_BUCKET).create_signed_url(path, expires_in=ttl)
+        signed = res.get("signedURL", "") if isinstance(res, dict) else ""
+        return signed or None
+    except Exception as e:
+        print(f"[Storage] Failed to sign legal document url: {e}")
         return None
 
 

@@ -62,13 +62,6 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return res.json() as Promise<T>;
 }
 
-export function checkBrand(payload: CheckBrandRequest): Promise<CheckBrandResponse> {
-  return apiFetch<CheckBrandResponse>("/check-brand", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
 export function checkBrandFullPipeline(
   payload: CheckBrandRequest,
   signal?: AbortSignal,

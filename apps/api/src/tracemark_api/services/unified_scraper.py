@@ -20,7 +20,9 @@ Usage
 from __future__ import annotations
 
 import re
+import threading
 import urllib.parse
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -32,7 +34,7 @@ from tracemark_api.services.api_usage_tracker import (
     call_with_tracking,
     ApiLimitError,
 )
-from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
+from tracemark_api.services.ssrf import validate_ssrf_url, safe_get, SSRFError
 from tracemark_api.services.scrape_cache import get_cached, put_cached
 
 # ---------------------------------------------------------------------------
@@ -208,7 +210,7 @@ def detect_requires_javascript(url: str, timeout: float = 5.0) -> bool:
     except SSRFError:
         return False
     try:
-        resp = requests.get(url, headers=_HEADERS, timeout=timeout, allow_redirects=True)
+        resp = safe_get(url, headers=_HEADERS, timeout=timeout)
         if resp.status_code in (403, 429, 503) or resp.status_code != 200:
             # Non-200 often means bot detection / JS challenge
             return True
@@ -317,8 +319,28 @@ def _html_to_markdown(html: str, url: str) -> tuple[str, str | None]:
 # ---------------------------------------------------------------------------
 # In-memory Firecrawl cache (avoids re-scraping same URL within 24 h)
 # ---------------------------------------------------------------------------
-_js_cache: dict[str, tuple[ScrapeResult | None, datetime]] = {}
+_js_cache: "OrderedDict[str, tuple[ScrapeResult | None, datetime]]" = OrderedDict()
 _JS_CACHE_TTL = timedelta(hours=24)
+_JS_CACHE_MAX = 512  # bound RSS: this process is long-lived (mirror scrape_cache)
+_js_cache_lock = threading.Lock()
+
+
+def _js_cache_get(url: str) -> "tuple[ScrapeResult | None, datetime] | None":
+    """Thread-safe LRU read."""
+    with _js_cache_lock:
+        item = _js_cache.get(url)
+        if item is not None:
+            _js_cache.move_to_end(url)
+        return item
+
+
+def _js_cache_set(url: str, value: "tuple[ScrapeResult | None, datetime]") -> None:
+    """Thread-safe LRU write with capacity trim (evicts oldest)."""
+    with _js_cache_lock:
+        _js_cache[url] = value
+        _js_cache.move_to_end(url)
+        while len(_js_cache) > _JS_CACHE_MAX:
+            _js_cache.popitem(last=False)
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +481,7 @@ class UnifiedScraper:
                 "html_scraper",
                 caller_id,
                 "/unified-scrape",
-                lambda: requests.get(url, headers=_HEADERS, timeout=10, allow_redirects=True),
+                lambda: safe_get(url, headers=_HEADERS, timeout=10),
             )
 
             if resp.status_code != 200 or contains_antibot(resp.text):
@@ -512,8 +534,9 @@ class UnifiedScraper:
         Tracked under the ``firecrawl`` key (400 credits/month).
         """
         # Check cache first
-        if url in _js_cache:
-            cached_result, cached_at = _js_cache[url]
+        _cached = _js_cache_get(url)
+        if _cached is not None:
+            cached_result, cached_at = _cached
             if datetime.now() - cached_at < _JS_CACHE_TTL:
                 if cached_result and cached_result.success:
                     return UnifiedScrapeResult(
@@ -536,7 +559,7 @@ class UnifiedScraper:
         except ApiLimitError:
             raise
         except Exception as exc:
-            _js_cache[url] = (None, datetime.now())
+            _js_cache_set(url, (None, datetime.now()))
             return UnifiedScrapeResult(
                 url=url,
                 title=None,
@@ -546,7 +569,7 @@ class UnifiedScraper:
                 scraper_used=SCRAPE_JS,
             )
 
-        _js_cache[url] = (fc_result, datetime.now())
+        _js_cache_set(url, (fc_result, datetime.now()))
 
         if not fc_result or not fc_result.success:
             return UnifiedScrapeResult(

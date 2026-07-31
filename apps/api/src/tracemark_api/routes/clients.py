@@ -110,7 +110,10 @@ def delete_client(client_id: str, profile: CurrentProfile = Depends(get_current_
     if not existing.data:
         raise HTTPException(status_code=404, detail="Client not found")
         
-    sb.table("clients").delete().eq("id", client_id).execute()
+    # Scope the delete itself to the org too (defence-in-depth: never rely solely
+    # on the existence check above — keeps this an org-scoped op if that check is
+    # ever refactored away).
+    sb.table("clients").delete().eq("id", client_id).eq("organization_id", org_id).execute()
     return {"success": True}
 
 @router.get("/{client_id}/billing", response_model=ClientBillingResponse)

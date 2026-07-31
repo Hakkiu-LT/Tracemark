@@ -6,7 +6,7 @@ from typing import Literal
 
 from tracemark_api.dependencies import get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
-from tracemark_api.services.storage import sign_screenshot_url
+from tracemark_api.services.storage import sign_screenshot_url, _extract_screenshot_path
 
 router = APIRouter(prefix="/infringements", tags=["infringements"])
 
@@ -205,6 +205,74 @@ class SignScreenshotsRequest(BaseModel):
     paths: list[str]
 
 
+def _org_allowed_screenshot_paths(sb, org_id: str) -> set[str]:
+    """Normalized evidence-screenshot storage paths that belong to ``org_id``.
+
+    Unions the three places a path can live — the ``evidence`` JSONB arrays
+    (case-scoped), ``infringements.screenshot_url`` (case-scoped) and
+    ``evidence_items.screenshot_url`` (via the org's infringements) — so the
+    batch-sign endpoint can authorize each requested path against the caller's
+    organization. Each source is best-effort: a query error narrows the set (a
+    legit path may fail to sign) but NEVER widens it (a foreign path can't slip
+    in), which is the safe direction for an authorization check.
+    """
+    allowed: set[str] = set()
+
+    def _add(value: str | None) -> None:
+        if value:
+            p = _extract_screenshot_path(value)
+            if p:
+                allowed.add(p)
+
+    # 1. evidence JSONB arrays (case-scoped) — the source the scan-result view posts.
+    try:
+        ev = (
+            sb.table("evidence")
+            .select("marketplaces, ads, domains, social, cases!inner(organization_id)")
+            .eq("cases.organization_id", org_id)
+            .execute()
+        )
+        for row in (ev.data or []):
+            for key in ("marketplaces", "ads", "domains", "social"):
+                for item in (row.get(key) or []):
+                    if isinstance(item, dict):
+                        _add(item.get("screenshot_url"))
+    except Exception as e:
+        print(f"[screenshots/sign] evidence scan failed for org {org_id}: {e}")
+
+    # 2. infringements.screenshot_url (case-scoped) + collect ids for step 3.
+    inf_ids: list[str] = []
+    try:
+        inf = (
+            sb.table("infringements")
+            .select("id, screenshot_url, cases!inner(organization_id)")
+            .eq("cases.organization_id", org_id)
+            .execute()
+        )
+        for row in (inf.data or []):
+            _add(row.get("screenshot_url"))
+            if row.get("id"):
+                inf_ids.append(row["id"])
+    except Exception as e:
+        print(f"[screenshots/sign] infringements scan failed for org {org_id}: {e}")
+
+    # 3. evidence_items.screenshot_url (scoped via the org's infringements).
+    if inf_ids:
+        try:
+            ei = (
+                sb.table("evidence_items")
+                .select("screenshot_url")
+                .in_("infringement_id", inf_ids)
+                .execute()
+            )
+            for row in (ei.data or []):
+                _add(row.get("screenshot_url"))
+        except Exception as e:
+            print(f"[screenshots/sign] evidence_items scan failed for org {org_id}: {e}")
+
+    return allowed
+
+
 @router.post("/screenshots/sign")
 def sign_screenshots(
     payload: SignScreenshotsRequest,
@@ -218,17 +286,29 @@ def sign_screenshots(
     signing / owner-RLS cannot work. The frontend therefore posts the collected
     references here and gets back short-lived signed URLs.
 
-    Auth-gated (any logged-in user). We only mint signed URLs; we don't leak
-    which paths exist (unknown/failed paths map to null).
+    Authorization: each requested path is checked against the set of screenshot
+    paths that actually belong to the caller's organization. A path outside the
+    org maps to null — a tenant can NOT sign another tenant's evidence
+    screenshots (closes the batch-sign IDOR). Non-bucket foreign URLs (e.g. mock
+    placeholders) are passed through unchanged; they never lived in our bucket.
     """
     paths = [p for p in (payload.paths or []) if p]
     if len(paths) > 100:
         raise HTTPException(status_code=400, detail="Too many paths (max 100)")
+
+    sb = get_supabase()
+    allowed = _org_allowed_screenshot_paths(sb, profile.organization_id)
+
     # De-duplicate while preserving determinism; return a map keyed by the
     # original reference so the client can look each one up.
     out: dict[str, str | None] = {}
     for p in dict.fromkeys(paths):
-        out[p] = sign_screenshot_url(p)
+        # Foreign/mock URL that never lived in our private bucket → harmless.
+        if "/evidence-screenshots/" not in p and p.startswith("http"):
+            out[p] = sign_screenshot_url(p)
+            continue
+        # Bucket path → only sign if it belongs to the caller's organization.
+        out[p] = sign_screenshot_url(p) if _extract_screenshot_path(p) in allowed else None
     return out
 
 

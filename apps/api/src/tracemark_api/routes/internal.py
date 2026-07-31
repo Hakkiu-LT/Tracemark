@@ -164,13 +164,15 @@ def internal_send_document_email(document_id: str, _ok: bool = Depends(verify_in
     from tracemark_api.services.notifications import dispatch_notifications
 
     try:
+        from tracemark_api.services.storage import sign_legal_document_url
+
         dispatch_notifications(
             {
                 "type": "takedown_generated",
                 "document_id": doc["id"],
                 "infringement_id": doc.get("infringement_id"),
                 "document_type": doc.get("document_type"),
-                "file_url": doc.get("file_url"),
+                "file_url": sign_legal_document_url(doc.get("file_url")),
             }
         )
         sent_at = datetime.now(timezone.utc).isoformat()

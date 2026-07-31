@@ -281,15 +281,16 @@ def delete_customer(
     sb = customer_sb()
     prof = sb.table("profiles").select("organization_id").eq("id", user_id).maybe_single().execute()
     org_id = prof.data.get("organization_id") if prof and prof.data else None
+    # Fail-closed: record the deletion BEFORE it happens, so a customer can never
+    # be hard-deleted without an audit trail (critical=True raises if audit fails).
+    write_audit_log(
+        staff, "customers.delete", target_type="customer", target_id=user_id, target_org_id=org_id,
+        ip=request.client.host if request.client else None, critical=True,
+    )
     try:
         sb.auth.admin.delete_user(user_id)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Could not delete customer: {exc}")
-
-    write_audit_log(
-        staff, "customers.delete", target_type="customer", target_id=user_id, target_org_id=org_id,
-        ip=request.client.host if request.client else None,
-    )
     return {"success": True}
 
 
@@ -304,13 +305,16 @@ def impersonate_customer(
     if not staff.has("customers.impersonate"):
         raise HTTPException(status_code=403, detail="Missing permission: customers.impersonate")
 
-    result = generate_impersonation_link(user_id)
+    # Fail-closed: record the impersonation BEFORE minting the link, so a staffer
+    # can never assume a customer's identity without an audit trail (if the audit
+    # write fails, critical=True raises and no link is generated).
     write_audit_log(
         staff,
         "customers.impersonate",
         target_type="customer",
         target_id=user_id,
-        metadata={"email": result.get("email")},
         ip=request.client.host if request.client else None,
+        critical=True,
     )
+    result = generate_impersonation_link(user_id)
     return result

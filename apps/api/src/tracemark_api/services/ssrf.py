@@ -8,11 +8,19 @@ from __future__ import annotations
 
 import ipaddress
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
+
+import requests
 
 
 class SSRFError(ValueError):
     """Raised when a URL is rejected as an SSRF risk."""
+
+
+# Redirect chains on legitimate sites (http→https→www→locale) rarely exceed a
+# handful of hops; cap low enough to bound work but high enough not to break
+# real marketplaces.
+_MAX_REDIRECTS = 5
 
 
 _BLOCKED_SCHEMES = {"javascript", "data", "file", "ftp", "gopher", "blob"}
@@ -69,3 +77,41 @@ def validate_ssrf_url(url: str) -> None:
         ip = info[4][0]
         if _ip_is_forbidden(ip):
             raise SSRFError("URL resolves to a private/reserved IP")
+
+
+def safe_get(
+    url: str,
+    *,
+    headers: dict | None = None,
+    timeout: float = 10,
+    max_redirects: int = _MAX_REDIRECTS,
+    **kwargs,
+) -> requests.Response:
+    """SSRF-safe HTTP GET that re-validates the target on EVERY redirect hop.
+
+    ``requests.get(..., allow_redirects=True)`` validates (at most) the initial
+    URL, then blindly follows 30x redirects — so an attacker-controlled page can
+    ``302 → http://169.254.169.254/`` or ``→ http://127.0.0.1:8000/internal/...``
+    and the guard is bypassed. This helper follows redirects MANUALLY, running
+    ``validate_ssrf_url`` before fetching each hop, and raises ``SSRFError`` if a
+    redirect points somewhere forbidden or the chain is too long.
+    """
+    current = url
+    for _ in range(max_redirects + 1):
+        validate_ssrf_url(current)
+        resp = requests.get(
+            current,
+            headers=headers,
+            timeout=timeout,
+            allow_redirects=False,
+            **kwargs,
+        )
+        if resp.is_redirect:
+            location = resp.headers.get("Location")
+            if not location:
+                return resp
+            # Resolve relative redirects against the current URL.
+            current = urljoin(current, location)
+            continue
+        return resp
+    raise SSRFError(f"Too many redirects (>{max_redirects}) starting from {url}")

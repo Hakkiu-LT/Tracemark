@@ -130,6 +130,12 @@ services:
 networks:
   tracemark:
     driver: bridge
+    # Pin the subnet so uvicorn's --forwarded-allow-ips and the main-API
+    # /internal/* IP allow-list (main.py) can trust a STABLE CIDR instead of a
+    # dynamically-assigned range. Only Caddy + the app containers live here.
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 
 volumes:
   caddy_data:

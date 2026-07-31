@@ -61,7 +61,7 @@ class TestDetectRequiresJavascript:
         mock_resp.text = html
         return mock_resp
 
-    @patch("tracemark_api.services.unified_scraper.requests.get")
+    @patch("tracemark_api.services.unified_scraper.safe_get")
     def test_empty_react_root_returns_true(self, mock_get):
         """A page with an empty #root div is a React SPA shell."""
         mock_get.return_value = self._make_response(
@@ -69,14 +69,14 @@ class TestDetectRequiresJavascript:
         )
         assert detect_requires_javascript("https://example.com") is True
 
-    @patch("tracemark_api.services.unified_scraper.requests.get")
+    @patch("tracemark_api.services.unified_scraper.safe_get")
     def test_content_rich_html_returns_false(self, mock_get):
         """A page with substantial text content does not need JS."""
         html = "<html><body>" + "<p>Product listing with lots of real text content.</p>" * 30 + "</body></html>"
         mock_get.return_value = self._make_response(html)
         assert detect_requires_javascript("https://example.com") is False
 
-    @patch("tracemark_api.services.unified_scraper.requests.get")
+    @patch("tracemark_api.services.unified_scraper.safe_get")
     def test_noscript_js_warning_returns_true(self, mock_get):
         """A page that tells users to enable JavaScript needs JS rendering."""
         mock_get.return_value = self._make_response(
@@ -86,7 +86,7 @@ class TestDetectRequiresJavascript:
         )
         assert detect_requires_javascript("https://example.com") is True
 
-    @patch("tracemark_api.services.unified_scraper.requests.get")
+    @patch("tracemark_api.services.unified_scraper.safe_get")
     def test_low_text_ratio_returns_true(self, mock_get):
         """Mostly script tags with almost no visible text → needs JS."""
         # Very large HTML with tiny text content
@@ -95,19 +95,19 @@ class TestDetectRequiresJavascript:
         mock_get.return_value = self._make_response(html)
         assert detect_requires_javascript("https://example.com") is True
 
-    @patch("tracemark_api.services.unified_scraper.requests.get")
+    @patch("tracemark_api.services.unified_scraper.safe_get")
     def test_non_200_status_returns_true(self, mock_get):
         """A 403 / 429 (bot detection) should be treated as needing JS."""
         mock_get.return_value = self._make_response("", status_code=403)
         assert detect_requires_javascript("https://example.com") is True
 
-    @patch("tracemark_api.services.unified_scraper.requests.get")
+    @patch("tracemark_api.services.unified_scraper.safe_get")
     def test_network_error_returns_true(self, mock_get):
         """On network failure, assume JS is needed (safe default)."""
         mock_get.side_effect = ConnectionError("timeout")
         assert detect_requires_javascript("https://example.com") is True
 
-    @patch("tracemark_api.services.unified_scraper.requests.get")
+    @patch("tracemark_api.services.unified_scraper.safe_get")
     def test_antibot_html_signatures_returns_true(self, mock_get):
         """A page containing Cloudflare or challenge signatures should return True."""
         mock_get.return_value = self._make_response(

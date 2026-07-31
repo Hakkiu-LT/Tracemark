@@ -125,6 +125,15 @@ def create_staff(
     # Only a super-admin may mint another super-admin.
     if payload.is_super_admin and not staff.is_super_admin:
         raise HTTPException(status_code=403, detail="Super-admin required to create a super-admin")
+    # Privilege-consolidation guard (M1): a non-super-admin must not create an
+    # account whose role itself grants `staff.manage` (i.e. the `admin` preset).
+    # Otherwise an admin-role staffer could self-replicate admin accounts as a
+    # persistent backdoor and set their passwords at creation time.
+    if "staff.manage" in ROLE_PRESETS.get(payload.role, set()) and not staff.is_super_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Super-admin required to create an account with staff-management privileges",
+        )
 
     sb = admin_sb()
     # 1. Create the auth user in the staff project (email confirmed, no self-signup).
@@ -164,6 +173,7 @@ def create_staff(
         target_id=new_id,
         metadata={"email": payload.email, "role": payload.role},
         ip=request.client.host if request.client else None,
+        critical=True,
     )
     return _to_out(row)
 
@@ -280,7 +290,7 @@ def update_staff(
         audit_meta["password"] = "***changed***"
     write_audit_log(
         staff, "staff.update", target_type="staff", target_id=staff_id, metadata=audit_meta,
-        ip=request.client.host if request.client else None,
+        ip=request.client.host if request.client else None, critical=True,
     )
     return _to_out(row)
 
@@ -322,6 +332,7 @@ def set_permissions(
         target_id=staff_id,
         metadata={"overrides": [ov.model_dump() for ov in payload.overrides]},
         ip=request.client.host if request.client else None,
+        critical=True,
     )
     return _to_out(acct.data)
 
@@ -337,6 +348,10 @@ def delete_staff(
     if staff_id == staff.id:
         raise HTTPException(status_code=400, detail="You cannot delete your own account")
 
+    # Fail-closed: audit BEFORE the destructive delete (target_id is known).
+    write_audit_log(staff, "staff.delete", target_type="staff", target_id=staff_id,
+                    ip=request.client.host if request.client else None, critical=True)
+
     sb = admin_sb()
     try:
         sb.auth.admin.delete_user(staff_id)
@@ -345,6 +360,4 @@ def delete_staff(
     # staff_accounts row + its permissions cascade via FK ON DELETE CASCADE.
     sb.table("staff_accounts").delete().eq("id", staff_id).execute()
 
-    write_audit_log(staff, "staff.delete", target_type="staff", target_id=staff_id,
-                    ip=request.client.host if request.client else None)
     return {"success": True}

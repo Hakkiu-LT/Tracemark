@@ -68,10 +68,19 @@ admin.hakkiu.com {
 api.hakkiu.com {
 	encode zstd gzip
 
+	# /internal/* endpoints are for service-to-service calls (admin-api → main-api)
+	# over the private docker network only. Never expose them to the internet —
+	# the app-layer secret is the real gate, this is defence-in-depth at the edge.
+	@internal path /api/v1/internal/*
+	respond @internal 404
+
 	header {
 		X-Content-Type-Options "nosniff"
 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# API returns JSON only; lock down framing/embedding defensively.
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		X-Frame-Options "DENY"
 		# Hide upstream server banner.
 		-Server
 	}
@@ -83,10 +92,15 @@ api.hakkiu.com {
 admin-api.hakkiu.com {
 	encode zstd gzip
 
+	@internal path /api/v1/internal/*
+	respond @internal 404
+
 	header {
 		X-Content-Type-Options "nosniff"
 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		X-Frame-Options "DENY"
 		# Hide upstream server banner.
 		-Server
 	}

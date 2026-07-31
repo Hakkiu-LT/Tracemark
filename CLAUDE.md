@@ -59,10 +59,19 @@ Why: these files are the single source of truth for where the project stands. Wi
 
 ## ⚠️ MANDATORY RULE — Commit and push format
 
+**GitHub is connected to Slack** — every push posts the commit to a Slack channel. The
+Slack notification shows the commit **title AND body**, so the description IS the team's
+change feed. A vague message = a useless notification. Therefore, **ALWAYS write a detailed
+description BEFORE committing** — never commit with a one-line/empty body.
+
 **When the user says "commit and push" (or "commit", "push"), you MUST:**
 
 1. **Commit title** — one concise line (max 72 chars) describing WHAT changed. Use imperative mood: "Add bulk case actions and takedown stats", not "Added" or "Adding".
-2. **Commit body** — bullet list describing every meaningful change: which files, what was added/changed/fixed, and why (the motivation). Group by area (Backend / Frontend / Config). Skip obvious boilerplate.
+2. **Commit body (MANDATORY, detailed)** — a bullet list describing every meaningful change:
+   which file, what was added/changed/fixed, and WHY (the motivation). Group by area
+   (Backend / Frontend / Config / DB / Security / Tests). Skip only trivial boilerplate.
+   This body is what shows up in Slack — make it complete enough that a teammate reading
+   ONLY the Slack message understands exactly what happened and why, without opening the diff.
 3. **Push** to the current branch immediately after committing.
 
 Example body format:
@@ -76,4 +85,6 @@ Frontend:
 - Dashboard.tsx: 3 takedown KPI cards (pending / sent / acknowledged)
 ```
 
-Why: descriptive commits make it easy to understand what happened in each session when reviewing git log later.
+Why: descriptive commits make it easy to understand what happened in each session when
+reviewing git log later — AND, because GitHub→Slack posts the commit, the body is the live
+notification the team reads. Detailed description before every commit is non-negotiable.

@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.storage import sign_legal_document_url
 
 BUCKET = "legal-documents"
 
@@ -59,7 +60,10 @@ def persist_document(
         {"content-type": content_type, "upsert": "true"},
     )
 
-    file_url = sb.storage.from_(BUCKET).get_public_url(file_path)
+    # Store the BARE storage path — the bucket is private, so a public URL would
+    # 404 and tempt someone to make the bucket public (leaking DMCA/legal PDFs
+    # with PII). Readers mint a short-lived signed URL via sign_legal_document_url.
+    file_url = file_path
 
     result = sb.table("documents").insert({
         "infringement_id": infringement_id,
@@ -102,7 +106,7 @@ def persist_document(
             "case_id": case_id,
             "document_type": document_type,
             "file_format": file_format,
-            "file_url": file_url,
+            "file_url": sign_legal_document_url(file_url),
             "platform": platform,
             "infringing_url": infringing_url,
         }

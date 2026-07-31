@@ -11,6 +11,29 @@
 
 ---
 
+## 🔐 Security remediation (2026-07-31 deep audit) — see `security-audit-2026-07-31.md` + `remediation-plan-2026-07-31.md`
+
+**Done in code/migrations this session (224 backend tests green):** Phase 1 cleanups; H1 SSRF redirect
+guard; H2 test-email lock; H3 screenshots/sign org-scope; H4/H5 audit append-only migration + fail-closed
+logging; H6 org_settings role-gate migration; H7 private legal-doc signing (main+admin parity); H8
+forwarded-allow-ips + compose ipam; M1 staff.manage gate; M2/M4/M17/L3/L7/M5/M6/M7 + admin CSP + Caddy
+internal-block. New tests: `test_ssrf.py`, admin-api `test_permissions.py`.
+
+**⏳ OPERATOR (blocking — the only live-exploitable items):**
+- [ ] **Rotate** leaked secrets from `dist/server/.dev.vars` (service-role, INTERNAL_API_SECRET, Resend, Meta, Stripe, Slack) + redeploy.
+- [ ] **Verify prod RLS** + `supabase db push` (applies `20260728000003` + 6 new `20260731*` migrations).
+- [ ] Confirm old key `sb_secret_MKex…` revoked; **scrub git history** of `query_case_details.py` (BFG), force-push.
+- [ ] Supabase dashboard: DB network restrictions + SSL; confirm public signup disabled.
+- [ ] Before H6 migration push: confirm no non-owner `member` rows (or ship settings.tsx role-gate first).
+- [ ] Redeploy so Dockerfile `--forwarded-allow-ips` + compose ipam subnet apply together.
+
+**⏭️ Deferred security follow-ups:**
+- [ ] Customer-app CSP script-hashes (drop `'unsafe-inline'`) — compute from a built preview, verify GA-consent + theme still work.
+- [ ] settings.tsx: hide org_settings controls from non-owner/admin members (pairs with H6).
+- [ ] M15 evidence_items persona split; M14 evidence-table dedup; M3 broad `str(e)` sweep; M8/M9/M18/L1-L10 admin hardening.
+
+---
+
 ## 📩 IMAP → Slack: forward info@ mailbox to a Slack channel (2026-07-31) — ⚠️ CODE DONE, config pending
 
 > User ask: get every email sent to info@hakkiu.com (and its aliases) into a Slack channel,

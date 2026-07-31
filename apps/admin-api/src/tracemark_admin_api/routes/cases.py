@@ -16,6 +16,9 @@ router = APIRouter(prefix="/cases", tags=["cases"])
 _EVIDENCE_BUCKET = "evidence-screenshots"
 _SCREENSHOT_MARKER = "/evidence-screenshots/"
 _SIGN_TTL = 3600  # 1 hour — matches the customer app's signing TTL.
+_LEGAL_DOCS_BUCKET = "legal-documents"
+_LEGAL_DOCS_MARKER = "/legal-documents/"
+_LEGAL_DOC_SIGN_TTL = 3600  # admin views are short-lived; 1h is plenty.
 
 
 def _sign_screenshot(stored: str | None) -> str | None:
@@ -42,6 +45,32 @@ def _sign_screenshot(stored: str | None) -> str | None:
         return signed or None
     except Exception as e:  # pragma: no cover - defensive
         print(f"[Admin] Failed to sign screenshot url: {e}")
+        return None
+
+
+def _sign_legal_document(stored: str | None) -> str | None:
+    """Mint a short-lived signed URL for a private legal-document reference.
+
+    Mirrors the main API's ``sign_legal_document_url``: the ``legal-documents``
+    bucket is private, so the stored value (bare path for new rows, legacy public
+    URL for old ones) must be signed on read or the admin case-detail document
+    link would 404. Non-bucket foreign URLs are returned unchanged.
+    """
+    if not stored:
+        return None
+    if _LEGAL_DOCS_MARKER not in stored and stored.startswith("http"):
+        return stored
+    idx = stored.find(_LEGAL_DOCS_MARKER)
+    path = stored[idx + len(_LEGAL_DOCS_MARKER):] if idx != -1 else stored
+    if not path:
+        return stored
+    try:
+        sb = customer_sb()
+        res = sb.storage.from_(_LEGAL_DOCS_BUCKET).create_signed_url(path, expires_in=_LEGAL_DOC_SIGN_TTL)
+        signed = res.get("signedURL", "") if isinstance(res, dict) else ""
+        return signed or None
+    except Exception as e:  # pragma: no cover - defensive
+        print(f"[Admin] Failed to sign legal document url: {e}")
         return None
 
 
@@ -145,6 +174,9 @@ def get_case(case_id: str, staff: StaffPrincipal = Depends(require_permission("c
         sb.table("documents").select("*").in_("infringement_id", infr_ids).order("created_at", desc=True).execute().data
         if infr_ids else []
     ) or []
+    # Private bucket (H7): sign each document's file_url so the admin link works.
+    for d in documents:
+        d["file_url"] = _sign_legal_document(d.get("file_url"))
 
     return {
         "case": case.data,

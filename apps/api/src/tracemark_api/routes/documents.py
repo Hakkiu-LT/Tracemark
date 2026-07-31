@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from tracemark_api.dependencies import get_current_profile, CurrentProfile
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.storage import sign_legal_document_url
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -75,7 +76,7 @@ def send_document_email_endpoint(
             "case_id": case_id,
             "document_type": doc.get("document_type"),
             "file_format": doc.get("file_format"),
-            "file_url": doc.get("file_url"),
+            "file_url": sign_legal_document_url(doc.get("file_url")),
             "platform": platform,
             "infringing_url": infringing_url,
         }

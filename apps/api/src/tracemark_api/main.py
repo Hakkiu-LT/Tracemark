@@ -14,7 +14,6 @@ from tracemark_api.services.rate_limit import limiter
 
 from tracemark_api.routes.health import router as health_router
 from tracemark_api.routes.monitoring import router as monitoring_router
-from tracemark_api.routes.check_brand import router as check_brand_router
 from tracemark_api.routes.auth import router as auth_router
 from tracemark_api.routes.infringements import router as infringements_router
 from tracemark_api.routes.documents import router as documents_router
@@ -45,7 +44,6 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(health_router)
 app.include_router(monitoring_router, prefix="/api/v1")
-app.include_router(check_brand_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(infringements_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
@@ -66,13 +64,24 @@ _local_dev_origins = [
     "http://127.0.0.1:8082",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+]
+
+# Production origins are ALWAYS allowed; localhost is merged only outside prod so
+# a malicious localhost page can't talk to the prod API (with credentials).
+_static_production_origins = [
     "https://hakkiu.com",
     "https://www.hakkiu.com",
     "https://api.hakkiu.com",
     "https://admin.hakkiu.com",
 ]
 
-_allowed_origins = list(dict.fromkeys(_local_dev_origins + _production_origins))
+_allowed_origins = list(
+    dict.fromkeys(
+        _static_production_origins
+        + _production_origins
+        + ([] if _is_production else _local_dev_origins)
+    )
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -84,12 +93,20 @@ app.add_middleware(
 
 
 def _internal_ip_allowed(host: str) -> bool:
-    """Return True if the client IP is permitted to call /internal/* routes."""
-    # Loopback + Docker bridge range allowed by default; extend via env var.
+    """Return True if the client IP is permitted to call /internal/* routes.
+
+    NOTE: this is defence-in-depth only — the PRIMARY control on /internal/* is
+    the constant-time INTERNAL_API_SECRET check inside the routes. Behind a
+    reverse proxy ``request.client.host`` is the proxy's IP, so this range must
+    stay narrow (the specific docker bridge subnet, not the whole /12) and the
+    public edge (Caddy) additionally blocks /api/v1/internal/* from the internet.
+    """
+    # Loopback + the pinned docker bridge subnet (see docker-compose ipam);
+    # extend/override via INTERNAL_API_ALLOWED_IPS.
     defaults = [
         ipaddress.ip_network("127.0.0.0/8"),
         ipaddress.ip_network("::1/128"),
-        ipaddress.ip_network("172.16.0.0/12"),  # Docker private range
+        ipaddress.ip_network("172.28.0.0/16"),  # pinned `tracemark` bridge subnet
     ]
     extra: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
     for entry in os.environ.get("INTERNAL_API_ALLOWED_IPS", "").split(","):
