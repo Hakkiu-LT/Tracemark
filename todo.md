@@ -38,8 +38,16 @@
   pass incl. Delivered-To detection). Unset alias webhook safely falls back to #info-inbox.
 - [x] Slack channels #legal #privacy #security #support created; Incoming Webhook URLs pasted into
   local `.env`; verified live — a routing test post to each of the 4 channels returned OK.
+- [x] **Fix "read-before-poll" misses:** switched idempotency from the \Seen flag to a dedicated
+  IMAP keyword `$Forwarded` (IANA keyword; Hostinger/Dovecot support verified live). Poller now
+  fetches `no_keyword=$Forwarded` with `mark_seen=False`, so reading an email in webmail no longer
+  causes a miss. One-time transition run against the live mailbox: re-forwarded the missed legal@
+  email (uid 19) to #legal, baselined all 20 existing messages as `$Forwarded` (skipped support@
+  uid 20 — already delivered). Verified: 0 remaining, poll_once()=0, clean compile (no SyntaxWarning).
 - [ ] **Manual (user):** replicate the 4 alias webhooks (+ SLACK_WEBHOOK_EMAIL + IMAP_*) into the
-  **prod** `/opt/hakkiu/.env` on Hetzner and `docker compose restart api`.
+  **prod** `/opt/hakkiu/.env` on Hetzner, then `docker compose up -d --build api` (build, not just
+  restart — new imap-tools dep + code). The `$Forwarded` baseline lives in the mailbox, so prod
+  will NOT re-flood the old mail.
 
 ## 🎫 Per-copycat status workflow — Jira-like case control (2026-07-29, session 40) — ✅ DONE
 

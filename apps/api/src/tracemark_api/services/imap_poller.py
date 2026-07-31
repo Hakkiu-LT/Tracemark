@@ -17,8 +17,12 @@ to several aliases is posted to each matching channel.
 
 Idempotency
 -----------
-We fetch only UNSEEN mail and mark a message SEEN only AFTER it has been posted
-to Slack. So a restart never re-posts an already-forwarded email.
+We track "already forwarded" with a DEDICATED IMAP keyword ($Forwarded), NOT the
+Seen (read/unread) flag. We fetch mail that lacks $Forwarded and set $Forwarded
+only AFTER a successful Slack post. This means reading/opening an email in
+webmail (which flips the read flag) has NO effect — the email is still
+forwarded. A restart never re-posts, because the keyword lives in the mailbox.
+($Forwarded is an IANA-registered keyword; Hostinger/Dovecot supports it.)
 
 Everything is best-effort: a bad connection or Slack hiccup is logged and
 swallowed — it must never crash the API. Mirrors weekly_digest / scraper_health.
@@ -39,6 +43,10 @@ _ALIAS_ROUTES = {
     "support": "SLACK_WEBHOOK_SUPPORT",
 }
 _FALLBACK_WEBHOOK = "SLACK_WEBHOOK_EMAIL"
+
+# IMAP keyword used as our private "already forwarded" marker — independent of the
+# \Seen (read/unread) flag, so a human reading the inbox never causes a miss.
+_FORWARDED_KEYWORD = "$Forwarded"
 
 # Truncate long email bodies so we don't dump a 40 KB newsletter into Slack.
 _MAX_BODY_CHARS = 1500
@@ -137,13 +145,16 @@ def poll_once() -> int:
     if cfg is None:
         return 0
 
-    from imap_tools import AND, MailBox, MailMessageFlags  # lazy import
+    from imap_tools import AND, MailBox  # lazy import
 
     forwarded = 0
     try:
         with MailBox(cfg["host"], port=cfg["port"]).login(cfg["user"], cfg["password"]) as mailbox:
+            # Fetch mail we haven't forwarded yet — keyed on our own $Forwarded
+            # keyword, NOT read/unread. mark_seen=False leaves the read state alone.
             messages = list(
-                mailbox.fetch(AND(seen=False), mark_seen=False, limit=cfg["max_per_poll"], reverse=False)
+                mailbox.fetch(AND(no_keyword=_FORWARDED_KEYWORD), mark_seen=False,
+                              limit=cfg["max_per_poll"], reverse=False)
             )
             for msg in messages:
                 text, blocks = _format_message(msg)
@@ -159,9 +170,9 @@ def poll_once() -> int:
                     if post_to_slack(env, text=text, blocks=blocks):
                         posted_any = True
                 if posted_any:
-                    # Mark seen only after at least one channel accepted it, so a
-                    # total failure leaves the mail unread to retry next poll.
-                    mailbox.flag(msg.uid, MailMessageFlags.SEEN, True)
+                    # Mark $Forwarded only after a channel accepted it, so a total
+                    # failure leaves the mail un-flagged to retry on the next poll.
+                    mailbox.flag(msg.uid, _FORWARDED_KEYWORD, True)
                     forwarded += 1
                 else:
                     print(f"[IMAP Poller] All Slack posts failed for uid={msg.uid} — will retry")
