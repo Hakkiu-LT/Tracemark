@@ -347,3 +347,22 @@ setup + Python SDK + Supabase Auth SMTP relay support.*
 - **Gemini Visual Verification** | ✅ Done | `generate_evidence_analysis()` lives in `services/ai.py` (~L465-580) and IS wired into the pipeline — called on-demand from `services/persistence.py:214` during evidence persistence (1 Gemini-Vision request per copycat screenshot for OCR/logo/counterfeit analysis). (Verified session 42 audit; implemented in `ai.py`, not a separate `gemini_check.py`.)
 - **End-to-End Orchestrator (`pipeline.py`)** | ✅ Done | Integrated logo extraction -> pHash comparison -> classification in tiered funnel.
 - **CV-based logo cropping** | ❌ Missing | *TODO*: Implement Gemini-based or OpenCV/YOLO-based logo region cropping from screenshots.
+
+---
+
+## 19. Slack / Team Notifications & Ops
+*Slack is on the FREE tier: 90-day history (ephemeral ops layer, DB stays source of truth), 10-app cap
+(keep everything on ONE custom app), no Workflow Builder — so OUR backend is the automation engine and
+Slack is the delivery/interaction surface. Incoming webhooks, bot Web API, and interactive modals are free.*
+
+### Done
+- **Lead notifications → Slack** | ✅ Done | New leads post to two channels by source (request_demo→`SLACK_WEBHOOK_DEMO`, call/pricing→`SLACK_WEBHOOK_CALL`). `services/slack.py::post_to_slack` (best-effort, no-op if env unset). Prod needs webhook URLs set.
+- **IMAP → Slack email forwarding** | ✅ Done | `services/imap_poller.py` forwards info@ + 4 aliases to per-alias channels (legal/privacy/security/support/fallback). Idempotent via `$Forwarded` IMAP keyword.
+- **GitHub commits → Slack** | ✅ Done | GitHub-side integration (commit title+body IS the team change feed).
+- **Interactive "Confirm demo" button** | ✅ Done (dormant until configured) | `routes/slack_interactions.py` `POST /api/v1/slack/interactions` — button on the demo notification → modal (slot radio + Meet-link input) → confirms `sales_leads` + sends the confirmation email + audits (`staff_email=slack:<user>`) + rewrites the message. Signature-verified (`SLACK_SIGNING_SECRET`); needs `SLACK_BOT_TOKEN`. Mirrors admin `confirm_lead` (writes SAME table → parity). **USER: create Signing Secret + Bot Token on the app, set Interactivity Request URL, set both env vars, restart.**
+
+### Planned (parked, high-ROI, from the free-tier ideation)
+- **Tee detection/case events to Slack** | ❌ Planned | `notifications.py` already fires new HIGH infringement, first-detection "aha", case_escalated, takedown sent/removed/failed — currently EMAIL-ONLY. Route them to Slack ops channels too (lowest effort, high signal).
+- **Reliability alerts** | ❌ Planned | Global exception handler → Slack (cheap Sentry substitute); scraper-degradation alerting (health already probed in `scraper_health_log`, see §11); IMAP-poller heartbeat (silent death currently stops email forwarding unnoticed).
+- **Daily ops digest** | ❌ Planned | Cron → one message/day: new leads (24h), new detections, pending takedowns, error count. Model on the existing weekly EMAIL digest.
+- **Slash commands (two-way)** | ❌ Planned | `/stats`, `/leads today`, `/case <id>` hitting the API. The free-tier "power move" (query the DB from Slack).

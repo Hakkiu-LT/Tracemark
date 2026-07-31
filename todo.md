@@ -11,6 +11,55 @@
 
 ---
 
+## 🟦 Slack "Confirm demo" button (2026-07-31) — confirm a demo from Slack (like admin)
+
+Interactive Slack app so staff confirm a requested demo slot + paste the Meet link straight
+from the Slack demo notification — mirrors admin-portal `confirm_lead`, writes the SAME
+`sales_leads` row, emails the customer, audits with the Slack user as actor.
+
+Code — DONE (main API):
+- [x] `services/slack.py`: `verify_slack_signature` (v0 HMAC + 5-min replay window), `slack_api`
+      (bot-token Web API, e.g. views.open), `respond_via_response_url` (replace source message).
+- [x] `routes/slack_interactions.py`: `POST /api/v1/slack/interactions` — block_actions → open modal
+      (radio of slots + link input); view_submission → BackgroundTask confirms (update sales_leads +
+      Resend email + `admin_audit_log` insert with `staff_email=slack:<user>`) + rewrites message to
+      "✅ Confirmed". 3-second budget respected via BackgroundTasks.
+- [x] `routes/leads.py`: capture inserted lead id; attach "✅ Confirm demo" button to the demo
+      notification — ONLY when SLACK_BOT_TOKEN + SLACK_SIGNING_SECRET are set (else omitted/dormant).
+- [x] `main.py`: register router. Env docs added to `.env.example` + `.env.production.example`.
+- [x] Verified: AST parse, runtime import, signature-verify smoke test, modal builder, route registered.
+
+NEXT (USER) — one-time Slack app setup, then it goes live:
+- [ ] api.slack.com/apps → your existing app → Basic Information → copy **Signing Secret**.
+- [ ] OAuth & Permissions → add bot scope `chat:write` → Install → copy **Bot Token** (`xoxb-…`).
+- [ ] Interactivity & Shortcuts → ON → Request URL: `https://<api-domain>/api/v1/slack/interactions`.
+- [ ] Put `SLACK_SIGNING_SECRET` + `SLACK_BOT_TOKEN` in root `.env` (dev) AND Hetzner `.env` (prod),
+      restart main API. Button appears on the NEXT demo lead.
+
+## ⚡ Mobile landing performance (2026-07-31) — fixed 1–2 min mobile "frozen" load
+
+**Root cause (verified w/ 4 subagents + build/SSR checks):** NOT bundle size or network (Caddy already
+`encode zstd gzip` + immutable asset caching). It was the `<InfiniteGridBackdrop>` running a `motion`
+`useAnimationFrame` 60fps loop that rewrote a full-viewport SVG grid every frame + a mouse-follow mask +
+three `blur-[120px]` blobs — pegging the mobile GPU/main-thread on all 5 marketing pages.
+
+**Done this session:**
+- [x] Rewrote `src/components/ui/the-infinite-grid.tsx` → 100% CSS (no `motion`, no rAF): GPU-composited
+      `.hakkiu-grid` background-position scroll, **off on mobile + prefers-reduced-motion**; static radial
+      vignette replaces the cursor-follow mask; blobs use `blur-[60px]` on mobile (`md:blur-[120px]`).
+- [x] Removed `motion` (framer-motion) from the client bundle entirely (verified 0 tokens in main chunk).
+- [x] Added `prefers-reduced-motion` guards for `animate-rainbow` / `animate-marquee` in `styles.css`.
+- [x] Deleted confirmed-dead heavy components: `cta.tsx`, `dot-field.tsx`, `scroll-velocity.tsx`,
+      `features/radar.tsx` + `radar-panel.tsx` (ogl/WebGL), `features/case-panel.tsx`,
+      `detection-panel.tsx` + 3 orphaned images. tsc + eslint + build + SSR smoke all green.
+
+**⏳ Optional follow-ups (not blocking, lower ROI):**
+- [ ] Run a real Lighthouse-mobile before/after on prod to quantify LCP/TBT gain.
+- [ ] Investigate workerd cold-start TTFB on Hetzner (only code-side fix left if server response is slow).
+- [ ] Consider code-splitting below-the-fold landing sections (React.lazy) — minor, main chunk is now framework baseline.
+
+---
+
 ## 🔐 Security remediation (2026-07-31 deep audit) — see `security-audit-2026-07-31.md` + `remediation-plan-2026-07-31.md`
 
 **Done in code/migrations this session (224 backend tests green):** Phase 1 cleanups; H1 SSRF redirect
