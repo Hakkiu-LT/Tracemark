@@ -9,6 +9,38 @@
 
 ---
 
+## 📩 IMAP → Slack: forward info@ mailbox to a Slack channel (2026-07-31) — ⚠️ CODE DONE, config pending
+
+> User ask: get every email sent to info@hakkiu.com (and its aliases) into a Slack channel,
+> without a paid Slack "Email" app. Chosen path: own-backend IMAP poller (Hostinger IMAP →
+> existing `post_to_slack`). Reuses the same webhook infra as lead notifications; no new
+> Supabase tables (pure ops notification), so admin-portal parity N/A.
+- [x] `apps/api/pyproject.toml`: add `imap-tools>=1.7.0`.
+- [x] New `apps/api/.../services/imap_poller.py`: polls UNSEEN mail, posts each to
+  `SLACK_WEBHOOK_EMAIL`, marks SEEN only after a successful post (idempotent across restarts);
+  caps `IMAP_MAX_PER_POLL` to avoid backlog floods; dormant if creds unset. Import + dormant
+  mode verified locally; imap-tools `fetch`/`flag` API confirmed.
+- [x] `apps/api/.../main.py` startup: daemon thread runs the poller every `IMAP_POLL_SECONDS` (120s).
+- [x] `.env.example` + `.env.production.example`: documented `SLACK_WEBHOOK_EMAIL`, `IMAP_*` vars.
+- [x] Slack webhook created; `SLACK_WEBHOOK_EMAIL` + `IMAP_*` written to **local** repo-root `.env`.
+- [x] Verified live: IMAP login OK on imap.hostinger.com:993 (info@hakkiu.com is a REAL mailbox, not
+  Titan — Titan returned AccountNotFound); Slack test post OK; poll_once() forwarded the 15-email
+  backlog and a 2nd run returned 0 (idempotency proven).
+- [ ] **Manual (user):** add the same `SLACK_WEBHOOK_EMAIL` + `IMAP_*` vars to the **prod** `.env`
+  on Hetzner (`/opt/hakkiu/.env`) and restart the api container so the poller thread starts.
+- [ ] Note: `info@` mailbox password lives ONLY in the local/prod `.env` (git-ignored) — never commit
+  it. Hostinger rejects the FIRST login from a new IP as anti-abuse, then allows — expect one
+  transient auth fail on new hosts (prod), which the poller retries away on the next cycle.
+- [x] **Per-alias routing** added: mailbox has 4 aliases (legal@/privacy@/security@/support@) all
+  delivering into info@. Poller inspects To/Cc/Delivered-To/X-Original-To and routes each email to
+  its own channel (`SLACK_WEBHOOK_LEGAL/PRIVACY/SECURITY/SUPPORT`); info@ + unmatched → fallback
+  `SLACK_WEBHOOK_EMAIL`; multi-alias mail posts to each channel. Routing unit-tested (all 7 cases
+  pass incl. Delivered-To detection). Unset alias webhook safely falls back to #info-inbox.
+- [x] Slack channels #legal #privacy #security #support created; Incoming Webhook URLs pasted into
+  local `.env`; verified live — a routing test post to each of the 4 channels returned OK.
+- [ ] **Manual (user):** replicate the 4 alias webhooks (+ SLACK_WEBHOOK_EMAIL + IMAP_*) into the
+  **prod** `/opt/hakkiu/.env` on Hetzner and `docker compose restart api`.
+
 ## 🎫 Per-copycat status workflow — Jira-like case control (2026-07-29, session 40) — ✅ DONE
 
 > User ask: change each case's status (analyzing, complete, …) inside the case AND have it
@@ -71,19 +103,17 @@
 
 ---
 
-## ♻ Cross-scan scrape cache + copycat dedup (2026-07-30, session 41) — ✅ DONE (uncommitted)
+## ♻ Cross-scan scrape cache + copycat dedup (2026-07-30, session 41) — ✅ DONE (committed: `6ac1a88`, merged via PR #97)
 
 > User ask: keep a local cache so we don't re-scrape the same URLs across scans and waste
 > resources; re-scans shouldn't re-add copycats that already have an open case until that case is
 > marked Complete/Rejected; a case marked Safe should never be scraped/detected again for that brand.
-> ⚠️ **Prod migration drift found:** `supabase migration list` shows remote-only
-> `20260730000002..000005` (teammate migrations not in this checkout) + a collision on
-> `20260730000001`, so `supabase db push` is BLOCKED. Workaround applied: the scrape_cache table
-> was created directly via `supabase db query --linked`; the migration file is
-> `20260730000006_scrape_cache.sql` (idempotent — `CREATE TABLE IF NOT EXISTS` + `DROP POLICY IF
-> EXISTS`) so a future `db push` once drift is reconciled will apply cleanly. Action still needed
-> (owner): reconcile the missing `2026073*` migrations (`supabase db pull` or get the files from
-> whoever pushed them) before the next squash.
+> ✅ **Prod migration drift RESOLVED** (2026-07-30): cleaned up via `supabase migration repair`.
+> (Was: `supabase migration list` showed remote-only `20260730000002..000005` + a collision on
+> `20260730000001`, blocking `db push`; scrape_cache table had been created directly via
+> `supabase db query --linked` as a stopgap.) The migration file
+> `20260730000006_scrape_cache.sql` is idempotent (`CREATE TABLE IF NOT EXISTS` + `DROP POLICY IF
+> EXISTS`) and now committed.
 - [x] `services/scrape_cache.py`: in-mem LRU (512) → `scrape_cache` table → live; 24h TTL via
   `SCRAPE_CACHE_TTL_HOURS`; stores markdown+title+scraper (not raw HTML — keeps rows small); URL
   normalizer (lowercase host, drop `www `, default port, fragment, sort query) so equivalent pages
@@ -99,13 +129,16 @@
   skip the upsert + skip the "new infringement" notification. Safe/dismissed are not terminal →
   block forever (until the user changes status, e.g. via Re-analyze → Complete). Verified on prod
   against the live `analyzing` row `005b5eb0…`.
-- [x] Verified: `py_compile` on all three modules; prod DB round-trip (cache write/read) +
-  skip-query sanity check (returns the open infringement). Admin parity not needed: scrape_cache
-  is infra (RLS deny-all, service-role only); the skip reuses the existing `infringements.status`
-  column already editable/audited in admin from session 40.
-- [ ] USER: restart the main API (`apps/api` uvicorn — no `--reload`) so logger/cache module loads;
-  then re-scan a brand whose previous scan already producedetypes — confirm duplicates aren't
-  re-added and a re-scan of a Safe URL never re-creates it.
+- [x] Verified: full 203-test pytest suite + frontend build pass; `py_compile` on all three
+  modules; prod DB round-trip (cache write/read) + skip-query sanity check (returns the open
+  infringement). Admin parity not needed: scrape_cache is infra (RLS deny-all, service-role only);
+  the skip reuses the existing `infringements.status` column already editable/audited in admin from
+  session 40.
+- [x] Deployed: committed `6ac1a88`, merged via PR #97; Hetzner Deploy pipeline run `30579642682`
+  succeeded 2026-07-30 20:32 → API container rebuilt/restarted with the new cache module (no manual
+  uvicorn restart needed).
+- [ ] USER (smoke test): re-scan a brand whose previous scan already produced infringements —
+  confirm duplicates aren't re-added and a re-scan of a Safe URL never re-creates it.
 
 ---
 

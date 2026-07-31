@@ -186,3 +186,12 @@ def startup_event():
             time.sleep(30 * 60)  # check every 30 minutes
 
     threading.Thread(target=run_weekly_digest, daemon=True).start()
+
+    # IMAP → Slack: forward every new email in the info@ mailbox to a Slack channel.
+    # Dormant if IMAP_EMAIL / IMAP_PASSWORD are not configured.
+    def run_email_poller_thread():
+        from tracemark_api.services.imap_poller import run_email_poller
+        time.sleep(30)  # let the app finish booting first
+        run_email_poller()
+
+    threading.Thread(target=run_email_poller_thread, daemon=True).start()
