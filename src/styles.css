@@ -11,20 +11,104 @@
    matches the previous Google Fonts behaviour, so CLS stays unchanged. The two
    above-the-fold faces (Sora 800 = hero H1, Inter 400 = body) are additionally
    <link rel=preload>ed in __root.tsx so they arrive in parallel with the CSS. */
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/inter-400.woff2") format("woff2"); }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/inter-500.woff2") format("woff2"); }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/inter-600.woff2") format("woff2"); }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/inter-700.woff2") format("woff2"); }
-@font-face { font-family: "Sora"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/sora-500.woff2") format("woff2"); }
-@font-face { font-family: "Sora"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/sora-600.woff2") format("woff2"); }
-@font-face { font-family: "Sora"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/sora-700.woff2") format("woff2"); }
-@font-face { font-family: "Sora"; font-style: normal; font-weight: 800; font-display: swap; src: url("/fonts/sora-800.woff2") format("woff2"); }
-@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/jetbrains-mono-400.woff2") format("woff2"); }
-@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/jetbrains-mono-500.woff2") format("woff2"); }
-@font-face { font-family: "Hanken Grotesk"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/hanken-grotesk-400.woff2") format("woff2"); }
-@font-face { font-family: "Hanken Grotesk"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/hanken-grotesk-500.woff2") format("woff2"); }
-@font-face { font-family: "Hanken Grotesk"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/hanken-grotesk-600.woff2") format("woff2"); }
-@font-face { font-family: "Hanken Grotesk"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/hanken-grotesk-700.woff2") format("woff2"); }
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/inter-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/inter-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/inter-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/sora-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/sora-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/sora-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Sora";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/sora-800.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk-700.woff2") format("woff2");
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -170,13 +254,18 @@
 
 /* ── Red Pulsating Alert Card ───────────────────────────────────────── */
 @keyframes pulse-red-alert {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4), inset 0 0 15px rgba(239, 68, 68, 0.12);
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(239, 68, 68, 0.4),
+      inset 0 0 15px rgba(239, 68, 68, 0.12);
     border-color: rgba(239, 68, 68, 0.7);
     background-color: rgba(239, 68, 68, 0.06);
   }
   50% {
-    box-shadow: 0 0 25px 4px rgba(239, 68, 68, 0.5), inset 0 0 25px rgba(239, 68, 68, 0.22);
+    box-shadow:
+      0 0 25px 4px rgba(239, 68, 68, 0.5),
+      inset 0 0 25px rgba(239, 68, 68, 0.22);
     border-color: rgba(239, 68, 68, 0.95);
     background-color: rgba(239, 68, 68, 0.15);
   }
@@ -350,6 +439,30 @@
   }
 }
 
+/* ── Infinite-grid backdrop (marketing pages) ──────────────────────────── */
+/* Pure-CSS scrolling grid used by <InfiniteGridBackdrop>. GPU-composited via
+   background-position (no JS, no requestAnimationFrame). The scroll is OFF on
+   mobile and under prefers-reduced-motion so phones spend zero main-thread /
+   GPU time animating a full-viewport backdrop — the biggest cause of the old
+   1–2 minute mobile "frozen" load. */
+.hakkiu-grid {
+  background-image:
+    linear-gradient(to right, currentColor 1px, transparent 1px),
+    linear-gradient(to bottom, currentColor 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .hakkiu-grid {
+    animation: hakkiu-grid-drift 1.4s linear infinite;
+    will-change: background-position;
+  }
+}
+@keyframes hakkiu-grid-drift {
+  to {
+    background-position: 40px 40px;
+  }
+}
+
 /* ── Rainbow CTA button ────────────────────────────────────────────── */
 /* Scrolls the 200%-wide rainbow gradient horizontally; paired with the
    `animate-rainbow` utility generated from --animate-rainbow in @theme. */
@@ -377,6 +490,15 @@
   }
   to {
     transform: translateY(calc(-100% - var(--gap)));
+  }
+}
+/* These infinite decorative loops (rainbow CTA sheen + marquee logo rails)
+   carry no information, so honour prefers-reduced-motion by stopping them. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-rainbow,
+  .animate-marquee,
+  .animate-marquee-vertical {
+    animation: none !important;
   }
 }
 
