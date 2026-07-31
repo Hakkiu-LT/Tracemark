@@ -22,6 +22,7 @@ from tracemark_api.routes.brands import router as brands_router
 from tracemark_api.routes.internal import router as internal_router
 from tracemark_api.routes.usage import router as usage_router
 from tracemark_api.routes.leads import router as leads_router
+from tracemark_api.routes.support import router as support_router
 from tracemark_api.routes.slack_interactions import router as slack_interactions_router
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
@@ -53,6 +54,7 @@ app.include_router(brands_router, prefix="/api/v1")
 app.include_router(internal_router, prefix="/api/v1")
 app.include_router(usage_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
+app.include_router(support_router, prefix="/api/v1")
 app.include_router(slack_interactions_router, prefix="/api/v1")
 
 _local_dev_origins = [
