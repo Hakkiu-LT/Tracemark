@@ -1,7 +1,7 @@
 """Contact-support endpoint.
 
 Authenticated users can send a message to the HAKKIU support team
-(info@hakkiu.com) via the Settings → Support tab. The email is delivered
+(support@hakkiu.com) via the Settings → Support tab. The email is delivered
 through the existing Resend email wrapper.
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ def contact_support(
     body: ContactRequest,
     user: AuthUser = Depends(get_current_user),
 ):
-    """Send a support message from the authenticated user to info@hakkiu.com."""
+    """Send a support message from the authenticated user to support@hakkiu.com."""
     from tracemark_api.services.email import send_email
 
     subject = body.subject.strip()
@@ -47,7 +47,7 @@ def contact_support(
 """
 
     ok = send_email(
-        to="info@hakkiu.com",
+        to="support@hakkiu.com",
         subject=f"[Support] {subject}",
         html=html,
         from_address="support@hakkiu.com",
