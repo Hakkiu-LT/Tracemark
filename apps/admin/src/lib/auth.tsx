@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [staff, setStaff] = useState<StaffProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notStaff, setNotStaff] = useState(false);
+  const [notStaff, setNotStaff] = useState<boolean | string>(false);
 
   async function loadStaff(activeSession: Session | null) {
     if (!activeSession) {
