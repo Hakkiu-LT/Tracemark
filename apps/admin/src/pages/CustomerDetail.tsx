@@ -38,6 +38,8 @@ interface CustomerDetail {
   email: string;
   full_name: string | null;
   organization_id: string | null;
+  home_organization_id?: string | null;
+  org_role?: string | null;
   persona: string | null;
   brands: Brand[];
 }
@@ -120,6 +122,7 @@ export function CustomerDetail() {
           customer={{
             id: data.id, full_name: data.full_name, email: data.email,
             persona: data.persona, organization_id: data.organization_id,
+            org_role: data.org_role,
           }}
           onClose={() => setEditing(false)}
         />
@@ -130,7 +133,7 @@ export function CustomerDetail() {
         <CardHeader>
           <CardTitle>Overview</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="text-xs uppercase text-muted-foreground">ID</p>
             <div className="mt-1"><CopyableId id={data.id} length={12} /></div>
@@ -140,11 +143,22 @@ export function CustomerDetail() {
             <p className="mt-1 text-sm">{data.persona === "law_firm" ? "Law Firm" : "Brand Owner"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase text-muted-foreground">Organization</p>
+            <p className="text-xs uppercase text-muted-foreground">Organization (Group)</p>
             {data.organization_id ? (
-              <Link to="/organizations/$orgId" params={{ orgId: data.organization_id }} className="mt-1 block text-sm text-accent hover:underline">
-                {orgName.get(data.organization_id) || <CopyableId id={data.organization_id} />}
-              </Link>
+              <div className="mt-1 flex items-center gap-2">
+                <Link to="/organizations/$orgId" params={{ orgId: data.organization_id }} className="text-sm text-accent hover:underline">
+                  {orgName.get(data.organization_id) || <CopyableId id={data.organization_id} />}
+                </Link>
+                {data.org_role && <Badge variant="outline" className="capitalize text-[10px]">{data.org_role}</Badge>}
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-muted-foreground">—</p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs uppercase text-muted-foreground">Home Org</p>
+            {data.home_organization_id ? (
+              <p className="mt-1 text-sm text-muted-foreground"><CopyableId id={data.home_organization_id} length={12} /></p>
             ) : (
               <p className="mt-1 text-sm text-muted-foreground">—</p>
             )}
@@ -202,37 +216,37 @@ export function CustomerDetail() {
       </Can>
 
       {/* Actions */}
-      {staff?.is_super_admin && (
+      <Can permission="customers.edit">
         <Card>
           <CardHeader>
             <CardTitle>Danger Zone</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
-            <Button variant="outline" onClick={() => impersonate.mutate()} disabled={impersonate.isPending}>
-              {impersonate.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Impersonate customer
-            </Button>
-            <Can permission="customers.delete">
-              <Button
-                variant="destructive"
-                onClick={() =>
-                  confirm.open({
-                    title: `Delete ${data.full_name || data.email}?`,
-                    description: "Permanently deletes their login and all associated data. This cannot be undone.",
-                    confirmLabel: "Delete customer",
-                    destructive: true,
-                    onConfirm: async () => { await deleteCustomer.mutateAsync(); },
-                  })
-                }
-                disabled={deleteCustomer.isPending}
-              >
-                {deleteCustomer.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Delete customer
+            {staff?.is_super_admin && (
+              <Button variant="outline" onClick={() => impersonate.mutate()} disabled={impersonate.isPending}>
+                {impersonate.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Impersonate customer
               </Button>
-            </Can>
+            )}
+            <Button
+              variant="destructive"
+              onClick={() =>
+                confirm.open({
+                  title: `Delete ${data.full_name || data.email}?`,
+                  description: "Permanently deletes their login and all associated data. This cannot be undone.",
+                  confirmLabel: "Delete customer",
+                  destructive: true,
+                  onConfirm: async () => { await deleteCustomer.mutateAsync(); },
+                })
+              }
+              disabled={deleteCustomer.isPending}
+            >
+              {deleteCustomer.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete customer
+            </Button>
           </CardContent>
         </Card>
-      )}
+      </Can>
       {confirm.element}
     </div>
   );

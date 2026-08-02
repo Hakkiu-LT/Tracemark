@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
-from tracemark_api.dependencies import get_current_profile, CurrentProfile
+from tracemark_api.dependencies import get_current_profile, CurrentProfile, require_owner
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/clients", tags=["clients"])
@@ -55,7 +55,7 @@ def get_client(client_id: str, profile: CurrentProfile = Depends(get_current_pro
     return res.data
 
 @router.post("", response_model=ClientResponse)
-def create_client(payload: ClientCreate, profile: CurrentProfile = Depends(get_current_profile)):
+def create_client(payload: ClientCreate, profile: CurrentProfile = Depends(require_owner)):
     org_id = profile.organization_id
     sb = get_supabase()
     client_data = {
@@ -72,7 +72,7 @@ def create_client(payload: ClientCreate, profile: CurrentProfile = Depends(get_c
     return res.data[0]
 
 @router.put("/{client_id}", response_model=ClientResponse)
-def update_client(client_id: str, payload: ClientUpdate, profile: CurrentProfile = Depends(get_current_profile)):
+def update_client(client_id: str, payload: ClientUpdate, profile: CurrentProfile = Depends(require_owner)):
     org_id = profile.organization_id
     sb = get_supabase()
     
@@ -102,7 +102,7 @@ def update_client(client_id: str, payload: ClientUpdate, profile: CurrentProfile
     return res.data[0]
 
 @router.delete("/{client_id}")
-def delete_client(client_id: str, profile: CurrentProfile = Depends(get_current_profile)):
+def delete_client(client_id: str, profile: CurrentProfile = Depends(require_owner)):
     org_id = profile.organization_id
     sb = get_supabase()
     

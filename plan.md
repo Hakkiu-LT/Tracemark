@@ -1,6 +1,13 @@
 # HAKKIU — Active Plan
 
-> **Session 46 (2026-07-31) — Slack "Confirm demo" button (interactive).** User: extend the demo
+> **Session 47 (2026-08-02) — Groups Feature V1 (Organizations, Roles & Hakkiu Staff Org).**
+> Built customer "Groups" by promoting `organizations` / `organization_members` tables into a proper
+> multi-tenant workspace model.
+> - **Roles:** `owner` (read/write access to brands, settings, monitoring) & `member` (read-only access). Removed legacy `admin` org role (migrated to `owner`).
+> - **Hakkiu Staff Org:** Nil UUID `00000000-0000-0000-0000-000000000000` created for Hakkiu staff, completely isolating staff profiles from customer companies. Hakkiu staff org is excluded from customer listings in admin portal.
+> - **Fallback & RPCs:** Added `home_organization_id` on `profiles` (protected by trigger). Added transactional RPCs `assign_user_to_group` and `remove_user_from_group` for group assignment & fallback to original personal org.
+> - **Database Migration & RLS:** Migration `20260802000001_groups_v1.sql` (schema, backfill, RPCs, trigger updates, dropped `profiles.is_admin`) & `20260802000002_rls_membership_gate.sql` (RLS membership/owner gates).
+> - **API & UI Wiring:** Main API dependencies updated (`CurrentProfile.org_role` + `require_owner` dependency on all write endpoints; notification fallbacks updated to query `organization_members` role owner). Admin API & UI updated (`CustomerEditDialog`, `CustomerDetail`, `OrganizationDetail` updated with group & role assignment). Customer app UI updated (read-only state for `member` role).
 > flow so a demo can be CONFIRMED from Slack — see the customer's requested times, pick one, paste a
 > Google Meet link, confirm — exactly like the admin portal does. 2 Explore agents mapped the full
 > admin demo-confirm flow (`sales_leads` table: `proposed_slots`/`scheduled_at`/`meeting_link`/

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Literal
 
-from tracemark_api.dependencies import CurrentProfile, get_current_profile
+from tracemark_api.dependencies import CurrentProfile, get_current_profile, require_owner
 from tracemark_api.services.database import get_supabase
 from tracemark_api.services.storage import (
     upload_brand_asset,
@@ -133,7 +133,7 @@ def list_brands(profile: CurrentProfile = Depends(get_current_profile)):
 
 @router.post("")
 def create_brand(
-    body: BrandCreate, profile: CurrentProfile = Depends(get_current_profile)
+    body: BrandCreate, profile: CurrentProfile = Depends(require_owner)
 ):
     used = _count_brands(profile.organization_id)
 
@@ -166,7 +166,7 @@ def create_brand(
 def update_brand(
     brand_id: str,
     body: BrandUpdate,
-    profile: CurrentProfile = Depends(get_current_profile),
+    profile: CurrentProfile = Depends(require_owner),
 ):
     existing = _brand_or_404(profile.organization_id, brand_id)
 
@@ -207,7 +207,7 @@ def update_brand(
 
 @router.delete("/{brand_id}")
 def delete_brand(
-    brand_id: str, profile: CurrentProfile = Depends(get_current_profile)
+    brand_id: str, profile: CurrentProfile = Depends(require_owner)
 ):
     _brand_or_404(profile.organization_id, brand_id)
     sb = get_supabase()
@@ -251,7 +251,7 @@ def list_brand_assets(
 @router.post("/{brand_id}/reference-content/refresh")
 def refresh_reference_content(
     brand_id: str,
-    profile: CurrentProfile = Depends(get_current_profile),
+    profile: CurrentProfile = Depends(require_owner),
 ):
     """
     Force-refresh the auto-generated reference content for a brand.
@@ -300,7 +300,7 @@ def upload_brand_asset_endpoint(
     brand_id: str,
     asset_type: Literal["logo", "reference_content", "product_image"] = Form(...),
     file: UploadFile = File(...),
-    profile: CurrentProfile = Depends(get_current_profile),
+    profile: CurrentProfile = Depends(require_owner),
 ):
     """Upload a brand reference asset (logo, reference content, or product image).
 
@@ -366,7 +366,7 @@ def upload_brand_asset_endpoint(
 def delete_brand_asset(
     brand_id: str,
     asset_id: str,
-    profile: CurrentProfile = Depends(get_current_profile),
+    profile: CurrentProfile = Depends(require_owner),
 ):
     """Delete a brand reference asset and its file from storage."""
     _brand_or_404(profile.organization_id, brand_id)

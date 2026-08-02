@@ -12,7 +12,7 @@ from tracemark_api.services.detection_funnel import run_tier0_and_filter, run_ti
 from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
 from tracemark_api.services.rate_limit import limiter
 from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
-from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
+from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile, require_owner
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -186,7 +186,7 @@ class CheckBrandRequest(BaseModel):
 async def check_brand(
     request: Request,
     payload: CheckBrandRequest,
-    profile: CurrentProfile = Depends(get_current_profile),
+    profile: CurrentProfile = Depends(require_owner),
 ):
     """Full pipeline: scrape evidence → AI decision → DMCA reports → persist to Supabase.
     A case is only created in the database if copycats are actually found."""
@@ -331,7 +331,7 @@ class UpdateStatusRequest(BaseModel):
 
 
 @router.post("/{case_id}/status")
-def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, profile: CurrentProfile = Depends(get_current_profile)):
+def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, profile: CurrentProfile = Depends(require_owner)):
     sb = get_supabase()
     _assert_case_in_org(sb, case_id, profile.organization_id)
     try:
@@ -404,7 +404,7 @@ class TakedownUpdateRequest(BaseModel):
 def update_takedown_report_endpoint(
     id: str,
     payload: TakedownUpdateRequest,
-    profile: CurrentProfile = Depends(get_current_profile),
+    profile: CurrentProfile = Depends(require_owner),
 ):
     """
     Update notice text and status of a takedown report in Supabase.
@@ -489,7 +489,7 @@ def test_email_notification_endpoint(
 @router.post("/takedowns/{id}/send-email")
 def send_takedown_email_endpoint(
     id: str,
-    profile: CurrentProfile = Depends(get_current_profile),
+    profile: CurrentProfile = Depends(require_owner),
 ):
     """
     Send the notice text of the takedown report to its submission_email via SMTP,

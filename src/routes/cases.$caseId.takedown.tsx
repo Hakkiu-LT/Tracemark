@@ -31,6 +31,7 @@ import evidencePlaceholder from "@/images/evidence-placeholder.png";
 import { getInfringementById, updateInfringementStatus, type InfringementFeedItem } from "@/lib/api";
 import { getPlatformReporting } from "@/lib/platform-reporting";
 import { ensureAbsoluteUrl } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/cases/$caseId/takedown")({
   head: () => ({ meta: [{ title: "Takedown — HAKKIU" }] }),
@@ -102,6 +103,8 @@ function TakedownPage() {
   const { caseId } = Route.useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const isReadOnly = profile?.org_role === "member";
 
   // Same query key as the case detail page — navigating from there is instant.
   const { data: i, isLoading, error, refetch } = useQuery({
@@ -489,7 +492,7 @@ function TakedownPage() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  disabled={isMarkingSubmitted || alreadySent}
+                  disabled={isMarkingSubmitted || alreadySent || isReadOnly}
                   onClick={markAsSubmitted}
                 >
                   {isMarkingSubmitted ? (
@@ -516,7 +519,12 @@ function TakedownPage() {
             <Trash className="mr-2 h-4 w-4" /> Discard Draft
           </Link>
         </Button>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          {isReadOnly && (
+            <span className="text-xs text-amber-500 font-medium mr-2">
+              Read-only member: Contact owner to execute takedowns
+            </span>
+          )}
           <Button
             variant="outline"
             onClick={downloadPdf}
@@ -526,7 +534,7 @@ function TakedownPage() {
           </Button>
           <Button
             variant="outline"
-            disabled={isSavingToStorage}
+            disabled={isSavingToStorage || isReadOnly}
             onClick={saveToSupabaseStorage}
             className="flex items-center gap-2"
           >
@@ -537,7 +545,7 @@ function TakedownPage() {
             )}
             Save
           </Button>
-          <Button onClick={() => setWebhookOpen(true)} className="flex items-center gap-2">
+          <Button onClick={() => setWebhookOpen(true)} disabled={isReadOnly} className="flex items-center gap-2">
             <Send className="h-4 w-4" /> Send via Webhook
           </Button>
         </div>

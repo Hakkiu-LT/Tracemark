@@ -8,7 +8,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "./supabase";
-import { adminFetch } from "./api";
+import { adminFetch, AdminApiError } from "./api";
 import type { Permission } from "./permissions";
 
 export interface StaffProfile {
@@ -27,7 +27,7 @@ interface AuthState {
   permissions: Set<string>;
   loading: boolean;
   /** True when authenticated but NOT a valid staff account (login blocked). */
-  notStaff: boolean;
+  notStaff: boolean | string;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [staff, setStaff] = useState<StaffProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notStaff, setNotStaff] = useState(false);
+  const [notStaff, setNotStaff] = useState<boolean | string>(false);
 
   async function loadStaff(activeSession: Session | null) {
     if (!activeSession) {
@@ -47,14 +47,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNotStaff(false);
       return;
     }
-    try {
-      const me = await adminFetch<StaffProfile>("/staff/me");
-      setStaff(me);
-      setNotStaff(false);
-    } catch {
-      // Authenticated with Supabase but not an active staff account (403).
-      setStaff(null);
-      setNotStaff(true);
+
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 1500;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const me = await adminFetch<StaffProfile>("/staff/me");
+        setStaff(me);
+        setNotStaff(false);
+        return;
+      } catch (err: any) {
+        if (err instanceof AdminApiError && err.status === 403) {
+          setStaff(null);
+          setNotStaff(err.message || "403 Forbidden");
+          return;
+        }
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        } else {
+          setStaff(null);
+          setNotStaff(err.message || err.toString());
+        }
+      }
     }
   }
 

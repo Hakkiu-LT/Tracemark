@@ -51,8 +51,9 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   organization_id: string | null;
+  home_organization_id?: string | null;
   plan: "free" | "starter" | "growth" | "pro" | "agency" | "enterprise" | "admin";
-  is_admin?: boolean;
+  org_role?: "owner" | "member";
 }
 
 /**
@@ -64,11 +65,28 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, organization_id, plan, is_admin")
+    .select("id, full_name, avatar_url, organization_id, home_organization_id, plan")
     .eq("id", userId)
     .maybeSingle<Profile>();
 
   if (error || !data) return null;
+
+  if (data.organization_id) {
+    try {
+      const { data: mem } = await supabase
+        .from("organization_members")
+        .select("role")
+        .eq("organization_id", data.organization_id)
+        .eq("user_id", userId)
+        .maybeSingle<{ role: "owner" | "member" }>();
+      data.org_role = mem?.role ?? "owner";
+    } catch {
+      data.org_role = "owner";
+    }
+  } else {
+    data.org_role = "owner";
+  }
+
   return data;
 }
 

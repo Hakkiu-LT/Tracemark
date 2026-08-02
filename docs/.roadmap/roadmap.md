@@ -297,6 +297,7 @@ still returned by `GET /me`).
 ### Frontend
 - **Isolated Admin Dashboard** | ✅ Done | Companies, Cases, Users, Staff, Monitoring (API + resources), Audit; deep drill-down (company → members/usage/billing/brands/cases; case → screenshots/AI/infringements/takedowns/documents) with inline editing; global search (⌘K); confirm dialogs.
 - **MFA & Enterprise SSO Security** | ❌ Missing | Enforce MFA + domain-restricted access for admin logins (future hardening).
+- **Groups & Organization Roles (Groups V1)** | ✅ Done | Promoted `organizations` and `organization_members` tables to multi-tenant workspace model (`owner` write vs `member` read-only). Added `home_organization_id` on `profiles` (protected via trigger), transactional RPCs `assign_user_to_group` & `remove_user_from_group`, and well-known Hakkiu staff org (`00000000-0000-0000-0000-000000000000`). Dropped `profiles.is_admin` and updated notification fallbacks. Admin parity ✅ (`CustomerEditDialog`, `CustomerDetail`, `OrganizationDetail` updated for group & role management). RLS membership/owner gates applied in migration `20260802000002_rls_membership_gate.sql`.
 - **Self-serve org invitations (customer side)** | ❌ Missing | Roadmap §10 "Fazė F" — customers inviting their own teammates / org switcher (staff already manage members from admin).
 
 ---
