@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Literal
 
-from tracemark_api.dependencies import get_current_profile, CurrentProfile
+from tracemark_api.dependencies import get_current_profile, CurrentProfile, require_owner
 from tracemark_api.services.database import get_supabase
 from tracemark_api.services.storage import sign_screenshot_url, _extract_screenshot_path
 
@@ -342,7 +342,7 @@ ALLOWED_INFRINGEMENT_STATUSES = frozenset({
 def update_infringement_status(
     infringement_id: str,
     payload: UpdateStatusRequest,
-    profile: CurrentProfile = Depends(get_current_profile),
+    profile: CurrentProfile = Depends(require_owner),
 ) -> InfringementItem:
     """Update the status of a single infringement (per-copycat).
 

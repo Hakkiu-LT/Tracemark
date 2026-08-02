@@ -9,6 +9,15 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Groups Feature V1 (2026-08-02) — Organizations, Roles & Hakkiu Staff Org
+
+Multi-tenant workspace "Groups" feature using `organizations` and `organization_members`:
+- [x] Database Migrations: `20260802000001_groups_v1.sql` (Hakkiu nil UUID org, `home_organization_id`, staff backfill, RPCs `assign_user_to_group` & `remove_user_from_group`, dropped `profiles.is_admin`) & `20260802000002_rls_membership_gate.sql` (RLS membership & owner gates).
+- [x] Main API: Updated `CurrentProfile` with `org_role`, added `require_owner` dependency on all brand/monitoring/client write endpoints, updated email recipient fallbacks to query `organization_members` (role = 'owner').
+- [x] Admin API: Added `HAKKIU_ORG_ID` exclusion, updated `organizations.py` and `customers.py` to use group RPCs, excluded Hakkiu staff org from customer listings, added `org_role` management.
+- [x] Admin Frontend: Updated `CustomerEditDialog`, `CustomerDetail`, and `OrganizationDetail` with organization assignment, role management (`owner` / `member`), and last-owner removal protection.
+- [x] Customer Frontend: Resolved `org_role` on `Profile` via `fetchProfile`, added read-only mode in UI (disabled write controls for `member` role).
+
 ---
 
 ## 🟦 Slack "Confirm demo" button (2026-07-31) — confirm a demo from Slack (like admin)

@@ -282,17 +282,24 @@ export function SettingsPage() {
                       className="bg-background/50"
                     />
                   </div>
-                  <div className="flex justify-end pt-2">
-                    <Button onClick={handleSaveProfile} disabled={savingProfile}>
-                      {savingProfile ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Save changes"
-                      )}
-                    </Button>
+                  <div className="flex items-center justify-between pt-2">
+                    {profile?.org_role === "member" && (
+                      <p className="text-xs text-amber-500 font-medium">
+                        Read-only: Contact an organization owner to change workspace settings.
+                      </p>
+                    )}
+                    <div className="ml-auto">
+                      <Button onClick={handleSaveProfile} disabled={savingProfile || profile?.org_role === "member"}>
+                        {savingProfile ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save changes"
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </>
               )}

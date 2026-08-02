@@ -161,14 +161,16 @@ function CreateOrgDialog({ onClose, onCreated }: { onClose: () => void; onCreate
   });
 
   const canSubmit =
-    name.trim().length > 0 && ownerEmail.trim().length > 3 && ownerPassword.length >= 8;
+    name.trim().length > 0 &&
+    (ownerEmail.trim().length === 0 || ownerEmail.trim().length > 3) &&
+    (ownerPassword.length === 0 || ownerPassword.length >= 8);
 
   return (
     <Dialog
       open
       onClose={onClose}
       title="New company"
-      description="Creates the company and its first owner login. The owner can sign in immediately."
+      description="Create a company group. You can assign or create users for it now or anytime later."
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -196,20 +198,24 @@ function CreateOrgDialog({ onClose, onCreated }: { onClose: () => void; onCreate
         </div>
       </div>
       <div className="border-t border-border pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Owner login
+        Initial Owner Login <span className="text-xs text-muted-foreground font-normal lowercase">(optional — leave blank to assign users later)</span>
       </div>
       <div className="space-y-1.5">
-        <Label>Owner email</Label>
+        <Label>Owner email <span className="text-xs text-muted-foreground">(optional)</span></Label>
         <Input type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} placeholder="owner@acme.com" />
       </div>
-      <div className="space-y-1.5">
-        <Label>Owner password <span className="text-xs text-muted-foreground">(min 8 characters)</span></Label>
-        <Input type="password" value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} placeholder="••••••••" />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Owner full name <span className="text-xs text-muted-foreground">(optional)</span></Label>
-        <Input value={ownerFullName} onChange={(e) => setOwnerFullName(e.target.value)} placeholder="—" />
-      </div>
+      {ownerEmail.trim() && (
+        <>
+          <div className="space-y-1.5">
+            <Label>Owner password <span className="text-xs text-muted-foreground">(leave blank if user already exists)</span></Label>
+            <Input type="password" value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} placeholder="••••••••" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Owner full name <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Input value={ownerFullName} onChange={(e) => setOwnerFullName(e.target.value)} placeholder="—" />
+          </div>
+        </>
+      )}
     </Dialog>
   );
 }

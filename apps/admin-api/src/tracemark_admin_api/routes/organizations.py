@@ -8,6 +8,7 @@ staff ids from company listings.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -45,11 +46,16 @@ class OrgRow(BaseModel):
     brand_count: int
 
 
+HAKKIU_ORG_ID = "00000000-0000-0000-0000-000000000000"
+_VALID_ROLES = {"owner", "member"}
+
+
 class Member(BaseModel):
     user_id: str
     email: str
     full_name: str | None
     org_role: str
+    home_organization_id: str | None = None
 
 
 class OrgDetail(OrgRow):
@@ -63,12 +69,12 @@ class UpdateOrgRequest(BaseModel):
 
 
 class CreateOrgRequest(BaseModel):
-    """Create a new customer company together with its first (owner) login."""
+    """Create a new customer company organization. Owner login is optional."""
     name: str
     industry: str | None = None
     persona: str = "brand_owner"  # "brand_owner" | "law_firm"
-    owner_email: str
-    owner_password: str
+    owner_email: str | None = None
+    owner_password: str = ""
     owner_full_name: str | None = None
 
 
@@ -104,16 +110,28 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
 
     out: list[OrgRow] = []
     for o in orgs:
-        if o["id"] in staff_ids:
-            continue  # skip staff personal orgs
+        if o["id"] in staff_ids or o["id"] == HAKKIU_ORG_ID:
+            continue  # skip staff personal orgs & internal Hakkiu org
+
+        m_count = members_by_org.get(o["id"], 0)
+        b_count = brands_by_org.get(o["id"], 0)
+        ind = o.get("industry")
+        name = (o.get("name") or "").strip()
+
+        # Skip default solo personal orgs (auto-generated at signup like gmail.com / example.com
+        # with 0 brands, no industry, and 1 or 0 members)
+        is_domain_name = ("." in name and " " not in name and len(name.split(".")) == 2)
+        if m_count <= 1 and b_count == 0 and not ind and (is_domain_name or not name):
+            continue
+
         out.append(
             OrgRow(
                 id=o["id"],
                 name=o.get("name"),
                 industry=o.get("industry"),
                 persona=persona_by_org.get(o["id"]),
-                member_count=members_by_org.get(o["id"], 0),
-                brand_count=brands_by_org.get(o["id"], 0),
+                member_count=m_count,
+                brand_count=b_count,
             )
         )
     out.sort(key=lambda r: (r.name or "").lower())
@@ -127,64 +145,98 @@ def create_organization(
     payload: CreateOrgRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.create")),
 ):
-    """Create a new customer company AND its owner login in one step.
-
-    Creating the owner auth user fires the DB trigger (handle_new_user) that
-    auto-creates the organization (id = owner's user id), the profile, and an
-    'owner' membership row. We then brand those trigger-created rows with the
-    company name / industry / persona so the company is immediately usable.
-    """
+    """Create a new customer company. Owner login is optional."""
     if payload.persona not in ("brand_owner", "law_firm"):
         raise HTTPException(status_code=400, detail="persona must be brand_owner or law_firm")
     if not payload.name.strip():
         raise HTTPException(status_code=400, detail="Company name is required")
-    if len(payload.owner_password) < 8:
-        raise HTTPException(status_code=400, detail="Owner password must be at least 8 characters")
 
     sb = customer_sb()
+    owner_email = (payload.owner_email or "").strip()
 
-    # 1. Create the owner auth user (email confirmed, no confirmation email).
-    #    The DB trigger creates organizations/profiles/organization_members for us.
-    try:
-        created = sb.auth.admin.create_user(
-            {"email": payload.owner_email, "password": payload.owner_password, "email_confirm": True}
-        )
-        owner_id = created.user.id
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"Could not create owner login: {exc}")
+    if owner_email:
+        if payload.owner_password and len(payload.owner_password) < 8:
+            raise HTTPException(status_code=400, detail="Owner password must be at least 8 characters")
 
-    # The trigger anchors the personal org id to the owner's user id.
-    org_id = owner_id
+        owner_id = None
+        try:
+            created = sb.auth.admin.create_user(
+                {"email": owner_email, "password": payload.owner_password, "email_confirm": True}
+            )
+            owner_id = created.user.id
+        except Exception as exc:  # noqa: BLE001
+            users = sb.auth.admin.list_users()
+            match = next((u for u in users if u.email and u.email.lower() == owner_email.lower()), None)
+            if match:
+                owner_id = match.id
+            else:
+                raise HTTPException(status_code=400, detail=f"Could not create owner login: {exc}")
 
-    # 2. Brand the trigger-created organization.
-    sb.table("organizations").update(
-        {
-            "name": payload.name.strip(),
-            "industry": payload.industry,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-    ).eq("id", org_id).execute()
+        prof_res = sb.table("profiles").select("organization_id, home_organization_id").eq("id", owner_id).maybe_single().execute()
+        prof_data = prof_res.data if prof_res else None
+        org_id = (prof_data or {}).get("home_organization_id") or (prof_data or {}).get("organization_id") or owner_id
 
-    # 3. Owner display name (profile already exists via the trigger).
-    if payload.owner_full_name:
-        sb.table("profiles").update({"full_name": payload.owner_full_name}).eq("id", owner_id).execute()
+        sb.table("organizations").upsert(
+            {
+                "id": org_id,
+                "name": payload.name.strip(),
+                "industry": payload.industry,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+            on_conflict="id",
+        ).execute()
 
-    # 4. Org settings — notification_email is NOT NULL; persona defaults to brand_owner.
-    sb.table("org_settings").upsert(
-        {
-            "organization_id": org_id,
-            "notification_email": payload.owner_email,
-            "persona": payload.persona,
-        },
-        on_conflict="organization_id",
-    ).execute()
+        if payload.owner_full_name:
+            sb.table("profiles").update({"full_name": payload.owner_full_name}).eq("id", owner_id).execute()
+
+        sb.table("organization_members").upsert(
+            {
+                "organization_id": org_id,
+                "user_id": owner_id,
+                "role": "owner",
+            },
+            on_conflict="organization_id, user_id",
+        ).execute()
+
+        sb.table("org_settings").upsert(
+            {
+                "organization_id": org_id,
+                "notification_email": owner_email,
+                "persona": payload.persona,
+            },
+            on_conflict="organization_id",
+        ).execute()
+    else:
+        # Create standalone company without requiring an immediate owner user
+        org_id = str(uuid.uuid4())
+        sb.table("organizations").insert(
+            {
+                "id": org_id,
+                "name": payload.name.strip(),
+                "industry": payload.industry,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
+
+        sb.table("org_settings").insert(
+            {
+                "organization_id": org_id,
+                "notification_email": f"org-{org_id[:8]}@internal.hakkiu.com",
+                "persona": payload.persona,
+            }
+        ).execute()
 
     write_audit_log(
-        staff, "organizations.create", target_type="organization", target_id=org_id,
+        staff,
+        "organizations.create",
+        target_type="organization",
+        target_id=org_id,
         target_org_id=org_id,
         metadata={
-            "name": payload.name, "industry": payload.industry, "persona": payload.persona,
-            "owner_email": payload.owner_email, "owner_id": owner_id,
+            "name": payload.name,
+            "industry": payload.industry,
+            "persona": payload.persona,
+            "owner_email": owner_email or None,
         },
         ip=request.client.host if request.client else None,
     )
@@ -209,7 +261,7 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
         sb.table("organization_members").select("user_id, role").eq("organization_id", org_id).execute().data
         or []
     )
-    prof_rows = sb.table("profiles").select("id, full_name").execute().data or []
+    prof_rows = sb.table("profiles").select("id, full_name, home_organization_id").execute().data or []
     prof_by_id = {p["id"]: p for p in prof_rows}
     members = [
         Member(
@@ -217,6 +269,7 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
             email=emails.get(m["user_id"], "unknown@example.com"),
             full_name=(prof_by_id.get(m["user_id"]) or {}).get("full_name"),
             org_role=m.get("role", "member"),
+            home_organization_id=(prof_by_id.get(m["user_id"]) or {}).get("home_organization_id"),
         )
         for m in membership
     ]
@@ -263,9 +316,6 @@ def update_organization(
     return get_organization(org_id, staff)
 
 
-_VALID_ROLES = {"owner", "admin", "member"}
-
-
 @router.post("/{org_id}/members")
 def add_member(
     org_id: str,
@@ -273,15 +323,22 @@ def add_member(
     payload: AddMemberRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
-    """Add an existing user to the company (grouping/access only — does NOT move their
-    billing anchor). Use invitations (customer app, later) for self-serve onboarding."""
+    """Add a user to a company group and switch their active dashboard via RPC."""
     _org_or_404(org_id)
+    if org_id == HAKKIU_ORG_ID:
+        raise HTTPException(status_code=400, detail="Cannot add members to internal Hakkiu organization")
     if payload.role not in _VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role: {payload.role}")
-    customer_sb().table("organization_members").upsert(
-        {"organization_id": org_id, "user_id": payload.user_id, "role": payload.role},
-        on_conflict="organization_id,user_id",
-    ).execute()
+
+    try:
+        customer_sb().rpc("assign_user_to_group", {
+            "p_user_id": payload.user_id,
+            "p_org_id": org_id,
+            "p_role": payload.role,
+        }).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     write_audit_log(
         staff, "organizations.add_member", target_type="organization", target_id=org_id,
         target_org_id=org_id, metadata={"user_id": payload.user_id, "role": payload.role},
@@ -300,8 +357,23 @@ def update_member(
 ):
     if payload.role not in _VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role: {payload.role}")
+    sb = customer_sb()
+    if payload.role == "member":
+        owners = (
+            sb.table("organization_members")
+            .select("user_id")
+            .eq("organization_id", org_id)
+            .eq("role", "owner")
+            .neq("user_id", user_id)
+            .execute()
+            .data
+            or []
+        )
+        if not owners:
+            raise HTTPException(status_code=400, detail="Cannot change role of the last owner. Assign another owner first.")
+
     res = (
-        customer_sb().table("organization_members").update({"role": payload.role})
+        sb.table("organization_members").update({"role": payload.role})
         .eq("organization_id", org_id).eq("user_id", user_id).execute()
     )
     if not res.data:
@@ -321,12 +393,21 @@ def remove_member(
     request: Request,
     staff: StaffPrincipal = Depends(require_permission("customers.edit")),
 ):
-    customer_sb().table("organization_members").delete().eq("organization_id", org_id).eq(
-        "user_id", user_id
-    ).execute()
+    if org_id == HAKKIU_ORG_ID:
+        raise HTTPException(status_code=400, detail="Cannot remove members from internal Hakkiu organization")
+
+    try:
+        customer_sb().rpc("remove_user_from_group", {
+            "p_user_id": user_id,
+            "p_org_id": org_id,
+        }).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     write_audit_log(
         staff, "organizations.remove_member", target_type="organization", target_id=org_id,
         target_org_id=org_id, metadata={"user_id": user_id},
         ip=request.client.host if request.client else None,
     )
     return {"success": True}
+

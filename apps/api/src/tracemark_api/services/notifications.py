@@ -43,16 +43,22 @@ def _recipient_for_org(org_id: str) -> str | None:
             if email:
                 return email
 
-        profile = (
-            sb.table("profiles")
-            .select("email")
+        member = (
+            sb.table("organization_members")
+            .select("user_id")
             .eq("organization_id", org_id)
-            .eq("is_admin", True)
+            .eq("role", "owner")
             .limit(1)
             .execute()
         )
-        if profile and profile.data:
-            return profile.data[0].get("email")
+        if member and member.data:
+            user_id = member.data[0]["user_id"]
+            try:
+                user_res = sb.auth.admin.get_user_by_id(user_id)
+                if user_res and user_res.user and user_res.user.email:
+                    return user_res.user.email
+            except Exception:
+                pass
     except Exception as exc:
         print(f"[Notifications] Failed to resolve recipient for org {org_id}: {exc}")
     return None
@@ -283,10 +289,13 @@ def dispatch_notifications(event: dict) -> None:
             try:
                 from tracemark_api.services.database import get_supabase
                 sb = get_supabase()
-                pr = sb.table("profiles").select("full_name").eq("organization_id", org_id).eq("is_admin", True).limit(1).execute()
-                if pr and pr.data:
-                    full = pr.data[0].get("full_name") or ""
-                    user_name = full.split()[0] if full.strip() else "there"
+                m = sb.table("organization_members").select("user_id").eq("organization_id", org_id).eq("role", "owner").limit(1).execute()
+                if m and m.data:
+                    u_id = m.data[0]["user_id"]
+                    pr = sb.table("profiles").select("full_name").eq("id", u_id).maybe_single().execute()
+                    if pr and pr.data:
+                        full = pr.data.get("full_name") or ""
+                        user_name = full.split()[0] if full.strip() else "there"
             except Exception:
                 pass
 

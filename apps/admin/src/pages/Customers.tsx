@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { ErrorState } from "@/components/error-state";
 
 interface CustomerRow {
@@ -39,6 +40,9 @@ interface CustomerRow {
 export function Customers() {
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const confirm = useConfirm();
+  const qc = useQueryClient();
+
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["customers"],
     queryFn: () => adminFetch<CustomerRow[]>("/customers"),
@@ -49,6 +53,16 @@ export function Customers() {
   });
   const orgName = new Map((orgs ?? []).map((o) => [o.id, o.name]));
   const [editing, setEditing] = useState<EditableCustomer | null>(null);
+
+  const deleteCustomer = useMutation({
+    mutationFn: (userId: string) => adminFetch(`/customers/${userId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success("User deleted");
+      refetch();
+      qc.invalidateQueries({ queryKey: ["organizations"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const rows = (data ?? []).filter((u) => {
     if (search && !u.email.toLowerCase().includes(search.toLowerCase()) && !(u.full_name ?? "").toLowerCase().includes(search.toLowerCase())) return false;
@@ -122,18 +136,39 @@ export function Customers() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          setEditing({
-                            id: u.id, full_name: u.full_name, email: u.email,
-                            persona: u.persona, organization_id: u.organization_id,
-                          })
-                        }
-                      >
-                        Edit
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setEditing({
+                              id: u.id, full_name: u.full_name, email: u.email,
+                              persona: u.persona, organization_id: u.organization_id,
+                            })
+                          }
+                        >
+                          Edit
+                        </Button>
+                        <Can permission="customers.edit">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() =>
+                              confirm.open({
+                                title: `Delete ${u.full_name || u.email}?`,
+                                description: "Permanently deletes this user account and their login access. This action cannot be undone.",
+                                confirmLabel: "Delete user",
+                                destructive: true,
+                                onConfirm: async () => { await deleteCustomer.mutateAsync(u.id); },
+                              })
+                            }
+                            disabled={deleteCustomer.isPending}
+                          >
+                            Delete
+                          </Button>
+                        </Can>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -153,6 +188,7 @@ export function Customers() {
           }}
         />
       )}
+      {confirm.element}
     </div>
   );
 }

@@ -45,16 +45,22 @@ def _active_orgs() -> list[dict]:
                 email = settings.data.get("notification_email")
 
             if not email:
-                profile = (
-                    sb.table("profiles")
-                    .select("email")
+                member = (
+                    sb.table("organization_members")
+                    .select("user_id")
                     .eq("organization_id", org_id)
-                    .eq("is_admin", True)
+                    .eq("role", "owner")
                     .limit(1)
                     .execute()
                 )
-                if profile and profile.data:
-                    email = profile.data[0].get("email")
+                if member and member.data:
+                    user_id = member.data[0]["user_id"]
+                    try:
+                        user_res = sb.auth.admin.get_user_by_id(user_id)
+                        if user_res and user_res.user and user_res.user.email:
+                            email = user_res.user.email
+                    except Exception:
+                        pass
 
             if email:
                 result.append({"org_id": org_id, "email": email})

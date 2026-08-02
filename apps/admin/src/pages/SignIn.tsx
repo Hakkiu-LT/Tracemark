@@ -78,9 +78,9 @@ export function SignIn() {
         <CardContent>
           {notStaff ? (
             <div className="space-y-4 text-center">
-              <p className="text-sm text-destructive">
-                This account is not authorized for the admin portal.
-              </p>
+              <div className="rounded bg-destructive/10 p-3 text-sm text-destructive">
+                {typeof notStaff === "string" ? notStaff : "This account is not authorized for the admin portal."}
+              </div>
               <Button variant="outline" className="w-full" onClick={() => signOut()}>
                 Sign out
               </Button>

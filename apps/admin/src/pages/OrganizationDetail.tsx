@@ -46,7 +46,7 @@ interface OrgDetail {
   }[];
 }
 
-const ORG_ROLES = ["owner", "admin", "member"];
+const ORG_ROLES = ["owner", "member"];
 
 export function OrganizationDetail() {
   const { orgId } = useParams({ strict: false }) as { orgId: string };
@@ -171,40 +171,47 @@ export function OrganizationDetail() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.members.map((m) => (
-                <TableRow key={m.user_id}>
-                  <TableCell className="font-medium">
-                    <Link to="/customers/$userId" params={{ userId: m.user_id }} className="text-accent hover:underline">
-                      {m.full_name || "—"}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{m.email}</TableCell>
-                  <TableCell>
-                    <Can permission="customers.edit" fallback={<Badge variant="outline" className="capitalize">{m.org_role}</Badge>}>
-                      <Select
-                        value={m.org_role}
-                        onChange={(e) => setMemberRole.mutate({ userId: m.user_id, role: e.target.value })}
-                        className="h-8 w-32"
-                      >
-                        {ORG_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                      </Select>
-                    </Can>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Can permission="customers.edit">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={() => removeMember.mutate(m.user_id)}
-                        disabled={removeMember.isPending}
-                      >
-                        {removeMember.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
-                      </Button>
-                    </Can>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {(() => {
+                const ownerCount = data.members.filter((m) => m.org_role === "owner").length;
+                return data.members.map((m) => {
+                  const isLastOwner = m.org_role === "owner" && ownerCount <= 1;
+                  return (
+                    <TableRow key={m.user_id}>
+                      <TableCell className="font-medium">
+                        <Link to="/customers/$userId" params={{ userId: m.user_id }} className="text-accent hover:underline">
+                          {m.full_name || "—"}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{m.email}</TableCell>
+                      <TableCell>
+                        <Can permission="customers.edit" fallback={<Badge variant="outline" className="capitalize">{m.org_role}</Badge>}>
+                          <Select
+                            value={m.org_role}
+                            onChange={(e) => setMemberRole.mutate({ userId: m.user_id, role: e.target.value })}
+                            className="h-8 w-32"
+                          >
+                            {ORG_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                          </Select>
+                        </Can>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Can permission="customers.edit">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive"
+                            onClick={() => removeMember.mutate(m.user_id)}
+                            disabled={removeMember.isPending || isLastOwner}
+                            title={isLastOwner ? "Cannot remove the last owner. Transfer ownership first." : undefined}
+                          >
+                            {removeMember.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+                          </Button>
+                        </Can>
+                      </TableCell>
+                    </TableRow>
+                  );
+                });
+              })()}
             </TableBody>
           </Table>
         </CardContent>
@@ -665,7 +672,6 @@ function AddMemberDialog({
         <Label>Role</Label>
         <Select value={role} onChange={(e) => setRole(e.target.value)}>
           <option value="owner">owner</option>
-          <option value="admin">admin</option>
           <option value="member">member</option>
         </Select>
       </div>
