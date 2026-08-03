@@ -31,6 +31,7 @@ interface Member {
   email: string;
   full_name: string | null;
   org_role: string;
+  is_staff?: boolean;
 }
 interface OrgDetail {
   id: string;
@@ -97,7 +98,8 @@ export function OrganizationDetail() {
   });
 
   // Full delete: removes the login from EVERYWHERE (auth user + profile + all
-  // memberships), not just this company. Backend = delete_customer.
+  // memberships), not just this company. Backend = delete_customer. Used for real
+  // customers only — staff accounts are detached instead (see detachMember).
   const deleteUser = useMutation({
     mutationFn: (userId: string) =>
       adminFetch(`/customers/${userId}`, { method: "DELETE" }),
@@ -107,6 +109,18 @@ export function OrganizationDetail() {
       qc.invalidateQueries({ queryKey: ["organization", orgId] });
       qc.invalidateQueries({ queryKey: ["organizations"] });
       qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Detach only: removes the org membership but keeps the login. Used for staff /
+  // super-admin members (never delete their auth account from a company view).
+  const detachMember = useMutation({
+    mutationFn: (userId: string) =>
+      adminFetch(`/organizations/${orgId}/members/${userId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast.success("Removed from company");
+      qc.invalidateQueries({ queryKey: ["organization", orgId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -202,16 +216,29 @@ export function OrganizationDetail() {
                       </TableCell>
                       <TableCell className="text-right">
                         <Can permission="customers.edit">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-destructive"
-                            onClick={() => setDeletingMember(m)}
-                            disabled={deleteUser.isPending || isLastOwner}
-                            title={isLastOwner ? "Cannot delete the last owner. Transfer ownership first." : "Permanently deletes this login everywhere"}
-                          >
-                            Delete
-                          </Button>
+                          {m.is_staff ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive"
+                              onClick={() => detachMember.mutate(m.user_id)}
+                              disabled={detachMember.isPending || isLastOwner}
+                              title={isLastOwner ? "Cannot remove the last owner. Transfer ownership first." : "Staff account — only detaches from this company (login is kept)"}
+                            >
+                              {detachMember.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive"
+                              onClick={() => setDeletingMember(m)}
+                              disabled={deleteUser.isPending || isLastOwner}
+                              title={isLastOwner ? "Cannot delete the last owner. Transfer ownership first." : "Permanently deletes this login everywhere"}
+                            >
+                              Delete
+                            </Button>
+                          )}
                         </Can>
                       </TableCell>
                     </TableRow>
@@ -621,7 +648,9 @@ function AddMemberDialog({
 
   const { data, isFetching } = useQuery({
     queryKey: ["member-search", debounced],
-    queryFn: () => adminFetch<SearchResults>(`/search?q=${encodeURIComponent(debounced)}`),
+    // include_staff=true so staff / super-admin logins can be attached to a company
+    // (the global search box omits it and stays customer-only).
+    queryFn: () => adminFetch<SearchResults>(`/search?q=${encodeURIComponent(debounced)}&include_staff=true`),
     enabled: debounced.length >= 1 && !selected,
   });
 

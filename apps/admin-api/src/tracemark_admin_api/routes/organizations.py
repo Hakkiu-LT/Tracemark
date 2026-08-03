@@ -56,6 +56,7 @@ class Member(BaseModel):
     full_name: str | None
     org_role: str
     home_organization_id: str | None = None
+    is_staff: bool = False  # a staff/super-admin login attached to this company
 
 
 class OrgDetail(OrgRow):
@@ -261,6 +262,7 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
         sb.table("organization_members").select("user_id, role").eq("organization_id", org_id).execute().data
         or []
     )
+    staff_ids = _staff_ids()
     prof_rows = sb.table("profiles").select("id, full_name, home_organization_id").execute().data or []
     prof_by_id = {p["id"]: p for p in prof_rows}
     members = [
@@ -270,6 +272,7 @@ def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permis
             full_name=(prof_by_id.get(m["user_id"]) or {}).get("full_name"),
             org_role=m.get("role", "member"),
             home_organization_id=(prof_by_id.get(m["user_id"]) or {}).get("home_organization_id"),
+            is_staff=m["user_id"] in staff_ids,
         )
         for m in membership
     ]

@@ -19,6 +19,12 @@ class SearchResults(BaseModel):
 @router.get("", response_model=SearchResults)
 def search(
     q: str = Query(min_length=1),
+    include_staff: bool = Query(
+        False,
+        description="Include staff accounts in the people results. Used by 'Add member' so a "
+        "staff/super-admin login can be attached to a customer company; the global search "
+        "box leaves it False to stay customer-focused.",
+    ),
     staff: StaffPrincipal = Depends(require_permission("customers.view")),
 ):
     sb = customer_sb()
@@ -39,7 +45,7 @@ def search(
     profiles = sb.table("profiles").select("id, full_name, organization_id").limit(1000).execute().data or []
     people = []
     for p in profiles:
-        if p["id"] in staff_ids:
+        if p["id"] in staff_ids and not include_staff:
             continue
         email = emails.get(p["id"], "")
         name = p.get("full_name") or ""

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from tracemark_admin_api.clients import customer_sb
+from tracemark_admin_api.clients import admin_sb, customer_sb
 from tracemark_admin_api.dependencies import (
     StaffPrincipal,
     require_permission,
@@ -381,6 +381,17 @@ def delete_customer(
 ):
     """Delete a customer auth user and clean up their profile & memberships."""
     sb = customer_sb()
+
+    # Guard: never destroy a staff/super-admin login through the customer delete.
+    # Staff can be *attached* to a company for testing; removing them there must only
+    # detach the membership (handled by the org "Remove" path), not nuke their auth user.
+    staff_row = admin_sb().table("staff_accounts").select("id").eq("id", user_id).maybe_single().execute()
+    if staff_row and staff_row.data:
+        raise HTTPException(
+            status_code=400,
+            detail="This is a staff account. Remove them from the company instead, or manage the login under Staff.",
+        )
+
     prof = sb.table("profiles").select("organization_id, home_organization_id").eq("id", user_id).maybe_single().execute()
     org_id = prof.data.get("organization_id") if prof and prof.data else None
     home_org_id = prof.data.get("home_organization_id") if prof and prof.data else None
