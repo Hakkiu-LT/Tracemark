@@ -275,7 +275,22 @@ def _send_confirmation_email(
         html = demo_confirmed_html(
             first_name=first_name, confirmed_time=confirmed_time, meeting_link=meeting_link
         )
-        return bool(send_email(to=email, subject="Your HAKKIU demo is confirmed", html=html))
+        subject = "Your HAKKIU demo is confirmed"
+        ok = bool(send_email(to=email, subject=subject, html=html))
+        try:
+            from tracemark_api.services.delivery_log import log_delivery
+
+            log_delivery(
+                "demo_confirmed",
+                ok=ok,
+                recipient=email,
+                subject=subject,
+                body_html=html,
+                payload={"confirmed_time": confirmed_time, "via": "slack"},
+            )
+        except Exception:  # noqa: BLE001
+            _log.exception("[Slack confirm] failed to log demo_confirmed delivery")
+        return ok
     except Exception:  # noqa: BLE001
         _log.exception("[Slack confirm] confirmation email failed")
         return False

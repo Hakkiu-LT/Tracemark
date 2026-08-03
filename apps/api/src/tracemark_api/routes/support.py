@@ -46,13 +46,30 @@ def contact_support(
 </div>
 """
 
+    full_subject = f"[Support] {subject}"
     ok = send_email(
         to="support@hakkiu.com",
-        subject=f"[Support] {subject}",
+        subject=full_subject,
         html=html,
         from_address="support@hakkiu.com",
         from_name="HAKKIU Support",
     )
+    # Best-effort audit row so support requests show in the Admin Portal Notification
+    # Log alongside every other email; logging must never break the send itself.
+    try:
+        from tracemark_api.services.delivery_log import log_delivery
+
+        log_delivery(
+            "support_contact",
+            ok=bool(ok),
+            recipient="support@hakkiu.com",
+            subject=full_subject,
+            body_html=html,
+            payload={"from_email": user.email, "from_user_id": user.id},
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
     if not ok:
         raise HTTPException(
             status_code=502,

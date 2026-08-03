@@ -9,6 +9,41 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Customer delete: "email already exists" fix (2026-08-03)
+
+Staff couldn't re-create a customer login after deleting it: create threw "already registered".
+Root cause = the company-page "Remove" button only detached org membership (`DELETE /organizations/{org}/members/{user}`), leaving the `auth.users` row as an invisible orphan that blocked re-creation.
+- [x] `apps/admin-api/.../routes/customers.py`: `create_customer` now self-heals — if the email is already registered, it checks for an orphan (no profile + no memberships); orphan → hard-delete + `customer.orphan_cleanup` audit, then recreate; active user → clear 409 message.
+- [x] Added helpers `_find_auth_user_by_email` + `_is_orphan_auth_user`.
+- [x] `apps/admin/.../OrganizationDetail.tsx`: the per-user button in a company now does a FULL delete (`DELETE /customers/{id}` → auth user + profile + all memberships) via a confirmation dialog, renamed "Remove" → "Delete". Keeps the last-owner guard.
+- [ ] **Restart admin-API uvicorn** so the backend change takes effect.
+
+## 🟩 Notification Log P0 (2026-08-03) — completeness + cleanup
+
+Fixed the Admin Portal Notification Log being flooded with junk (empty Sent + `test-case-123` Skipped pairs).
+- [x] `routes/monitoring.py`: removed the redundant `log_delivery(ok=True)` after `dispatch_notifications()` (root-cause double-log that wrote a phantom "sent" row for every escalate/dismiss).
+- [x] Wired `log_delivery` into 6 previously-unlogged emails: `new_lead` + `lead_confirmation` (`routes/leads.py`), `demo_confirmed` (`routes/internal.py` + `routes/slack_interactions.py`), `support_contact` (`routes/support.py`), `password_reset` (`routes/internal.py`, **no body_html** — has a live reset link), `test` (`routes/monitoring.py`).
+- [x] `apps/admin/.../NotificationLog.tsx`: added the 6 new event types to filter + labels; fixed misleading "email / webhook" subtitle → "email".
+- [x] Migration `20260803000001_notification_deliveries_cleanup.sql`: delete `test-case-123` residue + phantom "sent" case_escalated/case_dismissed dupes.
+- [x] **DB cleanup applied to prod:** `supabase db push` ran `20260803000001` (2026-08-03) — junk rows deleted.
+- [ ] **Restart main-API uvicorn** after deploy so the code changes (double-log fix + new logging) take effect.
+
+### Notification Log P1 (2026-08-03) — usable "who received what" redesign
+- [x] Backend `notification_log.py`: resolve **brand_name** (case → brand_name, fallback payload) and **recipient_name** (sales_leads by email + auth users → profiles.full_name; static role labels for staff/lead/platform emails). Added `hide_skipped` query param.
+- [x] Frontend `NotificationLog.tsx`: new columns **Customer** (org, linked) · **Brand** (linked to case) · **Recipient** (name + email) · Event · Subject · Status. Inline error line for failed rows. Default "Sent & failed" view (hides skipped noise); view switcher for Delivered/Failed/Skipped/Everything. Rewrote subtitle honestly.
+- [x] **Delete button** (per row): new `notification_log.delete` permission (permissions.py + permissions.ts), `DELETE /notification-log/{id}` in admin-api with `write_audit_log("notification_log.delete")`, trash icon in an Actions column gated by `canDelete` + confirm dialog. Available to `admin` + super-admin (not `dev`, which is view-only).
+- [x] **Bulk delete**: `POST /notification-log/bulk-delete` (`{ids}`, capped at 500/request, single summary audit `notification_log.bulk_delete`) + checkbox column with select-all/indeterminate and a sticky "Delete selected" bar (Cases.tsx pattern). Selection clears on paging / filter change.
+- Verified: admin-api `py_compile` OK, admin FE `npm run typecheck` clean.
+
+### Notification Log — still remaining (P2, deferred)
+- [ ] Free-text search by recipient / organization / case_id (currently dropdowns only).
+- [ ] Date-range filter (from–to).
+- [ ] Retry / Resend button for `failed` rows via a main-API `/internal/*` endpoint (SMTP runs in main API).
+- [ ] Consider case-existence validation on the case-status endpoint so bogus escalates don't create skipped rows.
+- [ ] Perf: `notification_log.py` now calls `auth.admin.list_users(1000)` per page load (same pattern as customers.py) — cache/scope if it gets slow.
+
+---
+
 ## 🟩 Groups Feature V1 (2026-08-02) — Organizations, Roles & Hakkiu Staff Org
 
 Multi-tenant workspace "Groups" feature using `organizations` and `organization_members`:
@@ -39,10 +74,10 @@ Code — DONE (main API):
 - [x] Verified: AST parse, runtime import, signature-verify smoke test, modal builder, route registered.
 
 NEXT (USER) — one-time Slack app setup, then it goes live:
-- [ ] api.slack.com/apps → your existing app → Basic Information → copy **Signing Secret**.
-- [ ] OAuth & Permissions → add bot scope `chat:write` → Install → copy **Bot Token** (`xoxb-…`).
-- [ ] Interactivity & Shortcuts → ON → Request URL: `https://<api-domain>/api/v1/slack/interactions`.
-- [ ] Put `SLACK_SIGNING_SECRET` + `SLACK_BOT_TOKEN` in root `.env` (dev) AND Hetzner `.env` (prod),
+- [x] api.slack.com/apps → your existing app → Basic Information → copy **Signing Secret**.
+- [x] OAuth & Permissions → add bot scope `chat:write` → Install → copy **Bot Token** (`xoxb-…`).
+- [x] Interactivity & Shortcuts → ON → Request URL: `https://<api-domain>/api/v1/slack/interactions`.
+- [x] Put `SLACK_SIGNING_SECRET` + `SLACK_BOT_TOKEN` in root `.env` (dev) AND Hetzner `.env` (prod),
       restart main API. Button appears on the NEXT demo lead.
 
 ## ⚡ Mobile landing performance (2026-07-31) — fixed 1–2 min mobile "frozen" load
@@ -61,11 +96,6 @@ three `blur-[120px]` blobs — pegging the mobile GPU/main-thread on all 5 marke
 - [x] Deleted confirmed-dead heavy components: `cta.tsx`, `dot-field.tsx`, `scroll-velocity.tsx`,
       `features/radar.tsx` + `radar-panel.tsx` (ogl/WebGL), `features/case-panel.tsx`,
       `detection-panel.tsx` + 3 orphaned images. tsc + eslint + build + SSR smoke all green.
-
-**⏳ Optional follow-ups (not blocking, lower ROI):**
-- [ ] Run a real Lighthouse-mobile before/after on prod to quantify LCP/TBT gain.
-- [ ] Investigate workerd cold-start TTFB on Hetzner (only code-side fix left if server response is slow).
-- [ ] Consider code-splitting below-the-fold landing sections (React.lazy) — minor, main chunk is now framework baseline.
 
 ---
 

@@ -28,6 +28,7 @@ PERMISSIONS: dict[str, str] = {
     "staff.manage": "Create/edit staff and assign permissions",
     "audit.view": "Read the audit log",
     "notification_log.view": "View the notification delivery log (email/webhook dispatch attempts)",
+    "notification_log.delete": "Delete rows from the notification delivery log (destructive)",
     "leads.view": "View sales leads (Professional / Enterprise request-pricing forms)",
     "leads.edit": "Update lead status (mark contacted, close)",
     "leads.confirm": "Confirm a requested demo slot and email the customer",
