@@ -1,5 +1,49 @@
 # HAKKIU — Active Plan
 
+> **Session 48 (2026-08-03) — Notification Log P0: completeness + cleanup.**
+> The Admin Portal Notification Log (`admin.hakkiu.com/monitoring/notifications`) was flooded with
+> junk: paired empty "Sent" + "Skipped (could not resolve org from case test-case-123)" rows, no real
+> emails visible. 4 Explore agents audited the backend, dispatch logic, frontend, and the full email
+> inventory. **Root cause = a double-logging bug:** `routes/monitoring.py` called `log_delivery(ok=True)`
+> a SECOND time right after `dispatch_notifications()` (which already logs its own sent/failed/skipped
+> row on every path) — so every escalate/dismiss wrote a phantom "sent" row (no recipient/subject/org)
+> on top of the honest one. Combined with `test-case-123` test residue, the log was unusable. Also
+> found: the page claimed "every dispatch attempt (email / webhook)" but **6 of 13 email types bypassed
+> the log entirely** (lead alerts, lead confirmations, demo confirmations, support requests, admin
+> password resets, customer test emails), and there are no webhooks.
+> **Fixes (P0 — completeness + cleanup):**
+> - Removed the redundant `log_delivery` in `monitoring.py` escalate/dismiss (dispatch already logs).
+> - Wired `log_delivery` into the 6 previously-invisible emails: `new_lead`, `lead_confirmation`
+>   (`routes/leads.py`), `demo_confirmed` (admin path `routes/internal.py` + Slack path
+>   `routes/slack_interactions.py`), `support_contact` (`routes/support.py`), `password_reset`
+>   (`routes/internal.py` — **without** `body_html`, since it embeds a live reset link), `test`
+>   (`routes/monitoring.py`). All best-effort so logging never breaks a send.
+> - Frontend `NotificationLog.tsx`: added the 6 new event types to the filter + labels; fixed the
+>   misleading "email / webhook" subtitle to "email".
+> - Cleanup migration `20260803000001_notification_deliveries_cleanup.sql`: deletes the `test-case-123`
+>   residue and the phantom "sent" case_escalated/case_dismissed duplicates (uniquely identified by
+>   null recipient+subject). **Needs `supabase db push` to apply to prod.**
+> **P1 (same session) — "who received what" redesign.** User feedback: the log showed opaque IDs and
+> skipped noise, no email body, no sense of WHO got the email. Redesigned it into a real email log:
+> - Backend `notification_log.py`: enrich each row with **brand_name** (case → brand_name, fallback
+>   `payload.brand_name`) and **recipient_name** (matched by email: `sales_leads` first/last name for
+>   demo/lead emails, `auth.users` → `profiles.full_name` for customer users, static role labels like
+>   "HAKKIU sales team" for staff/platform emails). New `hide_skipped` query param.
+> - Frontend `NotificationLog.tsx`: columns now **Customer** (org name, linked to org detail) · **Brand**
+>   (linked to the case) · **Recipient** (name + email) · Event · Subject · Status, with an inline error
+>   line on failed rows. Default view "Sent & failed" hides the intentional skipped rows; a view switcher
+>   exposes Delivered / Failed / Skipped / Everything. Honest new subtitle.
+> - **Delete (single + bulk):** new `notification_log.delete` permission (mirrored in permissions.py +
+>   permissions.ts, granted to `admin` + super-admin). Single: `DELETE /notification-log/{id}` +
+>   trash-icon Actions column. Bulk: `POST /notification-log/bulk-delete` (`{ids}`, capped 500/req, one
+>   summary audit row) + a checkbox column (select-all/indeterminate) and a sticky "Delete selected" bar,
+>   following the Cases.tsx bulk pattern. Both hard-delete, audit (compact metadata, no body_html), and
+>   confirm first; deleting only removes the record — it never unsends/resends.
+> - Verified: admin-api `py_compile` OK, admin FE `npm run typecheck` clean. Needs admin-api + main-API
+>   uvicorn restart to take effect.
+> **Deferred (P2):** free-text search (recipient/org/case), date-range filter, Retry/Resend for failed
+> sends via a main-API `/internal/*` endpoint, and caching the `list_users` call. See todo.md.
+
 > **Session 47 (2026-08-02) — Groups Feature V1 (Organizations, Roles & Hakkiu Staff Org).**
 > Built customer "Groups" by promoting `organizations` / `organization_members` tables into a proper
 > multi-tenant workspace model.

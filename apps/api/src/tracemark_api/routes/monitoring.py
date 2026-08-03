@@ -375,15 +375,18 @@ def update_status_endpoint(case_id: str, payload: UpdateStatusRequest, profile: 
         if payload.status in ("escalated", "dismissed"):
             try:
                 from tracemark_api.services.notifications import dispatch_notifications
-                from tracemark_api.services.delivery_log import log_delivery
                 event_type = f"case_{payload.status}"  # case_escalated or case_dismissed
-                event = {
-                    "type": event_type,
-                    "case_id": case_id,
-                }
-                dispatch_notifications(event)
-                log_delivery(event_type, ok=True, payload=event)
+                # dispatch_notifications records its OWN notification_deliveries row on
+                # every path (sent / failed / skipped-with-reason). Do NOT log again here
+                # — a second log_delivery(ok=True) used to write a phantom "sent" row for
+                # every escalate/dismiss even when the real dispatch was skipped, which is
+                # what flooded the Notification Log with empty Sent + Skipped pairs.
+                dispatch_notifications({"type": event_type, "case_id": case_id})
             except Exception as e:
+                # Only reached if dispatch_notifications itself raised BEFORE it could log
+                # (its internal log calls are already guarded). Record one failed row so a
+                # catastrophic dispatch error is still visible; swallow otherwise so a
+                # notification problem never fails the case status update.
                 try:
                     from tracemark_api.services.delivery_log import log_delivery
                     log_delivery(f"case_{payload.status}", ok=False, error=str(e))
@@ -472,12 +475,24 @@ def test_email_notification_endpoint(
         )
     try:
         from tracemark_api.services.notifications import send_email_notification
+        from tracemark_api.services.delivery_log import log_delivery
         event = {
             "type": "test",
             "message": "This is a test notification from HAKKIU to verify SMTP configuration.",
             "brand_name": "Test Brand",
         }
-        send_email_notification(event, recipient)
+        body_html = send_email_notification(event, recipient)
+        try:
+            log_delivery(
+                "test",
+                ok=True,
+                recipient=recipient,
+                subject="HAKKIU — test email",
+                body_html=body_html,
+                payload={"triggered_by": "customer_settings"},
+            )
+        except Exception:
+            pass
         return {"success": True, "message": f"Test email sent to {recipient}"}
     except HTTPException:
         raise

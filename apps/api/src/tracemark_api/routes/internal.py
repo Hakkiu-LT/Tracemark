@@ -23,6 +23,16 @@ from tracemark_api.services.database import get_supabase
 router = APIRouter(prefix="/internal", tags=["internal"])
 
 
+def _log_internal_delivery(event_type: str, **kwargs) -> None:
+    """Best-effort notification_deliveries write — logging must never break a send."""
+    try:
+        from tracemark_api.services.delivery_log import log_delivery
+
+        log_delivery(event_type, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[internal] failed to log {event_type} delivery: {exc}")
+
+
 def verify_internal_secret(x_internal_secret: str = Header(...)) -> bool:
     """Constant-time compare of the shared internal secret."""
     expected = os.environ.get("INTERNAL_API_SECRET", "")
@@ -213,7 +223,11 @@ def internal_send_password_reset(body: PasswordResetEmail, _ok: bool = Depends(v
         "will stay the same.</p>"
     )
     html = _base(content, preheader="Reset your HAKKIU Admin password")
-    ok = send_email(to=body.email, subject="Reset your HAKKIU Admin password", html=html)
+    subject = "Reset your HAKKIU Admin password"
+    ok = send_email(to=body.email, subject=subject, html=html)
+    # Log the dispatch for auditability — but NEVER store body_html: it embeds a
+    # live password-reset link, which must not be readable in the staff-facing log.
+    _log_internal_delivery("password_reset", ok=bool(ok), recipient=body.email, subject=subject)
     if not ok:
         raise HTTPException(status_code=502, detail="Email provider not configured or send failed")
     return {"success": True}
@@ -250,10 +264,15 @@ def internal_send_demo_confirmation(
         confirmed_time=confirmed_time,
         meeting_link=body.meeting_link or None,
     )
-    ok = send_email(
-        to=body.email,
-        subject="Your HAKKIU demo is confirmed",
-        html=html,
+    subject = "Your HAKKIU demo is confirmed"
+    ok = send_email(to=body.email, subject=subject, html=html)
+    _log_internal_delivery(
+        "demo_confirmed",
+        ok=bool(ok),
+        recipient=body.email,
+        subject=subject,
+        body_html=html,
+        payload={"confirmed_time": confirmed_time, "via": "admin_portal"},
     )
     if not ok:
         raise HTTPException(status_code=502, detail="Email provider not configured or send failed")

@@ -82,6 +82,16 @@ _SOURCE_SLACK_WEBHOOK = {
 }
 
 
+def _log_delivery_safe(event_type: str, **kwargs) -> None:
+    """Best-effort notification_deliveries write — logging must never break a send."""
+    try:
+        from tracemark_api.services.delivery_log import log_delivery
+
+        log_delivery(event_type, **kwargs)
+    except Exception:
+        _log.exception("Failed to log %s delivery", event_type)
+
+
 def _lead_kind(lead: LeadRequest) -> str:
     """Which confirmation copy to send the lead: 'sales' for Talk-to-sales,
     'demo' for everything else (Book-a-demo / pricing)."""
@@ -171,8 +181,21 @@ def _send_lead_notification(lead: LeadRequest) -> None:
         )
         kind_label = _SOURCE_SUBJECTS.get(lead.source or "", "sales")
         subject = f"New {kind_label} lead — {lead.email}"
+        all_ok = True
         for recipient in _NOTIFY_EMAILS:
-            send_email(to=recipient, subject=subject, html=html)
+            if not send_email(to=recipient, subject=subject, html=html):
+                all_ok = False
+        # One audit row per lead alert (recipient = the staff list it fanned out to)
+        # so this send is visible in the Admin Portal Notification Log like every
+        # other email. No org — it's a system/sales notification.
+        _log_delivery_safe(
+            "new_lead",
+            ok=all_ok,
+            recipient=", ".join(_NOTIFY_EMAILS) or None,
+            subject=subject,
+            body_html=html,
+            payload={"source": lead.source, "lead_email": str(lead.email)},
+        )
     except Exception:
         _log.exception("Failed to send lead notification email")
 
@@ -288,7 +311,15 @@ def _send_lead_confirmation(lead: LeadRequest) -> None:
             if kind == "demo"
             else "We've received your message — HAKKIU"
         )
-        send_email(to=str(lead.email), subject=subject, html=html)
+        ok = send_email(to=str(lead.email), subject=subject, html=html)
+        _log_delivery_safe(
+            "lead_confirmation",
+            ok=bool(ok),
+            recipient=str(lead.email),
+            subject=subject,
+            body_html=html,
+            payload={"source": lead.source, "kind": kind},
+        )
     except Exception:
         _log.exception("Failed to send lead confirmation email")
 
