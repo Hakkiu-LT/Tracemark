@@ -61,6 +61,36 @@ def _email_map(sb) -> dict[str, str]:
     return {u.id: (u.email or "") for u in users}
 
 
+def _find_auth_user_by_email(sb, email: str):
+    """Return the auth user object whose email matches (case-insensitive), or None.
+
+    Used to detect an email that is still registered in ``auth.users`` even though
+    its profile/memberships were already removed (an "orphan" login).
+    """
+    target = email.strip().lower()
+    users = sb.auth.admin.list_users(page=1, per_page=1000)
+    for u in users:
+        if (u.email or "").strip().lower() == target:
+            return u
+    return None
+
+
+def _is_orphan_auth_user(sb, user_id: str) -> bool:
+    """True when an auth user has NO profile row and NO org memberships.
+
+    Such a user is invisible in the admin UI (nothing to delete), yet still
+    occupies the email in ``auth.users`` — blocking re-creation with a
+    "already registered" error. Safe to hard-delete before recreating.
+    """
+    prof = sb.table("profiles").select("id").eq("id", user_id).maybe_single().execute()
+    if prof and prof.data:
+        return False
+    members = (
+        sb.table("organization_members").select("user_id").eq("user_id", user_id).limit(1).execute()
+    )
+    return not (members.data or [])
+
+
 def _persona_by_org(sb) -> dict[str, str | None]:
     rows = sb.table("org_settings").select("organization_id, persona").execute().data or []
     return {r["organization_id"]: r.get("persona") for r in rows}
@@ -134,7 +164,39 @@ def create_customer(
         if not org or not org.data:
             raise HTTPException(status_code=404, detail="Organization not found")
 
-    # 2. Create the auth user (email confirmed, no confirmation email).
+    # 2a. If this email is still registered in auth.users, decide what to do.
+    #     An "orphan" login (no profile, no memberships) is invisible in the admin
+    #     UI, so staff cannot delete it the normal way — yet it blocks re-creation
+    #     with a confusing "already registered" error. Clean it up automatically.
+    existing = _find_auth_user_by_email(sb, payload.email)
+    if existing is not None:
+        if _is_orphan_auth_user(sb, existing.id):
+            try:
+                sb.auth.admin.delete_user(existing.id)
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Email is registered to an orphaned login that could not be removed: {exc}",
+                )
+            write_audit_log(
+                staff,
+                "customer.orphan_cleanup",
+                target_type="customer",
+                target_id=existing.id,
+                metadata={"email": payload.email, "reason": "orphan auth user blocking recreation"},
+                ip=request.client.host if request.client else None,
+            )
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This email already belongs to an active user. Delete that user from "
+                    "their customer page first, or attach them via 'Add member' instead of "
+                    "creating a new login."
+                ),
+            )
+
+    # 2b. Create the auth user (email confirmed, no confirmation email).
     try:
         created = sb.auth.admin.create_user(
             {

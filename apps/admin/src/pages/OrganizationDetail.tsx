@@ -56,6 +56,7 @@ export function OrganizationDetail() {
   const [brandEdit, setBrandEdit] = useState<OrgDetail["brands"][number] | null>(null);
   const [addingMember, setAddingMember] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
+  const [deletingMember, setDeletingMember] = useState<OrgDetail["members"][number] | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["organization", orgId],
@@ -95,12 +96,17 @@ export function OrganizationDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const removeMember = useMutation({
+  // Full delete: removes the login from EVERYWHERE (auth user + profile + all
+  // memberships), not just this company. Backend = delete_customer.
+  const deleteUser = useMutation({
     mutationFn: (userId: string) =>
-      adminFetch(`/organizations/${orgId}/members/${userId}`, { method: "DELETE" }),
+      adminFetch(`/customers/${userId}`, { method: "DELETE" }),
     onSuccess: () => {
-      toast.success("Member removed");
+      toast.success("User deleted everywhere");
+      setDeletingMember(null);
       qc.invalidateQueries({ queryKey: ["organization", orgId] });
+      qc.invalidateQueries({ queryKey: ["organizations"] });
+      qc.invalidateQueries({ queryKey: ["customers"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -200,11 +206,11 @@ export function OrganizationDetail() {
                             size="sm"
                             variant="ghost"
                             className="text-destructive"
-                            onClick={() => removeMember.mutate(m.user_id)}
-                            disabled={removeMember.isPending || isLastOwner}
-                            title={isLastOwner ? "Cannot remove the last owner. Transfer ownership first." : undefined}
+                            onClick={() => setDeletingMember(m)}
+                            disabled={deleteUser.isPending || isLastOwner}
+                            title={isLastOwner ? "Cannot delete the last owner. Transfer ownership first." : "Permanently deletes this login everywhere"}
                           >
-                            {removeMember.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+                            Delete
                           </Button>
                         </Can>
                       </TableCell>
@@ -321,6 +327,32 @@ export function OrganizationDetail() {
             qc.invalidateQueries({ queryKey: ["organization", orgId] });
           }}
         />
+      )}
+
+      {deletingMember && (
+        <Dialog
+          open
+          onClose={() => setDeletingMember(null)}
+          title="Delete this user everywhere?"
+          description="This permanently deletes the login, profile and ALL company memberships — not just from this company. This cannot be undone."
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setDeletingMember(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteUser.mutate(deletingMember.user_id)}
+                disabled={deleteUser.isPending}
+              >
+                {deleteUser.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Delete everywhere
+              </Button>
+            </>
+          }
+        >
+          <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+            <div className="font-medium">{deletingMember.full_name || "—"}</div>
+            <div className="text-muted-foreground">{deletingMember.email}</div>
+          </div>
+        </Dialog>
       )}
     </div>
   );
