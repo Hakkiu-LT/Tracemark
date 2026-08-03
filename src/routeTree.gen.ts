@@ -104,6 +104,11 @@ const SolutionsBrandOwnersRoute = SolutionsBrandOwnersRouteImport.update({
   path: '/solutions/brand-owners',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsSupportRoute = SettingsSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsProfileRoute = SettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -117,11 +122,6 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
 const SettingsClientsRoute = SettingsClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsSupportRoute = SettingsSupportRouteImport.update({
-  id: '/support',
-  path: '/support',
   getParentRoute: () => SettingsRoute,
 } as any)
 const MonitoringNewRoute = MonitoringNewRouteImport.update({
@@ -550,6 +550,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SolutionsBrandOwnersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/support': {
+      id: '/settings/support'
+      path: '/support'
+      fullPath: '/settings/support'
+      preLoaderRoute: typeof SettingsSupportRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/profile': {
       id: '/settings/profile'
       path: '/profile'
@@ -569,13 +576,6 @@ declare module '@tanstack/react-router' {
       path: '/clients'
       fullPath: '/settings/clients'
       preLoaderRoute: typeof SettingsClientsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/support': {
-      id: '/settings/support'
-      path: '/support'
-      fullPath: '/settings/support'
-      preLoaderRoute: typeof SettingsSupportRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/monitoring/new': {

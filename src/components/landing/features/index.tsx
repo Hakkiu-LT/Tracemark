@@ -101,9 +101,9 @@ export function Features() {
             delay={0}
             className="flex flex-col gap-5 rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-md md:col-span-2"
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
                   <Sparkles className="h-5 w-5" strokeWidth={2} />
                 </span>
                 <h3 className="font-display text-lg font-bold tracking-tight text-foreground">
@@ -225,9 +225,9 @@ export function Features() {
             delay={100}
             className="flex flex-col gap-5 rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-foreground/30 hover:shadow-md md:col-span-2"
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-foreground">
                   <Send className="h-5 w-5" strokeWidth={2} />
                 </span>
                 <h3 className="font-display text-lg font-bold tracking-tight text-foreground">

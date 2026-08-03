@@ -16,7 +16,9 @@ Root cause = the company-page "Remove" button only detached org membership (`DEL
 - [x] `apps/admin-api/.../routes/customers.py`: `create_customer` now self-heals — if the email is already registered, it checks for an orphan (no profile + no memberships); orphan → hard-delete + `customer.orphan_cleanup` audit, then recreate; active user → clear 409 message.
 - [x] Added helpers `_find_auth_user_by_email` + `_is_orphan_auth_user`.
 - [x] `apps/admin/.../OrganizationDetail.tsx`: the per-user button in a company now does a FULL delete (`DELETE /customers/{id}` → auth user + profile + all memberships) via a confirmation dialog, renamed "Remove" → "Delete". Keeps the last-owner guard.
-- [ ] **Restart admin-API uvicorn** so the backend change takes effect.
+- [x] **Allow attaching staff/super-admin logins to a company:** `search.py` gained an `include_staff` query param (default off — global search stays customer-only); `OrganizationDetail` "Add existing" calls `/search?...&include_staff=true`. Staff were previously filtered out of people results, so they could neither be created (email taken) nor added.
+- [x] **Safety:** staff members show a **"Remove" (detach only)** button, real customers show **"Delete" (everywhere)** — driven by a new `is_staff` flag on the org members payload (`organizations.py`). `delete_customer` now hard-refuses staff accounts (400) so a super-admin login can never be nuked from a company view.
+- [ ] **Restart admin-API uvicorn** so the backend changes take effect.
 
 ## 🟩 Notification Log P0 (2026-08-03) — completeness + cleanup
 
