@@ -234,7 +234,7 @@ export function Features() {
                   1-click marketplace enforcement
                 </h3>
               </div>
-              <span className="shrink-0 rounded-full border border-border bg-muted/40 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-muted/40 px-3.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Notice delivered
               </span>
             </div>
