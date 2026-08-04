@@ -12,12 +12,35 @@ FAKE_ORG_ID = "fake-org"
 
 @pytest.fixture(autouse=True)
 def override_auth():
+<<<<<<< HEAD
     from tracemark_api.dependencies import get_current_profile, CurrentProfile
     profile = CurrentProfile(
         id="fake-id", email="fake@example.com",
         organization_id=FAKE_ORG_ID,
     )
     app.dependency_overrides[get_current_profile] = lambda: profile
+=======
+    from tracemark_api.dependencies import get_current_user, get_current_profile, AuthUser, CurrentProfile
+    from tracemark_api.services.entitlements import Entitlement
+    app.dependency_overrides[get_current_user] = lambda: AuthUser(id="fake-id", email="fake@tracemark.io")
+    app.dependency_overrides[get_current_profile] = lambda: CurrentProfile(
+        id="fake-id",
+        email="fake@tracemark.io",
+        organization_id="org-123",
+        plan="pro",
+        entitlements=Entitlement(
+            plan="pro",
+            brands=5,
+            platforms=3,
+            regions=2,
+            domain_tracking=True,
+            managed_takedown=True,
+            api_access=True,
+            advanced_reports=True,
+            real_time_scans=True
+        )
+    )
+>>>>>>> origin/sentinel-fix-idor-docs-takedowns-17142356003433081144
     yield
     app.dependency_overrides.clear()
 
@@ -231,9 +254,22 @@ def test_update_takedown_success():
         "notice_text": "Updated notice text",
         "status": "sent",
         "submitted_at": "2026-06-24T18:00:00Z",
+<<<<<<< HEAD
     }
     mock_sb, mock_table = _make_takedown_sb(takedown_data)
 
+=======
+        "cases": {"organization_id": "org-123"}
+    }]
+    
+    mock_table = MagicMock()
+    mock_table.select.return_value.eq.return_value.execute.return_value = mock_result
+    mock_table.update.return_value.eq.return_value.execute.return_value = mock_result
+    
+    mock_sb = MagicMock()
+    mock_sb.table.return_value = mock_table
+    
+>>>>>>> origin/sentinel-fix-idor-docs-takedowns-17142356003433081144
     with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
         response = client.put(
             "/api/v1/monitoring/takedowns/takedown-123",
@@ -260,9 +296,21 @@ def test_update_takedown_no_fields():
         "notice_text": "Existing notice text",
         "status": "pending",
         "submitted_at": None,
+<<<<<<< HEAD
     }
     mock_sb, mock_table = _make_takedown_sb(takedown_data)
 
+=======
+        "cases": {"organization_id": "org-123"}
+    }]
+    
+    mock_table = MagicMock()
+    mock_table.select.return_value.eq.return_value.execute.return_value = mock_result
+    
+    mock_sb = MagicMock()
+    mock_sb.table.return_value = mock_table
+    
+>>>>>>> origin/sentinel-fix-idor-docs-takedowns-17142356003433081144
     with patch("tracemark_api.routes.monitoring.get_supabase", return_value=mock_sb):
         response = client.put(
             "/api/v1/monitoring/takedowns/takedown-123",
@@ -273,8 +321,14 @@ def test_update_takedown_no_fields():
     assert response.json()["id"] == "takedown-123"
     assert response.json()["status"] == "pending"
     assert response.json()["notice_text"] == "Existing notice text"
+<<<<<<< HEAD
 
     # Verify update was not called (only a select fetch happened)
+=======
+    
+    # Verify select was called, update was not called
+    mock_table.select.assert_called_once_with("*, cases(organization_id)")
+>>>>>>> origin/sentinel-fix-idor-docs-takedowns-17142356003433081144
     mock_table.update.assert_not_called()
 
 
@@ -283,6 +337,7 @@ def test_update_takedown_not_found():
     mock_result.data = [] # Empty means not found
     
     mock_table = MagicMock()
+    mock_table.select.return_value.eq.return_value.execute.return_value = mock_result
     mock_table.update.return_value.eq.return_value.execute.return_value = mock_result
     
     mock_sb = MagicMock()

@@ -3,7 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
+<<<<<<< HEAD
 from tracemark_api.dependencies import get_current_profile, CurrentProfile
+=======
+from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
+>>>>>>> origin/sentinel-fix-idor-docs-takedowns-17142356003433081144
 from tracemark_api.services.database import get_supabase
 from tracemark_api.services.storage import sign_legal_document_url
 
@@ -66,8 +70,16 @@ def send_document_email_endpoint(
                 case_id = inf_res.data.get("case_id")
                 platform = inf_res.data.get("platform", "Unknown Platform")
                 infringing_url = inf_res.data.get("source_url", "")
+
+            if case_id:
+                case_res = sb.table("cases").select("organization_id").eq("id", case_id).maybe_single().execute()
+                if not case_res.data or case_res.data.get("organization_id") != profile.organization_id:
+                    raise HTTPException(status_code=403, detail="Not authorized to access this document")
+        except HTTPException:
+            raise
         except Exception as e:
             print(f"[DocumentsRoute] Failed to fetch infringement details: {e}")
+            raise HTTPException(status_code=403, detail="Not authorized")
 
         event = {
             "type": "takedown_generated",
