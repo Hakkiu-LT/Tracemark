@@ -1,0 +1,4 @@
+## 2025-02-14 - [IDOR in case/takedown report access]
+**Vulnerability:** In `apps/api/src/tracemark_api/routes/monitoring.py`, the validation functions `_assert_case_in_org` and `_assert_takedown_in_org` only checked against `organization_id`. For personal users (who don't have an organization, so `org_id` is None), they could access any case or takedown report that also had a `None` organization, allowing arbitrary cross-user data access.
+**Learning:** Due to the backend's Supabase RLS bypass, manual assertions must comprehensively validate ownership for *both* organizational users and personal users. A `None == None` equality check for organizations is a common IDOR pitfall for resources lacking explicit user-level validation.
+**Prevention:** Always implement dual validation patterns. When asserting ownership, if `organization_id` is absent, fall back to strictly matching the `user_id` of the resource owner against the calling profile's ID.
