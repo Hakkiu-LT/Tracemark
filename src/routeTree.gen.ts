@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RequestDemoRouteImport } from './routes/request-demo'
 import { Route as MonitoringRouteImport } from './routes/monitoring'
-import { Route as LandingRouteImport } from './routes/landing'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ClientsRouteImport } from './routes/clients'
@@ -57,11 +56,6 @@ const RequestDemoRoute = RequestDemoRouteImport.update({
 const MonitoringRoute = MonitoringRouteImport.update({
   id: '/monitoring',
   path: '/monitoring',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LandingRoute = LandingRouteImport.update({
-  id: '/landing',
-  path: '/landing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -223,7 +217,6 @@ export interface FileRoutesByFullPath {
   '/clients': typeof ClientsRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/request-demo': typeof RequestDemoRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -259,7 +252,6 @@ export interface FileRoutesByTo {
   '/clients': typeof ClientsRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/request-demo': typeof RequestDemoRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -296,7 +288,6 @@ export interface FileRoutesById {
   '/clients': typeof ClientsRoute
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
-  '/landing': typeof LandingRoute
   '/monitoring': typeof MonitoringRouteWithChildren
   '/request-demo': typeof RequestDemoRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -334,7 +325,6 @@ export interface FileRouteTypes {
     | '/clients'
     | '/contact'
     | '/dashboard'
-    | '/landing'
     | '/monitoring'
     | '/request-demo'
     | '/settings'
@@ -370,7 +360,6 @@ export interface FileRouteTypes {
     | '/clients'
     | '/contact'
     | '/dashboard'
-    | '/landing'
     | '/monitoring'
     | '/request-demo'
     | '/settings'
@@ -406,7 +395,6 @@ export interface FileRouteTypes {
     | '/clients'
     | '/contact'
     | '/dashboard'
-    | '/landing'
     | '/monitoring'
     | '/request-demo'
     | '/settings'
@@ -443,7 +431,6 @@ export interface RootRouteChildren {
   ClientsRoute: typeof ClientsRoute
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
-  LandingRoute: typeof LandingRoute
   MonitoringRoute: typeof MonitoringRouteWithChildren
   RequestDemoRoute: typeof RequestDemoRoute
   SettingsRoute: typeof SettingsRouteWithChildren
@@ -485,13 +472,6 @@ declare module '@tanstack/react-router' {
       path: '/monitoring'
       fullPath: '/monitoring'
       preLoaderRoute: typeof MonitoringRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/landing': {
-      id: '/landing'
-      path: '/landing'
-      fullPath: '/landing'
-      preLoaderRoute: typeof LandingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -779,7 +759,6 @@ const rootRouteChildren: RootRouteChildren = {
   ClientsRoute: ClientsRoute,
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
-  LandingRoute: LandingRoute,
   MonitoringRoute: MonitoringRouteWithChildren,
   RequestDemoRoute: RequestDemoRoute,
   SettingsRoute: SettingsRouteWithChildren,

@@ -10,9 +10,9 @@ import { Faq, FAQ_ITEMS } from "@/components/landing/faq";
 import { FinalCTA } from "@/components/landing/final-cta";
 import { Footer } from "@/components/landing/footer";
 
-// The public marketing landing page is served at the site root (hakkiu.com),
-// not /landing. The old /landing URL still works — see src/routes/landing.tsx,
-// which permanently redirects here (preserving ?book=demo|sales deep links).
+// The public marketing landing page is served at the site root (hakkiu.com).
+// There is no /landing route — the old redirect stub was removed once the
+// landing content moved permanently to "/".
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [

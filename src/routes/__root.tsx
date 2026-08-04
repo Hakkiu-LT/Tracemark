@@ -22,7 +22,6 @@ import appCss from "../styles.css?url";
 
 const PUBLIC_PATHS = new Set([
   "/",
-  "/landing",
   "/legacy/login",
   "/legacy/signup",
   "/auth/sign-in",
