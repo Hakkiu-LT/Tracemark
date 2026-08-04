@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Literal
 
+<<<<<<< HEAD
 from tracemark_api.dependencies import get_current_profile, CurrentProfile, require_owner
+=======
+from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
+>>>>>>> origin/sentinel/fix-infringements-idor-2079756638087335225
 from tracemark_api.services.database import get_supabase
 from tracemark_api.services.storage import sign_screenshot_url, _extract_screenshot_path
 
@@ -174,8 +178,33 @@ def get_infringement(
 ) -> InfringementItem:
     """Return a single infringement by id (with its own per-copycat status)."""
     sb = get_supabase()
+<<<<<<< HEAD
     data = _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
     return _flatten_case_fields(data)
+=======
+    result = (
+        sb.table("infringements")
+        .select("*, cases!inner(organization_id, user_id, detection_region, status, updated_at)")
+        .eq("id", infringement_id)
+        .maybe_single().execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Infringement not found")
+        
+    data = result.data
+    cases_data = data.get("cases") or {}
+
+    org_id = cases_data.get("organization_id")
+    user_id = cases_data.get("user_id")
+
+    if (org_id and org_id != profile.organization_id) or (not org_id and user_id != profile.id):
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
+    data["detection_region"] = cases_data.get("detection_region")
+    data["status"] = cases_data.get("status") or data.get("status")
+    data["case_updated_at"] = cases_data.get("updated_at")
+    return data
+>>>>>>> origin/sentinel/fix-infringements-idor-2079756638087335225
 
 
 @router.get("/{infringement_id}/evidence", response_model=list[EvidenceItem])
@@ -185,8 +214,28 @@ def get_evidence(
 ) -> list[EvidenceItem]:
     """Return all evidence snapshots for an infringement, newest first."""
     sb = get_supabase()
+<<<<<<< HEAD
     # Verify ownership before returning evidence
     _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
+=======
+
+    infringement_result = (
+        sb.table("infringements")
+        .select("id, cases!inner(organization_id, user_id)")
+        .eq("id", infringement_id)
+        .maybe_single().execute()
+    )
+
+    if not infringement_result.data:
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
+    cases_data = infringement_result.data.get("cases") or {}
+    org_id = cases_data.get("organization_id")
+    user_id = cases_data.get("user_id")
+
+    if (org_id and org_id != profile.organization_id) or (not org_id and user_id != profile.id):
+        raise HTTPException(status_code=404, detail="Infringement not found")
+>>>>>>> origin/sentinel/fix-infringements-idor-2079756638087335225
 
     result = (
         sb.table("evidence_items")
@@ -342,7 +391,11 @@ ALLOWED_INFRINGEMENT_STATUSES = frozenset({
 def update_infringement_status(
     infringement_id: str,
     payload: UpdateStatusRequest,
+<<<<<<< HEAD
     profile: CurrentProfile = Depends(require_owner),
+=======
+    profile: CurrentProfile = Depends(get_current_profile),
+>>>>>>> origin/sentinel/fix-infringements-idor-2079756638087335225
 ) -> InfringementItem:
     """Update the status of a single infringement (per-copycat).
 
@@ -355,10 +408,27 @@ def update_infringement_status(
         raise HTTPException(status_code=422, detail=f"Invalid status: {payload.status}")
 
     sb = get_supabase()
+<<<<<<< HEAD
     # Verify ownership via parent case (prevents cross-tenant status writes).
     _infringement_or_404(infringement_id, profile.organization_id, profile.id, sb)
 
     updates = {"status": status}
+=======
+    
+    # Verify it exists and belongs to the user
+    existing = sb.table("infringements").select("id, cases!inner(organization_id, user_id)").eq("id", infringement_id).maybe_single().execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Infringement not found")
+        
+    cases_data = existing.data.get("cases") or {}
+    org_id = cases_data.get("organization_id")
+    user_id = cases_data.get("user_id")
+
+    if (org_id and org_id != profile.organization_id) or (not org_id and user_id != profile.id):
+        raise HTTPException(status_code=404, detail="Infringement not found")
+
+    updates = {"status": payload.status}
+>>>>>>> origin/sentinel/fix-infringements-idor-2079756638087335225
     if payload.decline_reason is not None:
         updates["decline_reason"] = payload.decline_reason
 
