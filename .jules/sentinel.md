@@ -1,6 +1,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## 2025-02-14 - [IDOR in case/takedown report access]
 **Vulnerability:** In `apps/api/src/tracemark_api/routes/monitoring.py`, the validation functions `_assert_case_in_org` and `_assert_takedown_in_org` only checked against `organization_id`. For personal users (who don't have an organization, so `org_id` is None), they could access any case or takedown report that also had a `None` organization, allowing arbitrary cross-user data access.
 **Learning:** Due to the backend's Supabase RLS bypass, manual assertions must comprehensively validate ownership for *both* organizational users and personal users. A `None == None` equality check for organizations is a common IDOR pitfall for resources lacking explicit user-level validation.
@@ -23,3 +24,9 @@
 **Learning:** Checking for the presence of a restricted list (`if admin_emails and ...`) creates a dangerous fail-open scenario if the environment variable is unconfigured.
 **Prevention:** Always default to deny. Use `if not admin_emails or user_email not in admin_emails:` to ensure access is explicitly blocked when the authorization configuration is missing.
 >>>>>>> origin/sentinel/auth-bypass-admin-routes-14599662050365692217
+=======
+## 2024-05-24 - Missing Authorization / IDOR Vulnerabilities Across FastAPI Backend
+**Vulnerability:** Fast API endpoints (e.g., in `documents.py`) often lacked authorization checks, allowing any authenticated user to act on any resource by providing its ID.
+**Learning:** The FastAPI backend initializes the Supabase client using the `SUPABASE_SERVICE_ROLE_KEY` globally via `get_supabase()`, completely bypassing Supabase's Row Level Security (RLS). This means the database trusts all queries from the backend implicitly.
+**Prevention:** Authorization must be manually implemented on *every* single endpoint. Inject `profile: CurrentProfile = Depends(get_current_profile)` into route handlers, query the resource's parent hierarchy (e.g., `document -> infringement -> case(organization_id, user_id)`), and strictly verify that `profile.organization_id` or `profile.id` matches the resource's owner before allowing access or mutation.
+>>>>>>> origin/sentinel/fix-documents-idor-9829784074156374857

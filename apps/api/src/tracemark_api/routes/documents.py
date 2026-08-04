@@ -4,10 +4,14 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 from tracemark_api.dependencies import get_current_profile, CurrentProfile
 =======
 from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile
 >>>>>>> origin/sentinel-fix-idor-docs-takedowns-17142356003433081144
+=======
+from tracemark_api.dependencies import get_current_profile, CurrentProfile
+>>>>>>> origin/sentinel/fix-documents-idor-9829784074156374857
 from tracemark_api.services.database import get_supabase
 from tracemark_api.services.storage import sign_legal_document_url
 
@@ -32,6 +36,7 @@ def send_document_email_endpoint(
     doc = res.data
     infringement_id = doc.get("infringement_id")
 
+<<<<<<< HEAD
     # Verify document belongs to caller's org via: document → infringement → case → org.
     # Deny by default: a document with no infringement link cannot be ownership-checked,
     # so it must not be actionable cross-tenant (fail closed, not open).
@@ -49,11 +54,46 @@ def send_document_email_endpoint(
         raise HTTPException(status_code=404, detail="Document not found")
     if owner_case.get("organization_id") != profile.organization_id:
         raise HTTPException(status_code=404, detail="Document not found")
+=======
+    # Resolve platform and infringing_url from the infringement, and verify ownership via the associated case
+    platform = "Unknown Platform"
+    infringing_url = ""
+    case_id = None
+    try:
+        inf_res = (
+            sb.table("infringements")
+            .select("case_id, platform, source_url, cases(organization_id, user_id)")
+            .eq("id", infringement_id)
+            .single()
+            .execute()
+        )
+        if inf_res.data:
+            case_id = inf_res.data.get("case_id")
+            platform = inf_res.data.get("platform", "Unknown Platform")
+            infringing_url = inf_res.data.get("source_url", "")
+
+            case_data = inf_res.data.get("cases") or {}
+
+            # Authorize: check if case belongs to user's org, or user directly
+            if profile.organization_id:
+                if case_data.get("organization_id") != profile.organization_id:
+                    raise HTTPException(status_code=403, detail="Not authorized to access this document")
+            else:
+                if case_data.get("user_id") != profile.id:
+                    raise HTTPException(status_code=403, detail="Not authorized to access this document")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[DocumentsRoute] Failed to fetch infringement details or verify ownership: {e}")
+        # If we can't verify ownership securely, deny access
+        raise HTTPException(status_code=403, detail="Not authorized to access this document")
+>>>>>>> origin/sentinel/fix-documents-idor-9829784074156374857
 
     try:
         from tracemark_api.services.delivery_log import log_delivery
         from tracemark_api.services.notifications import dispatch_notifications
 
+<<<<<<< HEAD
         # Resolve platform and infringing_url from the infringement
         platform = "Unknown Platform"
         infringing_url = ""
@@ -81,6 +121,8 @@ def send_document_email_endpoint(
             print(f"[DocumentsRoute] Failed to fetch infringement details: {e}")
             raise HTTPException(status_code=403, detail="Not authorized")
 
+=======
+>>>>>>> origin/sentinel/fix-documents-idor-9829784074156374857
         event = {
             "type": "takedown_generated",
             "document_id": doc["id"],
