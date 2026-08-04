@@ -3,6 +3,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## 2025-02-14 - [IDOR in case/takedown report access]
 **Vulnerability:** In `apps/api/src/tracemark_api/routes/monitoring.py`, the validation functions `_assert_case_in_org` and `_assert_takedown_in_org` only checked against `organization_id`. For personal users (who don't have an organization, so `org_id` is None), they could access any case or takedown report that also had a `None` organization, allowing arbitrary cross-user data access.
 **Learning:** Due to the backend's Supabase RLS bypass, manual assertions must comprehensively validate ownership for *both* organizational users and personal users. A `None == None` equality check for organizations is a common IDOR pitfall for resources lacking explicit user-level validation.
@@ -37,3 +38,9 @@
 **Learning:** The FastAPI backend accesses Supabase using the service role key, bypassing RLS. All multi-tenant isolation requires manual verification in the route handlers against the `CurrentProfile` dependency.
 **Prevention:** Always join relational context (like `cases!inner(organization_id, user_id)`) to the fetched resource and manually verify that either `organization_id` or `user_id` matches the profile before returning or updating data.
 >>>>>>> origin/sentinel/fix-infringements-idor-2079756638087335225
+=======
+## 2025-02-27 - [Hardcoded Credentials Script]
+**Vulnerability:** A hardcoded Supabase secret key (`SUPABASE_SERVICE_ROLE_KEY` equivalent) was present in `apps/api/query_case_details.py`.
+**Learning:** Utility scripts inside the `apps/api` directory sometimes bypass the central configuration loading used by the application and end up with hardcoded secrets, which exposes critical infrastructure.
+**Prevention:** Always verify utility scripts for hardcoded secrets. Use `os.environ.get("SUPABASE_SERVICE_ROLE_KEY")` as a standardized method across all scripts to load sensitive keys.
+>>>>>>> origin/sentinel-fix-hardcoded-supabase-key-4280630650639936137
