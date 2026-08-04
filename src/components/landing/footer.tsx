@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Linkedin, Instagram, Facebook, ArrowRight } from "lucide-react";
+import { Linkedin, ArrowRight } from "lucide-react";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { COMPANY, copyrightLine } from "@/lib/company";
@@ -144,24 +144,6 @@ export function Footer() {
                 className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
               >
                 <Linkedin className="h-4 w-4" />
-              </a>
-              <a
-                href={COMPANY.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="HAKKIU on Instagram"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
-              >
-                <Instagram className="h-4 w-4" />
-              </a>
-              <a
-                href={COMPANY.facebook}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="HAKKIU on Facebook"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
-              >
-                <Facebook className="h-4 w-4" />
               </a>
             </div>
             <p className="mt-6 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
