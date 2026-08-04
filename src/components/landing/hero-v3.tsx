@@ -22,7 +22,7 @@ export function HeroV3() {
         <Reveal
           as="p"
           eager
-          className="font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-muted-foreground"
+          className="font-mono text-[11px] font-medium uppercase tracking-[0.28em] text-muted-foreground"
         >
           Autonomous brand protection
         </Reveal>

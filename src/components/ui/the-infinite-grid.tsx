@@ -48,7 +48,7 @@ export const InfiniteGridBackdrop = ({
       {/* Brighter grid revealed through a STATIC radial vignette (top-centre),
           replacing the old cursor-tracking reveal mask. */}
       <div
-        className="absolute inset-0 text-muted-foreground opacity-40"
+        className="absolute inset-0 text-muted-foreground opacity-20"
         style={{
           maskImage: "radial-gradient(600px circle at 50% 30%, black, transparent)",
           WebkitMaskImage: "radial-gradient(600px circle at 50% 30%, black, transparent)",
