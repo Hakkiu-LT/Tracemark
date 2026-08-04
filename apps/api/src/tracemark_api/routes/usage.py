@@ -30,6 +30,7 @@ class UsageStatsResponse:
     by_developer: list
 
 
+<<<<<<< HEAD
 @router.get("/usage-stats")
 def get_usage_stats(admin_user: AuthUser = Depends(_require_admin)):
     """Return aggregate API usage stats. Restricted to admin emails via ADMIN_EMAILS env var."""
@@ -42,6 +43,14 @@ def get_usage_stats(admin_user: AuthUser = Depends(_require_admin)):
         }
         for d in tracker.get_by_developer()
     ]
+=======
+@router.get("", response_model=UsageStatsResponse)
+def get_usage_stats(current_user=Depends(get_current_user)) -> UsageStatsResponse:
+    """Returns real-time API usage statistics. Restricted to admin emails."""
+    user_email = (current_user.email or "").lower()
+    if not _ADMIN_EMAILS or user_email not in _ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Access restricted to admins.")
+>>>>>>> origin/sentinel/auth-bypass-admin-routes-14599662050365692217
     return UsageStatsResponse(
         generated_at=datetime.now(timezone.utc).isoformat(),
         summary=summary,
