@@ -205,6 +205,46 @@ async def check_ads_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+def _clamp_scan_to_plan(
+    org_id: str | None,
+    platforms: list[str],
+    target_regions: list[str],
+) -> tuple[list[str], list[str]]:
+    """Restrict a scan to the marketplaces/regions the org's plan allows.
+
+    The plan whitelists live in ``org_entitlement_overrides`` (``allowed_platforms`` =
+    marketplace apiKeys, ``allowed_regions`` = ISO country codes); NULL/empty = unrestricted.
+    We INTERSECT the requested lists with the whitelist so monitoring never runs outside the
+    plan, even if the client asks for more. If the intersection is empty (client sent only
+    disallowed values), we fall back to the full allowed list rather than scanning nothing.
+    """
+    if not org_id:
+        return platforms, target_regions
+    try:
+        sb = get_supabase()
+        row = (
+            sb.table("org_entitlement_overrides")
+            .select("allowed_platforms, allowed_regions")
+            .eq("organization_id", org_id)
+            .maybe_single()
+            .execute()
+        )
+        data = (row.data if row else None) or {}
+    except Exception:
+        data = {}
+    allowed_p = data.get("allowed_platforms") or None
+    allowed_r = data.get("allowed_regions") or None
+    if allowed_p:
+        allowed_set = set(allowed_p)
+        filtered = [p for p in platforms if p in allowed_set]
+        platforms = filtered or list(allowed_p)
+    if allowed_r:
+        allowed_set = {r.upper() for r in allowed_r}
+        filtered = [r for r in target_regions if r.upper() in allowed_set]
+        target_regions = filtered or list(allowed_r)
+    return platforms, target_regions
+
+
 class CheckBrandRequest(BaseModel):
     brand_name: BrandName
     platforms: list[PlatformStr] = Field(default=["amazon", "google_ads", "meta_ads", "domains"], max_length=20)
@@ -228,6 +268,13 @@ async def check_brand(
     # Every logged-in user gets the full detection funnel.
     detection_depth = "tier2"
     organization_id = profile.organization_id
+
+    # Enforce the plan: only ever scan the marketplaces/regions the org is allowed. Brands are
+    # already created within plan, but this guarantees the scan itself stays in-plan regardless
+    # of what the client sends (defence in depth + honours "monitor only where selected").
+    payload.platforms, payload.target_regions = _clamp_scan_to_plan(
+        organization_id, payload.platforms, payload.target_regions
+    )
     detection_region = payload.target_regions[0] if payload.target_regions else "US"
 
     try:

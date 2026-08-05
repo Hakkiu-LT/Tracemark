@@ -9,6 +9,28 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Admin-created brands appear in monitoring + scan clamped to plan (Session 54, 2026-08-05) — CODE BUILT + verified; deploy pending
+
+Two fixes to the goal "kai pridedu branda per admin kodel jo nerodo prie monitoring, ir monitorint
+turi pagal limitus tik parinktuose regionuose/marketplacuose":
+1. The monitoring page rendered brands ONLY from the local Zustand store (localStorage), never from
+   the server — so brands created in the admin portal (or on another device) never appeared. Now the
+   page fetches `GET /brands` and reconciles server brands into the local marks list.
+2. `/monitoring/check-brand` accepted any platforms/regions with NO plan check — a scan could run
+   outside the plan. Now it clamps (intersects) the request to the org's `allowed_platforms`/
+   `allowed_regions` whitelist server-side (defence in depth).
+Verified: customer `tsc` clean, api ruff (`src`) clean, module imports, 13 tests pass (8 brands + 5 new clamp).
+
+- [x] **store.ts** `syncServerBrands(BrandRecord[])`: upsert server brands into `marks` (match by
+      serverId then name; preserve local status/repeatCycle/id); apiKey→Platform-label + status mapping helpers.
+- [x] **monitoring.tsx** `useQuery(["brands"])` + effect calls `syncServerBrands` on mount, so admin/
+      cross-device brands show in Active monitoring.
+- [x] **main-api** `monitoring.py` `_clamp_scan_to_plan(org, platforms, regions)` reads
+      `org_entitlement_overrides` whitelists, intersects (empty→fall back to full allowed); called in `check_brand` before scrape.
+- [x] **Tests** new `tests/test_monitoring_plan_clamp.py` (filter, unrestricted, empty-fallback, case-insensitive region, no-org).
+- [ ] **Deploy** picks up the commit (Hetzner). Smoke: admin adds a brand for a company → open that
+      customer's Monitoring → the brand is listed; scan only hits the plan's marketplaces/regions.
+
 ## 🟩 Plan limits = WHITELISTS not counts (Session 53, 2026-08-05) — CODE BUILT + verified; prod migration + deploy pending
 
 Correction of Session 52: marketplaces/regions are now a WHITELIST of allowed values (admin picks

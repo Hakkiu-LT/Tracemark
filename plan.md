@@ -1,5 +1,35 @@
 # HAKKIU — Active Plan
 
+> **Session 54 (2026-08-05) — Admin-created brands now show in customer Monitoring + scans clamped to plan.**
+> Goal: "kai pridedu branda per admin kodel jo nerodo prie monitoring; ir monitorint turi pagal
+> limitus tik tokiose regionuose ir marketplacuose kur parinkta."
+>
+> **Root causes found:**
+> 1. The customer Monitoring page rendered brands ONLY from the local Zustand store (localStorage
+>    `tracemark-store-v8`), which is seeded with demo marks and populated on customer "Add asset".
+>    It NEVER read the server. So a brand created in the admin portal (a different app/session) —
+>    or on another device — wrote to Supabase `brands` but never appeared in Monitoring.
+> 2. `/monitoring/check-brand` trusted whatever platforms/regions the client sent (defaulting to
+>    amazon/google/meta/domains + US) with NO plan check, so a scan could touch marketplaces/regions
+>    outside the plan.
+>
+> **What shipped (code, Session 54):**
+> - `src/lib/store.ts`: new `syncServerBrands(BrandRecord[])` action — upserts server brands into
+>   `marks` (match by `serverId`, then by brand name to adopt a local/demo mark; preserves local-only
+>   `status`/`repeatCycle`/`id`, server is source of truth for the rest). Helpers map platform
+>   apiKeys→Platform labels and brand status→mark status.
+> - `src/routes/monitoring.tsx`: `useQuery(["brands"], getBrands)` + effect calls `syncServerBrands`
+>   on mount, so admin/cross-device brands appear under Active monitoring.
+> - main-api `monitoring.py`: `_clamp_scan_to_plan(org, platforms, regions)` reads the org's
+>   `allowed_platforms`/`allowed_regions` whitelists and INTERSECTS the request with them (empty
+>   intersection → fall back to the full allowed list, so we scan in-plan rather than nothing).
+>   Called in `check_brand` before scraping.
+> - Tests: `apps/api/tests/test_monitoring_plan_clamp.py` (5 cases).
+>
+> **Verified:** customer `tsc` clean; api ruff (`src`) clean; module imports; 13 tests pass.
+> **No DB migration and no new admin resource/permission** (display fix + read-only enforcement, no
+> new customer data). **PENDING: deploy (push → Hetzner).**
+
 > **Session 53 (2026-08-05) — Plan limits are WHITELISTS, not counts (correction of Session 52).**
 > Feedback: staff don't set "max N regions / M marketplaces" (a count). They agree a concrete
 > plan with the customer — e.g. "2 brands, scan ONLY Amazon, ONLY USA" — and must whitelist the

@@ -31,6 +31,7 @@ import {
 } from "@/lib/store";
 import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil, Globe, Info, ChevronDown, ChevronUp, X, Upload, Image as ImageIcon, FileText, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { checkBrandFullPipeline, apiFetch, updateBrand, uploadBrandAsset, listBrandAssets, deleteBrandAsset, getBrands, createBrand, refreshReferenceContent, type BrandAsset } from "@/lib/api";
 import { PLATFORMS } from "@/lib/platforms";
 import { REGIONS, COUNTRY_BY_CODE } from "@/lib/regions";
@@ -81,6 +82,15 @@ function MonitoringPage() {
   const updateMark = useStore((s) => s.updateMark);
   const addInfringement = useStore((s) => s.addInfringement);
   const setScanResult = useStore((s) => s.setScanResult);
+  const syncServerBrands = useStore((s) => s.syncServerBrands);
+
+  // Pull server-persisted brands and merge them into the local marks list, so brands
+  // added anywhere (this device, another device, or by staff in the admin portal) all
+  // appear here — not just the ones created in this browser session.
+  const { data: brandsData } = useQuery({ queryKey: ["brands"], queryFn: getBrands });
+  useEffect(() => {
+    if (brandsData?.brands?.length) syncServerBrands(brandsData.brands);
+  }, [brandsData, syncServerBrands]);
 
   // Track active AbortControllers and toast IDs by mark ID
   const activeScansRef = React.useRef<

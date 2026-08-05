@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CheckBrandResponse } from "./api.types";
+import type { BrandRecord } from "./api";
+import { PLATFORMS } from "./platforms";
 
 export type Persona = "brand_owner" | "law_firm";
 export type RiskLevel = "high" | "medium" | "low";
@@ -83,6 +85,23 @@ const ago = (mins: number) => new Date(Date.now() - mins * 60_000).toISOString()
 
 const INFRINGEMENTS: Infringement[] = [];
 
+// Server brands store platforms as apiKeys ("amazon"); the UI store uses the
+// display Platform labels ("Amazon"). Convert one to the other so brands created
+// elsewhere (e.g. the admin portal) map cleanly into the local marks list.
+function apiKeysToPlatforms(keys: string[] | null | undefined): Platform[] {
+  const out: Platform[] = [];
+  for (const k of keys || []) {
+    const match = PLATFORMS.find((p) => p.apiKey === k || p.id === (k as Platform));
+    if (match && !out.includes(match.id)) out.push(match.id);
+  }
+  return out;
+}
+
+// A brand "locked" by plan limits or explicitly held is shown as on_hold in the UI.
+function serverStatusToMark(status: string | null | undefined): "active" | "on_hold" {
+  return status === "on_hold" || status === "locked" ? "on_hold" : "active";
+}
+
 interface State {
   hydrated: boolean;
   persona: Persona;
@@ -95,6 +114,7 @@ interface State {
   setPersona: (p: Persona) => void;
   setActiveClient: (id: string | null) => void;
   addMark: (mark: Omit<Mark, "id" | "createdAt" | "lastScan">) => void;
+  syncServerBrands: (brands: BrandRecord[]) => void;
   toggleMarkStatus: (id: string) => void;
   updateMark: (id: string, updates: Partial<Omit<Mark, "id" | "createdAt" | "lastScan">>) => void;
   removeMark: (id: string) => void;
@@ -127,6 +147,50 @@ export const useStore = create<State>()(
             { ...m, id: `m${Date.now()}`, createdAt: new Date().toISOString().slice(0, 10), lastScan: "never" },
           ],
         })),
+      // Reconcile server-persisted brands into the local marks list. This is what makes
+      // brands created outside this browser — e.g. by staff in the admin portal — show up
+      // on the monitoring page. Matching is by serverId first, then by brand name (to adopt
+      // a demo/local mark). Local-only monitoring controls (status, repeatCycle, id) are
+      // preserved on existing marks; server data is the source of truth for everything else.
+      syncServerBrands: (brands) =>
+        set((s) => {
+          const marks = [...s.marks];
+          for (const b of brands) {
+            const descriptive = {
+              serverId: b.id,
+              clientId: b.client_id ?? "",
+              brandName: b.brand_name,
+              registrationNumber: b.registration_number ?? "",
+              website: (b.website ?? "").replace(/^https?:\/\//, ""),
+              platforms: apiKeysToPlatforms(b.platforms),
+              logoColor: b.logo_color ?? "oklch(0.58 0.18 255)",
+              targetRegions: b.target_regions ?? [],
+              officialDomains: b.official_domains ?? [],
+              officialAdvertisers: b.official_advertisers ?? [],
+            };
+            let idx = marks.findIndex((m) => m.serverId && m.serverId === b.id);
+            if (idx === -1) {
+              idx = marks.findIndex(
+                (m) =>
+                  !m.serverId &&
+                  m.brandName.trim().toLowerCase() === b.brand_name.trim().toLowerCase(),
+              );
+            }
+            if (idx === -1) {
+              marks.push({
+                ...descriptive,
+                id: `srv-${b.id}`,
+                createdAt: (b.created_at ?? "").slice(0, 10),
+                lastScan: b.last_scan_at ? new Date(b.last_scan_at).toLocaleString() : "never",
+                status: serverStatusToMark(b.status),
+              });
+            } else {
+              // Keep this mark's id/status/repeatCycle; refresh the descriptive fields.
+              marks[idx] = { ...marks[idx], ...descriptive };
+            }
+          }
+          return { marks };
+        }),
       toggleMarkStatus: (id) =>
         set((s) => ({
           marks: s.marks.map((m) =>
