@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { NotificationSettingsPanel } from "@/components/notification-settings-panel";
 import { useAuth } from "@/lib/auth";
 import { ClientsPage } from "@/components/ClientsPage";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, testEmailNotification } from "@/lib/api";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — HAKKIU" }] }),
@@ -46,6 +46,7 @@ export function SettingsPage() {
   const [orgName, setOrgName] = useState("");
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -135,25 +136,17 @@ export function SettingsPage() {
     }
   };
 
-  const handleTestEmailClient = () => {
-    if (!emailVal.trim()) {
-      toast.error("Please enter an email address to test.");
-      return;
-    }
-    const emailStr = emailVal.trim();
-    const isGmail =
-      emailStr.toLowerCase().endsWith("@gmail.com") || emailStr.toLowerCase().includes("gmail");
-    const subject = "Test Alert — HAKKIU";
-    const body = "This is a test notification from HAKKIU to verify your profile settings.";
-
-    if (isGmail) {
-      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailStr)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.open(gmailUrl, "_blank");
-      toast.success("Opened Gmail compose window in a new tab");
-    } else {
-      const mailtoUrl = `mailto:${encodeURIComponent(emailStr)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.location.href = mailtoUrl;
-      toast.success("Opened default email client");
+  const handleTestEmail = async () => {
+    setTestingEmail(true);
+    try {
+      // The backend ignores the passed address for security (anti open-relay)
+      // and always sends the test to the caller's own verified account email.
+      const res = await testEmailNotification(emailVal.trim());
+      toast.success(res.message || "Test email sent — check your inbox.");
+    } catch (err: any) {
+      toast.error(err?.message || "Couldn't send the test email. Please try again.");
+    } finally {
+      setTestingEmail(false);
     }
   };
 
@@ -263,11 +256,16 @@ export function SettingsPage() {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={handleTestEmailClient}
-                          title="Test Opening Default Email Client"
+                          onClick={handleTestEmail}
+                          disabled={testingEmail}
+                          title="Send a real test email to your account address"
                           className="shrink-0"
                         >
-                          <Mail className="h-4 w-4 mr-2 text-accent" />
+                          {testingEmail ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin text-accent" />
+                          ) : (
+                            <Mail className="h-4 w-4 mr-2 text-accent" />
+                          )}
                           Test
                         </Button>
                       </div>
