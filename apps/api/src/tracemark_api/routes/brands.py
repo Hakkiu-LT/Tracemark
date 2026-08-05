@@ -1,8 +1,13 @@
 """Monitored brands ("marks") CRUD.
 
 Brands are persisted server-side (not only in the browser's Zustand store) so the
-API is the authoritative source. Every logged-in user can create and monitor an
-unlimited number of brands — there are no plan limits.
+API is the authoritative source. A brand is exactly what the UI calls a "monitored
+asset". Plan limits are enforced across THREE dimensions (all NULL/-1 = unlimited):
+  * ``brands_limit``              — org-total number of brands,
+  * ``regions_per_brand_limit``  — max target regions selectable per brand,
+  * ``platforms_per_brand_limit``— max marketplaces/platforms selectable per brand.
+Creation is enforced atomically inside the ``create_brand_checked`` RPC; edits are
+checked here (array-length caps are self-contained, so no advisory lock is needed).
 """
 from __future__ import annotations
 
@@ -100,6 +105,52 @@ def _count_brands(org_id: str) -> int:
     return len(res.data or [])
 
 
+def _norm_limit(raw) -> int | None:
+    """None / -1 (the unlimited sentinels) → None; any real >= 0 cap passes through."""
+    return None if raw in (None, -1) else raw
+
+
+def _org_limits(org_id: str) -> dict:
+    """Plan limits for an org, normalised so None means unlimited on every axis.
+
+    Reads the (service-role only) org_entitlement_overrides row. A missing row = a
+    company with no overrides = unlimited everywhere.
+    """
+    sb = get_supabase()
+    row = (
+        sb.table("org_entitlement_overrides")
+        .select("brands_limit, regions_per_brand_limit, platforms_per_brand_limit")
+        .eq("organization_id", org_id)
+        .maybe_single()
+        .execute()
+    )
+    data = (row.data if row else None) or {}
+    return {
+        "brands": _norm_limit(data.get("brands_limit")),
+        "regions_per_brand": _norm_limit(data.get("regions_per_brand_limit")),
+        "platforms_per_brand": _norm_limit(data.get("platforms_per_brand_limit")),
+    }
+
+
+def _enforce_per_brand_caps(limits: dict, platforms, target_regions) -> None:
+    """Raise 403 if this brand's platform/region selection exceeds the per-brand caps.
+
+    Used on EDIT (create goes through the RPC, which enforces the same caps atomically).
+    """
+    rlim = limits.get("regions_per_brand")
+    plim = limits.get("platforms_per_brand")
+    if rlim is not None and target_regions is not None and len(target_regions) > rlim:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your plan allows up to {rlim} region(s) per brand. Contact HAKKIU to raise it.",
+        )
+    if plim is not None and platforms is not None and len(platforms) > plim:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your plan allows up to {plim} marketplace(s) per brand. Contact HAKKIU to raise it.",
+        )
+
+
 def _brand_or_404(org_id: str, brand_id: str) -> dict:
     sb = get_supabase()
     res = (
@@ -118,8 +169,12 @@ def _brand_or_404(org_id: str, brand_id: str) -> dict:
 
 @router.get("")
 def list_brands(profile: CurrentProfile = Depends(get_current_profile)):
-    """All brands for the caller's org. There is no plan limit — usage is the
-    total brand count and the limit is unlimited (``null``)."""
+    """All brands for the caller's org, plus the org's plan limits so the customer UI
+    can reflect usage and cap the pickers.
+
+    ``usage.limit`` mirrors the org-total brand cap (``None`` = unlimited). ``limits``
+    carries all three axes so the "Add monitored asset" form can disable selecting
+    more regions/marketplaces than the plan allows."""
     sb = get_supabase()
     res = (
         sb.table("brands")
@@ -129,9 +184,11 @@ def list_brands(profile: CurrentProfile = Depends(get_current_profile)):
         .execute()
     )
     brands = res.data or []
+    limits = _org_limits(profile.organization_id)
     return {
         "brands": brands,
-        "usage": {"used": len(brands), "limit": None},
+        "usage": {"used": len(brands), "limit": limits["brands"]},
+        "limits": limits,
     }
 
 
@@ -163,11 +220,24 @@ def create_brand(
                 "p_client_id": body.client_id,
             },
         ).execute()
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
-        if "BRAND_LIMIT_REACHED" in str(exc):
+        msg = str(exc)
+        if "BRAND_LIMIT_REACHED" in msg:
             raise HTTPException(
                 status_code=403,
                 detail="Brand limit reached for this organization. Contact HAKKIU to raise it.",
+            )
+        if "REGION_LIMIT_REACHED" in msg:
+            raise HTTPException(
+                status_code=403,
+                detail="Too many regions for this brand — your plan caps regions per brand. Contact HAKKIU to raise it.",
+            )
+        if "PLATFORM_LIMIT_REACHED" in msg:
+            raise HTTPException(
+                status_code=403,
+                detail="Too many marketplaces for this brand — your plan caps marketplaces per brand. Contact HAKKIU to raise it.",
             )
         raise HTTPException(status_code=400, detail=f"Could not create brand: {exc}")
 
@@ -187,6 +257,12 @@ def update_brand(
     profile: CurrentProfile = Depends(require_owner),
 ):
     existing = _brand_or_404(profile.organization_id, brand_id)
+
+    # Editing a brand can grow its platform/region set — enforce the same per-brand caps
+    # the create RPC uses, so a customer can't exceed the plan by editing after the fact.
+    _enforce_per_brand_caps(
+        _org_limits(profile.organization_id), body.platforms, body.target_regions
+    )
 
     updates: dict = {}
     for field in (

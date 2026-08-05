@@ -20,6 +20,31 @@ _EDITABLE = {
 }
 
 
+def _norm_limit(raw) -> int | None:
+    """None/-1 (unlimited sentinels) → None; a real >= 0 cap passes through."""
+    return None if raw in (None, -1) else raw
+
+
+def _enforce_per_brand_caps(sb, org_id: str, platforms, target_regions) -> None:
+    """Raise 403 if a brand edit exceeds the org's per-brand region/marketplace caps.
+
+    Create goes through create_brand_checked (which enforces the same caps atomically);
+    edits bypass that RPC, so mirror the checks here to keep staff edits within plan too.
+    """
+    row = (
+        sb.table("org_entitlement_overrides")
+        .select("regions_per_brand_limit, platforms_per_brand_limit")
+        .eq("organization_id", org_id).maybe_single().execute()
+    )
+    data = (row.data if row else None) or {}
+    rlim = _norm_limit(data.get("regions_per_brand_limit"))
+    plim = _norm_limit(data.get("platforms_per_brand_limit"))
+    if rlim is not None and target_regions is not None and len(target_regions) > rlim:
+        raise HTTPException(status_code=403, detail=f"This company's plan allows up to {rlim} region(s) per brand. Raise it under Plan & Limits first.")
+    if plim is not None and platforms is not None and len(platforms) > plim:
+        raise HTTPException(status_code=403, detail=f"This company's plan allows up to {plim} marketplace(s) per brand. Raise it under Plan & Limits first.")
+
+
 class UpdateBrandRequest(BaseModel):
     brand_name: str | None = None
     website: str | None = None
@@ -91,8 +116,13 @@ def create_brand(
             },
         ).execute()
     except Exception as exc:  # noqa: BLE001
-        if "BRAND_LIMIT_REACHED" in str(exc):
+        msg = str(exc)
+        if "BRAND_LIMIT_REACHED" in msg:
             raise HTTPException(status_code=403, detail="Brand limit reached for this company. Raise it under Plan & Limits first.")
+        if "REGION_LIMIT_REACHED" in msg:
+            raise HTTPException(status_code=403, detail="Too many regions for this brand — raise the per-brand region cap under Plan & Limits first.")
+        if "PLATFORM_LIMIT_REACHED" in msg:
+            raise HTTPException(status_code=403, detail="Too many marketplaces for this brand — raise the per-brand marketplace cap under Plan & Limits first.")
         raise HTTPException(status_code=400, detail=f"Could not create brand: {exc}")
 
     created = res.data[0] if isinstance(res.data, list) else res.data
@@ -139,6 +169,10 @@ def update_brand(
     before = sb.table("brands").select("*").eq("id", brand_id).maybe_single().execute()
     if not before or not before.data:
         raise HTTPException(status_code=404, detail="Brand not found")
+
+    _enforce_per_brand_caps(
+        sb, before.data.get("organization_id"), payload.platforms, payload.target_regions
+    )
 
     res = sb.table("brands").update(updates).eq("id", brand_id).execute()
     write_audit_log(

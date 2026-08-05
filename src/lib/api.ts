@@ -218,9 +218,17 @@ export interface BrandAsset {
   created_at: string;
 }
 
+// Plan limits for the caller's org. `null` on any axis = unlimited.
+export interface PlanLimits {
+  brands: number | null; // org-total number of brands (monitored assets)
+  regions_per_brand: number | null; // max target regions per brand
+  platforms_per_brand: number | null; // max marketplaces per brand
+}
+
 export interface BrandsResponse {
   brands: BrandRecord[];
   usage: { used: number; limit: number | null };
+  limits: PlanLimits;
 }
 
 export function getBrands(): Promise<BrandsResponse> {

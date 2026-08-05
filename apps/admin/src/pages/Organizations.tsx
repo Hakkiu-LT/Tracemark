@@ -146,9 +146,14 @@ function CreateOrgDialog({ onClose, onCreated }: { onClose: () => void; onCreate
       });
     },
     onSuccess: (org) => {
-      toast.success("Company created — now add its first user");
+      toast.success("Company created — set its plan limits first");
       onCreated();
-      if (org?.id) navigate({ to: "/organizations/$orgId", params: { orgId: org.id } });
+      if (org?.id) {
+        // Tell the detail page to open Plan & Limits in edit mode immediately (set the plan
+        // before onboarding users/brands), then jump there.
+        sessionStorage.setItem("hakkiu:setup-limits", org.id);
+        navigate({ to: "/organizations/$orgId", params: { orgId: org.id } });
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -160,7 +165,7 @@ function CreateOrgDialog({ onClose, onCreated }: { onClose: () => void; onCreate
       open
       onClose={onClose}
       title="New company"
-      description="Creates the company group. You'll add its first user (login) on the next screen."
+      description="Creates the company group. Next you'll set its plan limits, then add its first user (login)."
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>

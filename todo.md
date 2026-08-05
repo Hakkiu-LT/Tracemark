@@ -9,6 +9,29 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Brands = monitored assets + 3-dim plan limits (Session 52, 2026-08-05) — CODE BUILT + verified; prod migration + deploy pending
+
+Plan limits now span **brands** (org-total) + **regions-per-brand** + **marketplaces-per-brand**,
+reflected AND enforced on the customer side; admin brand-create mirrors the customer "Add monitored
+asset" with selectable pickers; creating a company kicks staff into Plan & Limits first.
+Verified: ruff (both src) clean, admin+customer `tsc` clean, 233 API tests pass (1 unrelated live
+Meta-Ads-cred fail), both apps boot, admin-parity green.
+
+- [x] **DB** `20260805000003_per_brand_limits.sql`: +`regions_per_brand_limit`, +`platforms_per_brand_limit`;
+      `create_brand_checked` enforces per-brand region/platform caps (REGION/PLATFORM_LIMIT_REACHED), same signature.
+- [x] **main-api** `brands.py`: `GET /brands` returns 3-axis `limits` + real `usage.limit`; create maps 2 new
+      RPC errors→403; edit enforces caps (`_enforce_per_brand_caps`, `_org_limits`).
+- [x] **admin-api** `organizations.py`: Limits models + get/set carry all 3 axes (audited); `brands_admin.py`
+      create maps new errors→403 + edit enforces caps.
+- [x] **admin FE** `lib/brand-options.ts` (mirror), `PlatformPicker`/`RegionPicker` (cap-aware), BrandCreate/Edit
+      use pickers, `LimitsCard` edits 3 caps, New-company → auto-open Plan & Limits (sessionStorage flag).
+- [x] **customer FE** `monitoring.new.tsx` cap pickers + block at brand cap + surface 403; `dashboard.tsx`
+      shows `used / limit`; `api.ts` `BrandsResponse.limits`.
+- [x] **Tests** 3 new (region/platform RPC 403 + `_enforce_per_brand_caps` units); all pass.
+- [ ] **Prod:** user runs `supabase db push` (migration `20260805000003`) — auto-mode blocks it for me.
+- [ ] **Deploy** picks up the commit (Hetzner). Smoke: set caps in admin → customer pickers cap + dashboard shows used/limit.
+- [ ] (Optional) if the user prefers ORG-TOTAL region/marketplace limits instead of per-brand, revisit migration + enforcement.
+
 ## 🟩 Admin onboarding repair (Session 51, 2026-08-05) — CODE BUILT + verified; prod migration + deploy pending
 
 Fixes the broken customer-onboarding flow (can't create company, auto-assigns people, no login

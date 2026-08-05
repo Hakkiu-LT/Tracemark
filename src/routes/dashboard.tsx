@@ -8,7 +8,7 @@ import { InfringementAlertFeed } from "@/components/cases/InfringementAlertFeed"
 import { normalizeStatusKey } from "@/components/cases/CaseStatus";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell, Legend } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import { getInfringements } from "@/lib/api";
+import { getInfringements, getBrands } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { getRegionForId, getMacroRegionForCountry } from "@/lib/regions";
 
@@ -45,6 +45,10 @@ function Dashboard() {
     queryFn: () => getInfringements({ limit: 200 }),
   });
   const infringements = dbInfringementsData?.items ?? [];
+
+  // Server-authoritative brand usage + plan limit, so "Monitored marks" reflects the cap.
+  const { data: brandsData } = useQuery({ queryKey: ["brands"], queryFn: getBrands });
+  const brandsUsage = brandsData?.usage;
 
   const filteredInfringements = infringements.filter((i) => {
     if (selectedMacroRegion === "ALL") return true;
@@ -144,7 +148,12 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric icon={ShieldCheck} label="Monitored marks" value={marks.length} sub="across all platforms" />
+        <Metric
+          icon={ShieldCheck}
+          label="Monitored marks"
+          value={brandsUsage?.limit != null ? `${brandsUsage.used} / ${brandsUsage.limit}` : marks.length}
+          sub={brandsUsage?.limit != null ? "of your plan limit" : "across all platforms"}
+        />
         <Metric icon={AlertTriangle} label="Active infringements" value={active} sub="not yet closed" tone="risk" />
         <Metric icon={CheckCircle2} label="Successful takedowns" value={successfulTakedowns} sub="this quarter" tone="success" />
         <Metric icon={TrendingUp} label="Success rate" value={`${successRate}%`} sub="30-day rolling avg" tone="accent" />

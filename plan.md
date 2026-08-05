@@ -1,5 +1,38 @@
 # HAKKIU — Active Plan
 
+> **Session 52 (2026-08-05) — Brands = monitored assets + 3-dimensional plan limits (reflected customer-side).**
+> Builds on Session 51. Goal: (1) admin "Add brand" mirrors the customer "Add monitored asset"
+> (selectable marketplace/region PICKERS, not free-text); (2) plan limits span THREE axes —
+> **brands** (org-total), **regions-per-brand**, **marketplaces-per-brand**; (3) limits are
+> reflected AND enforced on the customer side (pickers cap selection, brand cap blocks "Start
+> Monitoring"); (4) creating a company now KICKS staff into Plan & Limits first.
+>
+> **Design decision — limit semantics:** regions & marketplaces are **per-brand caps** ("each
+> monitored asset may target up to N regions and M marketplaces"), which maps cleanly to the
+> per-brand pickers and to "you can only select up to your plan." `brands_limit` stays org-total.
+> All three: NULL/-1 = unlimited.
+>
+> **What shipped this session (code):**
+> - DB `20260805000003_per_brand_limits.sql`: `org_entitlement_overrides` += `regions_per_brand_limit`,
+>   `platforms_per_brand_limit`; `create_brand_checked` RPC now enforces per-brand region/platform
+>   caps atomically (raises `REGION_LIMIT_REACHED` / `PLATFORM_LIMIT_REACHED`), same signature.
+> - main-api `brands.py`: `GET /brands` returns real 3-axis `limits` + real `usage.limit`; create maps
+>   the 2 new RPC errors → 403; edit enforces per-brand caps via `_enforce_per_brand_caps`.
+> - admin-api: `LimitsResponse`/`UpdateLimitsRequest` + get/set carry all 3 axes (audited); admin brand
+>   create maps new errors → 403; admin brand edit enforces the caps too.
+> - admin FE: new `lib/brand-options.ts` (mirrors customer platforms/regions); `PlatformPicker`/
+>   `RegionPicker` checkbox grids (cap-aware); BrandCreate/BrandEdit dialogs use them; `LimitsCard`
+>   edits all 3 caps; New-company → detail page auto-opens Plan & Limits in edit mode (sessionStorage flag).
+> - customer FE: `monitoring.new.tsx` caps the pickers to the plan, blocks "Start Monitoring" at the
+>   brand cap, surfaces server 403 messages; `dashboard.tsx` "Monitored marks" shows `used / limit`;
+>   `api.ts` `BrandsResponse` gains `limits: PlanLimits`.
+> - Tests: 3 new brand-limit tests (region/platform RPC 403 + `_enforce_per_brand_caps` unit tests).
+>
+> **Verified:** ruff (both src) clean; admin+customer `tsc` clean; 233 API tests pass (1 unrelated
+> live Meta-Ads-cred failure); both apps boot; admin-parity green. **PENDING: user runs
+> `supabase db push` (migration `20260805000003`) + deploy.** Permission keys unchanged (limits.view/
+> manage + brands.create already exist → still in sync).
+
 > **Session 51 (2026-08-05) — Admin Portal onboarding repair (company → users → logins → brands → limits).**
 > Full plan below. Four subagents audited the admin portal; this session turns the diagnosis into
 > a solid, defended implementation plan spanning DB → backend → FE → UX.

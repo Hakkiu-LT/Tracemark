@@ -202,6 +202,17 @@ still returned by `GET /me`).
 > enforced atomically and can't be bypassed. `limits.view` (dev+sales+admin) / `limits.manage`
 > (admin/super-admin ONLY). No Stripe, no plan tiers — just a manual staff-set cap. ⏳ migration pending prod push.
 
+> **Session 52 (2026-08-05) — plan limits extended to THREE axes + reflected customer-side.**
+> `20260805000003_per_brand_limits.sql` adds `regions_per_brand_limit` + `platforms_per_brand_limit`
+> to `org_entitlement_overrides` and extends `create_brand_checked` to enforce per-brand region/
+> marketplace caps atomically (`REGION_LIMIT_REACHED` / `PLATFORM_LIMIT_REACHED`). Semantics:
+> **brands** = org-total; **regions/marketplaces** = per-brand caps (NULL/-1 = unlimited). Admin
+> "Plan & Limits" edits all 3; admin "Add brand" now mirrors the customer "Add monitored asset"
+> (selectable marketplace/region PICKERS). Customer side REFLECTS + ENFORCES: `GET /brands` returns
+> real 3-axis limits, `monitoring/new` caps the pickers + blocks "Start Monitoring" at the brand
+> cap, dashboard shows `used / limit`. Creating a company now auto-opens Plan & Limits first.
+> Same permission keys (`limits.*`, `brands.create`). ⏳ migration pending prod push.
+
 ---
 
 ## 8. Law Firm & Multi-Client Mode

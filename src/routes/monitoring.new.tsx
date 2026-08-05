@@ -4,8 +4,8 @@ import { useStore, type Platform } from "@/lib/store";
 import { PLATFORMS, PLATFORM_GROUPS } from "@/lib/platforms";
 import { PlatformLogo } from "@/components/platform-logo";
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { checkBrandFullPipeline, createBrand, uploadBrandAsset } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { checkBrandFullPipeline, createBrand, getBrands, uploadBrandAsset } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Info,
@@ -136,11 +136,24 @@ function NewAssetPage() {
 
   const scanSteps = buildScanSteps(selected);
 
+  // Plan limits: cap how many marketplaces/regions a brand can select, and block creating a
+  // new brand once the org is at its brand cap. null on any axis = unlimited.
+  const { data: brandsData } = useQuery({ queryKey: ["brands"], queryFn: getBrands });
+  const platformsLimit = brandsData?.limits?.platforms_per_brand ?? null;
+  const regionsLimit = brandsData?.limits?.regions_per_brand ?? null;
+  const brandsLimit = brandsData?.usage?.limit ?? null;
+  const brandsUsed = brandsData?.usage?.used ?? 0;
+  const atBrandLimit = brandsLimit != null && brandsUsed >= brandsLimit;
+
   function toggle(p: Platform) {
     const next = new Set(selected);
     if (next.has(p)) {
       next.delete(p);
     } else {
+      if (platformsLimit != null && next.size >= platformsLimit) {
+        toast.error(`Your plan allows up to ${platformsLimit} marketplace(s) per brand.`);
+        return;
+      }
       next.add(p);
     }
     setSelected(next);
@@ -157,6 +170,10 @@ function NewAssetPage() {
     if (next.has(code)) {
       next.delete(code);
     } else {
+      if (regionsLimit != null && next.size >= regionsLimit) {
+        toast.error(`Your plan allows up to ${regionsLimit} region(s) per brand.`);
+        return;
+      }
       next.add(code);
     }
     setSelectedRegions(next);
@@ -168,7 +185,16 @@ function NewAssetPage() {
     if (allSelected) {
       countryCodes.forEach((c) => next.delete(c));
     } else {
-      countryCodes.forEach((c) => next.add(c));
+      let capped = false;
+      for (const c of countryCodes) {
+        if (next.has(c)) continue;
+        if (regionsLimit != null && next.size >= regionsLimit) {
+          capped = true;
+          break;
+        }
+        next.add(c);
+      }
+      if (capped) toast.error(`Your plan allows up to ${regionsLimit} region(s) per brand.`);
     }
     setSelectedRegions(next);
   }
@@ -239,7 +265,9 @@ function NewAssetPage() {
     },
     onError: (err: Error) => {
       console.error(err);
-      toast.error("Couldn't start monitoring. Please try again.");
+      // Surface the server's plan-limit message (403s carry a specific detail) instead of a
+      // generic error, so the customer knows WHY monitoring didn't start.
+      toast.error(err?.message || "Couldn't start monitoring. Please try again.");
     },
   });
 
@@ -253,6 +281,10 @@ function NewAssetPage() {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (atBrandLimit) {
+      toast.error("You've reached your plan's brand limit. Contact HAKKIU to add more.");
+      return;
+    }
     if (!brandName) { toast.error("Brand name is required."); return; }
     runScan();
   }
@@ -510,12 +542,19 @@ function NewAssetPage() {
 
             {/* Target Platforms */}
             <section className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2">
-                <Globe className="h-5 w-5 text-accent" />
-                <h3 className="text-lg font-semibold text-foreground">Target Platforms</h3>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-accent" />
+                  <h3 className="text-lg font-semibold text-foreground">Target Platforms</h3>
+                </div>
+                {platformsLimit != null && (
+                  <span className={`text-xs font-medium ${selected.size >= platformsLimit ? "text-destructive" : "text-muted-foreground"}`}>
+                    {selected.size} / {platformsLimit} selected
+                  </span>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Select platforms to monitor for this asset.
+                Select platforms to monitor for this asset.{platformsLimit != null && ` Your plan allows up to ${platformsLimit} per brand.`}
               </p>
               <div className="space-y-4">
                 {PLATFORM_GROUPS.map(({ key, label: groupLabel }) => {
@@ -555,12 +594,19 @@ function NewAssetPage() {
 
             {/* Target Regions & Proxy Location Management */}
             <section className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2">
-                <Globe className="h-5 w-5 text-accent" />
-                <h3 className="text-lg font-semibold text-foreground">Target Regions & Proxy Location Management</h3>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-accent" />
+                  <h3 className="text-lg font-semibold text-foreground">Target Regions & Proxy Location Management</h3>
+                </div>
+                {regionsLimit != null && (
+                  <span className={`text-xs font-medium ${selectedRegions.size >= regionsLimit ? "text-destructive" : "text-muted-foreground"}`}>
+                    {selectedRegions.size} / {regionsLimit} selected
+                  </span>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">
-                Route regional scans through local proxies to bypass geoblocking and capture location-specific infringements.
+                Route regional scans through local proxies to bypass geoblocking and capture location-specific infringements.{regionsLimit != null && ` Your plan allows up to ${regionsLimit} region(s) per brand.`}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -618,10 +664,27 @@ function NewAssetPage() {
                   Initial scan takes roughly 5-10 minutes. Results will populate in the Dashboard.
                 </p>
               </div>
+
+              {/* Plan usage — reflects the org's brand cap so customers stay within plan. */}
+              {brandsLimit != null && (
+                <div className={`rounded-lg border p-3 text-sm ${atBrandLimit ? "border-red-400/40 bg-red-500/10" : "border-sidebar-border bg-white/5"}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sidebar-foreground/70">Brands used</span>
+                    <span className="font-semibold tabular-nums">{brandsUsed} / {brandsLimit}</span>
+                  </div>
+                  {atBrandLimit && (
+                    <p className="mt-1 text-xs text-red-300">
+                      You've reached your plan's brand limit. Contact HAKKIU to add more.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-col gap-3">
                 <button
                   type="submit"
-                  disabled={isPending}
+                  disabled={isPending || atBrandLimit}
+                  title={atBrandLimit ? "Your plan's brand limit has been reached" : undefined}
                   className="w-full py-3 px-4 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-md transition-colors shadow-sm flex justify-center items-center gap-2 cursor-pointer text-sm font-sans disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <Radar className="h-4 w-4" />

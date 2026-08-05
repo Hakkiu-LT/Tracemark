@@ -90,13 +90,17 @@ class UpdateMemberRequest(BaseModel):
 
 class LimitsResponse(BaseModel):
     organization_id: str
-    brands_limit: int | None  # None = unlimited
+    brands_limit: int | None  # None = unlimited (org-total number of brands)
     brands_used: int
+    regions_per_brand_limit: int | None = None    # None = unlimited (max regions per brand)
+    platforms_per_brand_limit: int | None = None  # None = unlimited (max marketplaces per brand)
     note: str | None = None
 
 
 class UpdateLimitsRequest(BaseModel):
-    brands_limit: int | None = None  # None or negative = unlimited
+    brands_limit: int | None = None               # None or negative = unlimited
+    regions_per_brand_limit: int | None = None    # None or negative = unlimited
+    platforms_per_brand_limit: int | None = None  # None or negative = unlimited
     note: str | None = None
 
 
@@ -392,21 +396,28 @@ def _brand_count(org_id: str) -> int:
     return res.count or 0
 
 
+def _norm_limit(raw) -> int | None:
+    """None/-1 (the unlimited sentinels) → None; a real >= 0 cap passes through."""
+    return None if raw in (None, -1) else raw
+
+
 @router.get("/{org_id}/limits", response_model=LimitsResponse)
 def get_org_limits(org_id: str, staff: StaffPrincipal = Depends(require_permission("limits.view"))):
-    """A company's brand cap (from org_entitlement_overrides) + current usage."""
+    """A company's plan limits (all three axes, from org_entitlement_overrides) + usage."""
     _org_or_404(org_id)
     row = (
         customer_sb().table("org_entitlement_overrides")
-        .select("brands_limit, note").eq("organization_id", org_id).maybe_single().execute()
+        .select("brands_limit, regions_per_brand_limit, platforms_per_brand_limit, note")
+        .eq("organization_id", org_id).maybe_single().execute()
     )
-    data = row.data if row else None
-    raw = (data or {}).get("brands_limit")
+    data = (row.data if row else None) or {}
     return LimitsResponse(
         organization_id=org_id,
-        brands_limit=None if raw in (None, -1) else raw,  # None/-1 = unlimited
+        brands_limit=_norm_limit(data.get("brands_limit")),
         brands_used=_brand_count(org_id),
-        note=(data or {}).get("note"),
+        regions_per_brand_limit=_norm_limit(data.get("regions_per_brand_limit")),
+        platforms_per_brand_limit=_norm_limit(data.get("platforms_per_brand_limit")),
+        note=data.get("note"),
     )
 
 
@@ -417,22 +428,33 @@ def set_org_limits(
     payload: UpdateLimitsRequest,
     staff: StaffPrincipal = Depends(require_permission("limits.manage")),
 ):
-    """Set a company's brand cap. Raising/lowering a cap is a commercial concession —
-    gated by limits.manage (admin/super-admin only) and audit-logged."""
+    """Set a company's plan limits (brands / regions-per-brand / marketplaces-per-brand).
+    Raising/lowering a cap is a commercial concession — gated by limits.manage
+    (admin/super-admin only) and audit-logged."""
     _org_or_404(org_id)
     sb = customer_sb()
     before = (
         sb.table("org_entitlement_overrides").select("*").eq("organization_id", org_id)
         .maybe_single().execute()
     )
-    # Normalise: None = unlimited (no cap); any negative collapses to -1 (unlimited sentinel).
-    limit = payload.brands_limit
-    if limit is not None and limit < 0:
-        limit = -1
+
+    # Normalise every axis: None = unlimited (no cap); any negative collapses to -1
+    # (the unlimited sentinel the DB stores).
+    def _store(v: int | None) -> int | None:
+        if v is None:
+            return None
+        return -1 if v < 0 else v
+
+    brands_limit = _store(payload.brands_limit)
+    regions_limit = _store(payload.regions_per_brand_limit)
+    platforms_limit = _store(payload.platforms_per_brand_limit)
+
     sb.table("org_entitlement_overrides").upsert(
         {
             "organization_id": org_id,
-            "brands_limit": limit,
+            "brands_limit": brands_limit,
+            "regions_per_brand_limit": regions_limit,
+            "platforms_per_brand_limit": platforms_limit,
             "note": payload.note,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         },
@@ -441,7 +463,13 @@ def set_org_limits(
     write_audit_log(
         staff, "limits.update", target_type="organization", target_id=org_id,
         target_org_id=org_id,
-        metadata={"before": (before.data if before else None), "brands_limit": limit, "note": payload.note},
+        metadata={
+            "before": (before.data if before else None),
+            "brands_limit": brands_limit,
+            "regions_per_brand_limit": regions_limit,
+            "platforms_per_brand_limit": platforms_limit,
+            "note": payload.note,
+        },
         ip=request.client.host if request.client else None,
     )
     return get_org_limits(org_id, staff)
