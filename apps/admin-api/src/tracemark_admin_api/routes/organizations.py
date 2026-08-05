@@ -126,13 +126,20 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
         if o["id"] in staff_ids or o["id"] == HAKKIU_ORG_ID:
             continue  # skip staff personal orgs & internal Hakkiu org
 
-        # Hide auto-generated personal/home orgs (deterministic flag set by handle_new_user;
-        # replaces the old fragile domain-name string heuristic that leaked .co.uk / subdomains).
+        # Hide auto-generated personal/home orgs. Going forward handle_new_user sets the
+        # deterministic is_personal flag. For older orgs the backfill may not have flagged
+        # (e.g. profile linkage predates home_organization_id), so we KEEP the legacy
+        # domain-name heuristic as a fallback so nothing that used to be hidden reappears.
         if o.get("is_personal"):
             continue
 
         m_count = members_by_org.get(o["id"], 0)
         b_count = brands_by_org.get(o["id"], 0)
+        ind = o.get("industry")
+        name = (o.get("name") or "").strip()
+        is_domain_name = ("." in name and " " not in name and len(name.split(".")) == 2)
+        if m_count <= 1 and b_count == 0 and not ind and (is_domain_name or not name):
+            continue
 
         out.append(
             OrgRow(

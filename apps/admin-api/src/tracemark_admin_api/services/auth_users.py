@@ -62,9 +62,12 @@ def users_for_ids(sb, ids) -> dict[str, dict]:
         try:
             resp = sb.auth.admin.get_user_by_id(uid)
             user = getattr(resp, "user", None) or resp
+            # last_sign_in_at comes back as a datetime (or None). Member types it as str|None,
+            # so coerce to an ISO string here — a raw datetime would fail response validation.
+            lsi = getattr(user, "last_sign_in_at", None)
             out[uid] = {
                 "email": getattr(user, "email", "") or "",
-                "last_sign_in_at": getattr(user, "last_sign_in_at", None),
+                "last_sign_in_at": lsi.isoformat() if hasattr(lsi, "isoformat") else (str(lsi) if lsi else None),
             }
         except Exception:  # noqa: BLE001
             out[uid] = {"email": "", "last_sign_in_at": None}
