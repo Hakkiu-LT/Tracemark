@@ -28,9 +28,16 @@ Verified: customer `tsc` clean, api ruff (`src`) clean, module imports, 13 tests
 - [x] **main-api** `monitoring.py` `_clamp_scan_to_plan(org, platforms, regions)` reads
       `org_entitlement_overrides` whitelists, intersects (empty→fall back to full allowed); called in `check_brand` before scrape.
 - [x] **Tests** new `tests/test_monitoring_plan_clamp.py` (filter, unrestricted, empty-fallback, case-insensitive region, no-org).
-- [x] **Pushed** to `main` (commit `8ae877f`) — Hetzner auto-deploy in progress.
-- [ ] **Smoke (post-deploy):** admin adds a brand for a company → open that customer's Monitoring →
-      the brand is listed; scan only hits the plan's marketplaces/regions.
+- [x] **Pushed** to `main` (commit `8ae877f`) — Hetzner auto-deploy.
+- [x] **Correction (same session):** first version only *added* server brands to the local store, so
+      local-only "ghost" brands (created before, never on the server) stayed → looked like a mess.
+      Made the sync **server-authoritative**: `syncServerBrands` now RECONCILES (upsert server brands,
+      then drop marks whose serverId is gone + brand-owner ghosts never persisted; keep law-firm demo).
+      Monitoring + Dashboard both reconcile on load, so the customer sees EXACTLY the org's server
+      brands — the same records the admin portal shows. Same entity, same `brands` table, two entry
+      points (customer "Add asset" / admin "Add brand"). tsc clean.
+- [ ] **Smoke (post-deploy):** admin adds a brand for a company → log in as that org → Monitoring
+      lists exactly that brand; scan only hits the plan's marketplaces/regions.
 
 ## 🟩 Plan limits = WHITELISTS not counts (Session 53, 2026-08-05) — CODE BUILT + verified; prod migration + deploy pending
 

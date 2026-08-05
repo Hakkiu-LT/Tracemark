@@ -84,12 +84,14 @@ function MonitoringPage() {
   const setScanResult = useStore((s) => s.setScanResult);
   const syncServerBrands = useStore((s) => s.syncServerBrands);
 
-  // Pull server-persisted brands and merge them into the local marks list, so brands
-  // added anywhere (this device, another device, or by staff in the admin portal) all
-  // appear here — not just the ones created in this browser session.
+  // The server `brands` table is the source of truth. Reconcile the local marks list against
+  // it on every load so the page shows EXACTLY this org's brands — whether they were added via
+  // "Add asset" here or via the admin portal's "Add brand". Runs even when the server returns
+  // an empty list (so deletions elsewhere are reflected); only skipped while the request is
+  // still loading or errored (data undefined), which avoids wiping marks on a transient failure.
   const { data: brandsData } = useQuery({ queryKey: ["brands"], queryFn: getBrands });
   useEffect(() => {
-    if (brandsData?.brands?.length) syncServerBrands(brandsData.brands);
+    if (brandsData?.brands) syncServerBrands(brandsData.brands);
   }, [brandsData, syncServerBrands]);
 
   // Track active AbortControllers and toast IDs by mark ID

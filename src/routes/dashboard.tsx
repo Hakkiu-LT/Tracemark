@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,13 @@ function Dashboard() {
   // Server-authoritative brand usage + plan limit, so "Monitored marks" reflects the cap.
   const { data: brandsData } = useQuery({ queryKey: ["brands"], queryFn: getBrands });
   const brandsUsage = brandsData?.usage;
+
+  // Keep the local marks list in sync with the server here too (the dashboard is often the
+  // first page after login), so brand counts and lists match what the admin portal shows.
+  const syncServerBrands = useStore((s) => s.syncServerBrands);
+  useEffect(() => {
+    if (brandsData?.brands) syncServerBrands(brandsData.brands);
+  }, [brandsData, syncServerBrands]);
 
   const filteredInfringements = infringements.filter((i) => {
     if (selectedMacroRegion === "ALL") return true;

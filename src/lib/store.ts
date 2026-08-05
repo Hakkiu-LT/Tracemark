@@ -147,14 +147,20 @@ export const useStore = create<State>()(
             { ...m, id: `m${Date.now()}`, createdAt: new Date().toISOString().slice(0, 10), lastScan: "never" },
           ],
         })),
-      // Reconcile server-persisted brands into the local marks list. This is what makes
-      // brands created outside this browser — e.g. by staff in the admin portal — show up
-      // on the monitoring page. Matching is by serverId first, then by brand name (to adopt
-      // a demo/local mark). Local-only monitoring controls (status, repeatCycle, id) are
-      // preserved on existing marks; server data is the source of truth for everything else.
+      // Reconcile the local marks list against the server `brands` table, which is the SINGLE
+      // source of truth. A brand is the same entity whether it was created via the customer
+      // "Add asset" form or the admin portal's "Add brand" — same table, same fields — so the
+      // monitoring page must show exactly what the server has for this org (no local-only ghosts,
+      // no stale entries). We only preserve the LOCAL monitoring controls (status/repeatCycle/id)
+      // by matching an existing mark; everything else comes from the server.
       syncServerBrands: (brands) =>
         set((s) => {
-          const marks = [...s.marks];
+          const serverIds = new Set(brands.map((b) => b.id));
+          const serverNames = new Set(brands.map((b) => b.brand_name.trim().toLowerCase()));
+          let marks = [...s.marks];
+
+          // 1) Upsert every server brand: match by serverId, else adopt a same-named local mark
+          //    (e.g. one just created via "Add asset" that hasn't learned its serverId yet).
           for (const b of brands) {
             const descriptive = {
               serverId: b.id,
@@ -189,6 +195,17 @@ export const useStore = create<State>()(
               marks[idx] = { ...marks[idx], ...descriptive };
             }
           }
+
+          // 2) Server is authoritative for real brands. Drop:
+          //    - a mark whose serverId is gone from the server (brand deleted elsewhere), and
+          //    - a local-only brand-owner mark that was never persisted (a ghost).
+          //    Client-scoped demo marks (the seeded law-firm sample, clientId "c1") are kept.
+          marks = marks.filter((m) => {
+            if (m.serverId) return serverIds.has(m.serverId);
+            if (m.clientId && m.clientId !== "") return true;
+            return serverNames.has(m.brandName.trim().toLowerCase());
+          });
+
           return { marks };
         }),
       toggleMarkStatus: (id) =>
