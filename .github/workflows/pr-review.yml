@@ -27,7 +27,19 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # full history so Claude can diff against the base branch
+      # Skip cleanly (job stays GREEN) until the ANTHROPIC_API_KEY secret exists,
+      # so this never shows a permanent red check that trains people to ignore CI.
+      - name: Check for API key
+        id: guard
+        run: |
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY not set — skipping Claude review. Add it in Settings → Secrets and variables → Actions to enable."
+          fi
       - uses: anthropics/claude-code-action@v1
+        if: steps.guard.outputs.enabled == 'true'
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Bound cost/time per PR. Widen if reviews feel shallow on big PRs.
