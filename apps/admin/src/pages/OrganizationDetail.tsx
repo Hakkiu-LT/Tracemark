@@ -512,145 +512,124 @@ function useOrgLimits(orgId: string) {
   });
 }
 
-// Small "N / max selected" counter — greyed unless a cap is in force.
-function LimitCounter({ count, max }: { count: number; max: number | null }) {
-  if (max == null) return <span className="text-xs text-muted-foreground">{count} selected</span>;
-  const atCap = count >= max;
-  return (
-    <span className={`text-xs ${atCap ? "text-destructive" : "text-muted-foreground"}`}>
-      {count} / {max} selected{atCap ? " — plan limit reached" : ""}
-    </span>
-  );
-}
+const chipClass = (active: boolean) =>
+  `flex items-center gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors ${
+    active ? "border-accent bg-accent/10 text-accent" : "border-border text-foreground hover:bg-muted/40"
+  }`;
 
-// Checkbox grid of marketplaces, grouped like the customer app. When `max` is set, unchecked
-// options disable once the cap is hit so staff can't configure a brand beyond the plan.
+// Grouped marketplace picker. `available` = the apiKeys to SHOW (null/empty = show all). Used
+// two ways: in Plan & Limits (available=null → show all 12, selected = the allowed whitelist);
+// and in the brand dialogs (available = the plan's whitelist → show only what's allowed).
 function PlatformPicker({
   selected,
   onChange,
-  max,
+  available,
+  label = "Marketplaces / platforms",
 }: {
   selected: string[];
   onChange: (next: string[]) => void;
-  max: number | null;
+  available?: string[] | null;
+  label?: string;
 }) {
-  const atCap = max != null && selected.length >= max;
+  const allow = available && available.length ? new Set(available) : null;
+  const options = allow ? PLATFORM_OPTIONS.filter((p) => allow.has(p.apiKey)) : PLATFORM_OPTIONS;
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Label>Marketplaces / platforms</Label>
-        <LimitCounter count={selected.length} max={max} />
+        <Label>{label}</Label>
+        <span className="text-xs text-muted-foreground">{selected.length} selected</span>
       </div>
-      {PLATFORM_GROUPS.map((group) => {
-        const items = PLATFORM_OPTIONS.filter((p) => p.group === group.key);
-        if (!items.length) return null;
-        return (
-          <div key={group.key} className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {items.map((p) => {
-                const active = selected.includes(p.apiKey);
-                const disabled = !active && atCap;
-                return (
-                  <button
-                    key={p.apiKey}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onChange(toggleValue(selected, p.apiKey))}
-                    className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors ${
-                      active
-                        ? "border-accent bg-accent/10 text-accent"
-                        : disabled
-                          ? "cursor-not-allowed border-border/60 text-muted-foreground/50"
-                          : "border-border text-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    <span className={`h-3.5 w-3.5 shrink-0 rounded border ${active ? "border-accent bg-accent" : "border-input"}`} />
-                    <span className="truncate">{p.label}</span>
-                  </button>
-                );
-              })}
+      {options.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No marketplaces available in this plan.</p>
+      ) : (
+        PLATFORM_GROUPS.map((group) => {
+          const items = options.filter((p) => p.group === group.key);
+          if (!items.length) return null;
+          return (
+            <div key={group.key} className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {items.map((p) => {
+                  const active = selected.includes(p.apiKey);
+                  return (
+                    <button key={p.apiKey} type="button" onClick={() => onChange(toggleValue(selected, p.apiKey))} className={chipClass(active)}>
+                      <span className={`h-3.5 w-3.5 shrink-0 rounded border ${active ? "border-accent bg-accent" : "border-input"}`} />
+                      <span className="truncate">{p.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
     </div>
   );
 }
 
-// Checkbox grid of regions (country codes), grouped by macro-region with a "select group"
-// toggle. Respects the same per-brand cap semantics as the platform picker.
+// Grouped region picker at COUNTRY granularity (so "only USA" is expressible). `available` =
+// the country codes to SHOW (null/empty = show all). Same two uses as PlatformPicker.
 function RegionPicker({
   selected,
   onChange,
-  max,
+  available,
+  label = "Target regions",
 }: {
   selected: string[];
   onChange: (next: string[]) => void;
-  max: number | null;
+  available?: string[] | null;
+  label?: string;
 }) {
-  const atCap = max != null && selected.length >= max;
+  const allow = available && available.length ? new Set(available) : null;
+  const groups = REGION_GROUPS.map((g) => ({
+    ...g,
+    countries: allow ? g.countries.filter((c) => allow.has(c.code)) : g.countries,
+  })).filter((g) => g.countries.length);
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Label>Target regions</Label>
-        <LimitCounter count={selected.length} max={max} />
+        <Label>{label}</Label>
+        <span className="text-xs text-muted-foreground">{selected.length} selected</span>
       </div>
-      {REGION_GROUPS.map((group) => {
-        const codes = group.countries.map((c) => c.code);
-        const allSelected = codes.every((c) => selected.includes(c));
-        return (
-          <div key={group.key} className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (allSelected) {
-                    onChange(selected.filter((c) => !codes.includes(c)));
-                  } else {
-                    // Add group members up to the cap (respect max if set).
-                    const next = [...selected];
-                    for (const c of codes) {
-                      if (next.includes(c)) continue;
-                      if (max != null && next.length >= max) break;
-                      next.push(c);
-                    }
-                    onChange(next);
+      {groups.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No regions available in this plan.</p>
+      ) : (
+        groups.map((group) => {
+          const codes = group.countries.map((c) => c.code);
+          const allSelected = codes.every((c) => selected.includes(c));
+          return (
+            <div key={group.key} className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange(
+                      allSelected
+                        ? selected.filter((c) => !codes.includes(c))
+                        : [...selected, ...codes.filter((c) => !selected.includes(c))],
+                    )
                   }
-                }}
-                className="text-[11px] text-accent hover:underline"
-              >
-                {allSelected ? "clear" : "select all"}
-              </button>
+                  className="text-[11px] text-accent hover:underline"
+                >
+                  {allSelected ? "clear" : "select all"}
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {group.countries.map((c) => {
+                  const active = selected.includes(c.code);
+                  return (
+                    <button key={c.code} type="button" onClick={() => onChange(toggleValue(selected, c.code))} className={chipClass(active)}>
+                      <span>{c.flag}</span>
+                      <span className="truncate">{c.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {group.countries.map((c) => {
-                const active = selected.includes(c.code);
-                const disabled = !active && atCap;
-                return (
-                  <button
-                    key={c.code}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onChange(toggleValue(selected, c.code))}
-                    className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors ${
-                      active
-                        ? "border-accent bg-accent/10 text-accent"
-                        : disabled
-                          ? "cursor-not-allowed border-border/60 text-muted-foreground/50"
-                          : "border-border text-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    <span>{c.flag}</span>
-                    <span className="truncate">{c.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
     </div>
   );
 }
@@ -762,8 +741,8 @@ function BrandEditDialog({
           <Label>Official advertisers <span className="text-xs text-muted-foreground">(one per line)</span></Label>
           <textarea value={advertisers} onChange={(e) => setAdvertisers(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" />
         </div>
-        <PlatformPicker selected={platforms} onChange={setPlatforms} max={limits?.platforms_per_brand_limit ?? null} />
-        <RegionPicker selected={regions} onChange={setRegions} max={limits?.regions_per_brand_limit ?? null} />
+        <PlatformPicker selected={platforms} onChange={setPlatforms} available={limits?.allowed_platforms ?? null} />
+        <RegionPicker selected={regions} onChange={setRegions} available={limits?.allowed_regions ?? null} />
 
         {/* Photos */}
         <div className="space-y-2 border-t border-border pt-3">
@@ -1062,8 +1041,8 @@ function BrandCreateDialog({ orgId, onClose, onCreated }: { orgId: string; onClo
           <div className="space-y-1.5"><Label>Website <span className="text-xs text-muted-foreground">(optional)</span></Label><Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://acme.com" /></div>
           <div className="space-y-1.5"><Label>Registration # <span className="text-xs text-muted-foreground">(optional)</span></Label><Input value={reg} onChange={(e) => setReg(e.target.value)} /></div>
         </div>
-        <PlatformPicker selected={platforms} onChange={setPlatforms} max={limits?.platforms_per_brand_limit ?? null} />
-        <RegionPicker selected={regions} onChange={setRegions} max={limits?.regions_per_brand_limit ?? null} />
+        <PlatformPicker selected={platforms} onChange={setPlatforms} available={limits?.allowed_platforms ?? null} />
+        <RegionPicker selected={regions} onChange={setRegions} available={limits?.allowed_regions ?? null} />
       </div>
     </Dialog>
   );
@@ -1073,8 +1052,8 @@ interface OrgLimits {
   organization_id: string;
   brands_limit: number | null; // null = unlimited (org-total brands)
   brands_used: number;
-  regions_per_brand_limit: number | null; // null = unlimited (max regions per brand)
-  platforms_per_brand_limit: number | null; // null = unlimited (max marketplaces per brand)
+  allowed_platforms: string[] | null; // null = all marketplaces allowed; else whitelist (apiKeys)
+  allowed_regions: string[] | null; // null = all regions allowed; else whitelist (country codes)
   note: string | null;
 }
 
@@ -1111,20 +1090,30 @@ function LimitField({
   );
 }
 
-// "Plan & Limits" — a company's caps across all three axes + usage. Anyone with limits.view
-// sees it; only limits.manage (admin/super-admin) can change caps (a commercial concession).
-// `autoEdit` opens straight into edit mode — used right after creating a company so staff are
-// prompted to set the plan before anything else.
+// Human labels for the read-only summary.
+function platformLabels(codes: string[]): string {
+  return codes.map((c) => PLATFORM_OPTIONS.find((p) => p.apiKey === c)?.label ?? c).join(", ");
+}
+function regionLabels(codes: string[]): string {
+  const all = REGION_GROUPS.flatMap((g) => g.countries);
+  return codes.map((c) => all.find((x) => x.code === c)?.name ?? c).join(", ");
+}
+
+// "Plan & Limits" — the deal you agree with a company: a brand cap PLUS exactly which
+// marketplaces and regions they may use. Anyone with limits.view sees it; only limits.manage
+// (admin/super-admin) can change it. `autoEdit` opens straight into edit mode — used right
+// after creating a company so staff set the plan before anything else.
 function LimitsCard({ orgId, autoEdit = false }: { orgId: string; autoEdit?: boolean }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(autoEdit);
 
   const [brandsUnlimited, setBrandsUnlimited] = useState(true);
   const [brandsCap, setBrandsCap] = useState("");
-  const [regionsUnlimited, setRegionsUnlimited] = useState(true);
-  const [regionsCap, setRegionsCap] = useState("");
-  const [platformsUnlimited, setPlatformsUnlimited] = useState(true);
-  const [platformsCap, setPlatformsCap] = useState("");
+  // "Allow all" = no whitelist (unrestricted). When off, the picker chooses the allowed subset.
+  const [allPlatforms, setAllPlatforms] = useState(true);
+  const [platforms, setPlatforms] = useState<string[]>([]);
+  const [allRegions, setAllRegions] = useState(true);
+  const [regions, setRegions] = useState<string[]>([]);
   const [note, setNote] = useState("");
 
   const { data, isLoading } = useQuery({
@@ -1136,36 +1125,35 @@ function LimitsCard({ orgId, autoEdit = false }: { orgId: string; autoEdit?: boo
     if (!data) return;
     setBrandsUnlimited(data.brands_limit == null);
     setBrandsCap(data.brands_limit == null ? "" : String(data.brands_limit));
-    setRegionsUnlimited(data.regions_per_brand_limit == null);
-    setRegionsCap(data.regions_per_brand_limit == null ? "" : String(data.regions_per_brand_limit));
-    setPlatformsUnlimited(data.platforms_per_brand_limit == null);
-    setPlatformsCap(data.platforms_per_brand_limit == null ? "" : String(data.platforms_per_brand_limit));
+    setAllPlatforms(data.allowed_platforms == null);
+    setPlatforms(data.allowed_platforms ?? []);
+    setAllRegions(data.allowed_regions == null);
+    setRegions(data.allowed_regions ?? []);
     setNote(data.note ?? "");
   }, [data]);
-
-  const toStored = (unlimited: boolean, cap: string) =>
-    unlimited ? null : Math.max(0, parseInt(cap || "0", 10));
 
   const save = useMutation({
     mutationFn: () =>
       adminFetch(`/organizations/${orgId}/limits`, {
         method: "PUT",
         body: JSON.stringify({
-          brands_limit: toStored(brandsUnlimited, brandsCap),
-          regions_per_brand_limit: toStored(regionsUnlimited, regionsCap),
-          platforms_per_brand_limit: toStored(platformsUnlimited, platformsCap),
+          brands_limit: brandsUnlimited ? null : Math.max(0, parseInt(brandsCap || "0", 10)),
+          allowed_platforms: allPlatforms ? null : platforms,
+          allowed_regions: allRegions ? null : regions,
           note: note.trim() || null,
         }),
       }),
     onSuccess: () => {
-      toast.success("Limits updated");
+      toast.success("Plan updated");
       setEditing(false);
       qc.invalidateQueries({ queryKey: ["org-limits", orgId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const fmt = (v: number | null) => (v == null ? "∞ (unlimited)" : v);
+  const fmtBrands = (v: number | null) => (v == null ? "∞ (unlimited)" : v);
+  const fmtAllow = (codes: string[] | null, labeller: (c: string[]) => string) =>
+    codes == null || codes.length === 0 ? "All allowed" : labeller(codes);
 
   return (
     <Card>
@@ -1174,7 +1162,7 @@ function LimitsCard({ orgId, autoEdit = false }: { orgId: string; autoEdit?: boo
         {!editing && (
           <Can permission="limits.manage">
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-              <Pencil className="h-4 w-4" /> Edit limits
+              <Pencil className="h-4 w-4" /> Edit plan
             </Button>
           </Can>
         )}
@@ -1183,52 +1171,64 @@ function LimitsCard({ orgId, autoEdit = false }: { orgId: string; autoEdit?: boo
         {isLoading || !data ? (
           <Skeleton className="h-10 w-full" />
         ) : !editing ? (
-          <div className="flex flex-wrap items-center gap-8 text-sm">
-            <div>
-              <div className="text-xs text-muted-foreground">Brands</div>
-              <div className="font-medium tabular-nums">{data.brands_used} / {fmt(data.brands_limit)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Regions / brand</div>
-              <div className="font-medium tabular-nums">{fmt(data.regions_per_brand_limit)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Marketplaces / brand</div>
-              <div className="font-medium tabular-nums">{fmt(data.platforms_per_brand_limit)}</div>
+          <div className="space-y-3 text-sm">
+            <div className="flex flex-wrap items-start gap-8">
+              <div>
+                <div className="text-xs text-muted-foreground">Brands</div>
+                <div className="font-medium tabular-nums">{data.brands_used} / {fmtBrands(data.brands_limit)}</div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">Marketplaces</div>
+                <div className="font-medium">{fmtAllow(data.allowed_platforms, platformLabels)}</div>
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">Regions</div>
+                <div className="font-medium">{fmtAllow(data.allowed_regions, regionLabels)}</div>
+              </div>
             </div>
             {data.note && <div className="text-muted-foreground">{data.note}</div>}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {autoEdit && (
               <p className="rounded-md border border-accent/30 bg-accent/5 p-3 text-sm text-muted-foreground">
-                Set this company's plan before onboarding users and brands. All three default to
-                unlimited — cap what the plan should allow.
+                Set this company's plan before onboarding users and brands: how many brands they get,
+                and exactly which marketplaces &amp; regions they may monitor. Leave a box on "Allow all"
+                for no restriction.
               </p>
             )}
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:max-w-xs">
               <LimitField
                 label="Brands"
-                hint={data.brands_used > 0 ? `Already has ${data.brands_used}.` : "Org-total monitored assets."}
+                hint={data.brands_used > 0 ? `Already has ${data.brands_used}. Max number of brands.` : "Max number of brands (monitored assets)."}
                 unlimited={brandsUnlimited} setUnlimited={setBrandsUnlimited}
                 cap={brandsCap} setCap={setBrandsCap}
               />
-              <LimitField
-                label="Regions / brand"
-                hint="Max target regions per brand."
-                unlimited={regionsUnlimited} setUnlimited={setRegionsUnlimited}
-                cap={regionsCap} setCap={setRegionsCap}
-              />
-              <LimitField
-                label="Marketplaces / brand"
-                hint="Max marketplaces per brand."
-                unlimited={platformsUnlimited} setUnlimited={setPlatformsUnlimited}
-                cap={platformsCap} setCap={setPlatformsCap}
-              />
             </div>
+
+            <div className="space-y-2 rounded-md border border-border/60 p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={allPlatforms} onChange={(e) => setAllPlatforms(e.target.checked)} />
+                Allow all marketplaces
+              </label>
+              {!allPlatforms && (
+                <PlatformPicker selected={platforms} onChange={setPlatforms} label="Allowed marketplaces" />
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-md border border-border/60 p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={allRegions} onChange={(e) => setAllRegions(e.target.checked)} />
+                Allow all regions
+              </label>
+              {!allRegions && (
+                <RegionPicker selected={regions} onChange={setRegions} label="Allowed regions" />
+              )}
+            </div>
+
             <div className="space-y-1.5">
-              <Label>Note <span className="text-xs text-muted-foreground">(why this limit)</span></Label>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Growth plan — 3 brands, 3 regions, 5 marketplaces" />
+              <Label>Note <span className="text-xs text-muted-foreground">(why this plan)</span></Label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Agreed: 2 brands, Amazon only, USA only" />
             </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>

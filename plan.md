@@ -1,5 +1,34 @@
 # HAKKIU — Active Plan
 
+> **Session 53 (2026-08-05) — Plan limits are WHITELISTS, not counts (correction of Session 52).**
+> Feedback: staff don't set "max N regions / M marketplaces" (a count). They agree a concrete
+> plan with the customer — e.g. "2 brands, scan ONLY Amazon, ONLY USA" — and must whitelist the
+> SPECIFIC marketplaces & regions the customer may use. Everything is PICKED (no free-text), and
+> a person who knows nothing can set it up because the admin sees the full list to choose from.
+>
+> **Model (org_entitlement_overrides):** `brands_limit int` (max count, unchanged) +
+> `allowed_platforms text[]` + `allowed_regions text[]` (whitelists; NULL/empty = all allowed).
+> Regions are COUNTRY-CODE granularity so "only USA" works.
+>
+> **What shipped (code, Session 53):**
+> - DB `20260805000004_allowed_lists_limits.sql`: drops the count columns from ...000003, adds the
+>   two `text[]` whitelists; `create_brand_checked` now enforces SUBSET membership (raises
+>   `PLATFORM_NOT_ALLOWED` / `REGION_NOT_ALLOWED`). Same RPC signature.
+> - main-api `brands.py`: `_org_limits` returns the whitelists; `_enforce_allowed_lists` (edit)
+>   + create error mapping → 403 with the offending value(s) named.
+> - admin-api: `LimitsResponse`/`UpdateLimitsRequest` carry `allowed_platforms`/`allowed_regions`;
+>   set stores empty→NULL (unrestricted); `brands_admin` subset-enforces on create/edit.
+> - admin FE: `PlatformPicker`/`RegionPicker` refactored to an `available` (whitelist-to-SHOW) prop.
+>   `LimitsCard` = brand-count + "Allow all" toggles + pickers to choose the allowed marketplaces/
+>   regions (admin SEES the full list). Brand dialogs show ONLY the allowed options.
+> - customer FE `monitoring.new.tsx`: platform picker filtered to the plan; region picker rebuilt to
+>   COUNTRY level (grouped) filtered to the plan; default selection reconciled to the whitelist;
+>   count-cap UI removed. `api.ts` `PlanLimits` = { brands, allowed_platforms, allowed_regions }.
+> - Tests rewritten for NOT_ALLOWED codes + `_enforce_allowed_lists`.
+>
+> **Verified:** ruff (both src) clean; admin+customer tsc clean; brand tests pass; both apps boot.
+> **PENDING: user runs `supabase db push` (`20260805000004`) + deploy.** Permission keys unchanged.
+
 > **Session 52 (2026-08-05) — Brands = monitored assets + 3-dimensional plan limits (reflected customer-side).**
 > Builds on Session 51. Goal: (1) admin "Add brand" mirrors the customer "Add monitored asset"
 > (selectable marketplace/region PICKERS, not free-text); (2) plan limits span THREE axes —

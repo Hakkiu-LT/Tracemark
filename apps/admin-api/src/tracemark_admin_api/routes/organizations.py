@@ -92,15 +92,15 @@ class LimitsResponse(BaseModel):
     organization_id: str
     brands_limit: int | None  # None = unlimited (org-total number of brands)
     brands_used: int
-    regions_per_brand_limit: int | None = None    # None = unlimited (max regions per brand)
-    platforms_per_brand_limit: int | None = None  # None = unlimited (max marketplaces per brand)
+    allowed_platforms: list[str] | None = None  # None = all marketplaces allowed; else whitelist
+    allowed_regions: list[str] | None = None     # None = all regions allowed; else whitelist (country codes)
     note: str | None = None
 
 
 class UpdateLimitsRequest(BaseModel):
-    brands_limit: int | None = None               # None or negative = unlimited
-    regions_per_brand_limit: int | None = None    # None or negative = unlimited
-    platforms_per_brand_limit: int | None = None  # None or negative = unlimited
+    brands_limit: int | None = None              # None or negative = unlimited
+    allowed_platforms: list[str] | None = None   # None/empty = all allowed; else the whitelist
+    allowed_regions: list[str] | None = None     # None/empty = all allowed; else the whitelist
     note: str | None = None
 
 
@@ -401,13 +401,18 @@ def _norm_limit(raw) -> int | None:
     return None if raw in (None, -1) else raw
 
 
+def _clean_list(raw) -> list[str] | None:
+    """None or empty [] → None (unrestricted / all allowed); else the whitelist."""
+    return list(raw) if raw else None
+
+
 @router.get("/{org_id}/limits", response_model=LimitsResponse)
 def get_org_limits(org_id: str, staff: StaffPrincipal = Depends(require_permission("limits.view"))):
-    """A company's plan limits (all three axes, from org_entitlement_overrides) + usage."""
+    """A company's plan limits (brand cap + marketplace/region whitelists) + usage."""
     _org_or_404(org_id)
     row = (
         customer_sb().table("org_entitlement_overrides")
-        .select("brands_limit, regions_per_brand_limit, platforms_per_brand_limit, note")
+        .select("brands_limit, allowed_platforms, allowed_regions, note")
         .eq("organization_id", org_id).maybe_single().execute()
     )
     data = (row.data if row else None) or {}
@@ -415,8 +420,8 @@ def get_org_limits(org_id: str, staff: StaffPrincipal = Depends(require_permissi
         organization_id=org_id,
         brands_limit=_norm_limit(data.get("brands_limit")),
         brands_used=_brand_count(org_id),
-        regions_per_brand_limit=_norm_limit(data.get("regions_per_brand_limit")),
-        platforms_per_brand_limit=_norm_limit(data.get("platforms_per_brand_limit")),
+        allowed_platforms=_clean_list(data.get("allowed_platforms")),
+        allowed_regions=_clean_list(data.get("allowed_regions")),
         note=data.get("note"),
     )
 
@@ -428,8 +433,8 @@ def set_org_limits(
     payload: UpdateLimitsRequest,
     staff: StaffPrincipal = Depends(require_permission("limits.manage")),
 ):
-    """Set a company's plan limits (brands / regions-per-brand / marketplaces-per-brand).
-    Raising/lowering a cap is a commercial concession — gated by limits.manage
+    """Set a company's plan: brand cap + the marketplace/region WHITELISTS the customer may
+    use. Empty/None list = all allowed. A commercial concession — gated by limits.manage
     (admin/super-admin only) and audit-logged."""
     _org_or_404(org_id)
     sb = customer_sb()
@@ -438,23 +443,20 @@ def set_org_limits(
         .maybe_single().execute()
     )
 
-    # Normalise every axis: None = unlimited (no cap); any negative collapses to -1
-    # (the unlimited sentinel the DB stores).
-    def _store(v: int | None) -> int | None:
-        if v is None:
-            return None
-        return -1 if v < 0 else v
-
-    brands_limit = _store(payload.brands_limit)
-    regions_limit = _store(payload.regions_per_brand_limit)
-    platforms_limit = _store(payload.platforms_per_brand_limit)
+    # Brands: None = unlimited; any negative collapses to -1 (the unlimited sentinel).
+    brands_limit = payload.brands_limit
+    if brands_limit is not None and brands_limit < 0:
+        brands_limit = -1
+    # Whitelists: empty [] stored as NULL = unrestricted (avoids "allow nothing" foot-guns).
+    allowed_platforms = _clean_list(payload.allowed_platforms)
+    allowed_regions = _clean_list(payload.allowed_regions)
 
     sb.table("org_entitlement_overrides").upsert(
         {
             "organization_id": org_id,
             "brands_limit": brands_limit,
-            "regions_per_brand_limit": regions_limit,
-            "platforms_per_brand_limit": platforms_limit,
+            "allowed_platforms": allowed_platforms,
+            "allowed_regions": allowed_regions,
             "note": payload.note,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         },
@@ -466,8 +468,8 @@ def set_org_limits(
         metadata={
             "before": (before.data if before else None),
             "brands_limit": brands_limit,
-            "regions_per_brand_limit": regions_limit,
-            "platforms_per_brand_limit": platforms_limit,
+            "allowed_platforms": allowed_platforms,
+            "allowed_regions": allowed_regions,
             "note": payload.note,
         },
         ip=request.client.host if request.client else None,

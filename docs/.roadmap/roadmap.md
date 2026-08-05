@@ -213,6 +213,16 @@ still returned by `GET /me`).
 > cap, dashboard shows `used / limit`. Creating a company now auto-opens Plan & Limits first.
 > Same permission keys (`limits.*`, `brands.create`). ⏳ migration pending prod push.
 
+> **Session 53 (2026-08-05) — limits are WHITELISTS, not counts.** Correction of Session 52 per
+> staff feedback: they agree a concrete plan with the customer (e.g. "2 brands, Amazon only, USA
+> only") and must whitelist the SPECIFIC allowed marketplaces + regions — everything is picked, no
+> free-text. `20260805000004_allowed_lists_limits.sql` drops the count columns and adds
+> `allowed_platforms text[]` + `allowed_regions text[]` (NULL/empty = all allowed; regions at
+> country granularity); `create_brand_checked` subset-enforces (`PLATFORM_NOT_ALLOWED` /
+> `REGION_NOT_ALLOWED`). Admin "Plan & Limits" = brand-count + pickers to choose allowed
+> marketplaces/regions (admin sees the full list); customer "Add monitored asset" shows ONLY the
+> allowed options (platforms filtered, regions rebuilt to country-level). ⏳ migration pending prod push.
+
 ---
 
 ## 8. Law Firm & Multi-Client Mode

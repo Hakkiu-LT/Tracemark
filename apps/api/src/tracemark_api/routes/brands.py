@@ -110,16 +110,24 @@ def _norm_limit(raw) -> int | None:
     return None if raw in (None, -1) else raw
 
 
+def _clean_list(raw) -> list[str] | None:
+    """Normalise a stored allow-list: None or empty [] → None (unrestricted); else the list."""
+    if not raw:
+        return None
+    return list(raw)
+
+
 def _org_limits(org_id: str) -> dict:
-    """Plan limits for an org, normalised so None means unlimited on every axis.
+    """Plan limits for an org, normalised so None means unrestricted on every axis.
 
     Reads the (service-role only) org_entitlement_overrides row. A missing row = a
-    company with no overrides = unlimited everywhere.
+    company with no overrides = unrestricted everywhere. Marketplaces/regions are
+    WHITELISTS of allowed values (not counts); ``None`` = all allowed.
     """
     sb = get_supabase()
     row = (
         sb.table("org_entitlement_overrides")
-        .select("brands_limit, regions_per_brand_limit, platforms_per_brand_limit")
+        .select("brands_limit, allowed_platforms, allowed_regions")
         .eq("organization_id", org_id)
         .maybe_single()
         .execute()
@@ -127,28 +135,35 @@ def _org_limits(org_id: str) -> dict:
     data = (row.data if row else None) or {}
     return {
         "brands": _norm_limit(data.get("brands_limit")),
-        "regions_per_brand": _norm_limit(data.get("regions_per_brand_limit")),
-        "platforms_per_brand": _norm_limit(data.get("platforms_per_brand_limit")),
+        "allowed_platforms": _clean_list(data.get("allowed_platforms")),
+        "allowed_regions": _clean_list(data.get("allowed_regions")),
     }
 
 
-def _enforce_per_brand_caps(limits: dict, platforms, target_regions) -> None:
-    """Raise 403 if this brand's platform/region selection exceeds the per-brand caps.
+def _enforce_allowed_lists(limits: dict, platforms, target_regions) -> None:
+    """Raise 403 if a brand selects a marketplace/region outside the plan's whitelist.
 
-    Used on EDIT (create goes through the RPC, which enforces the same caps atomically).
+    Used on EDIT (create goes through the RPC, which enforces the same whitelists atomically).
+    A None whitelist = unrestricted. Only the values actually provided are checked.
     """
-    rlim = limits.get("regions_per_brand")
-    plim = limits.get("platforms_per_brand")
-    if rlim is not None and target_regions is not None and len(target_regions) > rlim:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Your plan allows up to {rlim} region(s) per brand. Contact HAKKIU to raise it.",
-        )
-    if plim is not None and platforms is not None and len(platforms) > plim:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Your plan allows up to {plim} marketplace(s) per brand. Contact HAKKIU to raise it.",
-        )
+    allowed_p = limits.get("allowed_platforms")
+    allowed_r = limits.get("allowed_regions")
+    if allowed_p and platforms is not None:
+        extra = [p for p in platforms if p not in set(allowed_p)]
+        if extra:
+            raise HTTPException(
+                status_code=403,
+                detail="Your plan doesn't include these marketplace(s): "
+                + ", ".join(extra) + ". Contact HAKKIU to change your plan.",
+            )
+    if allowed_r and target_regions is not None:
+        extra = [r for r in target_regions if r not in set(allowed_r)]
+        if extra:
+            raise HTTPException(
+                status_code=403,
+                detail="Your plan doesn't include these region(s): "
+                + ", ".join(extra) + ". Contact HAKKIU to change your plan.",
+            )
 
 
 def _brand_or_404(org_id: str, brand_id: str) -> dict:
@@ -173,8 +188,8 @@ def list_brands(profile: CurrentProfile = Depends(get_current_profile)):
     can reflect usage and cap the pickers.
 
     ``usage.limit`` mirrors the org-total brand cap (``None`` = unlimited). ``limits``
-    carries all three axes so the "Add monitored asset" form can disable selecting
-    more regions/marketplaces than the plan allows."""
+    carries the brand cap plus the marketplace/region WHITELISTS so the "Add monitored
+    asset" form can show ONLY the options the plan allows (``None`` = all allowed)."""
     sb = get_supabase()
     res = (
         sb.table("brands")
@@ -229,15 +244,15 @@ def create_brand(
                 status_code=403,
                 detail="Brand limit reached for this organization. Contact HAKKIU to raise it.",
             )
-        if "REGION_LIMIT_REACHED" in msg:
+        if "REGION_NOT_ALLOWED" in msg:
             raise HTTPException(
                 status_code=403,
-                detail="Too many regions for this brand — your plan caps regions per brand. Contact HAKKIU to raise it.",
+                detail="This brand targets a region your plan doesn't include. Contact HAKKIU to change your plan.",
             )
-        if "PLATFORM_LIMIT_REACHED" in msg:
+        if "PLATFORM_NOT_ALLOWED" in msg:
             raise HTTPException(
                 status_code=403,
-                detail="Too many marketplaces for this brand — your plan caps marketplaces per brand. Contact HAKKIU to raise it.",
+                detail="This brand targets a marketplace your plan doesn't include. Contact HAKKIU to change your plan.",
             )
         raise HTTPException(status_code=400, detail=f"Could not create brand: {exc}")
 
@@ -258,9 +273,9 @@ def update_brand(
 ):
     existing = _brand_or_404(profile.organization_id, brand_id)
 
-    # Editing a brand can grow its platform/region set — enforce the same per-brand caps
-    # the create RPC uses, so a customer can't exceed the plan by editing after the fact.
-    _enforce_per_brand_caps(
+    # Editing a brand can change its platform/region set — enforce the same whitelists the
+    # create RPC uses, so a customer can't slip in a disallowed marketplace/region via edit.
+    _enforce_allowed_lists(
         _org_limits(profile.organization_id), body.platforms, body.target_regions
     )
 

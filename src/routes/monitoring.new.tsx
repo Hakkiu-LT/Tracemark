@@ -133,46 +133,52 @@ function NewAssetPage() {
 
   const scanSteps = buildScanSteps(selected);
 
-  // Plan limits: cap how many marketplaces/regions a brand can select, and block creating a
-  // new brand once the org is at its brand cap. null on any axis = unlimited.
+  // Plan limits. Marketplaces/regions are WHITELISTS of what the plan allows (null = all);
+  // the pickers below show ONLY those. `brands` cap blocks creating a new brand once reached.
   const { data: brandsData } = useQuery({ queryKey: ["brands"], queryFn: getBrands });
-  const platformsLimit = brandsData?.limits?.platforms_per_brand ?? null;
-  const regionsLimit = brandsData?.limits?.regions_per_brand ?? null;
+  const allowedPlatforms = brandsData?.limits?.allowed_platforms ?? null;
+  const allowedRegions = brandsData?.limits?.allowed_regions ?? null;
   const brandsLimit = brandsData?.usage?.limit ?? null;
   const brandsUsed = brandsData?.usage?.used ?? 0;
   const atBrandLimit = brandsLimit != null && brandsUsed >= brandsLimit;
 
+  const allowedPlatformSet = allowedPlatforms && allowedPlatforms.length ? new Set(allowedPlatforms) : null;
+  const allowedRegionSet = allowedRegions && allowedRegions.length ? new Set(allowedRegions) : null;
+  // Only the marketplaces the plan permits are shown (matched by apiKey).
+  const visiblePlatforms = allowedPlatformSet
+    ? PLATFORMS.filter((p) => allowedPlatformSet.has(p.apiKey))
+    : PLATFORMS;
+
+  // Reconcile the default selection with the plan once limits load: drop anything the plan
+  // doesn't allow, and if nothing's left, preselect the first allowed region.
+  useEffect(() => {
+    if (!brandsData) return;
+    if (allowedRegionSet) {
+      setSelectedRegions((prev) => {
+        const kept = new Set([...prev].filter((c) => allowedRegionSet.has(c)));
+        if (kept.size === 0) {
+          const first = [...allowedRegionSet][0];
+          if (first) kept.add(first);
+        }
+        return kept;
+      });
+    }
+    if (allowedPlatformSet) {
+      const allowedIds = new Set(visiblePlatforms.map((p) => p.id));
+      setSelected((prev) => new Set([...prev].filter((id) => allowedIds.has(id))));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandsData]);
+
   function toggle(p: Platform) {
     const next = new Set(selected);
-    if (next.has(p)) {
-      next.delete(p);
-    } else {
-      if (platformsLimit != null && next.size >= platformsLimit) {
-        toast.error(`Your plan allows up to ${platformsLimit} marketplace(s) per brand.`);
-        return;
-      }
-      next.add(p);
-    }
+    next.has(p) ? next.delete(p) : next.add(p);
     setSelected(next);
   }
 
-  function toggleMacroRegion(regKey: string, countryCodes: string[]) {
+  function toggleCountry(code: string) {
     const next = new Set(selectedRegions);
-    const allSelected = countryCodes.every((c) => next.has(c));
-    if (allSelected) {
-      countryCodes.forEach((c) => next.delete(c));
-    } else {
-      let capped = false;
-      for (const c of countryCodes) {
-        if (next.has(c)) continue;
-        if (regionsLimit != null && next.size >= regionsLimit) {
-          capped = true;
-          break;
-        }
-        next.add(c);
-      }
-      if (capped) toast.error(`Your plan allows up to ${regionsLimit} region(s) per brand.`);
-    }
+    next.has(code) ? next.delete(code) : next.add(code);
     setSelectedRegions(next);
   }
 
@@ -519,23 +525,17 @@ function NewAssetPage() {
 
             {/* Target Platforms */}
             <section className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-accent" />
-                  <h3 className="text-lg font-semibold text-foreground">Target Platforms</h3>
-                </div>
-                {platformsLimit != null && (
-                  <span className={`text-xs font-medium ${selected.size >= platformsLimit ? "text-destructive" : "text-muted-foreground"}`}>
-                    {selected.size} / {platformsLimit} selected
-                  </span>
-                )}
+              <div className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-accent" />
+                <h3 className="text-lg font-semibold text-foreground">Target Platforms</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                Select platforms to monitor for this asset.{platformsLimit != null && ` Your plan allows up to ${platformsLimit} per brand.`}
+                Select platforms to monitor for this asset.{allowedPlatformSet && " Your plan includes only the marketplaces shown here."}
               </p>
               <div className="space-y-4">
                 {PLATFORM_GROUPS.map(({ key, label: groupLabel }) => {
-                  const group = PLATFORMS.filter((p) => p.category === key);
+                  const group = visiblePlatforms.filter((p) => p.category === key);
+                  if (group.length === 0) return null;
                   return (
                     <div key={key}>
                       <div className="flex items-center gap-3 mb-2">
@@ -571,53 +571,47 @@ function NewAssetPage() {
 
             {/* Target Regions & Proxy Location Management */}
             <section className="bg-card rounded-xl border border-border p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-accent" />
-                  <h3 className="text-lg font-semibold text-foreground">Target Regions & Proxy Location Management</h3>
-                </div>
-                {regionsLimit != null && (
-                  <span className={`text-xs font-medium ${selectedRegions.size >= regionsLimit ? "text-destructive" : "text-muted-foreground"}`}>
-                    {selectedRegions.size} / {regionsLimit} selected
-                  </span>
-                )}
+              <div className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-accent" />
+                <h3 className="text-lg font-semibold text-foreground">Target Regions & Proxy Location Management</h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                Route regional scans through local proxies to bypass geoblocking and capture location-specific infringements.{regionsLimit != null && ` Your plan allows up to ${regionsLimit} region(s) per brand.`}
+                Route regional scans through local proxies to bypass geoblocking and capture location-specific infringements.{allowedRegionSet && " Your plan includes only the regions shown here."}
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div className="space-y-4 pt-2">
                 {REGIONS.map((reg) => {
-                  const regCountries = reg.countries.map((c) => c.code);
-                  const isSelected = reg.countries.every((c) => selectedRegions.has(c.code));
-
+                  // Show only the countries this plan allows (all when unrestricted).
+                  const countries = allowedRegionSet
+                    ? reg.countries.filter((c) => allowedRegionSet.has(c.code))
+                    : reg.countries;
+                  if (countries.length === 0) return null;
                   return (
-                    <button
-                      key={reg.key}
-                      type="button"
-                      onClick={() => toggleMacroRegion(reg.key, regCountries)}
-                      className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer text-left ${
-                        isSelected
-                          ? "border-accent bg-accent/10 shadow-sm"
-                          : "border-border/80 bg-background/60 hover:bg-muted/40 hover:border-border"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => {}}
-                          className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
-                        />
-                        <div>
-                          <span className="font-semibold text-sm text-foreground block">{reg.label}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {isSelected ? "Active for proxy scraping" : "Click to activate region"}
-                          </span>
-                        </div>
+                    <div key={reg.key}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">{reg.label}</p>
+                        <hr className="flex-1 border-border" />
                       </div>
-                      {isSelected && <span className="w-2 h-2 rounded-full bg-accent shrink-0" />}
-                    </button>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {countries.map((c) => {
+                          const active = selectedRegions.has(c.code);
+                          return (
+                            <button
+                              key={c.code}
+                              type="button"
+                              onClick={() => toggleCountry(c.code)}
+                              className={`flex items-center gap-2 p-3 rounded-lg border transition-colors select-none cursor-pointer w-full text-left ${
+                                active ? "border-accent bg-accent/10" : "border-border hover:bg-muted/40"
+                              }`}
+                            >
+                              <span className="text-base leading-none">{c.flag}</span>
+                              <span className={`font-medium text-sm truncate flex-1 ${active ? "text-accent" : "text-foreground"}`}>{c.name}</span>
+                              {active && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </div>

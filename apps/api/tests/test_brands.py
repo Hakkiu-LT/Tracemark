@@ -73,74 +73,78 @@ def test_create_brand_over_limit_returns_403():
     assert "limit" in resp.json()["detail"].lower()
 
 
-def test_create_brand_over_region_limit_returns_403():
-    """RPC raising REGION_LIMIT_REACHED (per-brand region cap) → HTTP 403."""
+def test_create_brand_disallowed_region_returns_403():
+    """RPC raising REGION_NOT_ALLOWED (region not in the plan whitelist) → HTTP 403."""
     _use_profile()
     sb = _mock_sb_with_count(0)
     sb.rpc.return_value.execute.side_effect = Exception(
-        "REGION_LIMIT_REACHED: 5 of 2 regions selected"
+        "REGION_NOT_ALLOWED: selection includes a region not in the plan"
     )
     with patch("tracemark_api.routes.brands.get_supabase", return_value=sb):
         resp = client.post(
             "/api/v1/brands",
-            json={"brand_name": "Acme", "target_regions": ["US", "CA", "DE", "FR", "GB"]},
+            json={"brand_name": "Acme", "target_regions": ["DE"]},
         )
     assert resp.status_code == 403
     assert "region" in resp.json()["detail"].lower()
 
 
-def test_create_brand_over_platform_limit_returns_403():
-    """RPC raising PLATFORM_LIMIT_REACHED (per-brand marketplace cap) → HTTP 403."""
+def test_create_brand_disallowed_platform_returns_403():
+    """RPC raising PLATFORM_NOT_ALLOWED (marketplace not in the plan whitelist) → HTTP 403."""
     _use_profile()
     sb = _mock_sb_with_count(0)
     sb.rpc.return_value.execute.side_effect = Exception(
-        "PLATFORM_LIMIT_REACHED: 4 of 2 marketplaces selected"
+        "PLATFORM_NOT_ALLOWED: selection includes a marketplace not in the plan"
     )
     with patch("tracemark_api.routes.brands.get_supabase", return_value=sb):
         resp = client.post(
             "/api/v1/brands",
-            json={"brand_name": "Acme", "platforms": ["amazon", "ebay", "etsy", "shopify"]},
+            json={"brand_name": "Acme", "platforms": ["ebay"]},
         )
     assert resp.status_code == 403
     assert "marketplace" in resp.json()["detail"].lower()
 
 
-# ── per-brand cap helper (used on EDIT; create is enforced in the RPC) ───────────
-def test_enforce_per_brand_caps_blocks_too_many_regions():
+# ── whitelist helper (used on EDIT; create is enforced in the RPC) ───────────────
+def test_enforce_allowed_lists_blocks_disallowed_region():
     from fastapi import HTTPException
 
-    from tracemark_api.routes.brands import _enforce_per_brand_caps
+    from tracemark_api.routes.brands import _enforce_allowed_lists
 
-    limits = {"brands": None, "regions_per_brand": 2, "platforms_per_brand": None}
+    # Plan allows only USA. Selecting DE must be blocked.
+    limits = {"allowed_platforms": None, "allowed_regions": ["US"]}
     with pytest.raises(HTTPException) as exc:
-        _enforce_per_brand_caps(limits, platforms=None, target_regions=["US", "CA", "DE"])
+        _enforce_allowed_lists(limits, platforms=None, target_regions=["US", "DE"])
     assert exc.value.status_code == 403
     assert "region" in exc.value.detail.lower()
+    assert "DE" in exc.value.detail
 
 
-def test_enforce_per_brand_caps_blocks_too_many_platforms():
+def test_enforce_allowed_lists_blocks_disallowed_platform():
     from fastapi import HTTPException
 
-    from tracemark_api.routes.brands import _enforce_per_brand_caps
+    from tracemark_api.routes.brands import _enforce_allowed_lists
 
-    limits = {"brands": None, "regions_per_brand": None, "platforms_per_brand": 1}
+    # Plan allows only Amazon. Selecting eBay must be blocked.
+    limits = {"allowed_platforms": ["amazon"], "allowed_regions": None}
     with pytest.raises(HTTPException) as exc:
-        _enforce_per_brand_caps(limits, platforms=["amazon", "ebay"], target_regions=None)
+        _enforce_allowed_lists(limits, platforms=["amazon", "ebay"], target_regions=None)
     assert exc.value.status_code == 403
     assert "marketplace" in exc.value.detail.lower()
+    assert "ebay" in exc.value.detail
 
 
-def test_enforce_per_brand_caps_allows_within_limits_and_unlimited():
-    from tracemark_api.routes.brands import _enforce_per_brand_caps
+def test_enforce_allowed_lists_allows_subset_and_unrestricted():
+    from tracemark_api.routes.brands import _enforce_allowed_lists
 
-    # Within caps — no raise.
-    _enforce_per_brand_caps(
-        {"regions_per_brand": 3, "platforms_per_brand": 3},
-        platforms=["amazon", "ebay"], target_regions=["US", "CA"],
+    # Selection is a subset of the whitelist — no raise.
+    _enforce_allowed_lists(
+        {"allowed_platforms": ["amazon", "ebay"], "allowed_regions": ["US", "CA"]},
+        platforms=["amazon"], target_regions=["US"],
     )
-    # Unlimited (None) — no raise even for large selections.
-    _enforce_per_brand_caps(
-        {"regions_per_brand": None, "platforms_per_brand": None},
+    # Unrestricted (None whitelists) — no raise even for a large selection.
+    _enforce_allowed_lists(
+        {"allowed_platforms": None, "allowed_regions": None},
         platforms=["amazon", "ebay", "etsy", "shopify", "alibaba"],
         target_regions=["US", "CA", "DE", "FR", "GB", "JP"],
     )

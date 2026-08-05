@@ -218,11 +218,11 @@ export interface BrandAsset {
   created_at: string;
 }
 
-// Plan limits for the caller's org. `null` on any axis = unlimited.
+// Plan limits for the caller's org.
 export interface PlanLimits {
-  brands: number | null; // org-total number of brands (monitored assets)
-  regions_per_brand: number | null; // max target regions per brand
-  platforms_per_brand: number | null; // max marketplaces per brand
+  brands: number | null; // org-total number of brands (monitored assets); null = unlimited
+  allowed_platforms: string[] | null; // whitelist of marketplace apiKeys; null = all allowed
+  allowed_regions: string[] | null; // whitelist of region country codes; null = all allowed
 }
 
 export interface BrandsResponse {

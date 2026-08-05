@@ -9,6 +9,27 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Plan limits = WHITELISTS not counts (Session 53, 2026-08-05) — CODE BUILT + verified; prod migration + deploy pending
+
+Correction of Session 52: marketplaces/regions are now a WHITELIST of allowed values (admin picks
+WHICH ones the customer may use, e.g. "Amazon only, USA only"), not a max count. Brands stays a
+count. Everything is picked (no free-text); regions at country granularity so "only USA" works.
+Verified: ruff (both src) clean, admin+customer tsc clean, brand tests (8) pass, both apps boot.
+
+- [x] **DB** `20260805000004_allowed_lists_limits.sql`: drop count cols, add `allowed_platforms`/
+      `allowed_regions text[]`; `create_brand_checked` subset-enforces (PLATFORM/REGION_NOT_ALLOWED).
+- [x] **main-api** `brands.py`: `_org_limits` whitelists; `_enforce_allowed_lists` on edit; create
+      error mapping → 403 naming the offending value(s); `GET /brands` returns the whitelists.
+- [x] **admin-api** Limits models + get/set carry the whitelists (empty→NULL); `brands_admin`
+      subset-enforces on create/edit.
+- [x] **admin FE** pickers refactored to `available` prop; `LimitsCard` = count + "Allow all"
+      toggles + allowed-marketplace/region pickers (admin sees full list); brand dialogs show only allowed.
+- [x] **customer FE** `monitoring.new.tsx` filters pickers to the plan; regions rebuilt to
+      country-level grouped; default reconciled to whitelist. `api.ts` PlanLimits updated.
+- [x] **Tests** rewritten for NOT_ALLOWED codes + `_enforce_allowed_lists`.
+- [ ] **Prod:** user runs `supabase db push` (`20260805000004`).
+- [ ] **Deploy** picks up the commit. Smoke: admin set "Amazon only, USA only" → customer sees only those.
+
 ## 🟩 Brands = monitored assets + 3-dim plan limits (Session 52, 2026-08-05) — CODE BUILT + verified; prod migration + deploy pending
 
 Plan limits now span **brands** (org-total) + **regions-per-brand** + **marketplaces-per-brand**,
