@@ -1,5 +1,50 @@
 # HAKKIU — Active Plan
 
+> **Session 49 (2026-08-05) — Login brute-force protection (hCaptcha).**
+> Two Explore agents audited both auth surfaces (admin portal + customer dashboard) for
+> rate-limiting / brute-force defenses. **Finding: there were NONE.** Both logins run
+> client-side via `supabase.auth.signInWithPassword()` straight to Supabase (browser →
+> `*.supabase.co`), so they bypass our FastAPI backends entirely — meaning `slowapi`
+> (which only guards leads/support/monitoring + admin password-reset) can never sit in
+> front of password guessing. No account lockout, no failed-attempt tracking, no CAPTCHA,
+> no Caddy `rate_limit`; fail2ban is SSH-only. Sole defense = unconfigured Supabase GoTrue
+> defaults.
+> **Fix chosen: hCaptcha at the auth layer** (where login actually happens), because it
+> stops bots before any password attempt reaches Supabase, needs no auth-flow rewrite, and
+> has no lockout-DoS risk. Rejected a backend login-proxy + account-lockout as a heavier
+> phase-2 option.
+> **Implemented (code):**
+> - `@hcaptcha/react-hcaptcha` added to root + `apps/admin`.
+> - Widget wired into `src/components/auth/auth-screen.tsx` (sign-in **and** password-reset,
+>   both hit Supabase directly) and `apps/admin/src/pages/SignIn.tsx` (sign-in; admin
+>   password-reset already has `slowapi` limits via admin-api). Token passed as
+>   `options.captchaToken`; single-use tokens reset after each attempt. Gated on
+>   `VITE_HCAPTCHA_SITE_KEY` so local dev without the key still works.
+> - **Invisible mode** (user pref): `size="invisible"`, no visible box. `getCaptchaToken()`
+>   calls `captchaRef.execute({ async: true })` at submit time and passes the token straight
+>   to Supabase; challenge only pops for suspicious traffic. Buttons no longer gate on a
+>   pre-solve. hCaptcha widgets render in an iframe so their internals can't be restyled —
+>   invisible was the cleanest way to keep the form's design intact.
+> - **Keys wired for the whole build chain:** `VITE_HCAPTCHA_SITE_KEY` is a build-time var
+>   — added as a build arg in `docker-compose.yml` (frontend + admin) and `ARG`/`ENV` in
+>   `src/Dockerfile` + `apps/admin/Dockerfile`, else it never reaches the bundle. Documented
+>   in `.env.production.example` too.
+> - **Enabled in prod Supabase (2026-08-05):** user turned on Attack Protection → hCaptcha
+>   with the real secret. Real site key is `c6d861a0-a358-41da-8412-3a1cb2fc74be` (public);
+>   it's set in the local root `.env` for testing. ⚠️ Because the Supabase project is SHARED,
+>   enabling it means the LIVE prod frontend (which has no widget yet) now fails logins until
+>   the new frontend is deployed — deploy or temporarily disable CAPTCHA is required.
+> - CSP updated in all 4 places to allow `hcaptcha.com`/`*.hcaptcha.com` (script/style/
+>   connect/frame): root `Caddyfile`, `public/_headers`, `apps/admin/nginx.conf`,
+>   `apps/admin/public/_headers`.
+> - `.env.example`: documented `VITE_HCAPTCHA_SITE_KEY`.
+> **Manual step still required (blocks it working in prod):** create a free hCaptcha app at
+> dashboard.hcaptcha.com, put the **site key** in `.env` (`VITE_HCAPTCHA_SITE_KEY=`) and the
+> **secret key** into Supabase → Authentication → Attack Protection → Enable CAPTCHA
+> (hCaptcha). Without the Supabase side enabled, tokens are sent but never verified.
+> **Parked (phase 2, optional):** thin admin login-proxy (browser → admin-api → Supabase) to
+> host real account-lockout + per-IP `slowapi` on password attempts; Caddy `rate_limit` plugin.
+
 > **Session 48 (2026-08-03) — Notification Log P0: completeness + cleanup.**
 > The Admin Portal Notification Log (`admin.hakkiu.com/monitoring/notifications`) was flooded with
 > junk: paired empty "Sent" + "Skipped (could not resolve org from case test-case-123)" rows, no real

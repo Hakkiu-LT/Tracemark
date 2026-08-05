@@ -1,6 +1,7 @@
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck, Eye, EyeOff } from "lucide-react";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { HakkiuLogo } from "@/components/hakkiu-logo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,13 @@ import { Label } from "@/components/ui/label";
 import { InfringementMap } from "@/components/auth/infringement-map";
 
 const GENERIC_ERROR = "Something went wrong. Please try again later.";
+
+// hCaptcha SITE key (browser-safe). When set, password sign-in and password-reset both
+// require a solved CAPTCHA before the request reaches Supabase — the anti-brute-force
+// gate, since these calls go browser -> Supabase directly, bypassing our backend where a
+// rate limiter could otherwise sit. Blank in local dev = widget disabled. Google OAuth is
+// a redirect flow and does not take a captcha token.
+const HCAPTCHA_SITE_KEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY as string | undefined;
 
 // Self-serve sign-up is intentionally NOT available here. HAKKIU is a book-a-demo
 // product: staff provision customer logins from the Admin Portal, so this screen is
@@ -26,6 +34,17 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const captchaRef = useRef<HCaptcha>(null);
+
+  // Invisible hCaptcha: no visible widget. We run the challenge on demand at submit
+  // time via execute({ async: true }), which resolves to a fresh single-use token —
+  // or throws if the challenge is closed/fails. Returns undefined when the site key is
+  // unset (local dev without CAPTCHA), so login still works there.
+  async function getCaptchaToken(): Promise<string | undefined> {
+    if (!HCAPTCHA_SITE_KEY) return undefined;
+    const result = await captchaRef.current?.execute({ async: true });
+    return result?.response;
+  }
 
   async function onGoogle() {
     const { supabase } = await import("@/lib/supabase");
@@ -41,11 +60,19 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
     const { supabase } = await import("@/lib/supabase");
     if (!supabase) return toast.error(GENERIC_ERROR);
     if (!email) return toast.error("Enter your email above, then click Forgot.");
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    });
-    if (error) return toast.error("Couldn't send the reset link. Please try again.");
-    toast.success(`Password reset link sent to ${email}.`);
+    try {
+      const captchaToken = await getCaptchaToken();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        captchaToken,
+      });
+      if (error) return toast.error("Couldn't send the reset link. Please try again.");
+      toast.success(`Password reset link sent to ${email}.`);
+    } catch {
+      toast.error("Couldn't verify you're human. Please try again.");
+    } finally {
+      captchaRef.current?.resetCaptcha();
+    }
   }
 
   async function onSubmit(e: FormEvent) {
@@ -54,10 +81,23 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
     if (!supabase) return toast.error(GENERIC_ERROR);
 
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error("Couldn't sign you in — check your email and password.");
-    navigate({ to: redirect ?? "/dashboard" });
+    try {
+      // Invisible captcha runs here (on click), not before — the token is fetched just
+      // in time and passed straight to Supabase, which now verifies it.
+      const captchaToken = await getCaptchaToken();
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: captchaToken ? { captchaToken } : undefined,
+      });
+      if (error) return toast.error("Couldn't sign you in — check your email and password.");
+      navigate({ to: redirect ?? "/dashboard" });
+    } catch {
+      toast.error("Couldn't verify you're human. Please try again.");
+    } finally {
+      captchaRef.current?.resetCaptcha();
+      setLoading(false);
+    }
   }
 
   return (
@@ -186,6 +226,16 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
                     </button>
                   </div>
                 </div>
+                {/* Invisible hCaptcha — renders no visible box; triggered by execute()
+                    in onSubmit/onForgot. Only mounted when a site key is configured. */}
+                {HCAPTCHA_SITE_KEY && (
+                  <HCaptcha
+                    ref={captchaRef}
+                    sitekey={HCAPTCHA_SITE_KEY}
+                    size="invisible"
+                    theme="dark"
+                  />
+                )}
                 <Button
                   type="submit"
                   className="mt-1 h-11 w-full shadow-[0_0_24px_-6px] shadow-accent/50 duration-500 animate-in fade-in-0 slide-in-from-bottom-2"
@@ -199,7 +249,10 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
 
             <p className="mt-8 text-center text-sm text-muted-foreground">
               No account yet?{" "}
-              <Link to="/request-demo" className="font-semibold text-foreground transition-colors hover:text-accent">
+              <Link
+                to="/request-demo"
+                className="font-semibold text-foreground transition-colors hover:text-accent"
+              >
                 Book a demo to get started
               </Link>
             </p>

@@ -9,6 +9,26 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟨 Login brute-force protection — hCaptcha (2026-08-05)
+
+Audit found NO rate-limit / brute-force defense on either login (admin or customer): both go
+browser → Supabase directly, bypassing our backends. Added hCaptcha at the auth layer.
+- [x] `@hcaptcha/react-hcaptcha` added to root `package.json` + `apps/admin/package.json` (installed).
+- [x] `src/components/auth/auth-screen.tsx`: hCaptcha on sign-in + password-reset; `options.captchaToken`; single-use reset; gated on `VITE_HCAPTCHA_SITE_KEY`.
+- [x] `apps/admin/src/pages/SignIn.tsx`: hCaptcha on staff sign-in (reset already `slowapi`-limited via admin-api).
+- [x] **Invisible mode** (user pref): `size="invisible"`, no visible box; `execute({ async: true })` at submit fetches the token just-in-time. Iframe internals aren't restylable, so invisible keeps the form design clean.
+- [x] **Supabase Attack Protection enabled** (2026-08-05) with real secret; real site key `c6d861a0-a358-41da-8412-3a1cb2fc74be` in local root `.env`; both dev servers verified serving invisible mode with the key inlined.
+- [x] CSP allow `hcaptcha.com`/`*.hcaptcha.com` in all 4 spots: `Caddyfile`, `public/_headers`, `apps/admin/nginx.conf`, `apps/admin/public/_headers`.
+- [x] **Build wiring (prod):** `VITE_HCAPTCHA_SITE_KEY` is a BUILD-time var — added it as a build arg in `docker-compose.yml` (both `frontend` + `admin`) and as `ARG`/`ENV` in `src/Dockerfile` + `apps/admin/Dockerfile`. Without this the key never reaches the bundle even if it's in `.env`.
+- [x] `.env.example` + `.env.production.example`: documented `VITE_HCAPTCHA_SITE_KEY`.
+- [x] Typecheck passes (admin `tsc` + customer `tsc`), lint clean.
+- [x] **MANUAL — hCaptcha app created** (site `c6d861a0-...`, secret held by user).
+- [x] **MANUAL — local `.env`** has the real site key (widget tested locally).
+- [x] **MANUAL — Supabase Attack Protection → CAPTCHA (hCaptcha) enabled** with the secret (2026-08-05).
+- [ ] 🚨 **MANUAL — set `VITE_HCAPTCHA_SITE_KEY=c6d861a0-...` in the SERVER `/opt/hakkiu/.env`.**
+- [ ] 🚨 **Rebuild/redeploy frontends** (`docker compose build && up -d`, or push to main). Until then, live prod logins FAIL — Supabase now requires a captcha the deployed frontend can't produce. (Alt: temporarily disable Supabase CAPTCHA until deploy.)
+- [ ] (Phase 2, optional) admin login-proxy for real account-lockout + per-IP `slowapi`; Caddy `rate_limit` plugin.
+
 ## 🟩 Customer delete: "email already exists" fix (2026-08-03)
 
 Staff couldn't re-create a customer login after deleting it: create threw "already registered".

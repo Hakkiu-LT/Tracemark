@@ -116,6 +116,7 @@ Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables
 - **Sign-in page (`/auth/sign-in`)** | ✅ Done | `auth.sign-in.tsx`.
 - **Sign-up page (`/auth/sign-up`)** | ✅ Done → 🔒 disabled (book-a-demo) | Route redirects to `/landing`; `auth-screen.tsx` is now sign-in only (no `signUp()` path). Public signup off in `config.toml`; ⚠️ still must be disabled in the prod Supabase Dashboard (Auth → Sign In / Up) to block direct anon-key signups.
 - **Auth callback route (`/auth/callback`)** | ✅ Done | `auth.callback.tsx`.
+- **Login brute-force protection (hCaptcha)** | ⚠️ Partial (session 49, 2026-08-05) | Audit found NO rate-limit/lockout on either login — both go browser → Supabase directly, bypassing our backends & `slowapi`. Added `@hcaptcha/react-hcaptcha` to customer sign-in + reset (`auth-screen.tsx`) and admin sign-in (`SignIn.tsx`), passing `options.captchaToken`; CSP updated for `*.hcaptcha.com` in all 4 spots (`Caddyfile`, both `_headers`, `nginx.conf`); `VITE_HCAPTCHA_SITE_KEY` gate. **Pending (manual):** create hCaptcha app, set site key in prod `.env`, and enable CAPTCHA + paste secret in Supabase → Auth → Attack Protection (until then tokens aren't verified). Phase-2 (optional): backend login-proxy for account-lockout + per-IP limits.
 - **User menu with avatar + sign-out** | ✅ Done | `src/components/user-menu.tsx`.
 
 ---

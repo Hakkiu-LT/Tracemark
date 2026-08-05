@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 import { supabase } from "@/lib/supabase";
 import { adminFetch } from "@/lib/api";
@@ -9,6 +10,12 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Inpu
 import { HakkiuMark } from "@/components/HakkiuMark";
 
 type Mode = "signin" | "forgot";
+
+// hCaptcha SITE key (browser-safe). When set, staff sign-in requires a solved CAPTCHA
+// before the password is sent to Supabase — this is the anti-brute-force gate, since
+// login goes browser -> Supabase directly and never passes through our backend where a
+// rate limiter could sit. Leave the env var blank in local dev to skip the widget.
+const HCAPTCHA_SITE_KEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY as string | undefined;
 
 export function SignIn() {
   const navigate = useNavigate();
@@ -19,18 +26,40 @@ export function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const captchaRef = useRef<HCaptcha>(null);
+
+  // Invisible hCaptcha: no visible box. execute({ async: true }) runs the challenge on
+  // demand at submit and resolves to a fresh single-use token (throws if closed/failed).
+  // Returns undefined when the site key is unset (local dev without CAPTCHA).
+  async function getCaptchaToken(): Promise<string | undefined> {
+    if (!HCAPTCHA_SITE_KEY) return undefined;
+    const result = await captchaRef.current?.execute({ async: true });
+    return result?.response;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (err) {
-      setError(err.message);
-      return;
+    try {
+      const captchaToken = await getCaptchaToken();
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: captchaToken ? { captchaToken } : undefined,
+      });
+      if (err) {
+        setError(err.message);
+        return;
+      }
+      navigate({ to: "/dashboard" });
+    } catch {
+      setError("Couldn't verify you're human. Please try again.");
+    } finally {
+      // Single-use token — reset so the next attempt gets a fresh one.
+      captchaRef.current?.resetCaptcha();
+      setLoading(false);
     }
-    navigate({ to: "/dashboard" });
   }
 
   async function onForgot(e: React.FormEvent) {
@@ -144,6 +173,10 @@ export function SignIn() {
                   required
                 />
               </div>
+              {/* Invisible hCaptcha — no visible box; triggered by execute() in onSubmit. */}
+              {HCAPTCHA_SITE_KEY && (
+                <HCaptcha ref={captchaRef} sitekey={HCAPTCHA_SITE_KEY} size="invisible" />
+              )}
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
