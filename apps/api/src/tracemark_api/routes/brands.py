@@ -7,18 +7,21 @@ unlimited number of brands — there are no plan limits.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from pydantic import BaseModel
 from typing import Literal
 
-from tracemark_api.dependencies import CurrentProfile, get_current_profile, require_owner
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
+
+from tracemark_api.dependencies import (
+    CurrentProfile,
+    get_current_profile,
+    require_owner,
+)
 from tracemark_api.services.database import get_supabase
 from tracemark_api.services.storage import (
-    upload_brand_asset,
-    compute_phash,
     compute_content_hash,
-    get_brand_asset_url,
+    compute_phash,
+    upload_brand_asset,
 )
 
 router = APIRouter(prefix="/brands", tags=["brands"])
@@ -27,10 +30,11 @@ router = APIRouter(prefix="/brands", tags=["brands"])
 def _send_welcome_email(profile) -> None:
     """Fire-and-forget welcome email when an org adds their first brand."""
     try:
-        from tracemark_api.services.notifications import _recipient_for_org
+        import os
+
         from tracemark_api.services.email import send_email
         from tracemark_api.services.email_templates import welcome_html
-        import os
+        from tracemark_api.services.notifications import _recipient_for_org
 
         recipient = _recipient_for_org(profile.organization_id)
         if not recipient:
@@ -260,9 +264,9 @@ def refresh_reference_content(
     ``brands.website``), strips HTML, embeds the text with the Gemini
     Embedding API, and stores the result. Bypasses the 30-day cache.
     """
-    from tracemark_api.services.embedding_helper import ensure_official_site_reference
+
     from tracemark_api.services.database import get_supabase
-    from datetime import datetime, timezone
+    from tracemark_api.services.embedding_helper import ensure_official_site_reference
 
     _brand_or_404(profile.organization_id, brand_id)
 

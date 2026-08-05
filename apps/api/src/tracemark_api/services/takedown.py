@@ -5,9 +5,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel
 
-from tracemark_api.services.ai import Evidence, Decision
+from tracemark_api.services.ai import Decision, Evidence
 from tracemark_api.services.database import get_supabase
-
 
 # ---------------------------------------------------------------------------
 # Pydantic Model

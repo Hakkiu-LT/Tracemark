@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime
-from typing import TypedDict, Literal
 from dataclasses import dataclass
-from pydantic import BaseModel, Field as PydanticField
+from datetime import datetime
+from typing import Literal, TypedDict
+
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
+from pydantic import BaseModel
+from pydantic import Field as PydanticField
 
 
 def _sanitize_brand_name(name: str) -> str:
@@ -307,8 +309,11 @@ def _evaluate_and_decide_node(state: DecisionAgentState) -> DecisionAgentState:
     calls).  The tiered funnel already provides structured per-item scores,
     so a separate summarization pass adds cost without improving the decision.
     """
+    from tracemark_api.services.api_usage_tracker import (
+        ApiLimitError,
+        call_with_tracking,
+    )
     from tracemark_api.services.evidence_scorer import score_evidence
-    from tracemark_api.services.api_usage_tracker import call_with_tracking, ApiLimitError
 
     evidence = state["evidence"]
     scored_items = state.get("scored_items") or []
@@ -487,6 +492,7 @@ def generate_evidence_analysis(
 
     try:
         import base64
+
         import httpx
         from langchain_core.messages import HumanMessage
 

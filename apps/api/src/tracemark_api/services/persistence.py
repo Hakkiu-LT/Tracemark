@@ -225,8 +225,8 @@ def _trigger_new_infringement_notification(
 ) -> None:
     """Fire dispatch_notifications and log the delivery attempt."""
     try:
-        from tracemark_api.services.notifications import dispatch_notifications
         from tracemark_api.services.delivery_log import log_delivery
+        from tracemark_api.services.notifications import dispatch_notifications
 
         event = {
             "type": "new_infringement",

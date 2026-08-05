@@ -1,11 +1,10 @@
-import io
-import os
-import re
 import csv
-import zipfile
-import urllib.parse
+import io
 import logging
+import os
+import zipfile
 from datetime import datetime, timedelta
+
 import requests
 
 logger = logging.getLogger(__name__)
@@ -88,7 +87,6 @@ class DomainWhitelist:
                         domains = []
                         for row in reader:
                             if len(row) >= 2:
-                                rank = int(row[0])
                                 domain = row[1].strip().lower()
                                 domains.append(domain)
                                 if len(domains) >= self.limit:

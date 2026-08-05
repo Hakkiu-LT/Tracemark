@@ -9,6 +9,31 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Code-review "judge" / CI quality gate (2026-08-05)
+
+Portable `@judge` template on the Desktop misfit our direct-Supabase architecture, so built a
+HAKKIU-specific gate. Two layers, both run on GitHub automatically.
+- [x] Ruff config (`select = E9,F,I`) in both `apps/api` + `apps/admin-api` `pyproject.toml`.
+- [x] Fixed all ruff findings green, incl. a REAL latent bug (`import io` missing in
+      `services/embedding_helper.py` → runtime `NameError` in the phash path).
+- [x] Removed 4 ruff-flagged dead assignments (`base_url`/`rank`/`loop`/`target_is_super`) —
+      verified none were live guards.
+- [x] `scripts/scan-secrets.sh` (git-tracked-only secret scan) + `scripts/check-admin-parity.sh`
+      (CLAUDE.md parity rule, with SKIP list + KNOWN_GAPS baseline). Both green locally.
+- [x] Wired 4 CI jobs into `ci.yml`: `lint-python`, `secret-scan`, `admin-parity`,
+      `typecheck-customer`.
+- [x] Verified: ruff clean, scripts green, customer+admin `tsc` pass, 222 API tests pass.
+- [x] Built AI PR-review layer (`pr-review.yml` + `REVIEW.md`, `claude-code-action@v1`),
+      verified it passes in CI — then **REMOVED it on user request (cost concern, ~€1/PR).**
+      Only the free deterministic Layer 1 remains. To re-add later: restore those 2 files
+      and add an `ANTHROPIC_API_KEY` repo secret.
+- [ ] **SECURITY — rotate the Resend key.** A live key was committed in `.env.example` (now a
+      placeholder) but remains in git history. Rotate it, then update the real root `.env`.
+- [ ] Known gap: `clients.py` has no admin-portal parity (no `clients_admin.py`, no `clients.*`
+      permission). Baselined in `check-admin-parity.sh` KNOWN_GAPS — build real coverage, then
+      remove it from the allowlist.
+- [ ] `apps/admin-api` still has no test suite (not covered by CI pytest).
+
 ## 🟨 Login brute-force protection — hCaptcha (2026-08-05)
 
 Audit found NO rate-limit / brute-force defense on either login (admin or customer): both go

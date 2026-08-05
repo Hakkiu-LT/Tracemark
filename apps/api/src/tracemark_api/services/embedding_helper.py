@@ -6,6 +6,7 @@ same langchain-google-genai integration already in the codebase.
 """
 from __future__ import annotations
 
+import io
 import os
 from typing import TYPE_CHECKING
 
@@ -73,8 +74,8 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
+from tracemark_api.services.ssrf import SSRFError, validate_ssrf_url
 from tracemark_api.services.storage import compute_content_hash
-from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
 
 
 def _parse_embedding(raw: any) -> list[float] | None:
@@ -180,7 +181,8 @@ def ensure_official_site_reference(brand_id: str) -> list[float] | None:
 
     Returns the embedding (list of 768 floats) or ``None`` on failure.
     """
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
+
     from tracemark_api.services.database import get_supabase
 
     sb = get_supabase()
@@ -310,9 +312,10 @@ def compute_screenshot_phash(screenshot_url: str) -> int | None:
 
     try:
         import io
+
         import httpx
-        from PIL import Image
         import imagehash
+        from PIL import Image
 
         resp = httpx.get(fetch_url, timeout=15.0, follow_redirects=False)
         if resp.status_code != 200:
@@ -367,9 +370,10 @@ def extract_logo_phash_from_url(page_url: str) -> int | None:
 
     try:
         import re
+
         import httpx
-        from PIL import Image
         import imagehash
+        from PIL import Image
 
         resp = httpx.get(page_url, timeout=10.0, follow_redirects=False,
                          headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
@@ -390,7 +394,6 @@ def extract_logo_phash_from_url(page_url: str) -> int | None:
         )
 
         logo_urls = []
-        base_url = page_url
         for match in img_pattern.finditer(html):
             tag_attrs = match.group(1)
             # Check if any attribute contains "logo"

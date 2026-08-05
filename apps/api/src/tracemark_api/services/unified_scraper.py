@@ -19,23 +19,22 @@ Usage
 """
 from __future__ import annotations
 
-import re
 import threading
 import urllib.parse
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import requests
 from bs4 import BeautifulSoup
 
-from tracemark_api.services.firecrawl_client import scrape_page, ScrapeResult
 from tracemark_api.services.api_usage_tracker import (
-    call_with_tracking,
     ApiLimitError,
+    call_with_tracking,
 )
-from tracemark_api.services.ssrf import validate_ssrf_url, safe_get, SSRFError
+from tracemark_api.services.firecrawl_client import ScrapeResult, scrape_page
 from tracemark_api.services.scrape_cache import get_cached, put_cached
+from tracemark_api.services.ssrf import SSRFError, safe_get, validate_ssrf_url
 
 # ---------------------------------------------------------------------------
 # Shared browser-like request headers

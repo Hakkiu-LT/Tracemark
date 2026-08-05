@@ -77,8 +77,8 @@ def persist_document(
 
     # Trigger takedown_generated email notification
     try:
-        from tracemark_api.services.notifications import dispatch_notifications
         from tracemark_api.services.delivery_log import log_delivery
+        from tracemark_api.services.notifications import dispatch_notifications
 
         # Resolve additional details for the email template context
         platform = "Unknown Platform"

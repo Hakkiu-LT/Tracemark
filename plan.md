@@ -1,5 +1,42 @@
 # HAKKIU — Active Plan
 
+> **Session 50 (2026-08-05) — Automated code-review "judge" (CI quality gate).**
+> Looked at a `~/Desktop/judge-templates` folder (a portable `@judge` code-review agent) and
+> evaluated it with subagents against our real code. **Conclusion: the generic FastAPI variant
+> misfits us** — it assumes a service/repository/UnitOfWork/ORM architecture, but our backends
+> call Supabase directly (no repos/ORM/typed errors), so copying it would produce ~30/43
+> false-positive rules. Built a HAKKIU-specific gate instead, in TWO layers that both run on
+> GitHub automatically (no one has to remember to invoke it).
+> **Layer 1 — deterministic (added to `.github/workflows/ci.yml`, so `deploy.yml` gates on it):**
+> - `lint-python` — ruff on both backends. `[tool.ruff] select = E9,F,I` added to each
+>   `pyproject.toml` (syntax, pyflakes, import order). Kept minimal on purpose — the full
+>   default set flags the FastAPI `Depends()` idiom (B008, 148×) as violations.
+> - `secret-scan` — `scripts/scan-secrets.sh`: greps only git-tracked files (so the git-ignored
+>   `.env` is never scanned) for high-confidence credential patterns, with a placeholder allowlist.
+> - `admin-parity` — `scripts/check-admin-parity.sh`: enforces the CLAUDE.md parity rule
+>   (customer route → admin route + permission key). SKIP list + KNOWN_GAPS baseline so CI is
+>   green today but any NEW uncovered route fails.
+> - `typecheck-customer` — customer-app `tsc --noEmit` (was missing from CI).
+> **Layer 2 — AI review (BUILT, then REMOVED on user request):** `pr-review.yml` +
+> `REVIEW.md` (`anthropics/claude-code-action@v1`) reviewed every non-draft PR; verified it
+> passed in CI (skips green without a key). User dropped it over per-PR cost (~€1/PR on
+> Sonnet), so ONLY the free deterministic Layer 1 ships. To revive: restore the 2 files +
+> add an `ANTHROPIC_API_KEY` repo secret. Options if revisited: on-demand `@claude review`
+> trigger, or the Haiku model, to cut cost.
+> **Real findings fixed while making the baseline green:**
+> - **Latent bug:** `import io` missing in `services/embedding_helper.py` → `NameError` at runtime
+>   in the phash path. Added the import.
+> - **Leaked secret:** a LIVE Resend key was committed in `.env.example` (since `f473d72`) →
+>   replaced with a placeholder. ⚠️ It remains in git history — **rotate the Resend key** (todo.md).
+> - Removed 4 dead assignments ruff flagged (`base_url`, `rank`, `loop`, `target_is_super`);
+>   verified none were live logic/guards (the `target_is_super` one only looked like a guard —
+>   the real privilege check uses the actor's `staff.is_super_admin`).
+> **Verified:** ruff clean both backends, both scripts green locally, customer+admin `tsc` pass,
+> 222 API tests pass (the 1 failure is an unrelated LIVE Firecrawl test that skips in CI), all
+> workflow YAML parses. **Not committed/pushed yet — awaiting user go (Slack posts on push).**
+> **Deferred:** `clients.py` has NO admin parity (real gap, baselined in the script); building it
+> is separate feature work. `apps/admin-api` still has no tests.
+
 > **Session 49 (2026-08-05) — Login brute-force protection (hCaptcha).**
 > Two Explore agents audited both auth surfaces (admin portal + customer dashboard) for
 > rate-limiting / brute-force defenses. **Finding: there were NONE.** Both logins run

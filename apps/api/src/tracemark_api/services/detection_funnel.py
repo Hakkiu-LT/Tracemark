@@ -17,13 +17,13 @@ Each candidate is classified as:
 """
 from __future__ import annotations
 
-import ssl
 import socket
+import ssl
 from datetime import datetime, timezone
-from urllib.parse import urlparse
 
 from tracemark_api.services.ai import (
     AdEvidence,
+    CriterionScore,
     DomainEvidence,
     Evidence,
     MarketplaceEvidence,
@@ -31,17 +31,16 @@ from tracemark_api.services.ai import (
     SocialEvidence,
     Tier0Signals,
     Tier1Signals,
-    CriterionScore,
 )
 from tracemark_api.services.detection import keyword_matcher, typosquat_distance
 from tracemark_api.services.embedding_helper import (
-    embed_text,
-    cosine_similarity,
-    get_brand_reference_assets,
     compute_screenshot_phash,
-    phash_similarity,
-    extract_logo_phash_from_url,
+    cosine_similarity,
+    embed_text,
     ensure_official_site_reference,
+    extract_logo_phash_from_url,
+    get_brand_reference_assets,
+    phash_similarity,
 )
 from tracemark_api.services.storage import compute_content_hash
 

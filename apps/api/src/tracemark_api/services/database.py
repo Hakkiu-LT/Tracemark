@@ -1,6 +1,8 @@
-from supabase import create_client, Client
 import os
-from tracemark_api.services.ai import Evidence, Decision
+
+from supabase import Client, create_client
+
+from tracemark_api.services.ai import Decision, Evidence
 from tracemark_api.services.evidence_scorer import EvidenceScore
 
 _client: Client | None = None

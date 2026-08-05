@@ -242,7 +242,6 @@ def update_staff(
     )
     if not target_row or not target_row.data:
         raise HTTPException(status_code=404, detail="Staff not found")
-    target_is_super = bool(target_row.data.get("is_super_admin"))
 
     # Email / password live in the staff auth.users — update via admin auth API.
     auth_attrs: dict = {}

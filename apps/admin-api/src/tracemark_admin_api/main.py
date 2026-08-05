@@ -1,4 +1,4 @@
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 # Single source of truth: the repo-root .env (walks up from this module).
 load_dotenv(find_dotenv())
@@ -11,22 +11,26 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from tracemark_admin_api.routes.auth import router as auth_router
-from tracemark_admin_api.routes.staff import router as staff_router
-from tracemark_admin_api.routes.customers import router as customers_router
-from tracemark_admin_api.routes.organizations import router as organizations_router
-from tracemark_admin_api.routes.brands_admin import router as brands_router
-from tracemark_admin_api.routes.resources import router as resources_router
-from tracemark_admin_api.routes.meta import router as meta_router
 from tracemark_admin_api.routes.audit import router as audit_router
-from tracemark_admin_api.routes.search import router as search_router
+from tracemark_admin_api.routes.auth import router as auth_router
+from tracemark_admin_api.routes.brands_admin import router as brands_router
 from tracemark_admin_api.routes.cases import router as cases_router
-from tracemark_admin_api.routes.infringements_admin import router as infringements_router
-from tracemark_admin_api.routes.takedowns_admin import router as takedowns_router
-from tracemark_admin_api.routes.stats import router as stats_router
-from tracemark_admin_api.routes.scraper_health import router as scraper_health_router
+from tracemark_admin_api.routes.customers import router as customers_router
+from tracemark_admin_api.routes.infringements_admin import (
+    router as infringements_router,
+)
 from tracemark_admin_api.routes.leads import router as leads_router
-from tracemark_admin_api.routes.notification_log import router as notification_log_router
+from tracemark_admin_api.routes.meta import router as meta_router
+from tracemark_admin_api.routes.notification_log import (
+    router as notification_log_router,
+)
+from tracemark_admin_api.routes.organizations import router as organizations_router
+from tracemark_admin_api.routes.resources import router as resources_router
+from tracemark_admin_api.routes.scraper_health import router as scraper_health_router
+from tracemark_admin_api.routes.search import router as search_router
+from tracemark_admin_api.routes.staff import router as staff_router
+from tracemark_admin_api.routes.stats import router as stats_router
+from tracemark_admin_api.routes.takedowns_admin import router as takedowns_router
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 

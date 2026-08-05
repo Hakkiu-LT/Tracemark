@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 
-from tracemark_api.dependencies import get_current_profile, CurrentProfile
+from tracemark_api.dependencies import CurrentProfile, get_current_profile
 from tracemark_api.services.database import get_supabase
 from tracemark_api.services.storage import sign_legal_document_url
 
