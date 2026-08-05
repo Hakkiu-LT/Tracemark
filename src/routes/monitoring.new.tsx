@@ -16,8 +16,6 @@ import {
   FileText,
   CheckCircle2,
   Loader2,
-  ChevronDown,
-  ChevronUp,
   Plus,
   X,
   Upload,
@@ -127,7 +125,6 @@ function NewAssetPage() {
   const [clientId, setClientId] = useState(activeClientId ?? clients[0]?.id ?? "c1");
   const [selected, setSelected] = useState<Set<Platform>>(new Set([]));
   const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set(["US"]));
-  const [expandedRegions, setExpandedRegions] = useState<Set<string>>(new Set(["NA", "EMEA"]));
   const [scanStep, setScanStep] = useState(0);
   const [officialDomains, setOfficialDomains] = useState<string[]>([""]);
   const [officialAdvertisers, setOfficialAdvertisers] = useState<string[]>([""]);
@@ -157,26 +154,6 @@ function NewAssetPage() {
       next.add(p);
     }
     setSelected(next);
-  }
-
-  function toggleRegionExpanded(regKey: string) {
-    const next = new Set(expandedRegions);
-    next.has(regKey) ? next.delete(regKey) : next.add(regKey);
-    setExpandedRegions(next);
-  }
-
-  function toggleCountry(code: string) {
-    const next = new Set(selectedRegions);
-    if (next.has(code)) {
-      next.delete(code);
-    } else {
-      if (regionsLimit != null && next.size >= regionsLimit) {
-        toast.error(`Your plan allows up to ${regionsLimit} region(s) per brand.`);
-        return;
-      }
-      next.add(code);
-    }
-    setSelectedRegions(next);
   }
 
   function toggleMacroRegion(regKey: string, countryCodes: string[]) {
