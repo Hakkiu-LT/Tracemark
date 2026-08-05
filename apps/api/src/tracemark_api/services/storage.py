@@ -13,12 +13,14 @@ DB backfill is required when the bucket is flipped to private.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import uuid
-import hashlib
+
 import httpx
+
 from tracemark_api.services.database import get_supabase
-from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
+from tracemark_api.services.ssrf import SSRFError, validate_ssrf_url
 
 BUCKET = "evidence-screenshots"
 BRAND_ASSETS_BUCKET = "brand-assets"
@@ -257,8 +259,8 @@ def compute_phash(image_bytes: bytes) -> int | None:
     Returns None if the image cannot be parsed.
     """
     try:
-        from PIL import Image
         import imagehash
+        from PIL import Image
         with Image.open(io.BytesIO(image_bytes)) as img:
             h = imagehash.phash(img)
             return int(h)
@@ -288,6 +290,7 @@ def cleanup_old_cases() -> None:
     """
     try:
         import datetime
+
         from tracemark_api.services.database import get_supabase
         sb = get_supabase()
 

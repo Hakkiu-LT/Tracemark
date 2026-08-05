@@ -186,8 +186,8 @@ def domain_alert_html(
     mx_warning = ""
     if has_mx:
         mx_warning = (
-            f'<p style="margin:8px 0 0;font-size:13px;color:#dc2626;">'
-            f'⚠ This domain has mail servers configured — potential phishing setup.</p>'
+            '<p style="margin:8px 0 0;font-size:13px;color:#dc2626;">'
+            '⚠ This domain has mail servers configured — potential phishing setup.</p>'
         )
     reg_html = (
         f'<p style="margin:4px 0 0;font-size:13px;color:{_MUTED};">Registered: {registration_date}</p>'
@@ -344,12 +344,12 @@ def takedown_failed_html(
     counter_html = ""
     if counter_notice:
         counter_html = (
-            f'<div style="margin-top:16px;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;">'
-            f'<p style="margin:0;font-size:13px;color:#991b1b;font-weight:600;">Counter-notice filed</p>'
-            f'<p style="margin:4px 0 0;font-size:13px;color:#991b1b;">'
-            f'The seller has filed a counter-notice. Under DMCA, you have 10 business days to seek a court order. '
-            f'Contact a legal professional if you wish to proceed.</p>'
-            f'</div>'
+            '<div style="margin-top:16px;padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;">'
+            '<p style="margin:0;font-size:13px;color:#991b1b;font-weight:600;">Counter-notice filed</p>'
+            '<p style="margin:4px 0 0;font-size:13px;color:#991b1b;">'
+            'The seller has filed a counter-notice. Under DMCA, you have 10 business days to seek a court order. '
+            'Contact a legal professional if you wish to proceed.</p>'
+            '</div>'
         )
 
     content = f"""

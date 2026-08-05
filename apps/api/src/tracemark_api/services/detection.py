@@ -145,8 +145,9 @@ def ocr_extract_text(
 
     try:
         import base64
-        from langchain_google_genai import ChatGoogleGenerativeAI
+
         from langchain_core.messages import HumanMessage
+        from langchain_google_genai import ChatGoogleGenerativeAI
 
         # Convert PIL Image → base64 PNG bytes
         if isinstance(image, Image.Image):

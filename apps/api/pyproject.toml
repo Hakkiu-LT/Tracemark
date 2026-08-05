@@ -42,6 +42,21 @@ markers = [
     "integration: tests that require real API keys or network access (skip in CI)",
 ]
 
+[tool.ruff]
+# Minimal, high-signal "judge" ruleset. Kept intentionally small so it catches
+# real problems (undefined names, unused imports, syntax errors, import order)
+# without drowning the team in stylistic churn on a FastAPI codebase. Widen the
+# `select` list deliberately over time — do not enable the full default set,
+# which flags the standard FastAPI `Depends()` idiom (B008) as a violation.
+target-version = "py311"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+# E9 = syntax errors, F = pyflakes (undefined names, unused imports/vars),
+# I = import sorting. All enforced in CI (see .github/workflows/ci.yml).
+select = ["E9", "F", "I"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",

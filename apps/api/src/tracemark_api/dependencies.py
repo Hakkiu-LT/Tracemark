@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import Depends, Header, HTTPException
+
 from tracemark_api.services.database import get_supabase
 
 

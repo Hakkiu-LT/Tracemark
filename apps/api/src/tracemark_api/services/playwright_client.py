@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import asyncio
-import os
 from concurrent.futures import ThreadPoolExecutor
-from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
+
+from tracemark_api.services.ssrf import SSRFError, validate_ssrf_url
 
 # Thread pool dedicated to Playwright (sync API must run outside the asyncio loop)
 _playwright_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="playwright")
@@ -57,7 +58,7 @@ def take_local_screenshot(url: str) -> bytes | None:
         return None
 
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         # No event loop running — safe to call sync directly
         return _run_playwright_screenshot(url)

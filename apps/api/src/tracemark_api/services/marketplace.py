@@ -3,18 +3,30 @@ import json
 import os
 import re
 import time
-import requests
 import urllib.parse
+from datetime import datetime
+
+import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-from itertools import product as iterproduct
-from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
-from tracemark_api.services.firecrawl_client import scrape_page, ScrapeResult
-from tracemark_api.services.domain_whitelist import whitelist_service
-from tracemark_api.services.ssrf import safe_get
 from dotenv import find_dotenv
-from tracemark_api.services.ai import Evidence, MarketplaceEvidence, DomainEvidence, AdEvidence, SocialEvidence
+from pydantic import BaseModel, Field
+
+from tracemark_api.services import scraper_health
+from tracemark_api.services.ai import (
+    AdEvidence,
+    DomainEvidence,
+    Evidence,
+    MarketplaceEvidence,
+    SocialEvidence,
+)
+
+# Import usage tracker components
+from tracemark_api.services.api_usage_tracker import (
+    ApiLimitError,
+    call_with_tracking,
+    tracker,
+)
+from tracemark_api.services.domain_whitelist import whitelist_service
 from tracemark_api.services.geo import (
     AMAZON_DOMAINS,
     EBAY_DOMAINS,
@@ -22,13 +34,13 @@ from tracemark_api.services.geo import (
     firecrawl_location,
     serpapi_geo_params,
 )
-
-# Import usage tracker components
-from tracemark_api.services.api_usage_tracker import tracker, call_with_tracking, ApiLimitError
-from tracemark_api.services import scraper_health
+from tracemark_api.services.ssrf import safe_get
 
 # Import unified scraper
-from tracemark_api.services.unified_scraper import UnifiedScraper, UnifiedScrapeResult, SCRAPE_STATIC, SCRAPE_JS
+from tracemark_api.services.unified_scraper import (
+    SCRAPE_JS,
+    UnifiedScraper,
+)
 
 # In-memory screenshot cache: url -> permanent_supabase_url
 # Prevents re-screenshotting the same URL within the same server process.
@@ -93,7 +105,7 @@ def _cached_screenshot(url: str, prefix: str) -> str | None:
         pass
 
     # No cache hit — take a new screenshot
-    from tracemark_api.services.unified_scraper import DomainRegistry, SCRAPE_JS
+    from tracemark_api.services.unified_scraper import DomainRegistry
     site_type = DomainRegistry.classify(url)
 
     if site_type == SCRAPE_JS:
@@ -972,7 +984,6 @@ class GoogleSERPAPI:
         if not api_key:
             return empty
 
-        from tracemark_api.services.api_usage_tracker import tracker
         if tracker.is_blocked("google_serp"):
             return empty
 
@@ -1266,7 +1277,10 @@ class GoogleSERPAPI:
                 # forwarded to the expensive WHOIS + Gemini pipeline.
                 if brand_name:
                     from rapidfuzz import fuzz
-                    from tracemark_api.services.domain_whitelist import get_registered_domain
+
+                    from tracemark_api.services.domain_whitelist import (
+                        get_registered_domain,
+                    )
                     base = get_registered_domain(netloc)
                     # Strip TLD to get the meaningful part (e.g. "njctl" from "njctl.org")
                     domain_label = base.rsplit(".", 1)[0] if "." in base else base

@@ -1,29 +1,30 @@
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
+
 # Single source of truth: the repo-root .env (walks up from this module).
 load_dotenv(find_dotenv())
 
 import ipaddress
 import os
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from tracemark_api.services.rate_limit import limiter
 
-from tracemark_api.routes.health import router as health_router
-from tracemark_api.routes.monitoring import router as monitoring_router
 from tracemark_api.routes.auth import router as auth_router
-from tracemark_api.routes.infringements import router as infringements_router
-from tracemark_api.routes.documents import router as documents_router
-from tracemark_api.routes.clients import router as clients_router
 from tracemark_api.routes.brands import router as brands_router
+from tracemark_api.routes.clients import router as clients_router
+from tracemark_api.routes.documents import router as documents_router
+from tracemark_api.routes.health import router as health_router
+from tracemark_api.routes.infringements import router as infringements_router
 from tracemark_api.routes.internal import router as internal_router
-from tracemark_api.routes.usage import router as usage_router
 from tracemark_api.routes.leads import router as leads_router
-from tracemark_api.routes.support import router as support_router
+from tracemark_api.routes.monitoring import router as monitoring_router
 from tracemark_api.routes.slack_interactions import router as slack_interactions_router
+from tracemark_api.routes.support import router as support_router
+from tracemark_api.routes.usage import router as usage_router
+from tracemark_api.services.rate_limit import limiter
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
@@ -155,6 +156,7 @@ async def add_security_headers(request: Request, call_next):
 def startup_event():
     import threading
     import time
+
     from tracemark_api.services.storage import cleanup_old_cases
 
     # Auto-start the resource sampler (admin portal reads it over /internal).

@@ -12,11 +12,11 @@ from datetime import datetime, timezone
 
 from tracemark_api.services.email import send_email
 from tracemark_api.services.email_templates import (
-    infringement_alert_html,
     first_detection_html,
-    takedown_submitted_html,
-    takedown_removed_html,
+    infringement_alert_html,
     takedown_failed_html,
+    takedown_removed_html,
+    takedown_submitted_html,
     test_email_html,
 )
 

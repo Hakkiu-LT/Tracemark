@@ -1,18 +1,43 @@
 import asyncio
-from fastapi import APIRouter, HTTPException, Depends, Request
-from pydantic import BaseModel, field_validator, EmailStr, Field
-from typing import Literal, Annotated
-from tracemark_api.services.firecrawl_client import scrape_page
-from tracemark_api.services.ai import analyze_listing, make_decision, Evidence, Decision
-from tracemark_api.services.marketplace import gather_evidence as scrape_evidence, check_ads_hijacking, exchange_short_lived_meta_token, update_env_meta_token
-from tracemark_api.services.database import get_supabase, create_case, save_evidence, save_decision, update_case_status, get_full_case, update_decision_action
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from tracemark_api.dependencies import (
+    CurrentProfile,
+    get_current_profile,
+    get_current_user,
+    require_owner,
+)
+from tracemark_api.services.ai import Decision, Evidence, analyze_listing, make_decision
+from tracemark_api.services.database import (
+    create_case,
+    get_full_case,
+    get_supabase,
+    save_decision,
+    save_evidence,
+    update_case_status,
+    update_decision_action,
+)
+from tracemark_api.services.detection_funnel import (
+    filter_evidence_by_scored,
+    run_tier0_and_filter,
+    run_tier1,
+)
 from tracemark_api.services.evidence_scorer import score_evidence
-from tracemark_api.services.persistence import persist_all_infringements, persist_scored_evidence_item
-from tracemark_api.services.detection_funnel import run_tier0_and_filter, run_tier1, filter_evidence_by_scored
-from tracemark_api.services.takedown import generate_takedown_reports, TakedownReport
+from tracemark_api.services.firecrawl_client import scrape_page
+from tracemark_api.services.marketplace import (
+    check_ads_hijacking,
+)
+from tracemark_api.services.marketplace import gather_evidence as scrape_evidence
+from tracemark_api.services.persistence import (
+    persist_all_infringements,
+    persist_scored_evidence_item,
+)
 from tracemark_api.services.rate_limit import limiter
-from tracemark_api.services.ssrf import validate_ssrf_url, SSRFError
-from tracemark_api.dependencies import get_current_user, get_current_profile, CurrentProfile, require_owner
+from tracemark_api.services.ssrf import SSRFError, validate_ssrf_url
+from tracemark_api.services.takedown import generate_takedown_reports
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -483,8 +508,8 @@ def test_email_notification_endpoint(
             detail="No email address to send the test to. Enter an Alert Email Address first.",
         )
     try:
-        from tracemark_api.services.notifications import send_email_notification
         from tracemark_api.services.delivery_log import log_delivery
+        from tracemark_api.services.notifications import send_email_notification
         event = {
             "type": "test",
             "message": "This is a test notification from HAKKIU to verify SMTP configuration.",

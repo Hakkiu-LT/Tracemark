@@ -64,10 +64,10 @@ def internal_upload_brand_asset(
     _ok: bool = Depends(verify_internal_secret),
 ):
     from tracemark_api.services.storage import (
-        upload_brand_asset,
-        compute_phash,
         compute_content_hash,
+        compute_phash,
         get_brand_asset_url,
+        upload_brand_asset,
     )
 
     _MAX_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -145,8 +145,8 @@ def internal_send_takedown_email(takedown_id: str, _ok: bool = Depends(verify_in
     if not recipient:
         raise HTTPException(status_code=400, detail="No submission email for this platform")
 
-    from tracemark_api.services.notifications import send_email_notification
     from tracemark_api.services.delivery_log import log_delivery
+    from tracemark_api.services.notifications import send_email_notification
 
     try:
         body_html = send_email_notification(

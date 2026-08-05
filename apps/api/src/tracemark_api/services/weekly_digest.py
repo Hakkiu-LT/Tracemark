@@ -188,4 +188,4 @@ def send_weekly_digests() -> None:
         except Exception as exc:
             print(f"[WeeklyDigest] Failed for org {org['org_id']}: {exc}")
 
-    print(f"[WeeklyDigest] Digest run complete")
+    print("[WeeklyDigest] Digest run complete")

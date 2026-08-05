@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from tracemark_admin_api.clients import customer_sb
-from tracemark_admin_api.dependencies import StaffPrincipal, require_permission, require_super_admin
+from tracemark_admin_api.dependencies import (
+    StaffPrincipal,
+    require_permission,
+    require_super_admin,
+)
 from tracemark_admin_api.services.audit import write_audit_log
 
 router = APIRouter(prefix="/cases", tags=["cases"])

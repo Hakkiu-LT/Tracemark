@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
 from typing import Literal
 
-from tracemark_api.dependencies import get_current_profile, CurrentProfile, require_owner
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+
+from tracemark_api.dependencies import (
+    CurrentProfile,
+    get_current_profile,
+    require_owner,
+)
 from tracemark_api.services.database import get_supabase
-from tracemark_api.services.storage import sign_screenshot_url, _extract_screenshot_path
+from tracemark_api.services.storage import _extract_screenshot_path, sign_screenshot_url
 
 router = APIRouter(prefix="/infringements", tags=["infringements"])
 

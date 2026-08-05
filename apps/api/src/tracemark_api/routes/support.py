@@ -7,9 +7,9 @@ through the existing Resend email wrapper.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
-from tracemark_api.dependencies import get_current_user, AuthUser
+from tracemark_api.dependencies import AuthUser, get_current_user
 from tracemark_api.services.rate_limit import limiter
 
 router = APIRouter(prefix="/support", tags=["support"])

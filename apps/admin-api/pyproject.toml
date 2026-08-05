@@ -27,6 +27,16 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 
+[tool.ruff]
+# Minimal, high-signal "judge" ruleset — see apps/api/pyproject.toml for rationale.
+# Kept in sync with the main API so both backends are held to the same bar.
+target-version = "py311"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E9", "F", "I"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",

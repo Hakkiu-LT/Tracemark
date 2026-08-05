@@ -1,7 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
 from typing import Optional
-from tracemark_api.dependencies import get_current_profile, CurrentProfile, require_owner
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from tracemark_api.dependencies import (
+    CurrentProfile,
+    get_current_profile,
+    require_owner,
+)
 from tracemark_api.services.database import get_supabase
 
 router = APIRouter(prefix="/clients", tags=["clients"])
