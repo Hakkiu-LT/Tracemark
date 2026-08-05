@@ -22,10 +22,11 @@ HAKKIU-specific gate. Two layers, both run on GitHub automatically.
       (CLAUDE.md parity rule, with SKIP list + KNOWN_GAPS baseline). Both green locally.
 - [x] Wired 4 CI jobs into `ci.yml`: `lint-python`, `secret-scan`, `admin-parity`,
       `typecheck-customer`.
-- [x] `pr-review.yml` + `REVIEW.md` — Claude AI PR review layer (`claude-code-action@v1`).
 - [x] Verified: ruff clean, scripts green, customer+admin `tsc` pass, 222 API tests pass.
-- [ ] **MANUAL — add repo secret `ANTHROPIC_API_KEY`** in GitHub (Settings → Secrets and
-      variables → Actions) so `pr-review.yml` actually runs.
+- [x] Built AI PR-review layer (`pr-review.yml` + `REVIEW.md`, `claude-code-action@v1`),
+      verified it passes in CI — then **REMOVED it on user request (cost concern, ~€1/PR).**
+      Only the free deterministic Layer 1 remains. To re-add later: restore those 2 files
+      and add an `ANTHROPIC_API_KEY` repo secret.
 - [ ] **SECURITY — rotate the Resend key.** A live key was committed in `.env.example` (now a
       placeholder) but remains in git history. Rotate it, then update the real root `.env`.
 - [ ] Known gap: `clients.py` has no admin-portal parity (no `clients_admin.py`, no `clients.*`

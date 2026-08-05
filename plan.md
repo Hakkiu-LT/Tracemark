@@ -17,9 +17,12 @@
 >   (customer route → admin route + permission key). SKIP list + KNOWN_GAPS baseline so CI is
 >   green today but any NEW uncovered route fails.
 > - `typecheck-customer` — customer-app `tsc --noEmit` (was missing from CI).
-> **Layer 2 — AI review:** `.github/workflows/pr-review.yml` (`anthropics/claude-code-action@v1`)
-> + `REVIEW.md`, reviewing every non-draft PR against CLAUDE.md/REVIEW.md. Inert until the user
-> adds a repo secret `ANTHROPIC_API_KEY`; intentionally NOT a required check so it never blocks.
+> **Layer 2 — AI review (BUILT, then REMOVED on user request):** `pr-review.yml` +
+> `REVIEW.md` (`anthropics/claude-code-action@v1`) reviewed every non-draft PR; verified it
+> passed in CI (skips green without a key). User dropped it over per-PR cost (~€1/PR on
+> Sonnet), so ONLY the free deterministic Layer 1 ships. To revive: restore the 2 files +
+> add an `ANTHROPIC_API_KEY` repo secret. Options if revisited: on-demand `@claude review`
+> trigger, or the Haiku model, to cut cost.
 > **Real findings fixed while making the baseline green:**
 > - **Latent bug:** `import io` missing in `services/embedding_helper.py` → `NameError` at runtime
 >   in the phash path. Added the import.
