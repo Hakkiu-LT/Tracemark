@@ -28,8 +28,9 @@ Verified: customer `tsc` clean, api ruff (`src`) clean, module imports, 13 tests
 - [x] **main-api** `monitoring.py` `_clamp_scan_to_plan(org, platforms, regions)` reads
       `org_entitlement_overrides` whitelists, intersects (empty→fall back to full allowed); called in `check_brand` before scrape.
 - [x] **Tests** new `tests/test_monitoring_plan_clamp.py` (filter, unrestricted, empty-fallback, case-insensitive region, no-org).
-- [ ] **Deploy** picks up the commit (Hetzner). Smoke: admin adds a brand for a company → open that
-      customer's Monitoring → the brand is listed; scan only hits the plan's marketplaces/regions.
+- [x] **Pushed** to `main` (commit `8ae877f`) — Hetzner auto-deploy in progress.
+- [ ] **Smoke (post-deploy):** admin adds a brand for a company → open that customer's Monitoring →
+      the brand is listed; scan only hits the plan's marketplaces/regions.
 
 ## 🟩 Plan limits = WHITELISTS not counts (Session 53, 2026-08-05) — CODE BUILT + verified; prod migration + deploy pending
 
