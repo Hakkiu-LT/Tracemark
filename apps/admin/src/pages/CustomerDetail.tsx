@@ -71,6 +71,12 @@ export function CustomerDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const sendInvite = useMutation({
+    mutationFn: () => adminFetch(`/customers/${userId}/send-invite`, { method: "POST" }),
+    onSuccess: () => toast.success("Login link emailed to the customer"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const deleteBrand = useMutation({
     mutationFn: (brandId: string) => adminFetch(`/brands/${brandId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -222,6 +228,12 @@ export function CustomerDetail() {
             <CardTitle>Danger Zone</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-3">
+            <Can permission="customers.invite">
+              <Button variant="outline" onClick={() => sendInvite.mutate()} disabled={sendInvite.isPending}>
+                {sendInvite.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send login link
+              </Button>
+            </Can>
             {staff?.is_super_admin && (
               <Button variant="outline" onClick={() => impersonate.mutate()} disabled={impersonate.isPending}>
                 {impersonate.isPending && <Loader2 className="h-4 w-4 animate-spin" />}

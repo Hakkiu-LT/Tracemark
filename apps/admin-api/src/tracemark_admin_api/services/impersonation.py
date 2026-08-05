@@ -11,6 +11,7 @@ import os
 from fastapi import HTTPException
 
 from tracemark_admin_api.clients import customer_sb
+from tracemark_admin_api.services.auth_users import get_email
 
 
 def _customer_app_url() -> str:
@@ -43,11 +44,7 @@ def generate_impersonation_link(user_id: str) -> dict:
     """Return {email, action_link} a super-admin can use to log in as the customer."""
     sb = customer_sb()
 
-    email = None
-    for u in sb.auth.admin.list_users():
-        if u.id == user_id:
-            email = u.email
-            break
+    email = get_email(sb, user_id)
     if not email:
         raise HTTPException(status_code=404, detail="Customer not found")
 
@@ -71,3 +68,29 @@ def generate_impersonation_link(user_id: str) -> dict:
         )
 
     return {"email": email, "action_link": action_link, "redirect_to": redirect_to}
+
+
+def generate_recovery_link(email: str) -> str:
+    """Return a Supabase recovery (set-password) action_link for a customer.
+
+    Lands on the customer app's /auth/reset-password, where the customer chooses their own
+    password. Used for onboarding invites and "resend login link". Recovery (not invite) is
+    correct because admin-created users are already email-confirmed.
+    """
+    sb = customer_sb()
+    redirect_to = f"{_customer_app_url()}/auth/reset-password"
+    try:
+        link = sb.auth.admin.generate_link(
+            {
+                "type": "recovery",
+                "email": email,
+                "options": {"redirect_to": redirect_to},
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Could not generate login link: {exc}")
+
+    action_link = _extract_action_link(link)
+    if not action_link:
+        raise HTTPException(status_code=502, detail="Supabase returned no action_link for recovery")
+    return action_link

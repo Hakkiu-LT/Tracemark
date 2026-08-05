@@ -126,51 +126,41 @@ export function Organizations() {
 }
 
 // ── CreateOrgDialog ───────────────────────────────────────────────────────────
-// Creates a company AND its first (owner) login in one step — the entry point for
-// onboarding a customer after a demo.
+// Creates an EMPTY company (no owner login). Users are added afterwards on the company
+// detail page — separating "make the company" from "create/attach a login" is what fixes
+// the old hijack + accidental-auto-assign behaviour. On success we navigate straight to the
+// detail page, which auto-opens the Create-user dialog so onboarding still feels like one flow.
 function CreateOrgDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [persona, setPersona] = useState<"brand_owner" | "law_firm">("brand_owner");
-  const [ownerEmail, setOwnerEmail] = useState("");
-  const [ownerPassword, setOwnerPassword] = useState("");
-  const [ownerFullName, setOwnerFullName] = useState("");
 
   const create = useMutation({
     mutationFn: () => {
-      const body: Record<string, unknown> = {
-        name: name.trim(),
-        persona,
-        owner_email: ownerEmail.trim(),
-        owner_password: ownerPassword,
-      };
+      const body: Record<string, unknown> = { name: name.trim(), persona };
       if (industry.trim()) body.industry = industry.trim();
-      if (ownerFullName.trim()) body.owner_full_name = ownerFullName.trim();
       return adminFetch<{ id: string }>("/organizations", {
         method: "POST",
         body: JSON.stringify(body),
       });
     },
     onSuccess: (org) => {
-      toast.success("Company created with owner login");
+      toast.success("Company created — now add its first user");
       onCreated();
       if (org?.id) navigate({ to: "/organizations/$orgId", params: { orgId: org.id } });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const canSubmit =
-    name.trim().length > 0 &&
-    (ownerEmail.trim().length === 0 || ownerEmail.trim().length > 3) &&
-    (ownerPassword.length === 0 || ownerPassword.length >= 8);
+  const canSubmit = name.trim().length > 0;
 
   return (
     <Dialog
       open
       onClose={onClose}
       title="New company"
-      description="Create a company group. You can assign or create users for it now or anytime later."
+      description="Creates the company group. You'll add its first user (login) on the next screen."
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -197,25 +187,6 @@ function CreateOrgDialog({ onClose, onCreated }: { onClose: () => void; onCreate
           </Select>
         </div>
       </div>
-      <div className="border-t border-border pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Initial Owner Login <span className="text-xs text-muted-foreground font-normal lowercase">(optional — leave blank to assign users later)</span>
-      </div>
-      <div className="space-y-1.5">
-        <Label>Owner email <span className="text-xs text-muted-foreground">(optional)</span></Label>
-        <Input type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} placeholder="owner@acme.com" />
-      </div>
-      {ownerEmail.trim() && (
-        <>
-          <div className="space-y-1.5">
-            <Label>Owner password <span className="text-xs text-muted-foreground">(leave blank if user already exists)</span></Label>
-            <Input type="password" value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} placeholder="••••••••" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Owner full name <span className="text-xs text-muted-foreground">(optional)</span></Label>
-            <Input value={ownerFullName} onChange={(e) => setOwnerFullName(e.target.value)} placeholder="—" />
-          </div>
-        </>
-      )}
     </Dialog>
   );
 }

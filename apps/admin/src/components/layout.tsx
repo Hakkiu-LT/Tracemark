@@ -111,7 +111,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const canSee = (item: NavItem) =>
     !item.permission || staff?.is_super_admin || permissions.has(item.permission);
 
-  const isActive = (to: string) => pathname.startsWith(to);
+  // Segment match, not raw prefix — so "/staff" doesn't also light up for a future
+  // "/staffing" route. Root ("/") matches only itself.
+  const isActive = (to: string) =>
+    to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(to + "/");
 
   const itemClass = (active: boolean) =>
     cn(

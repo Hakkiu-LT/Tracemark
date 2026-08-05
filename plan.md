@@ -1,5 +1,109 @@
 # HAKKIU — Active Plan
 
+> **Session 51 (2026-08-05) — Admin Portal onboarding repair (company → users → logins → brands → limits).**
+> Full plan below. Four subagents audited the admin portal; this session turns the diagnosis into
+> a solid, defended implementation plan spanning DB → backend → FE → UX.
+> **STATUS: CODE BUILT + verified** (ruff/tsc/secret-scan/admin-parity green; 228 API tests pass, 1
+> unrelated live-cred failure; both apps boot). **PENDING: user runs `supabase db push` (2 additive
+> migrations) + deploy.** See `todo.md` for the exact remaining steps. Details unchanged below.
+
+## Session 51 plan — Admin onboarding fix
+
+### Root causes (verified in code)
+
+| # | Symptom | Root cause | File |
+|---|---|---|---|
+| 1 | "Can't create company" | `create_organization` derives `org_id` from the owner's existing profile → hijack/500; unpaginated `list_users()` breaks owner-dedup past 50 users | `organizations.py:169-178`, `:30` |
+| 2 | "Creates AND auto-assigns people" | Uses owner's **home org** (id=user.id) as the company org → `handle_new_user` trigger membership + endpoint upsert land on the SAME org → looks pre-populated | `organizations.py:176-200` + trigger `groups_v1.sql:205` |
+| 3 | "Don't see where to set up logins" | Logins CAN be created but (a) no discoverable entry point after creating an empty company, (b) **no credential delivery** — user created with `email_confirm:true`, no invite/reset email ever sent | `organizations.py`, `customers.py:199-207` |
+| 4 | "Can't add a brand" | No `POST /brands` in admin-api, no "Add brand" button — staff can only edit/delete | `brands_admin.py` |
+| 5 | "Can't add limits" | Entitlements gutted in Stripe pivot: table `org_entitlement_overrides` orphaned, service deleted, no route/UI/permission | `entitlement_overrides` migration exists; service `.pyc` only |
+
+North-star UX: **Create company → land on its page → add users there → hand them a login link.** One obvious path, no hidden auto-assignment, no manual password hand-off.
+
+### Data model (the correct wiring)
+
+```
+auth.users ──trigger handle_new_user──▶ personal "home" org (id = user.id), owner membership
+     └── assign_user_to_group(user, COMPANY_org, role) ──▶ profiles.organization_id = COMPANY_org (active) + membership
+organizations(COMPANY) 1─* organization_members *─1 users;  1─1 org_settings;  1─* brands;  1─1 org_entitlement_overrides
+```
+Rule: a **company org is always a fresh `uuid4()`**, never a user's home org. Members attach via the existing transactional `assign_user_to_group` RPC.
+
+### Phases
+
+**Phase 0 — DB** (migration `2026080500000x_onboarding_fixes.sql`, `supabase db push` via CLI, NOT MCP):
+1. `org_settings.notification_email` → DROP NOT NULL (owner-less company has no recipient yet; kills the fake `org-xxxx@internal.hakkiu.com` hack).
+2. Verify `brands.user_id`; if NOT NULL → DROP NOT NULL (admin-created brand has no single acting customer).
+3. Limits reuse existing `org_entitlement_overrides` — no new table.
+4. `_recipient_for_org` (main-api) treats null/empty email as "no recipient".
+
+**Phase 1 — Fix `create_organization`** (admin-api): rewrite to mirror the CORRECT pattern already in `customers.py`:
+- Always `org_id = uuid4()`; INSERT (not upsert) organizations + org_settings.
+- If `owner_email`: reuse `_find_auth_user_by_email` + orphan cleanup + 409-on-active (extract to shared `services/auth_users.py`), create auth user if new, then `assign_user_to_group(user, org_id, 'owner')`.
+- Build the response row locally (no re-fetch that can 500 after a successful write).
+- Shared paginated `list_all_auth_users()` → fix `organizations.py:30/169` + `impersonation.py:47`.
+
+**Phase 2 — Onboarding UX** (admin FE):
+- `CreateOrgDialog` → company-only fields (name, industry, persona); remove inline owner section. On success → navigate to detail page.
+- `OrganizationDetail`: when `members.length===0` show a prominent empty-state "This company has no logins yet → **Create first user**" (opens existing `CreateUserDialog`). The single obvious answer to "where do I set up logins".
+
+**Phase 3 — Credential delivery** (the real "set up logins" fix):
+- main-api: `/internal/customers/send-invite` mints a Supabase link (`generate_link` invite/recovery) + sends via Resend using new `customer_invite_html`.
+- admin-api `main_api.py`: `send_customer_invite(...)` bridge.
+- admin-api `customers.py`: make `password` OPTIONAL (blank → random pw + auto invite); new `POST /customers/{id}/send-invite` (perm `customers.create`, audited).
+- admin FE: `CreateUserDialog` "Send invite link (no password)" toggle; "Send login link" button on Customer/Org detail.
+
+**Phase 4 — Brand create in admin** (parity):
+- admin-api `brands_admin.py`: `POST /brands` (org_id + brand fields) via `customer_sb()`, `status:'active'`, `user_id`=org's first owner or NULL. Perm **`brands.create`**, audited; enforces limit via main-api.
+- Permissions: add `brands.create` to BOTH catalogs (+ admin preset).
+- admin FE: "Add brand" + `BrandCreateDialog` on `OrganizationDetail` (org known from context).
+
+**Phase 5 — Limits** (re-activate, minimal + ENFORCED, reuse existing table):
+- main-api: rebuild minimal `services/entitlements.py` `get_brand_limit(org_id)` from `org_entitlement_overrides.brands_override` (null/-1 = unlimited); enforce in `create_brand` (used>=limit → 403); `/internal/entitlements/{org_id}` GET+PUT.
+- admin-api: `GET/PUT /organizations/{org_id}/limits` → proxy to main-api internal (entitlement writes live in main API per CLAUDE.md). Perm **`limits.manage`**, audited.
+- Permissions: `limits.view` + `limits.manage` in both catalogs (+ admin preset).
+- admin FE: "Plan & Limits" card on `OrganizationDetail` (brands used/limit + editable cap + note), gated `<Can>`.
+
+**Phase 6 — Cleanup**: remove stale `entitlements.cpython-314.pyc`; fake-email hack (Phase 0/1); orphan `GET /monitoring/resources/status` (wire or delete); nav `startsWith` → segment match.
+
+### Admin-parity checklist (per new resource)
+view route (all orgs, `require_permission`) · edit route writing SAME customer tables · `write_audit_log` on every mutation · permission key in BOTH catalogs · UI gated `<Can>` · main-API ops via `/internal/*`.
+
+### Test plan
+Empty company appears + empty-state · owner create w/ & w/o password → invite delivered (to Alert Email per project rule) → customer login works · existing active email → 409 not hijack · orphan email → cleaned+recreated · >50 users → dedup+emails correct · admin brand visible to customer · limit=N, add N+1 → 403 both sides.
+
+### Sequencing
+P0→P1 (unblocks creation, highest) → P4 → P3 → P2 → P5 → P6. Each phase ships with parity + tests.
+
+### ⚔️ Adversarial review — corrections & hardening (4 critic agents, DEFENDED)
+
+Two FACTUAL corrections the review forced (both verified in code):
+- **`org_entitlement_overrides` was DROPPED** (`20260728000001_drop_billing_tables.sql:34`, CASCADE) — the table does NOT exist and nothing enforces limits. Phase 5 must RECREATE it (new migration), not "reuse". Enforcement layer must be rebuilt too.
+- **Customer app has NO set-password route** (`src/routes/` = callback/sign-in/sign-up only). An invite/recovery link currently lands nowhere → Phase 3 MUST first build a customer `/auth/reset-password` route calling `supabase.auth.updateUser({password})`. Until then, "send login link" is a broken promise.
+- Minor: `brands.user_id` is already nullable → Phase 0 step 2 REMOVED (no-op).
+
+Hardening decisions (resolving the hardest questions):
+
+1. **Company-create becomes company-ONLY** — remove `owner_email`/`owner_password` from `create_organization` entirely. This dissolves the hijack bug, the double-membership bug, and the "adopt vs 409" policy conflict at once (org-create no longer touches auth). Owners are added on the detail page via `create_customer` (which already has the correct 409/orphan policy). Kept fast by **auto-opening the Create-User dialog** on a fresh 0-member company detail page (feels like one flow, UX critic's regression concern answered).
+2. **Personal-org leak fixed deterministically** — add `organizations.is_personal boolean` (trigger sets TRUE; staff-created company orgs FALSE). List filter becomes `WHERE NOT is_personal` — replaces the fragile domain-string heuristic that leaks `.co.uk`/subdomain names. Personal home orgs are NEVER deleted (keeps `remove_user_from_group`'s `home_organization_id` fallback valid).
+3. **Atomicity** — in create-user/attach: if `create_user` succeeds but `assign_user_to_group` fails, DELETE the just-created auth user (only when WE created it this call), then raise → no orphan accumulation. Apply consistently in the shared `services/auth_users.py`.
+4. **Credential delivery** — DEFAULT stays staff-set password (always works, no lockout). Passwordless+invite is an OPTIN. `generate_link` type = **`recovery`** (users are created `email_confirm:true`; `invite` is for unconfirmed users — wrong here), matching the existing staff reset flow. If the recovery email send fails → return error + idempotent "Resend login link". Users table gets a **login-status badge** (never-signed-in vs active) via `last_sign_in_at`.
+5. **Limits — single enforcement path (no bypass)** — recreate a MINIMAL `org_entitlement_overrides` (org_id + `brands_limit int` + note + ts; drop unused feature-flag columns, YAGNI). Enforce in ONE place: a SECURITY-DEFINER RPC `create_brand_checked(org_id,…)` that takes `pg_advisory_xact_lock(org)` → counts → inserts atomically (the real DB-level guard against the count-then-insert race). BOTH the customer `create_brand` AND admin brand-create call this same RPC → admin path can't bypass the cap (resolves the Phase 4/5 contradiction). `brands_limit` NULL/-1 = unlimited; row-absent = unlimited.
+6. **Permissions split** — `limits.manage` = **admin/super-admin ONLY** (raising a cap is a commercial concession, not a support action — never in `sales`). `limits.view` = dev+admin. `brands.create` = admin+sales (creating within cap is legit onboarding). New **`customers.invite`** key for send-invite (gated/revoked independently of create).
+7. **Security on invite/create** — login-minting + send-invite use **`critical=True` audit written BEFORE the mutation** (matches impersonate). send-invite always sends to the STORED email (caller can't redirect) and records the exact target email in the audit row (closes the email-swap→invite takeover vector). Generated random password is passed ONLY to `create_user` — never returned, logged, or put in audit metadata (create audit gets the same redaction guard `update_customer` already has).
+8. **`/internal/*` guards** — every new internal route (`/internal/customers/send-invite`, `/internal/brands`, `/internal/entitlements/{org}`) MUST include `Depends(verify_internal_secret)` explicitly. Entitlement compute/enforce + Resend sends genuinely belong in main-api (justifies the round-trip); admin-api proxies.
+9. **Perf** — resolve member emails on org-detail via targeted `get_user_by_id(member_id)` for the small member set, NOT `list_users()` over all users. Full paginated `list_all_auth_users()` (loop until short page) only where a whole map is needed (customer list).
+10. **Error mapping** — `main_api._request` passes 4xx `detail` through WITHOUT the "Main API error:" prefix (only prefix 5xx), so a limit-exceeded 403 reads cleanly in the FE toast.
+11. **notification_email nullable** — DB allows NULL (owner-less org has no recipient); `_recipient_for_org` + weekly digest skip NULL; the CUSTOMER settings save keeps an app-level non-empty check so a customer can't blank their own breach alerts.
+12. **Keep the re-fetch** — `create_organization` still returns `get_organization()` (contract fidelity); the real fix is making that read not 500 (targeted email resolution, #9).
+
+**⛔ Pre-flight ops gate (DB critic):** before any brands/limits migration, run `supabase migration list` on the CLI-linked prod project and confirm `20260728000003` + `20260802000*` are APPLIED (MEMORY says a prod push was pending re-auth). Re-auth CLI and apply the backlog FIRST — the tenancy assumptions depend on the membership-gate RLS being live.
+
+Revised sequencing: **Pre-flight** → P0 (DB: is_personal, notification_email nullable) → P1 (company-only create) → P2 (detail empty-state + auto-open create-user) → P4 (brand create via RPC) → P5 (recreate limits table + RPC enforcement + admin UI) → P3 (customer reset-password route + invite delivery) → P6 (cleanup).
+
+---
+
 > **Session 50 (2026-08-05) — Automated code-review "judge" (CI quality gate).**
 > Looked at a `~/Desktop/judge-templates` folder (a portable `@judge` code-review agent) and
 > evaluated it with subagents against our real code. **Conclusion: the generic FastAPI variant

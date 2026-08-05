@@ -5,11 +5,13 @@ new full-control actions.
 """
 from __future__ import annotations
 
+import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from tracemark_admin_api import main_api
 from tracemark_admin_api.clients import admin_sb, customer_sb
 from tracemark_admin_api.dependencies import (
     StaffPrincipal,
@@ -17,7 +19,16 @@ from tracemark_admin_api.dependencies import (
     require_super_admin,
 )
 from tracemark_admin_api.services.audit import write_audit_log
-from tracemark_admin_api.services.impersonation import generate_impersonation_link
+from tracemark_admin_api.services.auth_users import (
+    email_map,
+    find_auth_user_by_email,
+    get_email,
+    is_orphan_auth_user,
+)
+from tracemark_admin_api.services.impersonation import (
+    generate_impersonation_link,
+    generate_recovery_link,
+)
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -41,10 +52,13 @@ class CustomerDetail(CustomerRow):
 
 class CreateCustomerRequest(BaseModel):
     email: str
-    password: str
+    # Optional: leave blank to create a passwordless login and email the customer a
+    # set-password link instead (requires send_invite=true).
+    password: str | None = None
     full_name: str | None = None
     organization_id: str | None = None  # optional: attach to an existing org
     org_role: str = "member"
+    send_invite: bool = False  # email the customer a set-password link after creating
 
 
 class UpdateCustomerRequest(BaseModel):
@@ -54,41 +68,6 @@ class UpdateCustomerRequest(BaseModel):
     password: str | None = None  # optional: set a new login password for the customer
     organization_id: str | None = None
     org_role: str | None = None
-
-
-def _email_map(sb) -> dict[str, str]:
-    users = sb.auth.admin.list_users(page=1, per_page=1000)
-    return {u.id: (u.email or "") for u in users}
-
-
-def _find_auth_user_by_email(sb, email: str):
-    """Return the auth user object whose email matches (case-insensitive), or None.
-
-    Used to detect an email that is still registered in ``auth.users`` even though
-    its profile/memberships were already removed (an "orphan" login).
-    """
-    target = email.strip().lower()
-    users = sb.auth.admin.list_users(page=1, per_page=1000)
-    for u in users:
-        if (u.email or "").strip().lower() == target:
-            return u
-    return None
-
-
-def _is_orphan_auth_user(sb, user_id: str) -> bool:
-    """True when an auth user has NO profile row and NO org memberships.
-
-    Such a user is invisible in the admin UI (nothing to delete), yet still
-    occupies the email in ``auth.users`` — blocking re-creation with a
-    "already registered" error. Safe to hard-delete before recreating.
-    """
-    prof = sb.table("profiles").select("id").eq("id", user_id).maybe_single().execute()
-    if prof and prof.data:
-        return False
-    members = (
-        sb.table("organization_members").select("user_id").eq("user_id", user_id).limit(1).execute()
-    )
-    return not (members.data or [])
 
 
 def _persona_by_org(sb) -> dict[str, str | None]:
@@ -106,7 +85,7 @@ def _org_role_map(sb) -> dict[tuple[str, str], str]:
 def list_customers(staff: StaffPrincipal = Depends(require_permission("customers.view"))):
     """Every registered customer with email, org and workspace persona."""
     sb = customer_sb()
-    emails = _email_map(sb)
+    emails = email_map(sb)
     personas = _persona_by_org(sb)
     role_map = _org_role_map(sb)
     profiles = (
@@ -147,9 +126,22 @@ def create_customer(
 
     A DB trigger auto-creates the matching profiles row. If organization_id is given,
     the profile is anchored to that org via assign_user_to_group RPC.
+
+    Password is optional: leave it blank with send_invite=true to create a passwordless
+    login and email the customer a set-password link (recovery) instead of the staffer
+    inventing and hand-delivering a password.
     """
-    if len(payload.password) < 8:
+    pw = (payload.password or "").strip()
+    if pw and len(pw) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if not pw and not payload.send_invite:
+        raise HTTPException(
+            status_code=400,
+            detail="Set a password, or enable 'send invite link' so the customer can set their own.",
+        )
+    # A random password lets us create the auth user even when staff didn't set one; the
+    # customer replaces it via the invite link. It is NEVER returned, logged, or audited.
+    effective_password = pw or secrets.token_urlsafe(24)
 
     sb = customer_sb()
 
@@ -168,9 +160,9 @@ def create_customer(
     #     An "orphan" login (no profile, no memberships) is invisible in the admin
     #     UI, so staff cannot delete it the normal way — yet it blocks re-creation
     #     with a confusing "already registered" error. Clean it up automatically.
-    existing = _find_auth_user_by_email(sb, payload.email)
+    existing = find_auth_user_by_email(sb, payload.email)
     if existing is not None:
-        if _is_orphan_auth_user(sb, existing.id):
+        if is_orphan_auth_user(sb, existing.id):
             try:
                 sb.auth.admin.delete_user(existing.id)
             except Exception as exc:  # noqa: BLE001
@@ -201,7 +193,7 @@ def create_customer(
         created = sb.auth.admin.create_user(
             {
                 "email": payload.email,
-                "password": payload.password,
+                "password": effective_password,
                 "email_confirm": True,
             }
         )
@@ -221,6 +213,13 @@ def create_customer(
                 "p_role": payload.org_role or "member",
             }).execute()
         except Exception as exc:
+            # Atomicity: we just created this auth user; if attaching it to the org fails,
+            # roll the login back so we don't leak an orphan auth user (no profile/no org)
+            # that would block re-creating the same email later.
+            try:
+                sb.auth.admin.delete_user(new_id)
+            except Exception:  # noqa: BLE001 — best-effort cleanup
+                pass
             raise HTTPException(status_code=400, detail=f"Could not assign to group: {exc}")
 
     write_audit_log(
@@ -229,9 +228,39 @@ def create_customer(
         target_type="customer",
         target_id=new_id,
         target_org_id=payload.organization_id,
-        metadata={"email": payload.email, "organization_id": payload.organization_id, "role": payload.org_role},
+        metadata={
+            "email": payload.email,
+            "organization_id": payload.organization_id,
+            "role": payload.org_role,
+            "invited": payload.send_invite,
+        },
         ip=request.client.host if request.client else None,
     )
+
+    # Optionally email the customer a set-password link now (best delivery of a new login).
+    if payload.send_invite:
+        try:
+            company_name = None
+            if payload.organization_id:
+                org_row = (
+                    sb.table("organizations").select("name").eq("id", payload.organization_id)
+                    .maybe_single().execute()
+                )
+                company_name = (org_row.data or {}).get("name") if org_row else None
+            link = generate_recovery_link(payload.email)
+            main_api.send_customer_invite(payload.email, link, company_name)
+            write_audit_log(
+                staff, "customer.invite_sent", target_type="customer", target_id=new_id,
+                target_org_id=payload.organization_id, metadata={"email": payload.email},
+                ip=request.client.host if request.client else None,
+            )
+        except HTTPException:
+            # The login exists; only delivery failed. Staff can retry via "Send login link".
+            raise HTTPException(
+                status_code=502,
+                detail="User created, but the invite email couldn't be sent. Use 'Send login link' to retry.",
+            )
+
     return _row_after_update(sb, new_id)
 
 
@@ -247,7 +276,6 @@ def get_customer(
     p = prof.data
     org_id = p.get("organization_id")
 
-    emails = _email_map(sb)
     personas = _persona_by_org(sb)
     role_map = _org_role_map(sb)
 
@@ -259,7 +287,7 @@ def get_customer(
 
     return CustomerDetail(
         id=p["id"],
-        email=emails.get(p["id"], "unknown@example.com"),
+        email=get_email(sb, p["id"]) or "unknown@example.com",
         full_name=p.get("full_name"),
         organization_id=org_id,
         home_organization_id=p.get("home_organization_id"),
@@ -323,8 +351,7 @@ def update_customer(
     # Email / password live in auth.users — update via the admin auth API only if changed.
     auth_attrs: dict = {}
     if payload.email is not None:
-        emails_map = _email_map(sb)
-        current_email = emails_map.get(user_id, "")
+        current_email = get_email(sb, user_id) or ""
         if payload.email.strip().lower() != current_email.strip().lower():
             auth_attrs["email"] = payload.email.strip()
             auth_attrs["email_confirm"] = True  # mark verified; no confirmation email
@@ -358,13 +385,12 @@ def update_customer(
 
 def _row_after_update(sb, user_id: str) -> CustomerRow:
     p = sb.table("profiles").select("*").eq("id", user_id).maybe_single().execute().data
-    emails = _email_map(sb)
     personas = _persona_by_org(sb)
     role_map = _org_role_map(sb)
     org_id = p.get("organization_id")
     return CustomerRow(
         id=p["id"],
-        email=emails.get(p["id"], "unknown@example.com"),
+        email=get_email(sb, p["id"]) or "unknown@example.com",
         full_name=p.get("full_name"),
         organization_id=org_id,
         home_organization_id=p.get("home_organization_id"),
@@ -436,6 +462,42 @@ def delete_customer(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Could not delete customer: {exc}")
     return {"success": True}
+
+
+@router.post("/{user_id}/send-invite")
+def send_customer_invite(
+    user_id: str,
+    request: Request,
+    staff: StaffPrincipal = Depends(require_permission("customers.invite")),
+):
+    """Email a customer a set-password ("login") link.
+
+    Sends ONLY to the email currently stored on the account — a caller cannot redirect the
+    link elsewhere. The send is audit-logged (critical, written BEFORE the send) with the
+    exact target email, so a leaked link is always traceable.
+    """
+    sb = customer_sb()
+    email = get_email(sb, user_id)
+    if not email:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    prof = sb.table("profiles").select("organization_id").eq("id", user_id).maybe_single().execute()
+    org_id = (prof.data or {}).get("organization_id") if prof and prof.data else None
+    company_name = None
+    if org_id:
+        org_row = sb.table("organizations").select("name").eq("id", org_id).maybe_single().execute()
+        company_name = (org_row.data or {}).get("name") if org_row else None
+
+    # Fail-closed: record WHO sent a login link to WHICH email before minting it.
+    write_audit_log(
+        staff, "customer.invite_sent", target_type="customer", target_id=user_id,
+        target_org_id=org_id, metadata={"email": email},
+        ip=request.client.host if request.client else None, critical=True,
+    )
+
+    link = generate_recovery_link(email)
+    main_api.send_customer_invite(email, link, company_name)
+    return {"success": True, "email": email}
 
 
 @router.post("/{user_id}/impersonate")

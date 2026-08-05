@@ -9,6 +9,41 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Admin onboarding repair (Session 51, 2026-08-05) — CODE BUILT + verified; prod migration + deploy pending
+
+Fixes the broken customer-onboarding flow (can't create company, auto-assigns people, no login
+setup, can't add brand, can't add limits). Full plan + adversarial-review hardening in `plan.md`.
+Verified: ruff clean (both backends), secret-scan + admin-parity green, customer+admin `tsc` pass,
+228 API tests pass (1 unrelated LIVE Meta-Ads-credential failure), both FastAPI apps boot.
+
+- [x] **Pre-flight:** confirmed prod migration state via `supabase migration list` — `20260728000003`,
+      `20260802000*`, `20260803000001` ALL applied; local == remote. No backlog. CLI is authed.
+- [x] **P0 DB migration** `20260805000001_onboarding_fixes.sql`: `organizations.is_personal bool`
+      (backfilled + trigger sets TRUE); `org_settings.notification_email` DROP NOT NULL.
+- [x] **P1** `create_organization` = company-ONLY (removed owner_email/password); always uuid4; INSERT;
+      shared `services/auth_users.py` (paginated list, targeted `get_user_by_id`, orphan helpers);
+      `create_customer` create→assign atomic rollback; `impersonation` unpaginated `list_users` fixed.
+- [x] **P1** list filter → `WHERE NOT is_personal`.
+- [x] **P2** FE: `CreateOrgDialog` company-only → navigates to detail; 0-member empty-state + auto-open CreateUserDialog.
+- [x] **P4** admin `POST /brands` + `brands.create` (both catalogs, admin+sales) + `BrandCreateDialog`;
+      customer + admin brand-create BOTH go through `create_brand_checked` RPC (no bypass).
+- [x] **P5** migration `20260805000002_entitlements_and_brand_rpc.sql`: minimal `org_entitlement_overrides`
+      (org_id + brands_limit + note) + SECURITY-DEFINER `create_brand_checked` (advisory-lock + count + insert);
+      admin `GET/PUT /organizations/{org}/limits` (writes table directly); `limits.view` (dev+sales+admin) +
+      `limits.manage` (admin/super ONLY); "Plan & Limits" card on OrgDetail.
+- [x] **P3** customer `/auth/reset-password` route (`updateUser`); main-api `/internal/customers/send-invite`
+      (recovery link + Resend); admin `POST /customers/{id}/send-invite` (`customers.invite`, critical audit,
+      STORED email only); optional passwordless create (+ invite); login-status "Never signed in" badge;
+      "Send login link" on OrgDetail rows + CustomerDetail.
+- [x] **P6** removed `entitlements.cpython-314.pyc`; fake `org-xxx@internal.hakkiu.com` gone (P1);
+      nav `startsWith`→segment match. (Orphan `GET /monitoring/resources/status` LEFT — harmless, no bug.)
+- [x] Parity: audit-log on every new mutation; perms in BOTH catalogs (24=24 in sync); `<Can>` UI gating.
+- [x] **PROD MIGRATION applied** (2026-08-05, user ran `supabase db push`): `20260805000001` +
+      `20260805000002` now show Local==Remote. Benign NOTICE (DROP POLICY IF EXISTS skip). Schema live.
+- [ ] **DEPLOY:** commit + push (Slack) → Hetzner picks up FE/backends. (Awaiting user "commit and push".)
+- [ ] **Smoke test** (after migration): create company → auto create-user (invite) → email lands (Alert
+      Email per project rule) → customer sets password → login works; add brand; set limit N, add N+1 → 403.
+
 ## 🟩 Code-review "judge" / CI quality gate (2026-08-05)
 
 Portable `@judge` template on the Desktop misfit our direct-Supabase architecture, so built a

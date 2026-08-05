@@ -142,22 +142,36 @@ def create_brand(
     used = _count_brands(profile.organization_id)
 
     sb = get_supabase()
-    payload = {
-        "organization_id": profile.organization_id,
-        "user_id": profile.id,
-        "client_id": body.client_id,
-        "brand_name": body.brand_name,
-        "website": body.website,
-        "registration_number": body.registration_number,
-        "platforms": body.platforms,
-        "target_regions": body.target_regions,
-        "logo_color": body.logo_color,
-        "official_domains": body.official_domains,
-        "official_advertisers": body.official_advertisers,
-        "status": "active",
-    }
-    res = sb.table("brands").insert(payload).execute()
-    created = (res.data or [None])[0]
+    # Route through the SECURITY DEFINER create_brand_checked RPC: it takes a per-org
+    # advisory lock, enforces org_entitlement_overrides.brands_limit atomically, then inserts.
+    # This is the SINGLE brand-create path shared with the admin portal, so the cap can't be
+    # bypassed from either side. NULL / -1 limit = unlimited.
+    try:
+        res = sb.rpc(
+            "create_brand_checked",
+            {
+                "p_organization_id": profile.organization_id,
+                "p_user_id": profile.id,
+                "p_brand_name": body.brand_name,
+                "p_website": body.website,
+                "p_registration_number": body.registration_number,
+                "p_platforms": body.platforms,
+                "p_target_regions": body.target_regions,
+                "p_logo_color": body.logo_color,
+                "p_official_domains": body.official_domains,
+                "p_official_advertisers": body.official_advertisers,
+                "p_client_id": body.client_id,
+            },
+        ).execute()
+    except Exception as exc:  # noqa: BLE001
+        if "BRAND_LIMIT_REACHED" in str(exc):
+            raise HTTPException(
+                status_code=403,
+                detail="Brand limit reached for this organization. Contact HAKKIU to raise it.",
+            )
+        raise HTTPException(status_code=400, detail=f"Could not create brand: {exc}")
+
+    created = res.data[0] if isinstance(res.data, list) else res.data
 
     # Send welcome email only for the first brand the org creates
     if used == 0:

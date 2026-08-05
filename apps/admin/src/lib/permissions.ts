@@ -5,13 +5,17 @@
 export const PERMISSIONS = {
   "customers.view": "View customer list and detail",
   "customers.create": "Create a new customer dashboard login",
+  "customers.invite": "Email a customer a set-password / login link",
   "customers.edit": "Edit customer profile / workspace type",
   "customers.delete": "Delete customers (destructive)",
   "customers.impersonate": "Log in as a customer (destructive)",
   "infringements.delete": "Delete a single copycat infringement (destructive)",
   "brands.view": "View all brands across every org",
+  "brands.create": "Create a brand for a company",
   "brands.edit": "Edit any brand",
   "brands.delete": "Delete any brand",
+  "limits.view": "View a company's plan limits (brand cap)",
+  "limits.manage": "Set a company's plan limits — raise/lower caps (commercial concession)",
   "resources.view": "System metrics (CPU/RAM) and API usage",
   "scraper_health.view": "Per-platform scraper health (success rate, latency, failures)",
   "integrations.manage": "Meta token exchange and integration keys",
@@ -32,8 +36,8 @@ export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
-  dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view", "notification_log.view"],
-  sales: ["customers.view", "customers.create", "customers.edit", "brands.view", "leads.view", "leads.edit", "leads.confirm", "leads.delete"],
+  dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view", "notification_log.view", "limits.view"],
+  sales: ["customers.view", "customers.create", "customers.invite", "customers.edit", "brands.view", "brands.create", "limits.view", "leads.view", "leads.edit", "leads.confirm", "leads.delete"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(
     (p) => p !== "customers.delete" && p !== "customers.impersonate",

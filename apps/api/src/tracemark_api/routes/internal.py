@@ -233,6 +233,50 @@ def internal_send_password_reset(body: PasswordResetEmail, _ok: bool = Depends(v
     return {"success": True}
 
 
+class CustomerInviteEmail(BaseModel):
+    email: str
+    action_link: str
+    company_name: str | None = None
+
+
+@router.post("/customers/send-invite")
+def internal_send_customer_invite(body: CustomerInviteEmail, _ok: bool = Depends(verify_internal_secret)):
+    """Send a CUSTOMER their login-setup link via Resend.
+
+    The admin-api generates a Supabase recovery link (redirect → the customer app's
+    /auth/reset-password) and hands it here so delivery goes through our own Resend pipeline.
+    The link is a bearer credential, so — as with password_reset — we log the dispatch but
+    NEVER store body_html (it embeds the live link).
+    """
+    from tracemark_api.services.email import send_email
+    from tracemark_api.services.email_templates import _base, _btn
+
+    if not body.email or not body.action_link:
+        raise HTTPException(status_code=400, detail="Missing email or link")
+
+    company = (body.company_name or "").strip()
+    intro = (
+        f"You've been given access to {company} on HAKKIU."
+        if company
+        else "You've been given access to HAKKIU."
+    )
+    content = (
+        '<h2 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Set up your HAKKIU login</h2>'
+        f'<p style="margin:0 0 4px;color:#334155;font-size:14px;line-height:1.6;">{intro} '
+        "Click the button below to choose your password and sign in — this link expires in 1 hour.</p>"
+        f"{_btn('Set your password', body.action_link)}"
+        '<p style="margin:20px 0 0;color:#64748b;font-size:12px;line-height:1.6;">'
+        "If you weren't expecting this, you can ignore this email.</p>"
+    )
+    html = _base(content, preheader="Set up your HAKKIU login")
+    subject = "Set up your HAKKIU login"
+    ok = send_email(to=body.email, subject=subject, html=html)
+    _log_internal_delivery("customer_invite", ok=bool(ok), recipient=body.email, subject=subject)
+    if not ok:
+        raise HTTPException(status_code=502, detail="Email provider not configured or send failed")
+    return {"success": True}
+
+
 class DemoConfirmationEmail(BaseModel):
     email: str
     first_name: str | None = None

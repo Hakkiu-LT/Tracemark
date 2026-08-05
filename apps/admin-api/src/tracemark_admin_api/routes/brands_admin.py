@@ -32,6 +32,82 @@ class UpdateBrandRequest(BaseModel):
     logo_color: str | None = None
 
 
+class CreateBrandRequest(BaseModel):
+    organization_id: str
+    brand_name: str
+    website: str | None = None
+    registration_number: str | None = None
+    platforms: list[str] = []
+    target_regions: list[str] = []
+    official_domains: list[str] = []
+    official_advertisers: list[str] = []
+    logo_color: str | None = None
+
+
+@router.post("")
+def create_brand(
+    request: Request,
+    payload: CreateBrandRequest,
+    staff: StaffPrincipal = Depends(require_permission("brands.create")),
+):
+    """Create a brand for a company on the customer's behalf.
+
+    Goes through the SAME create_brand_checked RPC the customer app uses, so the per-org
+    brand cap is enforced atomically here too (staff cannot bypass it). The acting user_id
+    anchor is the company's first owner, or NULL when the company has no users yet.
+    """
+    if not payload.brand_name.strip():
+        raise HTTPException(status_code=400, detail="Brand name is required")
+
+    sb = customer_sb()
+    org = (
+        sb.table("organizations").select("id").eq("id", payload.organization_id)
+        .maybe_single().execute()
+    )
+    if not org or not org.data:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    owner = (
+        sb.table("organization_members").select("user_id")
+        .eq("organization_id", payload.organization_id).eq("role", "owner")
+        .limit(1).execute()
+    )
+    anchor_user_id = owner.data[0]["user_id"] if owner.data else None
+
+    try:
+        res = sb.rpc(
+            "create_brand_checked",
+            {
+                "p_organization_id": payload.organization_id,
+                "p_user_id": anchor_user_id,
+                "p_brand_name": payload.brand_name.strip(),
+                "p_website": payload.website,
+                "p_registration_number": payload.registration_number,
+                "p_platforms": payload.platforms,
+                "p_target_regions": payload.target_regions,
+                "p_logo_color": payload.logo_color,
+                "p_official_domains": payload.official_domains,
+                "p_official_advertisers": payload.official_advertisers,
+            },
+        ).execute()
+    except Exception as exc:  # noqa: BLE001
+        if "BRAND_LIMIT_REACHED" in str(exc):
+            raise HTTPException(status_code=403, detail="Brand limit reached for this company. Raise it under Plan & Limits first.")
+        raise HTTPException(status_code=400, detail=f"Could not create brand: {exc}")
+
+    created = res.data[0] if isinstance(res.data, list) else res.data
+    write_audit_log(
+        staff,
+        "brands.create",
+        target_type="brand",
+        target_id=(created or {}).get("id"),
+        target_org_id=payload.organization_id,
+        metadata={"brand_name": payload.brand_name, "organization_id": payload.organization_id},
+        ip=request.client.host if request.client else None,
+    )
+    return created
+
+
 @router.get("")
 def list_brands(staff: StaffPrincipal = Depends(require_permission("brands.view"))):
     """Every brand across every organization, newest first."""

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { ArrowLeft, Check, Loader2, Pencil, Plus, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Check, Loader2, Pencil, Plus, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { adminFetch } from "@/lib/api";
@@ -32,6 +32,7 @@ interface Member {
   full_name: string | null;
   org_role: string;
   is_staff?: boolean;
+  last_sign_in_at?: string | null;
 }
 interface OrgDetail {
   id: string;
@@ -57,7 +58,9 @@ export function OrganizationDetail() {
   const [brandEdit, setBrandEdit] = useState<OrgDetail["brands"][number] | null>(null);
   const [addingMember, setAddingMember] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
+  const [creatingBrand, setCreatingBrand] = useState(false);
   const [deletingMember, setDeletingMember] = useState<OrgDetail["members"][number] | null>(null);
+  const autoOpenedCreateUser = useRef(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["organization", orgId],
@@ -71,6 +74,17 @@ export function OrganizationDetail() {
   useEffect(() => {
     if (data?.name != null) setName(data.name);
   }, [data?.name]);
+
+  // A company with no users cannot be logged into. As soon as we land on a 0-member company
+  // (typically right after creating it), auto-open the Create-user dialog ONCE so onboarding
+  // flows straight from "create company" to "create its first login". Only once per mount —
+  // if staff close it deliberately it won't nag.
+  useEffect(() => {
+    if (data && data.members.length === 0 && !autoOpenedCreateUser.current) {
+      autoOpenedCreateUser.current = true;
+      setCreatingUser(true);
+    }
+  }, [data]);
 
   const saveName = useMutation({
     mutationFn: (newName: string) =>
@@ -122,6 +136,14 @@ export function OrganizationDetail() {
       toast.success("Removed from company");
       qc.invalidateQueries({ queryKey: ["organization", orgId] });
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Emails the customer a set-password ("login") link. Works for onboarding a new user or
+  // when a customer says "I can't log in". Backend sends only to the stored email.
+  const sendInvite = useMutation({
+    mutationFn: (userId: string) => adminFetch(`/customers/${userId}/send-invite`, { method: "POST" }),
+    onSuccess: () => toast.success("Login link emailed to the customer"),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -181,6 +203,20 @@ export function OrganizationDetail() {
           </div>
         </CardHeader>
         <CardContent>
+          {data.members.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border bg-muted/30 py-8 text-center">
+              <UserPlus className="h-8 w-8 text-muted-foreground" />
+              <div>
+                <p className="font-medium">This company has no logins yet</p>
+                <p className="text-sm text-muted-foreground">Nobody can sign in until you create the first user.</p>
+              </div>
+              <Can permission="customers.create">
+                <Button size="sm" onClick={() => setCreatingUser(true)}>
+                  <Plus className="h-4 w-4" /> Create first user
+                </Button>
+              </Can>
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -202,7 +238,12 @@ export function OrganizationDetail() {
                           {m.full_name || "—"}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{m.email}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {m.email}
+                        {!m.is_staff && !m.last_sign_in_at && (
+                          <Badge variant="outline" className="ml-2 text-[10px]">Never signed in</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Can permission="customers.edit" fallback={<Badge variant="outline" className="capitalize">{m.org_role}</Badge>}>
                           <Select
@@ -215,6 +256,19 @@ export function OrganizationDetail() {
                         </Can>
                       </TableCell>
                       <TableCell className="text-right">
+                        {!m.is_staff && (
+                          <Can permission="customers.invite">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => sendInvite.mutate(m.user_id)}
+                              disabled={sendInvite.isPending}
+                              title="Email this user a set-password / login link"
+                            >
+                              {sendInvite.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Send login link"}
+                            </Button>
+                          </Can>
+                        )}
                         <Can permission="customers.edit">
                           {m.is_staff ? (
                             <Button
@@ -247,6 +301,7 @@ export function OrganizationDetail() {
               })()}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -288,7 +343,14 @@ export function OrganizationDetail() {
       {/* Brands */}
       <Can permission="brands.view">
         <Card>
-          <CardHeader><CardTitle>Brands ({data.brands.length})</CardTitle></CardHeader>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle>Brands ({data.brands.length})</CardTitle>
+            <Can permission="brands.create">
+              <Button size="sm" onClick={() => setCreatingBrand(true)}>
+                <Plus className="h-4 w-4" /> Add brand
+              </Button>
+            </Can>
+          </CardHeader>
           <CardContent>
             {data.brands.length === 0 ? (
               <p className="text-sm text-muted-foreground">No brands.</p>
@@ -322,12 +384,28 @@ export function OrganizationDetail() {
         </Card>
       </Can>
 
+      {/* Plan & Limits */}
+      <Can permission="limits.view">
+        <LimitsCard orgId={orgId} />
+      </Can>
+
       {creatingUser && (
         <CreateUserDialog
           orgId={orgId}
           onClose={() => setCreatingUser(false)}
           onCreated={() => {
             setCreatingUser(false);
+            qc.invalidateQueries({ queryKey: ["organization", orgId] });
+          }}
+        />
+      )}
+
+      {creatingBrand && (
+        <BrandCreateDialog
+          orgId={orgId}
+          onClose={() => setCreatingBrand(false)}
+          onCreated={() => {
+            setCreatingBrand(false);
             qc.invalidateQueries({ queryKey: ["organization", orgId] });
           }}
         />
@@ -561,22 +639,29 @@ function CreateUserDialog({ orgId, onClose, onCreated }: { orgId: string; onClos
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  // Default to emailing the customer a set-password link — the recommended way to hand over
+  // a new login (no manual password to transmit). Staff can uncheck to set one directly.
+  const [sendInvite, setSendInvite] = useState(true);
 
   const create = useMutation({
     mutationFn: () => {
       const body: Record<string, unknown> = {
         email: email.trim(),
-        password,
         organization_id: orgId,
+        send_invite: sendInvite,
       };
+      if (!sendInvite) body.password = password;
       if (fullName.trim()) body.full_name = fullName.trim();
       return adminFetch("/customers", { method: "POST", body: JSON.stringify(body) });
     },
-    onSuccess: () => { toast.success("User login created in this company"); onCreated(); },
+    onSuccess: () => {
+      toast.success(sendInvite ? "User created — login link emailed" : "User login created in this company");
+      onCreated();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const canSubmit = email.trim().length > 3 && password.length >= 8;
+  const canSubmit = email.trim().length > 3 && (sendInvite || password.length >= 8);
 
   return (
     <Dialog
@@ -597,10 +682,16 @@ function CreateUserDialog({ orgId, onClose, onCreated }: { orgId: string; onClos
         <Label>Email</Label>
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@example.com" />
       </div>
-      <div className="space-y-1.5">
-        <Label>Password <span className="text-xs text-muted-foreground">(min 8 characters)</span></Label>
-        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={sendInvite} onChange={(e) => setSendInvite(e.target.checked)} />
+        Email the customer a set-password link (recommended)
+      </label>
+      {!sendInvite && (
+        <div className="space-y-1.5">
+          <Label>Password <span className="text-xs text-muted-foreground">(min 8 characters)</span></Label>
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label>Full name <span className="text-xs text-muted-foreground">(optional)</span></Label>
         <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="—" />
@@ -737,5 +828,168 @@ function AddMemberDialog({
         </Select>
       </div>
     </Dialog>
+  );
+}
+
+// Creates a brand for this company on the customer's behalf. Mirrors the fields the customer
+// sees when THEY add a brand; the rest (domains, advertisers, logos) are editable afterwards.
+function BrandCreateDialog({ orgId, onClose, onCreated }: { orgId: string; onClose: () => void; onCreated: () => void }) {
+  const [brandName, setBrandName] = useState("");
+  const [website, setWebsite] = useState("");
+  const [reg, setReg] = useState("");
+  const [platforms, setPlatforms] = useState("");
+  const [targetRegions, setTargetRegions] = useState("");
+
+  const create = useMutation({
+    mutationFn: () => {
+      const body: Record<string, unknown> = {
+        organization_id: orgId,
+        brand_name: brandName.trim(),
+      };
+      if (website.trim()) body.website = website.trim();
+      if (reg.trim()) body.registration_number = reg.trim();
+      if (fromLines(platforms).length) body.platforms = fromLines(platforms);
+      if (fromLines(targetRegions).length) body.target_regions = fromLines(targetRegions);
+      return adminFetch("/brands", { method: "POST", body: JSON.stringify(body) });
+    },
+    onSuccess: () => { toast.success("Brand created for this company"); onCreated(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const canSubmit = brandName.trim().length > 0;
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Add brand"
+      description="Creates a monitored brand for this company. You can add logos, domains and advertisers after."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => create.mutate()} disabled={create.isPending || !canSubmit}>
+            {create.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Create brand
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-1.5"><Label>Brand name</Label><Input value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="Acme" /></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5"><Label>Website <span className="text-xs text-muted-foreground">(optional)</span></Label><Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://acme.com" /></div>
+        <div className="space-y-1.5"><Label>Registration # <span className="text-xs text-muted-foreground">(optional)</span></Label><Input value={reg} onChange={(e) => setReg(e.target.value)} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Platforms <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+          <textarea value={platforms} onChange={(e) => setPlatforms(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" placeholder="amazon&#10;ebay&#10;aliexpress" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Target regions <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+          <textarea value={targetRegions} onChange={(e) => setTargetRegions(e.target.value)} className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" placeholder="US&#10;EU&#10;GB" />
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+interface OrgLimits {
+  organization_id: string;
+  brands_limit: number | null; // null = unlimited
+  brands_used: number;
+  note: string | null;
+}
+
+// "Plan & Limits" — a company's brand cap + usage. Anyone with limits.view sees it; only
+// limits.manage (admin/super-admin) can change the cap (raising it is a commercial concession).
+function LimitsCard({ orgId }: { orgId: string }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [unlimited, setUnlimited] = useState(true);
+  const [cap, setCap] = useState("");
+  const [note, setNote] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["org-limits", orgId],
+    queryFn: () => adminFetch<OrgLimits>(`/organizations/${orgId}/limits`),
+  });
+
+  useEffect(() => {
+    if (!data) return;
+    setUnlimited(data.brands_limit == null);
+    setCap(data.brands_limit == null ? "" : String(data.brands_limit));
+    setNote(data.note ?? "");
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      adminFetch(`/organizations/${orgId}/limits`, {
+        method: "PUT",
+        body: JSON.stringify({
+          brands_limit: unlimited ? null : Math.max(0, parseInt(cap || "0", 10)),
+          note: note.trim() || null,
+        }),
+      }),
+    onSuccess: () => {
+      toast.success("Limits updated");
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ["org-limits", orgId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Plan &amp; Limits</CardTitle>
+        {!editing && (
+          <Can permission="limits.manage">
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+              <Pencil className="h-4 w-4" /> Edit limits
+            </Button>
+          </Can>
+        )}
+      </CardHeader>
+      <CardContent>
+        {isLoading || !data ? (
+          <Skeleton className="h-10 w-full" />
+        ) : !editing ? (
+          <div className="flex items-center gap-6 text-sm">
+            <div>
+              <div className="text-xs text-muted-foreground">Brands</div>
+              <div className="font-medium tabular-nums">
+                {data.brands_used} / {data.brands_limit == null ? "∞ (unlimited)" : data.brands_limit}
+              </div>
+            </div>
+            {data.note && <div className="text-muted-foreground">{data.note}</div>}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={unlimited} onChange={(e) => setUnlimited(e.target.checked)} />
+              Unlimited brands
+            </label>
+            {!unlimited && (
+              <div className="space-y-1.5">
+                <Label>Brand cap</Label>
+                <Input type="number" min={0} value={cap} onChange={(e) => setCap(e.target.value)} className="w-32" />
+                {data.brands_used > 0 && (
+                  <p className="text-xs text-muted-foreground">This company already has {data.brands_used} brand(s).</p>
+                )}
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label>Note <span className="text-xs text-muted-foreground">(why this limit)</span></Label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Enterprise deal — 20 brands" />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
+                {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

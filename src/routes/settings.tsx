@@ -93,6 +93,13 @@ export function SettingsPage() {
 
   const handleSaveProfile = async () => {
     if (!user) return;
+    // notification_email is now nullable at the DB level (owner-less companies created by
+    // staff have no recipient yet). Keep a client-side guard so a real customer can't blank
+    // out the address that breach alerts are sent to.
+    if (!emailVal.trim()) {
+      toast.error("Notification email can't be empty.");
+      return;
+    }
     const { supabase } = await import("@/lib/supabase");
     if (!supabase) return;
     setSavingProfile(true);

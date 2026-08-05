@@ -1,5 +1,8 @@
-"""Tests for the brands CRUD endpoints. Any logged-in user has full, unlimited
-access — there are no plan limits, so creating a brand always succeeds."""
+"""Tests for the brands CRUD endpoints.
+
+Brand creation goes through the create_brand_checked RPC (atomic, limit-enforced in the DB).
+Here we mock the RPC: a normal call returns the created row; a call that raises
+BRAND_LIMIT_REACHED must surface as HTTP 403."""
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,15 +29,16 @@ def _cleanup():
 
 
 def _mock_sb_with_count(count: int):
-    """get_supabase whose brands count(exact) select returns `count`."""
+    """get_supabase whose brands count(exact) select returns `count`, and whose
+    create_brand_checked RPC returns a created row."""
     sb = MagicMock()
     exec_mock = sb.table.return_value.select.return_value.eq.return_value.execute
     exec_mock.return_value.count = count
     exec_mock.return_value.data = [{"id": f"b{i}"} for i in range(count)]
-    # insert path returns a created row
-    sb.table.return_value.insert.return_value.execute.return_value.data = [
-        {"id": "new-brand", "brand_name": "Acme", "status": "active"}
-    ]
+    # RPC path returns the created row (create_brand_checked RETURNS public.brands)
+    sb.rpc.return_value.execute.return_value.data = {
+        "id": "new-brand", "brand_name": "Acme", "status": "active",
+    }
     return sb
 
 
@@ -54,3 +58,16 @@ def test_create_first_brand():
         resp = client.post("/api/v1/brands", json={"brand_name": "Acme"})
     assert resp.status_code == 200
     assert resp.json()["id"] == "new-brand"
+
+
+def test_create_brand_over_limit_returns_403():
+    """When the RPC raises BRAND_LIMIT_REACHED, the endpoint must return HTTP 403."""
+    _use_profile()
+    sb = _mock_sb_with_count(5)
+    sb.rpc.return_value.execute.side_effect = Exception(
+        "BRAND_LIMIT_REACHED: 5 of 5 brands used"
+    )
+    with patch("tracemark_api.routes.brands.get_supabase", return_value=sb):
+        resp = client.post("/api/v1/brands", json={"brand_name": "Acme"})
+    assert resp.status_code == 403
+    assert "limit" in resp.json()["detail"].lower()

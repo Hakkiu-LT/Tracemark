@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from tracemark_admin_api.clients import admin_sb, customer_sb
 from tracemark_admin_api.dependencies import StaffPrincipal, require_permission
 from tracemark_admin_api.services.audit import write_audit_log
+from tracemark_admin_api.services.auth_users import users_for_ids
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
@@ -24,11 +25,6 @@ router = APIRouter(prefix="/organizations", tags=["organizations"])
 def _staff_ids() -> set[str]:
     rows = admin_sb().table("staff_accounts").select("id").execute().data or []
     return {r["id"] for r in rows}
-
-
-def _email_map() -> dict[str, str]:
-    users = customer_sb().auth.admin.list_users()
-    return {u.id: (u.email or "") for u in users}
 
 
 def _count(table: str, column: str, value: str) -> int:
@@ -57,6 +53,7 @@ class Member(BaseModel):
     org_role: str
     home_organization_id: str | None = None
     is_staff: bool = False  # a staff/super-admin login attached to this company
+    last_sign_in_at: str | None = None  # None = never signed in (invited but not activated)
 
 
 class OrgDetail(OrgRow):
@@ -70,13 +67,16 @@ class UpdateOrgRequest(BaseModel):
 
 
 class CreateOrgRequest(BaseModel):
-    """Create a new customer company organization. Owner login is optional."""
+    """Create a new customer company organization (company only).
+
+    Deliberately does NOT create or attach an owner login — that conflated two concerns and
+    caused org-hijacking + accidental auto-assignment. Add users afterwards on the company
+    detail page (Create user / Add existing), which routes through the correct customer-create
+    path with its own duplicate/orphan handling.
+    """
     name: str
     industry: str | None = None
     persona: str = "brand_owner"  # "brand_owner" | "law_firm"
-    owner_email: str | None = None
-    owner_password: str = ""
-    owner_full_name: str | None = None
 
 
 class AddMemberRequest(BaseModel):
@@ -88,13 +88,25 @@ class UpdateMemberRequest(BaseModel):
     role: str
 
 
+class LimitsResponse(BaseModel):
+    organization_id: str
+    brands_limit: int | None  # None = unlimited
+    brands_used: int
+    note: str | None = None
+
+
+class UpdateLimitsRequest(BaseModel):
+    brands_limit: int | None = None  # None or negative = unlimited
+    note: str | None = None
+
+
 # ── list ──────────────────────────────────────────────────────────────────────
 @router.get("", response_model=list[OrgRow])
 def list_organizations(staff: StaffPrincipal = Depends(require_permission("customers.view"))):
     sb = customer_sb()
     staff_ids = _staff_ids()
 
-    orgs = sb.table("organizations").select("id, name, industry").limit(1000).execute().data or []
+    orgs = sb.table("organizations").select("id, name, industry, is_personal").limit(1000).execute().data or []
     members = sb.table("organization_members").select("organization_id, user_id").limit(5000).execute().data or []
     org_settings = sb.table("org_settings").select("organization_id, persona").limit(1000).execute().data or []
     brands = sb.table("brands").select("organization_id").limit(5000).execute().data or []
@@ -114,16 +126,13 @@ def list_organizations(staff: StaffPrincipal = Depends(require_permission("custo
         if o["id"] in staff_ids or o["id"] == HAKKIU_ORG_ID:
             continue  # skip staff personal orgs & internal Hakkiu org
 
+        # Hide auto-generated personal/home orgs (deterministic flag set by handle_new_user;
+        # replaces the old fragile domain-name string heuristic that leaked .co.uk / subdomains).
+        if o.get("is_personal"):
+            continue
+
         m_count = members_by_org.get(o["id"], 0)
         b_count = brands_by_org.get(o["id"], 0)
-        ind = o.get("industry")
-        name = (o.get("name") or "").strip()
-
-        # Skip default solo personal orgs (auto-generated at signup like gmail.com / example.com
-        # with 0 brands, no industry, and 1 or 0 members)
-        is_domain_name = ("." in name and " " not in name and len(name.split(".")) == 2)
-        if m_count <= 1 and b_count == 0 and not ind and (is_domain_name or not name):
-            continue
 
         out.append(
             OrgRow(
@@ -146,86 +155,39 @@ def create_organization(
     payload: CreateOrgRequest,
     staff: StaffPrincipal = Depends(require_permission("customers.create")),
 ):
-    """Create a new customer company. Owner login is optional."""
+    """Create a new EMPTY customer company (no owner login).
+
+    Always mints a fresh org id — it is never derived from an existing user's home org, so a
+    returning customer's email can no longer hijack/rename their existing org. Users are added
+    afterwards on the company detail page.
+    """
     if payload.persona not in ("brand_owner", "law_firm"):
         raise HTTPException(status_code=400, detail="persona must be brand_owner or law_firm")
     if not payload.name.strip():
         raise HTTPException(status_code=400, detail="Company name is required")
 
     sb = customer_sb()
-    owner_email = (payload.owner_email or "").strip()
+    org_id = str(uuid.uuid4())
 
-    if owner_email:
-        if payload.owner_password and len(payload.owner_password) < 8:
-            raise HTTPException(status_code=400, detail="Owner password must be at least 8 characters")
+    sb.table("organizations").insert(
+        {
+            "id": org_id,
+            "name": payload.name.strip(),
+            "industry": payload.industry,
+            "is_personal": False,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).execute()
 
-        owner_id = None
-        try:
-            created = sb.auth.admin.create_user(
-                {"email": owner_email, "password": payload.owner_password, "email_confirm": True}
-            )
-            owner_id = created.user.id
-        except Exception as exc:  # noqa: BLE001
-            users = sb.auth.admin.list_users()
-            match = next((u for u in users if u.email and u.email.lower() == owner_email.lower()), None)
-            if match:
-                owner_id = match.id
-            else:
-                raise HTTPException(status_code=400, detail=f"Could not create owner login: {exc}")
-
-        prof_res = sb.table("profiles").select("organization_id, home_organization_id").eq("id", owner_id).maybe_single().execute()
-        prof_data = prof_res.data if prof_res else None
-        org_id = (prof_data or {}).get("home_organization_id") or (prof_data or {}).get("organization_id") or owner_id
-
-        sb.table("organizations").upsert(
-            {
-                "id": org_id,
-                "name": payload.name.strip(),
-                "industry": payload.industry,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            },
-            on_conflict="id",
-        ).execute()
-
-        if payload.owner_full_name:
-            sb.table("profiles").update({"full_name": payload.owner_full_name}).eq("id", owner_id).execute()
-
-        sb.table("organization_members").upsert(
-            {
-                "organization_id": org_id,
-                "user_id": owner_id,
-                "role": "owner",
-            },
-            on_conflict="organization_id, user_id",
-        ).execute()
-
-        sb.table("org_settings").upsert(
-            {
-                "organization_id": org_id,
-                "notification_email": owner_email,
-                "persona": payload.persona,
-            },
-            on_conflict="organization_id",
-        ).execute()
-    else:
-        # Create standalone company without requiring an immediate owner user
-        org_id = str(uuid.uuid4())
-        sb.table("organizations").insert(
-            {
-                "id": org_id,
-                "name": payload.name.strip(),
-                "industry": payload.industry,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        ).execute()
-
-        sb.table("org_settings").insert(
-            {
-                "organization_id": org_id,
-                "notification_email": f"org-{org_id[:8]}@internal.hakkiu.com",
-                "persona": payload.persona,
-            }
-        ).execute()
+    # notification_email is nullable now — an owner-less company has no recipient until a
+    # user is added; the notification pipeline treats null as "no recipient".
+    sb.table("org_settings").insert(
+        {
+            "organization_id": org_id,
+            "notification_email": None,
+            "persona": payload.persona,
+        }
+    ).execute()
 
     write_audit_log(
         staff,
@@ -237,7 +199,6 @@ def create_organization(
             "name": payload.name,
             "industry": payload.industry,
             "persona": payload.persona,
-            "owner_email": owner_email or None,
         },
         ip=request.client.host if request.client else None,
     )
@@ -256,23 +217,26 @@ def _org_or_404(org_id: str) -> dict:
 def get_organization(org_id: str, staff: StaffPrincipal = Depends(require_permission("customers.view"))):
     sb = customer_sb()
     org = _org_or_404(org_id)
-    emails = _email_map()
 
     membership = (
         sb.table("organization_members").select("user_id, role").eq("organization_id", org_id).execute().data
         or []
     )
+    # Resolve emails/status only for THIS org's members (targeted get_user_by_id), not by
+    # listing every auth user — keeps org-detail O(members), not O(all users).
+    users = users_for_ids(sb, [m["user_id"] for m in membership])
     staff_ids = _staff_ids()
     prof_rows = sb.table("profiles").select("id, full_name, home_organization_id").execute().data or []
     prof_by_id = {p["id"]: p for p in prof_rows}
     members = [
         Member(
             user_id=m["user_id"],
-            email=emails.get(m["user_id"], "unknown@example.com"),
+            email=(users.get(m["user_id"]) or {}).get("email") or "unknown@example.com",
             full_name=(prof_by_id.get(m["user_id"]) or {}).get("full_name"),
             org_role=m.get("role", "member"),
             home_organization_id=(prof_by_id.get(m["user_id"]) or {}).get("home_organization_id"),
             is_staff=m["user_id"] in staff_ids,
+            last_sign_in_at=(users.get(m["user_id"]) or {}).get("last_sign_in_at"),
         )
         for m in membership
     ]
@@ -413,4 +377,65 @@ def remove_member(
         ip=request.client.host if request.client else None,
     )
     return {"success": True}
+
+
+# ── limits / entitlements ───────────────────────────────────────────────────────
+def _brand_count(org_id: str) -> int:
+    res = customer_sb().table("brands").select("id", count="exact").eq("organization_id", org_id).execute()
+    return res.count or 0
+
+
+@router.get("/{org_id}/limits", response_model=LimitsResponse)
+def get_org_limits(org_id: str, staff: StaffPrincipal = Depends(require_permission("limits.view"))):
+    """A company's brand cap (from org_entitlement_overrides) + current usage."""
+    _org_or_404(org_id)
+    row = (
+        customer_sb().table("org_entitlement_overrides")
+        .select("brands_limit, note").eq("organization_id", org_id).maybe_single().execute()
+    )
+    data = row.data if row else None
+    raw = (data or {}).get("brands_limit")
+    return LimitsResponse(
+        organization_id=org_id,
+        brands_limit=None if raw in (None, -1) else raw,  # None/-1 = unlimited
+        brands_used=_brand_count(org_id),
+        note=(data or {}).get("note"),
+    )
+
+
+@router.put("/{org_id}/limits", response_model=LimitsResponse)
+def set_org_limits(
+    org_id: str,
+    request: Request,
+    payload: UpdateLimitsRequest,
+    staff: StaffPrincipal = Depends(require_permission("limits.manage")),
+):
+    """Set a company's brand cap. Raising/lowering a cap is a commercial concession —
+    gated by limits.manage (admin/super-admin only) and audit-logged."""
+    _org_or_404(org_id)
+    sb = customer_sb()
+    before = (
+        sb.table("org_entitlement_overrides").select("*").eq("organization_id", org_id)
+        .maybe_single().execute()
+    )
+    # Normalise: None = unlimited (no cap); any negative collapses to -1 (unlimited sentinel).
+    limit = payload.brands_limit
+    if limit is not None and limit < 0:
+        limit = -1
+    sb.table("org_entitlement_overrides").upsert(
+        {
+            "organization_id": org_id,
+            "brands_limit": limit,
+            "note": payload.note,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+        on_conflict="organization_id",
+    ).execute()
+    write_audit_log(
+        staff, "limits.update", target_type="organization", target_id=org_id,
+        target_org_id=org_id,
+        metadata={"before": (before.data if before else None), "brands_limit": limit, "note": payload.note},
+        ip=request.client.host if request.client else None,
+    )
+    return get_org_limits(org_id, staff)
 

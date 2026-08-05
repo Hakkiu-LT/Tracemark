@@ -194,6 +194,14 @@ The unused `subscriptions` / `subscription_addons` / `invoices` / `org_entitleme
 + its protection trigger are intentionally kept (trigger also guards `is_admin`; the column is
 still returned by `GET /me`).
 
+> **Session 51 (2026-08-05) — minimal per-org brand LIMIT re-introduced (NOT Stripe).** Staff can set a
+> per-company brand cap in the admin portal ("Plan & Limits" card). New migration
+> `20260805000002_entitlements_and_brand_rpc.sql` recreates a MINIMAL `org_entitlement_overrides`
+> (`organization_id` + `brands_limit` + `note`) and a SECURITY-DEFINER `create_brand_checked` RPC
+> (advisory-lock + count + insert) that BOTH the customer API and admin API call — so the cap is
+> enforced atomically and can't be bypassed. `limits.view` (dev+sales+admin) / `limits.manage`
+> (admin/super-admin ONLY). No Stripe, no plan tiers — just a manual staff-set cap. ⏳ migration pending prod push.
+
 ---
 
 ## 8. Law Firm & Multi-Client Mode
@@ -240,8 +248,8 @@ still returned by `GET /me`).
 ### Backend
 - **User Organization & Groups Schema Migration** | ✅ Done | `organizations` + `organization_members` (roles owner/admin/member) migration `20260720000014`; safe backfill preserving the billing anchor (org.id = user id for single-member); `handle_new_user` creates org + owner membership on signup.
 - **Organization-Scoped API Routing** | ⚠️ Partial | Entitlements/billing anchor on `organization_id` (unchanged). Member management exposed via **admin portal** (`/organizations/{id}/members`). Customer-app org-scoped middleware not reworked.
-- **Admin: Create company + owner login** | ✅ Done | `POST /organizations` (admin-api, perm `customers.create`) creates the owner auth user (trigger builds org+profile+owner-membership), brands the org (name/industry), sets persona/notification_email via `org_settings`, audit-logged. UI: "New company" dialog on Companies page + "Create user" dialog inside a company (session 18, 2026-07-28). Verified E2E against live DB with cleanup.
-- **Member Invitation API & SMTP Invites** | ❌ Missing | (Fazė F) Customer-side invite endpoints + activation tokens + SMTP. Staff can add members from admin today.
+- **Admin: Create company (company-only)** | ✅ Done (reworked session 51) | `POST /organizations` now creates an EMPTY company (always a fresh uuid4 — no longer derived from an owner's home org, which caused hijacking/auto-assign). Owner fields removed from the create dialog; users are added on the detail page (auto-opens Create-user on a 0-member company). Also added `is_personal` flag to deterministically hide auto-generated personal orgs from the list. Audit-logged.
+- **Member Invitation API & SMTP Invites** | ✅ Done (session 51) | `POST /customers/{id}/send-invite` (perm `customers.invite`, critical audit, sends to STORED email) mints a Supabase **recovery** link → customer app `/auth/reset-password` (new route, `updateUser({password})`) and delivers via main-api `/internal/customers/send-invite` (Resend). Create-user supports passwordless + auto-invite; "Never signed in" badge + "Send login link" buttons in admin. ⏳ pending prod migration + deploy.
 
 ### Frontend
 - **Organization Switcher & Settings Panel** | ❌ Missing | (Fazė F) Customer-app tenant switcher + org settings.

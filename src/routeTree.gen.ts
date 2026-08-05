@@ -39,6 +39,7 @@ import { Route as LegacyLoginRouteImport } from './routes/legacy/login'
 import { Route as CasesCaseIdRouteImport } from './routes/cases.$caseId'
 import { Route as AuthSignUpRouteImport } from './routes/auth.sign-up'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as MonitoringCaseIdTakedownRouteImport } from './routes/monitoring.$caseId.takedown'
 import { Route as CasesCaseIdTakedownRouteImport } from './routes/cases.$caseId.takedown'
@@ -193,6 +194,11 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
   path: '/auth/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/auth/reset-password',
+  path: '/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/request-demo': typeof RequestDemoRoute
   '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
@@ -256,6 +263,7 @@ export interface FileRoutesByTo {
   '/request-demo': typeof RequestDemoRoute
   '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
@@ -292,6 +300,7 @@ export interface FileRoutesById {
   '/request-demo': typeof RequestDemoRoute
   '/settings': typeof SettingsRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/cases/$caseId': typeof CasesCaseIdRouteWithChildren
@@ -329,6 +338,7 @@ export interface FileRouteTypes {
     | '/request-demo'
     | '/settings'
     | '/auth/callback'
+    | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
@@ -364,6 +374,7 @@ export interface FileRouteTypes {
     | '/request-demo'
     | '/settings'
     | '/auth/callback'
+    | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
@@ -399,6 +410,7 @@ export interface FileRouteTypes {
     | '/request-demo'
     | '/settings'
     | '/auth/callback'
+    | '/auth/reset-password'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/cases/$caseId'
@@ -435,6 +447,7 @@ export interface RootRouteChildren {
   RequestDemoRoute: typeof RequestDemoRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
   LegacyLoginRoute: typeof LegacyLoginRoute
@@ -663,6 +676,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/auth/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
@@ -763,6 +783,7 @@ const rootRouteChildren: RootRouteChildren = {
   RequestDemoRoute: RequestDemoRoute,
   SettingsRoute: SettingsRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
   LegacyLoginRoute: LegacyLoginRoute,

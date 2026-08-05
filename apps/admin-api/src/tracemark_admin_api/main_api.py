@@ -67,6 +67,15 @@ def send_password_reset_email(email: str, reset_link: str) -> Any:
     )
 
 
+def send_customer_invite(email: str, action_link: str, company_name: str | None = None) -> Any:
+    """Deliver a customer login-setup link through the main API's Resend pipeline."""
+    return _request(
+        "POST",
+        "/internal/customers/send-invite",
+        json={"email": email, "action_link": action_link, "company_name": company_name},
+    )
+
+
 def send_demo_confirmation(
     *,
     email: str,
