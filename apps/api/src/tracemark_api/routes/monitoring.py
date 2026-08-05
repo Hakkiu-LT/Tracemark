@@ -456,10 +456,10 @@ def update_takedown_report_endpoint(
 
 
 class TestEmailRequest(BaseModel):
-    # Kept for backward compatibility but IGNORED — the recipient is always the
-    # authenticated caller's own verified email (see below). This prevents the
-    # endpoint from being abused as an open relay to send HAKKIU-branded mail to
-    # arbitrary addresses.
+    # The recipient to send the test alert to. This lets the user verify the
+    # ACTUAL Alert Email Address they configured (which may differ from their
+    # login email). Falls back to the caller's own account email when omitted.
+    # Abuse is bounded by auth (get_current_user) + a 3/hour rate limit.
     email: EmailStr | None = None
 
 
@@ -471,15 +471,16 @@ def test_email_notification_endpoint(
     current_user=Depends(get_current_user),
 ):
     """
-    Fire a test email to the CALLER'S OWN verified address to check connectivity.
-    The request body's ``email`` is ignored — we never send to an arbitrary
-    recipient (open-relay / phishing prevention).
+    Fire a test email to the Alert Email Address supplied in the request body so
+    the user can confirm alerts reach that inbox. Falls back to the caller's own
+    verified account email when no address is provided. Authenticated and
+    rate-limited (3/hour) to bound abuse.
     """
-    recipient = (current_user.email or "").strip()
+    recipient = (payload.email or current_user.email or "").strip()
     if not recipient:
         raise HTTPException(
             status_code=400,
-            detail="Your account has no verified email address to send the test to.",
+            detail="No email address to send the test to. Enter an Alert Email Address first.",
         )
     try:
         from tracemark_api.services.notifications import send_email_notification

@@ -177,11 +177,14 @@ export function sendTakedownEmail(
 }
 
 export function testEmailNotification(
-  email: string,
+  email?: string,
 ): Promise<{ success: boolean; message: string }> {
+  // Omit the email entirely when blank so the backend falls back to the
+  // caller's account address instead of rejecting an empty string (EmailStr).
+  const body = email && email.trim() ? { email: email.trim() } : {};
   return apiFetch<{ success: boolean; message: string }>("/monitoring/notifications/test/email", {
     method: "POST",
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(body),
   });
 }
 
