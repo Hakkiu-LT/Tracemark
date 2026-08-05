@@ -17,6 +17,7 @@ import {
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { CompanySwitcher } from "@/components/company-switcher";
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -66,6 +67,9 @@ export function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent>
+        <div className={cn("pt-2", collapsed && "flex justify-center")}>
+          <CompanySwitcher collapsed={collapsed} />
+        </div>
         <SidebarGroup>
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>

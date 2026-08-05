@@ -14,6 +14,7 @@ export const PERMISSIONS = {
   "brands.create": "Create a brand for a company",
   "brands.edit": "Edit any brand",
   "brands.delete": "Delete any brand",
+  "organizations.set_active": "Set which company a customer is actively viewing (support fix for multi-company users)",
   "limits.view": "View a company's plan limits (brand cap)",
   "limits.manage": "Set a company's plan limits — raise/lower caps (commercial concession)",
   "resources.view": "System metrics (CPU/RAM) and API usage",
@@ -37,7 +38,7 @@ export type Role = "dev" | "sales" | "marketing" | "admin";
 
 export const ROLE_PRESETS: Record<Role, Permission[]> = {
   dev: ["resources.view", "scraper_health.view", "integrations.manage", "brands.view", "customers.view", "audit.view", "notification_log.view", "limits.view"],
-  sales: ["customers.view", "customers.create", "customers.invite", "customers.edit", "brands.view", "brands.create", "limits.view", "leads.view", "leads.edit", "leads.confirm", "leads.delete"],
+  sales: ["customers.view", "customers.create", "customers.invite", "customers.edit", "organizations.set_active", "brands.view", "brands.create", "limits.view", "leads.view", "leads.edit", "leads.confirm", "leads.delete"],
   marketing: ["customers.view", "brands.view", "resources.view"],
   admin: ALL_PERMISSIONS.filter(
     (p) => p !== "customers.delete" && p !== "customers.impersonate",

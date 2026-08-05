@@ -1,5 +1,42 @@
 # HAKKIU — Active Plan
 
+> **Session 55 (2026-08-06) — Multi-company org switcher + admin "Add brand" full parity + staff "Set active company".**
+> Goal (LT): "brands turi atsidurti monitoring… tas pats turi būti ar add asset ar create brand… tas pats laukas db… iš skirtingų vietų sukurt galima." → Add-asset and Add-brand must be the SAME thing, and brands must show in monitoring wherever created.
+>
+> **Real root cause (found via Supabase, not the form):** the DB was ALREADY unified — both
+> customer "Add asset" (`POST /brands`) and admin "Add brand" write the same `brands` row via the
+> same `create_brand_checked` RPC. The mismatch (customer saw `test`/`hakkiu`, admin showed
+> `w`/`asdasdassd`) was **org resolution**: the customer API scopes everything by a SINGLE column
+> `profiles.organization_id`, and the test login belongs to MULTIPLE orgs (personal + shared
+> "Hakkiu" `13e16dab` + the all-zeros staff sentinel org). There was no way to choose which org is
+> active, so brands added to a different company never appeared in monitoring. Also a brand had
+> leaked into the `00000000-…` staff sentinel org (a staff account created it via the customer app).
+>
+> **What shipped (Session 55):**
+> - **Org switcher (customer app).** New main-API route `routes/organizations.py`:
+>   `GET /organizations/mine` (companies the caller belongs to, excludes the staff sentinel org, flags
+>   the active one) + `POST /organizations/switch` (re-checks membership server-side, repoints
+>   `profiles.organization_id`). `src/components/company-switcher.tsx` mounted in the sidebar — shows
+>   only for users in ≥2 companies; on switch it wipes org-scoped local state (`resetOrgScopedData`)
+>   and hard-reloads so every page refetches for the new org. `api.ts` gains `getMyOrganizations` /
+>   `switchOrganization`.
+> - **Admin "Add brand" full parity.** `apps/admin/.../OrganizationDetail.tsx` `BrandCreateDialog`
+>   now collects official domains, official advertisers, logo and product image — matching the
+>   customer "Add asset" form field-for-field; photos upload after create via the existing admin
+>   `POST /brands/{id}/assets` (which proxies to the main API's internal upload → same `brand_assets`).
+> - **Staff "Set active company" (admin parity for the switch).** New permission
+>   `organizations.set_active` (permissions.py + permissions.ts, granted to sales+admin); admin-api
+>   `POST /organizations/{org_id}/members/{user_id}/set-active` repoints a customer's active org
+>   (audit-logged); "Set active" button in the company Users table. This is the support-side twin of
+>   the customer switcher for "I added a brand but can't see it".
+>
+> **Verified:** main-API + admin-API import clean; both frontends `tsc --noEmit` pass;
+> `scripts/check-admin-parity.sh` → 0 new violations. **Data cleanup (duplicate/junk test orgs, the
+> sentinel-org brand) deliberately NOT done** — the switcher + Set-active make it unnecessary for
+> visibility; destructive prod deletes would need explicit sign-off.
+
+---
+
 > **Session 54 (2026-08-05) — Admin-created brands now show in customer Monitoring + scans clamped to plan.**
 > Goal: "kai pridedu branda per admin kodel jo nerodo prie monitoring; ir monitorint turi pagal
 > limitus tik tokiose regionuose ir marketplacuose kur parinkta."

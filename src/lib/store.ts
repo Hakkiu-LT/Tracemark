@@ -125,6 +125,10 @@ interface State {
   setScanResult: (caseId: string, result: CheckBrandResponse) => void;
   addInfringement: (i: Omit<Infringement, "id" | "detectedAt">) => void;
   removeInfringement: (id: string) => void;
+  /** Wipe all org-scoped local data before switching to another company, so the previous
+   *  org's marks/cases/scan results can't bleed into the new org. The monitoring page then
+   *  repopulates from the server (syncServerBrands) for the newly-active org. */
+  resetOrgScopedData: () => void;
 }
 
 export const useStore = create<State>()(
@@ -256,6 +260,7 @@ export const useStore = create<State>()(
         set((s) => ({
           infringements: s.infringements.filter((i) => i.id !== id),
         })),
+      resetOrgScopedData: () => set({ marks: [], infringements: [], scanResults: {} }),
     }),
     {
       name: "tracemark-store-v8",

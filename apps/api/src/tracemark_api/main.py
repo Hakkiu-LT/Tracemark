@@ -21,6 +21,7 @@ from tracemark_api.routes.infringements import router as infringements_router
 from tracemark_api.routes.internal import router as internal_router
 from tracemark_api.routes.leads import router as leads_router
 from tracemark_api.routes.monitoring import router as monitoring_router
+from tracemark_api.routes.organizations import router as organizations_router
 from tracemark_api.routes.slack_interactions import router as slack_interactions_router
 from tracemark_api.routes.support import router as support_router
 from tracemark_api.routes.usage import router as usage_router
@@ -52,6 +53,7 @@ app.include_router(infringements_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 app.include_router(clients_router, prefix="/api/v1")
 app.include_router(brands_router, prefix="/api/v1")
+app.include_router(organizations_router, prefix="/api/v1")
 app.include_router(internal_router, prefix="/api/v1")
 app.include_router(usage_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")

@@ -9,6 +9,27 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Multi-company org switcher + admin "Add brand" parity + staff "Set active" (Session 55, 2026-08-06) — CODE BUILT + verified; deploy pending
+
+Follow-up to Session 54. That made the brand list server-authoritative, but the deeper cause was
+**org resolution**: the customer API scopes by one column `profiles.organization_id`, and a user in
+multiple orgs (personal + shared "Hakkiu" + all-zeros staff sentinel) had no way to pick which
+company is active — so brands added to a different company never showed in monitoring.
+
+Shipped:
+- [x] Main API `routes/organizations.py`: `GET /organizations/mine` + `POST /organizations/switch`
+  (membership re-checked server-side; excludes the staff sentinel org); registered in `main.py`.
+- [x] Customer `src/components/company-switcher.tsx` in the sidebar (shows only for ≥2 companies);
+  `api.ts` `getMyOrganizations`/`switchOrganization`; `store.ts` `resetOrgScopedData` + reload on switch.
+- [x] Admin `BrandCreateDialog` full parity: official domains/advertisers + logo + product image,
+  uploaded after create via existing admin `POST /brands/{id}/assets` → same `brand_assets`.
+- [x] Admin parity for the switch: permission `organizations.set_active` (py + ts), admin-api
+  `POST /organizations/{org}/members/{user}/set-active` (audit-logged), "Set active" button in Users table.
+- [x] Verified: both APIs import, both FEs `tsc` clean, admin-parity 0 new violations.
+- [ ] **Deploy** (main-API restart + FE builds) — same as Session 54, still pending.
+- [ ] Optional/needs sign-off: clean up junk test orgs + the brand stuck in the `00000000-…`
+  sentinel org (visibility already fixed by the switcher, so not required).
+
 ## 🟩 Admin-created brands appear in monitoring + scan clamped to plan (Session 54, 2026-08-05) — CODE BUILT + verified; deploy pending
 
 Two fixes to the goal "kai pridedu branda per admin kodel jo nerodo prie monitoring, ir monitorint

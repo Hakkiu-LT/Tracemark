@@ -235,6 +235,33 @@ export function getBrands(): Promise<BrandsResponse> {
   return apiFetch<BrandsResponse>("/brands");
 }
 
+/** One company the caller belongs to. `is_active` marks the org the API currently scopes to. */
+export interface OrgSummary {
+  id: string;
+  name: string;
+  role: string;
+  is_active: boolean;
+}
+export interface MyOrganizationsResponse {
+  organizations: OrgSummary[];
+  active_organization_id: string;
+}
+
+/** Companies the logged-in user is a member of (excludes the internal staff org). */
+export function getMyOrganizations(): Promise<MyOrganizationsResponse> {
+  return apiFetch<MyOrganizationsResponse>("/organizations/mine");
+}
+
+/** Repoint the caller's active company. Server re-checks membership. */
+export function switchOrganization(
+  organizationId: string,
+): Promise<{ active_organization_id: string }> {
+  return apiFetch("/organizations/switch", {
+    method: "POST",
+    body: JSON.stringify({ organization_id: organizationId }),
+  });
+}
+
 /** Create a server-persisted monitored brand. */
 export function createBrand(payload: {
   brand_name: string;

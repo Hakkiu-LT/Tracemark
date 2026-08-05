@@ -364,6 +364,41 @@ def update_member(
     return {"success": True}
 
 
+@router.post("/{org_id}/members/{user_id}/set-active")
+def set_member_active_org(
+    org_id: str,
+    user_id: str,
+    request: Request,
+    staff: StaffPrincipal = Depends(require_permission("organizations.set_active")),
+):
+    """Point a customer's ACTIVE company (profiles.organization_id) at this org — the same
+    switch the customer app's own company switcher performs.
+
+    Why staff need this: a user who belongs to several companies can only view ONE at a
+    time (the customer API scopes everything by profiles.organization_id). When a customer
+    says "I added a brand but can't see it in monitoring", they're usually just viewing a
+    different active company. This lets support move them onto the right one. The user must
+    already be a member of this org.
+    """
+    if org_id == HAKKIU_ORG_ID:
+        raise HTTPException(status_code=400, detail="Cannot set the internal Hakkiu org as a customer's active company")
+    sb = customer_sb()
+    member = (
+        sb.table("organization_members").select("user_id")
+        .eq("organization_id", org_id).eq("user_id", user_id).maybe_single().execute()
+    )
+    if not member or not member.data:
+        raise HTTPException(status_code=404, detail="That user is not a member of this company")
+
+    sb.table("profiles").update({"organization_id": org_id}).eq("id", user_id).execute()
+    write_audit_log(
+        staff, "organizations.set_active", target_type="organization", target_id=org_id,
+        target_org_id=org_id, metadata={"user_id": user_id},
+        ip=request.client.host if request.client else None,
+    )
+    return {"success": True, "active_organization_id": org_id}
+
+
 @router.delete("/{org_id}/members/{user_id}")
 def remove_member(
     org_id: str,

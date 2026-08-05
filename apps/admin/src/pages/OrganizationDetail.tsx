@@ -165,6 +165,16 @@ export function OrganizationDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Move a multi-company user onto THIS company as their active one — the support-side twin
+  // of the customer app's company switcher. Fixes "I added a brand but can't see it": they
+  // were just viewing a different active company.
+  const setActiveOrg = useMutation({
+    mutationFn: (userId: string) =>
+      adminFetch(`/organizations/${orgId}/members/${userId}/set-active`, { method: "POST" }),
+    onSuccess: () => toast.success("This company is now the customer's active company"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading || !data) {
     return (
       <div className="mx-auto w-full max-w-5xl space-y-4 p-6 md:p-8">
@@ -274,6 +284,17 @@ export function OrganizationDetail() {
                         </Can>
                       </TableCell>
                       <TableCell className="text-right">
+                        <Can permission="organizations.set_active">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setActiveOrg.mutate(m.user_id)}
+                            disabled={setActiveOrg.isPending}
+                            title="Make this the customer's active company (so its brands show in their monitoring)"
+                          >
+                            {setActiveOrg.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Set active"}
+                          </Button>
+                        </Can>
                         {!m.is_staff && (
                           <Can permission="customers.invite">
                             <Button
@@ -979,6 +1000,10 @@ function BrandCreateDialog({ orgId, onClose, onCreated }: { orgId: string; onClo
   const [reg, setReg] = useState("");
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
+  const [domains, setDomains] = useState("");
+  const [advertisers, setAdvertisers] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [productFile, setProductFile] = useState<File | null>(null);
 
   const { data: limits } = useOrgLimits(orgId);
   // At the org's brand cap? Then adding another must be blocked here (mirrors the server RPC).
@@ -986,7 +1011,10 @@ function BrandCreateDialog({ orgId, onClose, onCreated }: { orgId: string; onClo
     !!limits && limits.brands_limit != null && limits.brands_used >= limits.brands_limit;
 
   const create = useMutation({
-    mutationFn: () => {
+    // Full parity with the customer "Add monitored asset" form: create the brand row, then
+    // upload the logo / product image to the SAME brand_assets store the customer app uses
+    // (admin POST /brands/{id}/assets proxies to the main API's internal upload).
+    mutationFn: async () => {
       const body: Record<string, unknown> = {
         organization_id: orgId,
         brand_name: brandName.trim(),
@@ -995,7 +1023,32 @@ function BrandCreateDialog({ orgId, onClose, onCreated }: { orgId: string; onClo
       if (reg.trim()) body.registration_number = reg.trim();
       if (platforms.length) body.platforms = platforms;
       if (regions.length) body.target_regions = regions;
-      return adminFetch("/brands", { method: "POST", body: JSON.stringify(body) });
+      const dom = fromLines(domains);
+      const adv = fromLines(advertisers);
+      if (dom.length) body.official_domains = dom;
+      if (adv.length) body.official_advertisers = adv;
+
+      const created = await adminFetch<{ id: string }>("/brands", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+
+      // Upload any queued photos against the freshly-created brand id.
+      const uploads: Promise<unknown>[] = [];
+      if (logoFile) {
+        const fd = new FormData();
+        fd.append("asset_type", "logo");
+        fd.append("file", logoFile);
+        uploads.push(adminFetch(`/brands/${created.id}/assets`, { method: "POST", body: fd }));
+      }
+      if (productFile) {
+        const fd = new FormData();
+        fd.append("asset_type", "product_image");
+        fd.append("file", productFile);
+        uploads.push(adminFetch(`/brands/${created.id}/assets`, { method: "POST", body: fd }));
+      }
+      if (uploads.length) await Promise.all(uploads);
+      return created;
     },
     onSuccess: () => { toast.success("Brand created for this company"); onCreated(); },
     onError: (e: Error) => toast.error(e.message),
@@ -1008,7 +1061,7 @@ function BrandCreateDialog({ orgId, onClose, onCreated }: { orgId: string; onClo
       open
       onClose={onClose}
       title="Add brand"
-      description="Creates a monitored brand (asset) for this company — the same thing the customer adds under 'Add monitored asset'. Logos and whitelists are editable after."
+      description="Creates a monitored brand (asset) for this company — the same thing the customer adds under 'Add monitored asset'. Same fields, same tables."
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -1032,6 +1085,26 @@ function BrandCreateDialog({ orgId, onClose, onCreated }: { orgId: string; onClo
         </div>
         <PlatformPicker selected={platforms} onChange={setPlatforms} available={limits?.allowed_platforms ?? null} />
         <RegionPicker selected={regions} onChange={setRegions} available={limits?.allowed_regions ?? null} />
+        <div className="space-y-1.5">
+          <Label>Official domains <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+          <textarea value={domains} onChange={(e) => setDomains(e.target.value)} placeholder="acme.com" className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Official advertisers <span className="text-xs text-muted-foreground">(one per line)</span></Label>
+          <textarea value={advertisers} onChange={(e) => setAdvertisers(e.target.value)} placeholder="Acme Inc." className="min-h-16 w-full rounded-md border border-input bg-transparent p-2 text-sm" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 border-t border-border pt-3">
+          <div className="space-y-1.5">
+            <Label>Logo <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} className="block w-full text-xs text-muted-foreground file:mr-2 file:rounded-md file:border file:border-border file:bg-muted file:px-2 file:py-1 file:text-xs" />
+            {logoFile && <span className="block truncate text-[11px] text-muted-foreground">{logoFile.name}</span>}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Product image <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <input type="file" accept="image/*" onChange={(e) => setProductFile(e.target.files?.[0] ?? null)} className="block w-full text-xs text-muted-foreground file:mr-2 file:rounded-md file:border file:border-border file:bg-muted file:px-2 file:py-1 file:text-xs" />
+            {productFile && <span className="block truncate text-[11px] text-muted-foreground">{productFile.name}</span>}
+          </div>
+        </div>
       </div>
     </Dialog>
   );
