@@ -567,8 +567,12 @@ function PlatformPicker({
   );
 }
 
-// Grouped region picker at COUNTRY granularity (so "only USA" is expressible). `available` =
-// the country codes to SHOW (null/empty = show all). Same two uses as PlatformPicker.
+// Region picker at MACRO-REGION granularity (North America / Europe / APAC / LATAM — the same
+// groups shown on the customer dashboard). Selecting a group toggles ALL its country codes, so
+// the stored value stays country-code based (what scraping + the dashboard use). `available` =
+// the allowed country codes; a group is only OFFERED when all its countries are allowed
+// (null/empty = all groups). Used both in Plan & Limits (choose allowed groups) and the brand
+// dialogs (pick from the allowed groups).
 function RegionPicker({
   selected,
   onChange,
@@ -581,54 +585,39 @@ function RegionPicker({
   label?: string;
 }) {
   const allow = available && available.length ? new Set(available) : null;
-  const groups = REGION_GROUPS.map((g) => ({
-    ...g,
-    countries: allow ? g.countries.filter((c) => allow.has(c.code)) : g.countries,
-  })).filter((g) => g.countries.length);
+  const groups = REGION_GROUPS.filter((g) => !allow || g.countries.every((c) => allow.has(c.code)));
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label>{label}</Label>
-        <span className="text-xs text-muted-foreground">{selected.length} selected</span>
+        <span className="text-xs text-muted-foreground">{groups.filter((g) => g.countries.every((c) => selected.includes(c.code))).length} selected</span>
       </div>
       {groups.length === 0 ? (
         <p className="text-xs text-muted-foreground">No regions available in this plan.</p>
       ) : (
-        groups.map((group) => {
-          const codes = group.countries.map((c) => c.code);
-          const allSelected = codes.every((c) => selected.includes(c));
-          return (
-            <div key={group.key} className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onChange(
-                      allSelected
-                        ? selected.filter((c) => !codes.includes(c))
-                        : [...selected, ...codes.filter((c) => !selected.includes(c))],
-                    )
-                  }
-                  className="text-[11px] text-accent hover:underline"
-                >
-                  {allSelected ? "clear" : "select all"}
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {group.countries.map((c) => {
-                  const active = selected.includes(c.code);
-                  return (
-                    <button key={c.code} type="button" onClick={() => onChange(toggleValue(selected, c.code))} className={chipClass(active)}>
-                      <span>{c.flag}</span>
-                      <span className="truncate">{c.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })
+        <div className="grid grid-cols-2 gap-1.5">
+          {groups.map((group) => {
+            const codes = group.countries.map((c) => c.code);
+            const active = codes.every((c) => selected.includes(c));
+            return (
+              <button
+                key={group.key}
+                type="button"
+                onClick={() =>
+                  onChange(
+                    active
+                      ? selected.filter((c) => !codes.includes(c))
+                      : [...selected, ...codes.filter((c) => !selected.includes(c))],
+                  )
+                }
+                className={chipClass(active)}
+              >
+                <span className={`h-3.5 w-3.5 shrink-0 rounded border ${active ? "border-accent bg-accent" : "border-input"}`} />
+                <span className="truncate">{group.label} <span className="text-xs text-muted-foreground">({group.countries.map((c) => c.flag).join(" ")})</span></span>
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -1095,8 +1084,19 @@ function platformLabels(codes: string[]): string {
   return codes.map((c) => PLATFORM_OPTIONS.find((p) => p.apiKey === c)?.label ?? c).join(", ");
 }
 function regionLabels(codes: string[]): string {
+  const set = new Set(codes);
+  const parts: string[] = [];
+  const claimed = new Set<string>();
+  // Collapse fully-selected groups into their macro label (North America, Europe, …).
+  for (const g of REGION_GROUPS) {
+    if (g.countries.every((c) => set.has(c.code))) {
+      parts.push(g.label);
+      g.countries.forEach((c) => claimed.add(c.code));
+    }
+  }
   const all = REGION_GROUPS.flatMap((g) => g.countries);
-  return codes.map((c) => all.find((x) => x.code === c)?.name ?? c).join(", ");
+  for (const c of codes) if (!claimed.has(c)) parts.push(all.find((x) => x.code === c)?.name ?? c);
+  return parts.join(", ");
 }
 
 // "Plan & Limits" — the deal you agree with a company: a brand cap PLUS exactly which

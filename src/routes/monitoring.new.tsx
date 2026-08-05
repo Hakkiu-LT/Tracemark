@@ -124,7 +124,8 @@ function NewAssetPage() {
   const [website, setWebsite] = useState("");
   const [clientId, setClientId] = useState(activeClientId ?? clients[0]?.id ?? "c1");
   const [selected, setSelected] = useState<Set<Platform>>(new Set([]));
-  const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set(["US"]));
+  // Seeded once limits load (reconcile effect preselects the first allowed region group).
+  const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set());
   const [scanStep, setScanStep] = useState(0);
   const [officialDomains, setOfficialDomains] = useState<string[]>([""]);
   const [officialAdvertisers, setOfficialAdvertisers] = useState<string[]>([""]);
@@ -148,21 +149,25 @@ function NewAssetPage() {
   const visiblePlatforms = allowedPlatformSet
     ? PLATFORMS.filter((p) => allowedPlatformSet.has(p.apiKey))
     : PLATFORMS;
+  // Regions are picked at MACRO-REGION level (like the dashboard). A group is offered only when
+  // all its countries are allowed by the plan (null = all groups). Stored value stays country codes.
+  const visibleRegionGroups = REGIONS.filter(
+    (r) => !allowedRegionSet || r.countries.every((c) => allowedRegionSet.has(c.code)),
+  );
 
   // Reconcile the default selection with the plan once limits load: drop anything the plan
-  // doesn't allow, and if nothing's left, preselect the first allowed region.
+  // doesn't allow, and if nothing's left, preselect the first allowed region group.
   useEffect(() => {
     if (!brandsData) return;
-    if (allowedRegionSet) {
-      setSelectedRegions((prev) => {
-        const kept = new Set([...prev].filter((c) => allowedRegionSet.has(c)));
-        if (kept.size === 0) {
-          const first = [...allowedRegionSet][0];
-          if (first) kept.add(first);
-        }
-        return kept;
-      });
-    }
+    setSelectedRegions((prev) => {
+      const kept = new Set(
+        allowedRegionSet ? [...prev].filter((c) => allowedRegionSet.has(c)) : [...prev],
+      );
+      if (kept.size === 0 && visibleRegionGroups.length) {
+        visibleRegionGroups[0].countries.forEach((c) => kept.add(c.code));
+      }
+      return kept;
+    });
     if (allowedPlatformSet) {
       const allowedIds = new Set(visiblePlatforms.map((p) => p.id));
       setSelected((prev) => new Set([...prev].filter((id) => allowedIds.has(id))));
@@ -176,9 +181,11 @@ function NewAssetPage() {
     setSelected(next);
   }
 
-  function toggleCountry(code: string) {
+  // Toggle an entire macro-region: add/remove ALL its country codes at once.
+  function toggleMacroRegion(countryCodes: string[]) {
     const next = new Set(selectedRegions);
-    next.has(code) ? next.delete(code) : next.add(code);
+    const allSelected = countryCodes.every((c) => next.has(c));
+    countryCodes.forEach((c) => (allSelected ? next.delete(c) : next.add(c)));
     setSelectedRegions(next);
   }
 
@@ -579,39 +586,37 @@ function NewAssetPage() {
                 Route regional scans through local proxies to bypass geoblocking and capture location-specific infringements.{allowedRegionSet && " Your plan includes only the regions shown here."}
               </p>
 
-              <div className="space-y-4 pt-2">
-                {REGIONS.map((reg) => {
-                  // Show only the countries this plan allows (all when unrestricted).
-                  const countries = allowedRegionSet
-                    ? reg.countries.filter((c) => allowedRegionSet.has(c.code))
-                    : reg.countries;
-                  if (countries.length === 0) return null;
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {visibleRegionGroups.map((reg) => {
+                  const regCountries = reg.countries.map((c) => c.code);
+                  const isSelected = regCountries.every((c) => selectedRegions.has(c));
                   return (
-                    <div key={reg.key}>
-                      <div className="flex items-center gap-3 mb-2">
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground shrink-0">{reg.label}</p>
-                        <hr className="flex-1 border-border" />
+                    <button
+                      key={reg.key}
+                      type="button"
+                      onClick={() => toggleMacroRegion(regCountries)}
+                      className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer text-left ${
+                        isSelected
+                          ? "border-accent bg-accent/10 shadow-sm"
+                          : "border-border/80 bg-background/60 hover:bg-muted/40 hover:border-border"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent accent-accent cursor-pointer"
+                        />
+                        <div>
+                          <span className="font-semibold text-sm text-foreground block">{reg.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {reg.countries.map((c) => c.flag).join(" ")} {isSelected ? "· Active for proxy scraping" : "· Click to activate"}
+                          </span>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {countries.map((c) => {
-                          const active = selectedRegions.has(c.code);
-                          return (
-                            <button
-                              key={c.code}
-                              type="button"
-                              onClick={() => toggleCountry(c.code)}
-                              className={`flex items-center gap-2 p-3 rounded-lg border transition-colors select-none cursor-pointer w-full text-left ${
-                                active ? "border-accent bg-accent/10" : "border-border hover:bg-muted/40"
-                              }`}
-                            >
-                              <span className="text-base leading-none">{c.flag}</span>
-                              <span className={`font-medium text-sm truncate flex-1 ${active ? "text-accent" : "text-foreground"}`}>{c.name}</span>
-                              {active && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                      {isSelected && <span className="w-2 h-2 rounded-full bg-accent shrink-0" />}
+                    </button>
                   );
                 })}
               </div>
