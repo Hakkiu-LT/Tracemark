@@ -18,6 +18,10 @@ browser → Supabase directly, bypassing our backends. Added hCaptcha at the aut
 - [x] `apps/admin/src/pages/SignIn.tsx`: hCaptcha on staff sign-in (reset already `slowapi`-limited via admin-api).
 - [x] **Invisible mode** (user pref): `size="invisible"`, no visible box; `execute({ async: true })` at submit fetches the token just-in-time. Iframe internals aren't restylable, so invisible keeps the form design clean.
 - [x] **Supabase Attack Protection enabled** (2026-08-05) with real secret; real site key `c6d861a0-a358-41da-8412-3a1cb2fc74be` in local root `.env`; both dev servers verified serving invisible mode with the key inlined.
+- [x] **Verified working locally** — hCaptcha dashboard showed ~12 "Passive" verifications; wrong-password attempt returned "invalid credentials" (not a captcha error), proving end-to-end issue+verify.
+- [x] **Tier decision: STAY ON BASIC (free).** Passive Mode (silent) is Pro-only ($99–139/mo); Basic shows an image challenge on submit but is free/unlimited and equally secure — fine for low-volume B2B login. Pro trial auto-drops to Basic on 2026-08-19 (no charge, no card) — don't subscribe. No code change needed (invisible mode degrades gracefully).
+- [x] **Decision: ONE hCaptcha site, multiple hostnames** (not separate admin/landing) — shared Supabase holds one secret, so one sitekey only.
+- [ ] **MANUAL — add `admin.hakkiu.com` (and confirm `hakkiu.com`) to the hCaptcha site Hostnames**, else admin prod login fails captcha verification.
 - [x] CSP allow `hcaptcha.com`/`*.hcaptcha.com` in all 4 spots: `Caddyfile`, `public/_headers`, `apps/admin/nginx.conf`, `apps/admin/public/_headers`.
 - [x] **Build wiring (prod):** `VITE_HCAPTCHA_SITE_KEY` is a BUILD-time var — added it as a build arg in `docker-compose.yml` (both `frontend` + `admin`) and as `ARG`/`ENV` in `src/Dockerfile` + `apps/admin/Dockerfile`. Without this the key never reaches the bundle even if it's in `.env`.
 - [x] `.env.example` + `.env.production.example`: documented `VITE_HCAPTCHA_SITE_KEY`.

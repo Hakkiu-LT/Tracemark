@@ -34,6 +34,20 @@
 >   it's set in the local root `.env` for testing. ⚠️ Because the Supabase project is SHARED,
 >   enabling it means the LIVE prod frontend (which has no widget yet) now fails logins until
 >   the new frontend is deployed — deploy or temporarily disable CAPTCHA is required.
+> - **Verified working (2026-08-05):** local invisible flow confirmed — hCaptcha dashboard
+>   showed ~12 "Passive" verifications; a wrong-password attempt returned "invalid
+>   credentials" (not a captcha error), proving the token is issued + verified end-to-end.
+> - **Tier decision — STAY ON BASIC (free).** hCaptcha Passive Mode (99.9% silent) is a Pro
+>   feature ($99–139/mo); Basic is free/unlimited/GDPR-compliant but shows a visible image
+>   challenge on submit. For a low-volume B2B login (public signup disabled, staff provision
+>   logins), that friction is fine and security is identical. The Pro trial auto-drops to
+>   Basic on 2026-08-19 with no charge/card — just don't subscribe. No code change: invisible
+>   mode degrades gracefully (silent on Pro, challenge-on-click on Basic). Revisit Pro only if
+>   high-volume public forms are added or the login friction bothers customers.
+> - **Single hCaptcha site, multiple hostnames** (NOT separate admin/landing sites): both apps
+>   auth against the SAME Supabase project, which holds ONE captcha secret, and a sitekey/secret
+>   must be a matching pair — so two sites is impossible here. The one site's Hostnames must list
+>   `hakkiu.com`, `admin.hakkiu.com`, `localhost`.
 > - CSP updated in all 4 places to allow `hcaptcha.com`/`*.hcaptcha.com` (script/style/
 >   connect/frame): root `Caddyfile`, `public/_headers`, `apps/admin/nginx.conf`,
 >   `apps/admin/public/_headers`.
