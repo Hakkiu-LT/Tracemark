@@ -210,7 +210,6 @@ export function SettingsPage() {
           <TabsTrigger value="profile">Profile</TabsTrigger>
           {persona === "law_firm" && <TabsTrigger value="clients">Clients</TabsTrigger>}
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="api">API & Webhooks</TabsTrigger>
           <TabsTrigger value="support">Contact Support</TabsTrigger>
         </TabsList>
 
@@ -315,29 +314,6 @@ export function SettingsPage() {
           <div className="space-y-6">
             <NotificationSettingsPanel />
           </div>
-        </TabsContent>
-
-        <TabsContent value="api" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">API key</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input
-                readOnly
-                value="mg_live_•••••••••••••••••••••••••••• 4f9a"
-                className="font-mono text-xs"
-              />
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  Reveal
-                </Button>
-                <Button variant="outline" size="sm">
-                  Rotate
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="support" className="mt-4">
