@@ -26,6 +26,11 @@ Shipped:
 - [x] Admin parity for the switch: permission `organizations.set_active` (py + ts), admin-api
   `POST /organizations/{org}/members/{user}/set-active` (audit-logged), "Set active" button in Users table.
 - [x] Verified: both APIs import, both FEs `tsc` clean, admin-parity 0 new violations.
+- [x] **Switcher shows only REAL companies** — `GET /organizations/mine` now hides auto-generated
+  personal/home orgs (named after the signup email domain, e.g. `gmail.com` from `handle_new_user`).
+  Parity with the admin Companies list (`is_personal` flag + domain-name heuristic + "has brands"
+  guard). The active org is never hidden, so the switcher never goes empty. Fixes junk "gmail.com"
+  appearing as a switchable company.
 - [ ] **Deploy** (main-API restart + FE builds) — same as Session 54, still pending.
 - [ ] Optional/needs sign-off: clean up junk test orgs + the brand stuck in the `00000000-…`
   sentinel org (visibility already fixed by the switcher, so not required).

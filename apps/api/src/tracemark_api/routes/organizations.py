@@ -40,10 +40,24 @@ class SwitchOrgRequest(BaseModel):
     organization_id: str
 
 
+def _looks_like_personal_org(name: str) -> bool:
+    """Legacy fallback heuristic (mirrors the admin Companies list): an org whose name is
+    a bare email domain like ``gmail.com`` (one dot, no spaces, exactly two segments) is
+    an auto-generated personal/home org from ``handle_new_user`` — not a real company."""
+    n = (name or "").strip()
+    return "." in n and " " not in n and len(n.split(".")) == 2
+
+
 @router.get("/mine")
 def list_my_organizations(profile: CurrentProfile = Depends(get_current_profile)):
-    """Every company the caller is a member of (excluding the staff sentinel org),
-    with the currently-active one flagged."""
+    """Every REAL company the caller is a member of (excluding the staff sentinel org and
+    auto-generated personal/home orgs), with the currently-active one flagged.
+
+    Auto-generated personal orgs (named after the signup email domain, e.g. ``gmail.com``)
+    are hidden so the switcher only lists actual companies — parity with the admin
+    Companies list, which already hides them via ``is_personal`` + the domain heuristic.
+    The currently-active org is NEVER hidden, so a user whose active org happens to be a
+    personal one is never left with an empty switcher."""
     sb = get_supabase()
     mem = (
         sb.table("organization_members")
@@ -53,11 +67,33 @@ def list_my_organizations(profile: CurrentProfile = Depends(get_current_profile)
     )
     rows = [r for r in (mem.data or []) if r["organization_id"] != SENTINEL_ORG_ID]
 
-    names: dict[str, str] = {}
     org_ids = [r["organization_id"] for r in rows]
+    names: dict[str, str] = {}
+    personal: dict[str, bool] = {}
+    has_brands: set[str] = set()
     if org_ids:
-        orgs = sb.table("organizations").select("id, name").in_("id", org_ids).execute()
+        orgs = (
+            sb.table("organizations")
+            .select("id, name, is_personal")
+            .in_("id", org_ids)
+            .execute()
+        )
         names = {o["id"]: (o.get("name") or "") for o in (orgs.data or [])}
+        personal = {o["id"]: bool(o.get("is_personal")) for o in (orgs.data or [])}
+        # Any org with at least one brand is a real company regardless of naming — the
+        # domain heuristic must never hide a company the user actually monitors.
+        brands = (
+            sb.table("brands").select("organization_id").in_("organization_id", org_ids).execute()
+        )
+        has_brands = {b["organization_id"] for b in (brands.data or []) if b.get("organization_id")}
+
+    def _keep(org_id: str) -> bool:
+        if org_id == profile.organization_id:
+            return True  # never hide the active org
+        if org_id in has_brands:
+            return True  # real company — has monitored brands
+        name = names.get(org_id, "")
+        return not (personal.get(org_id) or _looks_like_personal_org(name))
 
     result = [
         OrgSummary(
@@ -67,6 +103,7 @@ def list_my_organizations(profile: CurrentProfile = Depends(get_current_profile)
             is_active=r["organization_id"] == profile.organization_id,
         )
         for r in rows
+        if _keep(r["organization_id"])
     ]
     # Active first, then alphabetical — stable order for the switcher UI.
     result.sort(key=lambda o: (not o.is_active, o.name.lower()))
