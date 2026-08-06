@@ -35,6 +35,7 @@ export interface Mark {
   targetRegions?: string[];
   officialDomains?: string[];
   officialAdvertisers?: string[];
+  logoUrl?: string;
 }
 
 export interface Infringement {
@@ -174,6 +175,7 @@ export const useStore = create<State>()(
               website: (b.website ?? "").replace(/^https?:\/\//, ""),
               platforms: apiKeysToPlatforms(b.platforms),
               logoColor: b.logo_color ?? "oklch(0.58 0.18 255)",
+              logoUrl: b.logo_url ?? undefined,
               targetRegions: b.target_regions ?? [],
               officialDomains: b.official_domains ?? [],
               officialAdvertisers: b.official_advertisers ?? [],

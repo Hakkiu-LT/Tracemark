@@ -31,8 +31,8 @@ import {
 } from "@/lib/store";
 import { Plus, Radar, Trash2, Play, Pause, EyeOff, Pencil, Globe, Info, ChevronDown, ChevronUp, X, Upload, Image as ImageIcon, FileText, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-import { checkBrandFullPipeline, apiFetch, updateBrand, uploadBrandAsset, listBrandAssets, deleteBrandAsset, getBrands, createBrand, refreshReferenceContent, type BrandAsset } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { checkBrandFullPipeline, apiFetch, updateBrand, uploadBrandAsset, listBrandAssets, deleteBrandAsset, deleteBrand, getBrands, createBrand, refreshReferenceContent, type BrandAsset } from "@/lib/api";
 import { PLATFORMS } from "@/lib/platforms";
 import { REGIONS, COUNTRY_BY_CODE } from "@/lib/regions";
 
@@ -71,6 +71,7 @@ function MonitoringLayout() {
 }
 
 function MonitoringPage() {
+  const queryClient = useQueryClient();
   const scopedMarks = useScopedMarks();
   const infringements = useStore((s) => s.infringements);
   const hydrated = useStore((s) => s.hydrated);
@@ -220,21 +221,24 @@ function MonitoringPage() {
   const activeMarks = scopedMarks.filter((m) => m.status !== "on_hold");
   const onHoldMarks = scopedMarks.filter((m) => m.status === "on_hold");
 
-  const handleRemove = (m: Mark) => {
+  const handleRemove = async (m: Mark) => {
     const markToDelete = m;
     const infringementsToDelete = infringements.filter((i) => i.markId === m.id);
+    const realBrandId = m.serverId || (m.id.startsWith("srv-") ? m.id.slice(4) : m.id);
+
     removeMark(m.id);
-    toast(`Deleted ${m.brandName}`, {
-      description: "Undo is available for 5 seconds.",
-      action: {
-        label: "Undo",
-        onClick: () => {
-          restoreMark(markToDelete, infringementsToDelete);
-          toast.success(`Restored ${markToDelete.brandName}`);
-        },
-      },
-      duration: 5000,
-    });
+
+    try {
+      if (realBrandId && !realBrandId.startsWith("m-") && !realBrandId.startsWith("c-")) {
+        await deleteBrand(realBrandId);
+        await queryClient.invalidateQueries({ queryKey: ["brands"] });
+      }
+      toast.success(`Deleted ${m.brandName} and associated data across the database.`);
+    } catch (err: any) {
+      console.error("Failed to delete brand from database:", err);
+      restoreMark(markToDelete, infringementsToDelete);
+      toast.error(err.message || `Could not delete ${m.brandName} from server. Please try again.`);
+    }
   };
 
   const runScanCycle = async (id: string) => {
@@ -386,8 +390,23 @@ function MonitoringPage() {
     const mark = scopedMarks.find((m) => m.id === id);
     if (!mark) return;
 
+    const newStatus = mark.status === "on_hold" ? "active" : "on_hold";
+    const realBrandId = mark.serverId || (mark.id.startsWith("srv-") ? mark.id.slice(4) : mark.id);
+
     // Toggle first so UI reflects
     toggleMarkStatus(id);
+
+    if (realBrandId && !realBrandId.startsWith("m-") && !realBrandId.startsWith("c-")) {
+      try {
+        await updateBrand(realBrandId, { status: newStatus });
+        await queryClient.invalidateQueries({ queryKey: ["brands"] });
+      } catch (err: any) {
+        console.error("Failed to update brand status on server:", err);
+        toggleMarkStatus(id); // revert
+        toast.error(err.message || "Failed to update status on server.");
+        return;
+      }
+    }
 
     // If it was on_hold, it is now active -> trigger scan
     if (mark.status === "on_hold") {
@@ -524,6 +543,7 @@ function MonitoringPage() {
       if (editProductFile) {
         await uploadBrandAsset(realBrandId, "product_image", editProductFile);
       }
+      await queryClient.invalidateQueries({ queryKey: ["brands"] });
     } catch (err) {
       console.error(err);
       toast.error("Couldn't update the brand. Please try again.");
@@ -746,7 +766,11 @@ function MonitoringPage() {
                         key={asset.id}
                         className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/30 text-xs"
                       >
-                        <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        {asset.file_url ? (
+                          <img src={asset.file_url} alt="" className="h-5 w-5 object-contain shrink-0 bg-white rounded p-0.5 border border-border" />
+                        ) : (
+                          <ImageIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
                         <span className="flex-1 truncate text-foreground">{filename}</span>
                         <span className="text-muted-foreground font-mono">
                           {new Date(asset.created_at).toLocaleDateString()}
@@ -1137,14 +1161,24 @@ function MarksTable({
             <TableRow key={m.id} className={!isActiveSection ? "bg-muted/10" : ""}>
               <TableCell>
                 <div className="flex items-center gap-3">
-                  <div
-                    className="h-9 w-9 rounded-md shrink-0"
-                    style={{
-                      background: isActiveSection
-                        ? `linear-gradient(135deg, ${m.logoColor}, oklch(0.3 0.05 260))`
-                        : `linear-gradient(135deg, oklch(0.6 0 0), oklch(0.3 0 0))`,
-                    }}
-                  />
+                  {m.logoUrl ? (
+                    <img
+                      src={m.logoUrl}
+                      alt={m.brandName}
+                      className="h-9 w-9 rounded-md object-contain bg-white border border-border shrink-0 p-1"
+                    />
+                  ) : (
+                    <div
+                      className="h-9 w-9 rounded-md shrink-0 flex items-center justify-center font-bold text-white text-xs uppercase"
+                      style={{
+                        background: isActiveSection
+                          ? `linear-gradient(135deg, ${m.logoColor}, oklch(0.3 0.05 260))`
+                          : `linear-gradient(135deg, oklch(0.6 0 0), oklch(0.3 0 0))`,
+                      }}
+                    >
+                      {m.brandName.slice(0, 2)}
+                    </div>
+                  )}
                   <div>
                     <p
                       className={`font-medium ${!isActiveSection ? "text-muted-foreground line-through decoration-muted-foreground/30" : ""}`}

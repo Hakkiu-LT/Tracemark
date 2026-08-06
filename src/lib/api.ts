@@ -205,6 +205,7 @@ export interface BrandRecord {
   status: "active" | "locked" | "on_hold";
   last_scan_at: string | null;
   created_at: string;
+  logo_url?: string | null;
 }
 
 export interface BrandAsset {
@@ -273,6 +274,7 @@ export function createBrand(payload: {
   client_id?: string | null;
   official_domains?: string[];
   official_advertisers?: string[];
+  status?: "active" | "locked" | "on_hold";
 }): Promise<BrandRecord> {
   return apiFetch<BrandRecord>("/brands", {
     method: "POST",

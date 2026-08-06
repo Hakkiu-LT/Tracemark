@@ -200,19 +200,77 @@ def delete_brand(
     if not before or not before.data:
         raise HTTPException(status_code=404, detail="Brand not found")
 
+    brand_data = before.data
+    org_id = brand_data.get("organization_id")
+    brand_name = brand_data.get("brand_name", "")
+
+    # Cascading purge of cases & evidence screenshots
+    if brand_name and org_id:
+        try:
+            cases_res = (
+                sb.table("cases")
+                .select("id")
+                .eq("organization_id", org_id)
+                .ilike("brand_name", brand_name)
+                .execute()
+            )
+            if cases_res.data:
+                for c in cases_res.data:
+                    cid = c["id"]
+                    try:
+                        ev_res = sb.table("evidence").select("marketplaces, ads, domains, social").eq("case_id", cid).execute()
+                        urls_to_delete = set()
+                        if ev_res.data:
+                            for row in ev_res.data:
+                                for cat in ["marketplaces", "ads", "domains", "social"]:
+                                    items = row.get(cat) or []
+                                    if isinstance(items, list):
+                                        for item in items:
+                                            if isinstance(item, dict) and item.get("screenshot_url"):
+                                                urls_to_delete.add(item["screenshot_url"])
+                        inf_res = sb.table("infringements").select("screenshot_url").eq("case_id", cid).execute()
+                        if inf_res.data:
+                            for row in inf_res.data:
+                                if row.get("screenshot_url"):
+                                    urls_to_delete.add(row["screenshot_url"])
+                        paths_to_delete = []
+                        marker = "/evidence-screenshots/"
+                        for url in urls_to_delete:
+                            idx = url.find(marker)
+                            if idx != -1:
+                                paths_to_delete.append(url[idx + len(marker):])
+                            elif not url.startswith("http") and url:
+                                paths_to_delete.append(url)
+                        if paths_to_delete:
+                            sb.storage.from_("evidence-screenshots").remove(paths_to_delete)
+                    except Exception as exc:
+                        print(f"[Admin Brands] Storage screenshot cleanup failed for case {cid}: {exc}")
+
+                    sb.table("cases").delete().eq("id", cid).execute()
+        except Exception as exc:
+            print(f"[Admin Brands] Cases purge failed for brand '{brand_name}': {exc}")
+
+    # Clean up brand_assets storage
+    try:
+        from tracemark_admin_api.services.storage import BRAND_ASSETS_BUCKET
+        assets_res = sb.table("brand_assets").select("file_url").eq("brand_id", brand_id).execute()
+        if assets_res.data:
+            asset_paths = [a["file_url"] for a in assets_res.data if a.get("file_url")]
+            if asset_paths:
+                sb.storage.from_(BRAND_ASSETS_BUCKET).remove(asset_paths)
+    except Exception as exc:
+        print(f"[Admin Brands] Brand assets storage cleanup failed: {exc}")
+
     sb.table("brands").delete().eq("id", brand_id).execute()
     write_audit_log(
         staff,
         "brands.delete",
         target_type="brand",
         target_id=brand_id,
-        target_org_id=before.data.get("organization_id"),
-        metadata={"deleted": before.data},
+        target_org_id=org_id,
+        metadata={"deleted": brand_data},
         ip=request.client.host if request.client else None,
     )
-    # NOTE: plan brand-lock reconciliation (reconcile_brand_locks) lives in the main
-    # API's entitlements service. If deleting a brand should free a locked slot, trigger
-    # that via the main API rather than duplicating the logic here.
     return {"success": True}
 
 

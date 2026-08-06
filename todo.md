@@ -9,6 +9,31 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Clean white background logo chips without color inversion (Session 61, 2026-08-06)
+- [x] `src/routes/monitoring.tsx`: update brand logo `<img />` containers in table view and edit modal preview to use a clean white background (`bg-white border border-border p-1 rounded-md`) in both light and dark mode, preserving original brand colors without distortion or inversion.
+
+## 🟩 Invert brand logo colors in night mode (Session 60, 2026-08-06)
+- [x] `src/routes/monitoring.tsx`: add `dark:invert` utility class to brand logo `<img />` elements in the Monitoring dashboard table and asset edit dialog previews, ensuring dark brand logos automatically invert to high-contrast light colors in night/dark mode.
+
+## 🟩 Display uploaded brand logo image replacing colored rectangle box (Session 59, 2026-08-06)
+- [x] `apps/api/src/tracemark_api/routes/brands.py`: update `list_brands` endpoint to resolve `logo_url` signed URL from `brand_assets` for each brand and include it in the response.
+- [x] `src/lib/api.ts` & `src/lib/store.ts`: add `logo_url` to `BrandRecord` and `logoUrl` to `Mark` interface & `syncServerBrands`.
+- [x] `src/routes/monitoring.tsx`: update brand list table to render `<img src={m.logoUrl} />` when a logo is uploaded, replacing the colored placeholder rectangle box (retaining fallback rectangle with initials when no logo is uploaded).
+
+## 🟩 Save monitoring asset as draft in On-Hold status (Session 58, 2026-08-06)
+- [x] `src/routes/monitoring.new.tsx`: wire "Save as Draft" button with `handleSaveDraft` handler to persist brand server-side with `status: "on_hold"`, upload optional logo/product images, update local store, and navigate to `/monitoring`.
+- [x] `apps/api/src/tracemark_api/routes/brands.py`: update `BrandCreate` model and `create_brand` handler to accept `status` (e.g. `on_hold`) and set it on the created brand record.
+- [x] `src/routes/monitoring.tsx`: update `handleToggleStatus` so pausing/activating a brand calls `updateBrand(id, { status })` on the server and invalidates the brand query cache.
+
+## 🟩 Full cascading brand deletion across database (Session 57, 2026-08-06)
+- [x] `src/routes/monitoring.tsx`: update `handleRemove` to call `deleteBrand(id)` API & invalidate TanStack Query brand cache instead of only modifying local Zustand store.
+- [x] `apps/api/src/tracemark_api/routes/brands.py`: update `delete_brand` endpoint to perform a cascading purge across all matching cases, evidence, decisions, takedowns, infringements, brand assets, and storage files.
+- [x] `apps/admin-api/src/tracemark_admin_api/routes/brands_admin.py`: update admin brand delete endpoint with identical cascading purge logic.
+- [x] Purged legacy test brands (`testttttt`, `testas222`, `w`) and associated records from the Supabase database.
+
+## 🟩 Auth sign-in error surfacing (Session 56, 2026-08-06)
+- [x] `src/components/auth/auth-screen.tsx`: stop overriding Supabase Auth errors with generic `"Couldn't sign you in — check your email and password."`. Now logs to `console.error` and displays the exact `error.message` from Supabase (e.g. invalid credentials, unconfirmed email, captcha error).
+
 ## 🟩 Multi-company org switcher + admin "Add brand" parity + staff "Set active" (Session 55, 2026-08-06) — CODE BUILT + verified; deploy pending
 
 Follow-up to Session 54. That made the brand list server-authoritative, but the deeper cause was

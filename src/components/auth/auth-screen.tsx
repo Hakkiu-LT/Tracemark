@@ -53,7 +53,10 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
-    if (error) toast.error("Couldn't sign you in with Google. Please try again.");
+    if (error) {
+      console.error("Google sign-in error:", error);
+      toast.error(error.message || "Couldn't sign you in with Google. Please try again.");
+    }
   }
 
   async function onForgot() {
@@ -66,9 +69,13 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
         redirectTo: `${window.location.origin}/auth/callback`,
         captchaToken,
       });
-      if (error) return toast.error("Couldn't send the reset link. Please try again.");
+      if (error) {
+        console.error("Password reset error:", error);
+        return toast.error(error.message || "Couldn't send the reset link. Please try again.");
+      }
       toast.success(`Password reset link sent to ${email}.`);
-    } catch {
+    } catch (err) {
+      console.error("Password reset exception:", err);
       toast.error("Couldn't verify you're human. Please try again.");
     } finally {
       captchaRef.current?.resetCaptcha();
@@ -90,9 +97,13 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
         password,
         options: captchaToken ? { captchaToken } : undefined,
       });
-      if (error) return toast.error("Couldn't sign you in — check your email and password.");
+      if (error) {
+        console.error("Sign in error:", error);
+        return toast.error(error.message || "Couldn't sign you in — check your email and password.");
+      }
       navigate({ to: redirect ?? "/dashboard" });
-    } catch {
+    } catch (err) {
+      console.error("Sign in exception:", err);
       toast.error("Couldn't verify you're human. Please try again.");
     } finally {
       captchaRef.current?.resetCaptcha();
