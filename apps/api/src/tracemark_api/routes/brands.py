@@ -76,6 +76,7 @@ class BrandCreate(BaseModel):
     client_id: str | None = None
     official_domains: list[str] = []
     official_advertisers: list[str] = []
+    status: str | None = "active"
 
 
 class BrandUpdate(BaseModel):
@@ -200,6 +201,31 @@ def list_brands(profile: CurrentProfile = Depends(get_current_profile)):
     )
     brands = res.data or []
     limits = _org_limits(profile.organization_id)
+
+    brand_ids = [b["id"] for b in brands if b.get("id")]
+    if brand_ids:
+        try:
+            assets_res = (
+                sb.table("brand_assets")
+                .select("brand_id, file_url")
+                .in_("brand_id", brand_ids)
+                .eq("asset_type", "logo")
+                .order("created_at", desc=True)
+                .execute()
+            )
+            if assets_res.data:
+                logo_map = {}
+                from tracemark_api.services.storage import get_brand_asset_url
+                for row in assets_res.data:
+                    bid = row.get("brand_id")
+                    f_url = row.get("file_url")
+                    if bid and bid not in logo_map and f_url:
+                        logo_map[bid] = get_brand_asset_url(f_url) if not f_url.startswith("http") else f_url
+                for b in brands:
+                    b["logo_url"] = logo_map.get(b["id"])
+        except Exception as exc:
+            print(f"[Brands] Failed to resolve logo_urls: {exc}")
+
     return {
         "brands": brands,
         "usage": {"used": len(brands), "limit": limits["brands"]},
@@ -257,6 +283,18 @@ def create_brand(
         raise HTTPException(status_code=400, detail=f"Could not create brand: {exc}")
 
     created = res.data[0] if isinstance(res.data, list) else res.data
+
+    if body.status and body.status != "active":
+        if body.status not in ("on_hold", "locked"):
+            raise HTTPException(status_code=400, detail=f"Invalid status '{body.status}'")
+        res_update = (
+            sb.table("brands")
+            .update({"status": body.status})
+            .eq("id", created["id"])
+            .execute()
+        )
+        if res_update.data:
+            created = res_update.data[0]
 
     # Send welcome email only for the first brand the org creates
     if used == 0:
@@ -318,8 +356,69 @@ def update_brand(
 def delete_brand(
     brand_id: str, profile: CurrentProfile = Depends(require_owner)
 ):
-    _brand_or_404(profile.organization_id, brand_id)
+    brand = _brand_or_404(profile.organization_id, brand_id)
     sb = get_supabase()
+    brand_name = brand.get("brand_name", "")
+    org_id = profile.organization_id
+
+    # 1. Clean up associated cases & evidence screenshots
+    if brand_name and org_id:
+        try:
+            cases_res = (
+                sb.table("cases")
+                .select("id")
+                .eq("organization_id", org_id)
+                .ilike("brand_name", brand_name)
+                .execute()
+            )
+            if cases_res.data:
+                for c in cases_res.data:
+                    cid = c["id"]
+                    try:
+                        ev_res = sb.table("evidence").select("marketplaces, ads, domains, social").eq("case_id", cid).execute()
+                        urls_to_delete = set()
+                        if ev_res.data:
+                            for row in ev_res.data:
+                                for cat in ["marketplaces", "ads", "domains", "social"]:
+                                    items = row.get(cat) or []
+                                    if isinstance(items, list):
+                                        for item in items:
+                                            if isinstance(item, dict) and item.get("screenshot_url"):
+                                                urls_to_delete.add(item["screenshot_url"])
+                        inf_res = sb.table("infringements").select("screenshot_url").eq("case_id", cid).execute()
+                        if inf_res.data:
+                            for row in inf_res.data:
+                                if row.get("screenshot_url"):
+                                    urls_to_delete.add(row["screenshot_url"])
+                        paths_to_delete = []
+                        marker = "/evidence-screenshots/"
+                        for url in urls_to_delete:
+                            idx = url.find(marker)
+                            if idx != -1:
+                                paths_to_delete.append(url[idx + len(marker):])
+                            elif not url.startswith("http") and url:
+                                paths_to_delete.append(url)
+                        if paths_to_delete:
+                            sb.storage.from_("evidence-screenshots").remove(paths_to_delete)
+                    except Exception as exc:
+                        print(f"[Brands] Storage screenshot cleanup failed for case {cid}: {exc}")
+
+                    sb.table("cases").delete().eq("id", cid).execute()
+        except Exception as exc:
+            print(f"[Brands] Cases purge failed for brand '{brand_name}': {exc}")
+
+    # 2. Clean up brand assets storage
+    try:
+        from tracemark_api.services.storage import BRAND_ASSETS_BUCKET
+        assets_res = sb.table("brand_assets").select("file_url").eq("brand_id", brand_id).execute()
+        if assets_res.data:
+            asset_paths = [a["file_url"] for a in assets_res.data if a.get("file_url")]
+            if asset_paths:
+                sb.storage.from_(BRAND_ASSETS_BUCKET).remove(asset_paths)
+    except Exception as exc:
+        print(f"[Brands] Brand assets storage cleanup failed: {exc}")
+
+    # 3. Delete brand record
     sb.table("brands").delete().eq("id", brand_id).eq(
         "organization_id", profile.organization_id
     ).execute()

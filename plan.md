@@ -1,5 +1,35 @@
 # HAKKIU — Active Plan
 
+> **Session 61 (2026-08-06) — White background logo containers without color inversion.**
+> Updated brand logo image rendering in [src/routes/monitoring.tsx](file:///c:/Users/gaboS/Desktop/Tracemark/src/routes/monitoring.tsx) to place brand logos inside a clean white container (`bg-white border border-border p-1 rounded-md`) across both light and dark mode, removing CSS color inversion. Brand logos (such as Apple's black mark) remain 100% color-accurate and perfectly visible against night mode backgrounds.
+
+---
+
+> **Session 60 (2026-08-06) — Brand logo color inversion in night mode.**
+> Added `dark:invert` CSS utility styling to uploaded brand logo image elements in [src/routes/monitoring.tsx](file:///c:/Users/gaboS/Desktop/Tracemark/src/routes/monitoring.tsx). When night mode / dark theme (`.dark`) is active, dark/black company logos are automatically inverted to high-contrast white/light tones so they remain clearly readable against dark backgrounds.
+
+---
+
+> **Session 59 (2026-08-06) — Display uploaded brand logo image replacing placeholder rectangle.**
+> Updated backend `list_brands` (`apps/api/src/tracemark_api/routes/brands.py`) to query `brand_assets` for uploaded logo files and attach signed `logo_url` to each brand record. Added `logo_url` / `logoUrl` to `BrandRecord` ([src/lib/api.ts](file:///c:/Users/gaboS/Desktop/Tracemark/src/lib/api.ts)) and `Mark` ([src/lib/store.ts](file:///c:/Users/gaboS/Desktop/Tracemark/src/lib/store.ts)). Updated the Monitoring table ([src/routes/monitoring.tsx](file:///c:/Users/gaboS/Desktop/Tracemark/src/routes/monitoring.tsx)) to render `<img src={m.logoUrl} />` inside the avatar container when a logo is uploaded, falling back to the styled color gradient rectangle with brand initials when no logo is uploaded.
+
+---
+
+> **Session 58 (2026-08-06) — Save monitoring asset as draft in On-Hold status + server status sync.**
+> Fixed "Save as Draft" in the Add Monitored Asset form (`src/routes/monitoring.new.tsx`). Previously, clicking "Save as Draft" only navigated back to `/monitoring` without persisting anything. Wired `handleSaveDraft` to validate inputs, create the brand in Supabase with `status: "on_hold"`, upload logos/product images, sync local Zustand state, and refresh the brands cache. Updated `apps/api/src/tracemark_api/routes/brands.py` to accept `status` in `BrandCreate`. Updated `handleToggleStatus` in `src/routes/monitoring.tsx` so pausing or activating a brand syncs `status: "active" | "on_hold"` directly to the server.
+
+---
+
+> **Session 57 (2026-08-06) — Full cascading brand deletion across database.**
+> Fixed brand deletion in the Monitoring tab (`src/routes/monitoring.tsx`). Previously, clicking delete only removed the mark from the client's in-memory Zustand store without invoking `deleteBrand(...)` on the API, causing brands ("testttttt", "testas222", "w") to re-appear upon page refresh. Updated `handleRemove` to call `deleteBrand(...)` and invalidate the `["brands"]` query cache. Updated backend endpoints (`apps/api` and `apps/admin-api`) to perform a full cascading purge of matching cases, evidence, decisions, takedown reports, infringements, evidence items, brand assets, and storage files. Purged legacy test brands directly from Supabase.
+
+---
+
+> **Session 56 (2026-08-06) — Auth sign-in error message surfacing.**
+> Stop overriding Supabase Auth response errors with a generic `"Couldn't sign you in — check your email and password."` toast message. Updated `src/components/auth/auth-screen.tsx` to log errors to `console.error` and display the specific `error.message` from Supabase (e.g., "Invalid login credentials", "Email not confirmed", "Captcha protection is enabled, but no captcha token was provided").
+
+---
+
 > **Session 55 (2026-08-06) — Multi-company org switcher + admin "Add brand" full parity + staff "Set active company".**
 > Goal (LT): "brands turi atsidurti monitoring… tas pats turi būti ar add asset ar create brand… tas pats laukas db… iš skirtingų vietų sukurt galima." → Add-asset and Add-brand must be the SAME thing, and brands must show in monitoring wherever created.
 >

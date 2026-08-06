@@ -269,6 +269,66 @@ function NewAssetPage() {
     return () => clearInterval(interval);
   }, [isPending]);
 
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  async function handleSaveDraft() {
+    if (!brandName.trim()) {
+      toast.error("Brand name is required to save a draft.");
+      return;
+    }
+    if (atBrandLimit) {
+      toast.error("You've reached your plan's brand limit. Contact HAKKIU to add more.");
+      return;
+    }
+
+    setSavingDraft(true);
+    try {
+      let cleanWebsite = website.trim();
+      if (cleanWebsite && !/^https?:\/\//.test(cleanWebsite)) {
+        cleanWebsite = `https://${cleanWebsite}`;
+      }
+      const brand = await createBrand({
+        brand_name: brandName.trim(),
+        website: cleanWebsite || null,
+        registration_number: regNum || null,
+        platforms: apiPlatforms,
+        target_regions: Array.from(selectedRegions),
+        logo_color: "oklch(0.58 0.18 255)",
+        client_id: persona === "law_firm" ? clientId : null,
+        official_domains: officialDomains.filter((d) => d.trim()),
+        official_advertisers: officialAdvertisers.filter((a) => a.trim()),
+        status: "on_hold",
+      });
+
+      if (logoFile) {
+        await uploadBrandAsset(brand.id, "logo", logoFile);
+      }
+      if (productFile) {
+        await uploadBrandAsset(brand.id, "product_image", productFile);
+      }
+
+      addMark({
+        brandName: brandName.trim(),
+        registrationNumber: regNum || "Pending",
+        website: cleanWebsite.replace(/^https?:\/\//, ""),
+        clientId: persona === "law_firm" ? clientId : "",
+        platforms: Array.from(selected),
+        logoColor: "oklch(0.58 0.18 255)",
+        targetRegions: Array.from(selectedRegions),
+        status: "on_hold",
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["brands"] });
+      toast.success(`Saved "${brandName}" as draft in On-Hold assets.`);
+      navigate({ to: "/monitoring" });
+    } catch (err: any) {
+      console.error("Failed to save draft:", err);
+      toast.error(err?.message || "Couldn't save draft. Please try again.");
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (atBrandLimit) {
@@ -668,9 +728,11 @@ function NewAssetPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate({ to: "/monitoring" })}
-                  className="w-full py-2.5 px-4 bg-transparent border border-sidebar-foreground/20 text-sidebar-foreground/80 hover:text-sidebar-foreground font-semibold rounded-md hover:bg-white/5 transition-colors flex justify-center items-center text-sm cursor-pointer"
+                  disabled={isPending || savingDraft || atBrandLimit}
+                  onClick={handleSaveDraft}
+                  className="w-full py-2.5 px-4 bg-transparent border border-sidebar-foreground/20 text-sidebar-foreground/80 hover:text-sidebar-foreground font-semibold rounded-md hover:bg-white/5 transition-colors flex justify-center items-center gap-2 text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
+                  {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Save as Draft
                 </button>
               </div>
