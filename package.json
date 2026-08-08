@@ -77,6 +77,9 @@
     "postcss": ">=8.5.18",
     "undici": ">=7.29.0",
     "brace-expansion": ">=5.0.9",
+    "dompurify": ">=3.4.13",
+    "js-yaml": ">=4.3.1",
+    "nanoid": ">=3.3.19",
     "eslint": {
       "minimatch": ">=10.0.3"
     }
