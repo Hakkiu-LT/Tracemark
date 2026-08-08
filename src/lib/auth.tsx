@@ -112,20 +112,26 @@ export function AuthProvider({
       if (cancelled) return;
       setProfile(p);
 
-      // Load persona from org_settings if available
+      // Load persona and org branding from org_settings if available
       if (p && supabase) {
         const orgId = p.organization_id || userId;
         try {
           const { data, error } = await supabase
             .from("org_settings")
-            .select("persona")
+            .select("persona, firm_name, firm_logo_url")
             .eq("organization_id", orgId)
             .maybeSingle();
-          if (!cancelled && !error && data?.persona) {
-            useStore.getState().setPersona(data.persona as any);
+          if (!cancelled && !error && data) {
+            if (data.persona) {
+              useStore.getState().setPersona(data.persona as any);
+            }
+            useStore.getState().setOrgInfo({
+              orgName: data.firm_name ?? null,
+              orgLogoUrl: data.firm_logo_url ?? null,
+            });
           }
         } catch (err) {
-          console.warn("Failed to load persona from Supabase:", err);
+          console.warn("Failed to load org settings from Supabase:", err);
         }
       }
     });
@@ -144,9 +150,30 @@ export function AuthProvider({
   async function refreshProfile() {
     const userId = session?.user.id;
     if (userId) {
-      const { fetchProfile } = await import("./supabase");
+      const { supabase, fetchProfile } = await import("./supabase");
       const p = await fetchProfile(userId);
       setProfile(p);
+      if (p && supabase) {
+        const orgId = p.organization_id || userId;
+        try {
+          const { data } = await supabase
+            .from("org_settings")
+            .select("persona, firm_name, firm_logo_url")
+            .eq("organization_id", orgId)
+            .maybeSingle();
+          if (data) {
+            if (data.persona) {
+              useStore.getState().setPersona(data.persona as any);
+            }
+            useStore.getState().setOrgInfo({
+              orgName: data.firm_name ?? null,
+              orgLogoUrl: data.firm_logo_url ?? null,
+            });
+          }
+        } catch (err) {
+          console.warn("Failed to refresh org settings:", err);
+        }
+      }
     }
   }
 

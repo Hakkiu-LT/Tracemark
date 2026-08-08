@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { CompanyLogo } from "@/components/company-logo";
 import { Button } from "@/components/ui/button";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,7 @@ export function LandingNav() {
             to="/"
             className="flex items-center gap-2 text-foreground transition-opacity hover:opacity-80"
           >
-            <HakkiuLogo className="h-6 text-foreground" />
+            <CompanyLogo className="h-6 text-foreground" />
             <span className="ml-1 hidden rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block">
               AI 2.0
             </span>

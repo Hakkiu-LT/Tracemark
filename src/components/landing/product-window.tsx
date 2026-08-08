@@ -1,5 +1,5 @@
 import { AlertTriangle, Sparkles, ShieldCheck, Search, Lock, FileText } from "lucide-react";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { CompanyLogo } from "@/components/company-logo";
 import { cn } from "@/lib/utils";
 
 /**
@@ -90,7 +90,7 @@ export function ProductWindow({ scan = false, className }: { scan?: boolean; cla
               <span className="h-3 w-3 rounded-full bg-amber-500/80" />
               <span className="h-3 w-3 rounded-full bg-emerald-500/80" />
             </div>
-            <HakkiuLogo className="hidden h-3 text-foreground/80 sm:block" />
+            <CompanyLogo className="hidden h-3 text-foreground/80 sm:block" />
           </div>
           <div className="hidden items-center gap-2 rounded-md border border-border/60 bg-background px-3 py-1 font-mono text-[11px] text-muted-foreground md:flex">
             <Lock className="h-3 w-3 text-emerald-500" />

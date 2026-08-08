@@ -111,6 +111,9 @@ interface State {
   marks: Mark[];
   infringements: Infringement[];
   scanResults: Record<string, CheckBrandResponse>;
+  orgName: string | null;
+  orgLogoUrl: string | null;
+  setOrgInfo: (info: { orgName?: string | null; orgLogoUrl?: string | null }) => void;
   setHydrated: (hydrated: boolean) => void;
   setPersona: (p: Persona) => void;
   setActiveClient: (id: string | null) => void;
@@ -138,6 +141,12 @@ export const useStore = create<State>()(
       hydrated: false,
       persona: "brand_owner",
       activeClientId: null,
+      orgName: null,
+      orgLogoUrl: null,
+      setOrgInfo: (info) => set((s) => ({
+        orgName: info.orgName !== undefined ? info.orgName : s.orgName,
+        orgLogoUrl: info.orgLogoUrl !== undefined ? info.orgLogoUrl : s.orgLogoUrl,
+      })),
       clients: CLIENTS,
       marks: MARKS,
       infringements: INFRINGEMENTS,

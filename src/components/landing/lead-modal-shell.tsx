@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { CheckCircle2, ShieldCheck } from "lucide-react";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { CompanyLogo } from "@/components/company-logo";
 import {
   Dialog,
   DialogContent,
@@ -82,7 +82,7 @@ export function LeadModalShell({
               />
 
               <div className="relative flex items-center gap-2.5">
-                <HakkiuLogo className="h-3.5 text-foreground" />
+                <CompanyLogo className="h-3.5 text-foreground" />
                 <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                   {eyebrow}
                 </span>

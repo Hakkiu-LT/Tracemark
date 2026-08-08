@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { HakkiuMark } from "@/components/hakkiu-mark";
+import { CompanyMark } from "@/components/company-mark";
 
 export const Route = createFileRoute("/auth/reset-password")({
   head: () => ({ meta: [{ title: "Set your password — HAKKIU" }] }),
@@ -94,7 +94,7 @@ function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-sm">
         <div className="mb-4 flex flex-col items-center gap-2 text-center">
-          <HakkiuMark className="h-12 w-12 text-primary" />
+          <CompanyMark className="h-12 w-12 text-primary" />
           <h1 className="text-lg font-semibold">Set your password</h1>
         </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUp, Clock } from "lucide-react";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { CompanyLogo } from "@/components/company-logo";
 import { Footer } from "@/components/landing/footer";
 import { COMPANY } from "@/lib/company";
 import { cn } from "@/lib/utils";
@@ -97,7 +97,7 @@ export function LegalLayout({
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2.5">
-            <HakkiuLogo className="h-6 text-foreground" />
+            <CompanyLogo className="h-6 text-foreground" />
           </Link>
           <Link
             to="/"
