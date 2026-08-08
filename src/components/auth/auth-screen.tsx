@@ -2,7 +2,7 @@ import { useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ShieldCheck, Eye, EyeOff } from "lucide-react";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { CompanyLogo } from "@/components/company-logo";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,7 +115,7 @@ export function AuthScreen({ redirect }: { redirect?: string }) {
     <div className="relative flex min-h-screen flex-col bg-background font-body-alt text-foreground">
       {/* Floating brand — left */}
       <Link to="/" className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-10">
-        <HakkiuLogo className="h-9 text-foreground" />
+        <CompanyLogo className="h-9 text-foreground" />
       </Link>
 
       {/* Floating back link — right */}

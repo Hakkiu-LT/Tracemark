@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useLocation } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -16,10 +16,14 @@ import { useStore, type Persona } from "@/lib/store";
 import {
   Building2,
   Check,
+  Image as ImageIcon,
   Loader2,
   Mail,
   MessageSquare,
   Send,
+  Trash2,
+  Upload,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -38,15 +42,18 @@ export function SettingsPage() {
   const location = useLocation();
   const persona = useStore((s) => s.persona);
   const setPersona = useStore((s) => s.setPersona);
+  const setOrgInfo = useStore((s) => s.setOrgInfo);
   const { profile, user, refreshProfile } = useAuth();
   const orgId = profile?.organization_id || user?.id;
 
   const [fullName, setFullName] = useState("");
   const [emailVal, setEmailVal] = useState("");
   const [orgName, setOrgName] = useState("");
+  const [orgLogoUrl, setOrgLogoUrl] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) {
@@ -66,7 +73,7 @@ export function SettingsPage() {
         if (!supabase) return;
         const { data, error } = await supabase
           .from("org_settings")
-          .select("notification_email, firm_name")
+          .select("notification_email, firm_name, firm_logo_url")
           .eq("organization_id", orgId)
           .maybeSingle();
 
@@ -74,12 +81,23 @@ export function SettingsPage() {
 
         if (data) {
           setEmailVal(data.notification_email || user?.email || "");
-          setOrgName(
-            data.firm_name || (persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc."),
-          );
+          const name =
+            data.firm_name || (persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc.");
+          setOrgName(name);
+          setOrgLogoUrl(data.firm_logo_url || null);
+          setOrgInfo({
+            orgName: name,
+            orgLogoUrl: data.firm_logo_url || null,
+          });
         } else {
           setEmailVal(user?.email || "");
-          setOrgName(persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc.");
+          const defaultName = persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc.";
+          setOrgName(defaultName);
+          setOrgLogoUrl(null);
+          setOrgInfo({
+            orgName: defaultName,
+            orgLogoUrl: null,
+          });
         }
       } catch (err) {
         console.error("Error loading org settings:", err);
@@ -89,7 +107,40 @@ export function SettingsPage() {
     }
 
     loadOrgSettings();
-  }, [orgId, user, persona]);
+  }, [orgId, user, persona, setOrgInfo]);
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file (PNG, JPG, SVG, WebP)");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image file must be under 5MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setOrgLogoUrl(result);
+      setOrgInfo({ orgLogoUrl: result });
+      toast.success("Logo preview updated — click 'Save changes' to save.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => {
+    setOrgLogoUrl(null);
+    setOrgInfo({ orgLogoUrl: null });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    toast.info("Logo removed — click 'Save changes' to persist.");
+  };
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -117,10 +168,17 @@ export function SettingsPage() {
       const { error: orgError } = await supabase.from("org_settings").upsert({
         organization_id: orgId,
         firm_name: orgName,
+        firm_logo_url: orgLogoUrl,
         notification_email: emailVal,
         updated_at: new Date().toISOString(),
       });
       if (orgError) throw orgError;
+
+      // Update global store state immediately
+      setOrgInfo({
+        orgName,
+        orgLogoUrl,
+      });
 
       // 3. Optional: update auth email if changed
       if (emailVal.trim() && emailVal.trim() !== user.email) {
@@ -283,8 +341,71 @@ export function SettingsPage() {
                       id="organization"
                       value={orgName}
                       onChange={(e) => setOrgName(e.target.value)}
+                      placeholder="e.g. Acme Corp or Chen & Partners IP"
                       className="bg-background/50"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      This name is displayed in your workspace header and on legal notices.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <Label>Company Logo</Label>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-lg border border-border/50 bg-background/30 p-4">
+                      {orgLogoUrl ? (
+                        <div className="relative flex h-16 w-36 shrink-0 items-center justify-center rounded-md border border-border bg-white p-2 shadow-xs">
+                          <img
+                            src={orgLogoUrl}
+                            alt="Company logo preview"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-16 w-36 shrink-0 items-center justify-center rounded-md border border-dashed border-border bg-muted/30 text-xs text-muted-foreground">
+                          <div className="flex flex-col items-center gap-1">
+                            <ImageIcon className="h-5 w-5 text-muted-foreground/60" />
+                            <span>Default Logo</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="h-8 gap-1.5 text-xs"
+                          >
+                            <Upload className="h-3.5 w-3.5 text-accent" />
+                            {orgLogoUrl ? "Change logo" : "Upload logo"}
+                          </Button>
+                          {orgLogoUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleRemoveLogo}
+                              className="h-8 gap-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remove logo
+                            </Button>
+                          )}
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                            onChange={handleLogoFileChange}
+                            className="hidden"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          PNG, JPG, SVG, or WebP up to 5MB. Displayed in your sidebar header and brand reports.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between pt-2">
                     {profile?.org_role === "member" && (

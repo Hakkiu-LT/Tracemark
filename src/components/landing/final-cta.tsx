@@ -1,5 +1,5 @@
 import { ArrowRight, Check, CalendarCheck, MessageSquare } from "lucide-react";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { CompanyLogo } from "@/components/company-logo";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { BlueprintOverlay } from "./blueprint";
 import { Reveal } from "./reveal";
@@ -47,7 +47,7 @@ export function FinalCTA() {
             procurement, and legal workflows.
           </Reveal>
           <Reveal delay={180} className="mt-8">
-            <HakkiuLogo className="h-6 text-white/90" />
+            <CompanyLogo className="h-6 text-white/90" />
           </Reveal>
         </div>
 

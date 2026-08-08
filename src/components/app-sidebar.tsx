@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, Radar, ShieldAlert, Briefcase, Settings, CreditCard } from "lucide-react";
-import { HakkiuMark } from "@/components/hakkiu-mark";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { CompanyMark } from "@/components/company-mark";
+import { CompanyLogo } from "@/components/company-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const persona = useStore((s) => s.persona);
+  const orgName = useStore((s) => s.orgName);
+  const orgLogoUrl = useStore((s) => s.orgLogoUrl);
   const { user, profile } = useAuth();
 
   const items = [
@@ -44,33 +46,70 @@ export function AppSidebar() {
     return pathname.startsWith(url);
   };
 
+  const displayName = orgName || (persona === "law_firm" ? "Chen & Partners IP" : "Helix Audio Inc.");
+
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className={cn("border-b border-sidebar-border", collapsed && "p-0 flex items-center justify-center")}>
-        <Link
-          to="/"
-          className={cn(
-            "flex items-center gap-2 py-3 transition-all",
-            collapsed ? "w-full justify-center px-0" : "px-2"
-          )}
-        >
-          {collapsed ? (
-            <HakkiuMark className="h-7 w-7 shrink-0 text-sidebar-primary" />
-          ) : (
-            <div className="flex flex-col gap-1 leading-tight">
-              <HakkiuLogo className="h-5 text-sidebar-foreground" />
-              <span className="text-[10px] uppercase tracking-wider text-sidebar-foreground/60">
-                {persona === "law_firm" ? "Law Firm" : "Brand Owner"}
-              </span>
-            </div>
-          )}
-        </Link>
+      <SidebarHeader
+        className={cn(
+          "border-b border-sidebar-border transition-all",
+          collapsed
+            ? "flex h-14 items-center justify-center p-0"
+            : "flex flex-col items-center justify-center py-2.5 px-3"
+        )}
+      >
+        {collapsed ? (
+          <Link
+            to="/"
+            className="flex h-full w-full items-center justify-center transition-opacity hover:opacity-80"
+            title={displayName}
+          >
+            {orgLogoUrl ? (
+              <img
+                src={orgLogoUrl}
+                alt={displayName}
+                className="h-7 w-7 rounded object-contain shrink-0"
+              />
+            ) : (
+              <CompanyMark className="h-7 w-7 shrink-0 text-sidebar-primary" />
+            )}
+          </Link>
+        ) : (
+          <Link
+            to="/"
+            className="group flex flex-col items-center justify-center gap-1 text-center transition-opacity hover:opacity-90 max-w-full px-2"
+            title={displayName}
+          >
+            {orgLogoUrl ? (
+              <div className="flex items-center justify-center gap-2 max-w-[210px]">
+                <img
+                  src={orgLogoUrl}
+                  alt={displayName}
+                  className="h-6 w-6 rounded object-contain shrink-0 transition-transform group-hover:scale-105"
+                />
+                <span className="font-bold text-sm tracking-tight text-sidebar-foreground truncate">
+                  {displayName}
+                </span>
+              </div>
+            ) : orgName && orgName !== "HAKKIU" ? (
+              <div className="flex items-center justify-center gap-1.5 max-w-[210px]">
+                <CompanyMark className="h-5 w-5 text-sidebar-primary shrink-0" />
+                <span className="font-bold text-sm tracking-tight text-sidebar-foreground truncate">
+                  {displayName}
+                </span>
+              </div>
+            ) : (
+              <CompanyLogo className="h-5.5 text-sidebar-foreground transition-transform group-hover:scale-[1.02]" />
+            )}
+            <span className="rounded-full border border-sidebar-border bg-sidebar-accent/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/75 shadow-xs select-none">
+              {persona === "law_firm" ? "Law Firm" : "Brand Owner"}
+            </span>
+          </Link>
+        )}
       </SidebarHeader>
-      <SidebarContent>
-        <div className={cn("pt-2", collapsed && "flex justify-center")}>
-          <CompanySwitcher collapsed={collapsed} />
-        </div>
-        <SidebarGroup>
+      <SidebarContent className="gap-0">
+        <CompanySwitcher collapsed={collapsed} />
+        <SidebarGroup className="pt-1.5">
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

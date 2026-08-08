@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Linkedin, ArrowRight } from "lucide-react";
-import { HakkiuLogo } from "@/components/hakkiu-logo";
+import { CompanyLogo } from "@/components/company-logo";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { COMPANY, copyrightLine } from "@/lib/company";
 import { openCookieSettings } from "@/lib/consent";
@@ -129,7 +129,7 @@ export function Footer() {
           {/* Brand block */}
           <div>
             <Link to="/" className="inline-flex items-center gap-2.5">
-              <HakkiuLogo className="h-6 text-foreground" />
+              <CompanyLogo className="h-6 text-foreground" />
             </Link>
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
               AI-powered trademark monitoring, evidence capture, and automated takedowns for brand
