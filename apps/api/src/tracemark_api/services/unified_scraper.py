@@ -33,6 +33,7 @@ from tracemark_api.services.api_usage_tracker import (
     call_with_tracking,
 )
 from tracemark_api.services.firecrawl_client import ScrapeResult, scrape_page
+from tracemark_api.services.geo import firecrawl_location, infer_country_from_url
 from tracemark_api.services.scrape_cache import get_cached, put_cached
 from tracemark_api.services.ssrf import SSRFError, safe_get, validate_ssrf_url
 
@@ -519,6 +520,35 @@ class UnifiedScraper:
                 scraper_used=SCRAPE_STATIC,
             )
 
+
+    # ------------------------------------------------------------------
+    # Block-detection helper
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _looks_blocked(fc_result: ScrapeResult | None) -> bool:
+        """
+        Return ``True`` if the Firecrawl result looks like a bot-block
+        (CAPTCHA, WAF, or empty shell) rather than real page content.
+        """
+        if fc_result is None:
+            return True
+        if not fc_result.success:
+            # Explicit failure — check error hints
+            err = (fc_result.error_message or "").lower()
+            if any(kw in err for kw in ("403", "429", "blocked", "captcha", "denied")):
+                return True
+            return True  # any failure counts as potentially blocked
+        # Success but suspiciously little content
+        if len(fc_result.markdown or "") < _MIN_CONTENT_LENGTH:
+            return True
+        # Success but the body contains antibot signatures
+        if contains_antibot(fc_result.markdown or ""):
+            return True
+        if fc_result.html and contains_antibot(fc_result.html):
+            return True
+        return False
+
     # ------------------------------------------------------------------
     # Private: JS rendering via Firecrawl (external paid API)
     # ------------------------------------------------------------------
@@ -529,6 +559,11 @@ class UnifiedScraper:
         """
         Scrape a JS-heavy page via Firecrawl. Uses a 24 h in-memory cache
         to avoid duplicate API calls for the same URL.
+
+        Fallback chain:
+          1. Standard Firecrawl scrape (default proxy)
+          2. If blocked → retry with ``proxy="stealth"`` and region-aware
+             ``location`` inferred from the URL's domain.
 
         Tracked under the ``firecrawl`` key (400 credits/month).
         """
@@ -559,15 +594,44 @@ class UnifiedScraper:
             raise
         except Exception as exc:
             _js_cache_set(url, (None, datetime.now()))
-            return UnifiedScrapeResult(
-                url=url,
-                title=None,
-                markdown="",
-                success=False,
-                error_message=str(exc),
-                scraper_used=SCRAPE_JS,
+            fc_result = ScrapeResult(
+                url=url, title=None, markdown="",
+                success=False, error_message=str(exc),
             )
 
+        # ── Stealth proxy retry ────────────────────────────────────────
+        # If the initial attempt looks blocked (CAPTCHA, 403, empty body)
+        # retry once with proxy="stealth" and the correct region location.
+        if self._looks_blocked(fc_result):
+            retry_location = location or firecrawl_location(
+                infer_country_from_url(url)
+            )
+            print(
+                f"[UnifiedScraper] Firecrawl blocked for {url}, "
+                f"retrying with stealth proxy (location={retry_location})"
+            )
+            try:
+                fc_result = call_with_tracking(
+                    "firecrawl",
+                    caller_id,
+                    "/unified-scrape-js-stealth",
+                    lambda: scrape_page(
+                        url, location=retry_location, proxy="stealth"
+                    ),
+                    credits_used=10,
+                )
+            except ApiLimitError:
+                raise
+            except Exception as exc:
+                _js_cache_set(url, (None, datetime.now()))
+                return UnifiedScrapeResult(
+                    url=url, title=None, markdown="",
+                    success=False,
+                    error_message=f"Stealth retry failed: {exc}",
+                    scraper_used=SCRAPE_JS,
+                )
+
+        # ── Final result evaluation ────────────────────────────────────
         _js_cache_set(url, (fc_result, datetime.now()))
 
         if not fc_result or not fc_result.success:

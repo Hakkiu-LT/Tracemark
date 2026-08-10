@@ -45,7 +45,7 @@ def screenshot_page(url: str, location: dict | None = None) -> str | None:
         return None
 
 
-def scrape_page(url: str, with_screenshot: bool = False, location: dict | None = None) -> ScrapeResult:
+def scrape_page(url: str, with_screenshot: bool = False, location: dict | None = None, proxy: str | None = None) -> ScrapeResult:
     api_key = os.environ.get("FIRECRAWL_API_KEY")
     if not api_key:
         if "example.com" in url or "test" in url:
@@ -72,6 +72,8 @@ def scrape_page(url: str, with_screenshot: bool = False, location: dict | None =
         }
         if location:
             payload["location"] = location
+        if proxy:
+            payload["proxy"] = proxy
         
         response = httpx.post(
             "https://api.firecrawl.dev/v1/scrape",

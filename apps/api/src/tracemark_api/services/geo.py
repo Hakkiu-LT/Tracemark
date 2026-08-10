@@ -108,6 +108,33 @@ def resolve_regions(regions: list[str] | None) -> list[str]:
     return deduped if deduped else ["US"]
 
 
+def infer_country_from_url(url: str) -> str:
+    """
+    Reverse-lookup the URL's domain in geo maps (AMAZON_DOMAINS, EBAY_DOMAINS)
+    to determine the 2-letter ISO country code. Falls back to ``"US"``.
+
+    Examples:
+        ``https://www.amazon.de/s?k=nike``   → ``"DE"``
+        ``https://www.ebay.co.uk/sch/...``   → ``"GB"``
+        ``https://www.example.com/``         → ``"US"``
+    """
+    import urllib.parse
+
+    try:
+        netloc = urllib.parse.urlparse(url).netloc.lower()
+    except Exception:
+        return "US"
+
+    # Check all domain maps: value is "www.amazon.de" style
+    for domain_map in (AMAZON_DOMAINS, EBAY_DOMAINS):
+        for country_code, domain in domain_map.items():
+            # Match exact netloc or netloc without "www."
+            if netloc == domain or netloc == domain.lstrip("www."):
+                return country_code
+
+    return "US"
+
+
 def firecrawl_location(country: str) -> dict:
     """
     Constructs the location payload for Firecrawl.
