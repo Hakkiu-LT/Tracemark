@@ -220,3 +220,10 @@ def startup_event():
         run_email_poller()
 
     threading.Thread(target=run_email_poller_thread, daemon=True).start()
+
+    # Periodic Brand Scan Scheduler — runs automated scans for active brands every 6 hours.
+    def run_brand_scan_scheduler_thread():
+        from tracemark_api.services.scan_scheduler import run_scan_scheduler_loop
+        run_scan_scheduler_loop()
+
+    threading.Thread(target=run_brand_scan_scheduler_thread, daemon=True).start()

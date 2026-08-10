@@ -25,7 +25,11 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
+
+[tool.pyright]
+extraPaths = ["src", "."]
+
 
 [tool.ruff]
 # Minimal, high-signal "judge" ruleset — see apps/api/pyproject.toml for rationale.

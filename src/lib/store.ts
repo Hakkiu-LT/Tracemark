@@ -204,10 +204,11 @@ export const useStore = create<State>()(
                 createdAt: (b.created_at ?? "").slice(0, 10),
                 lastScan: b.last_scan_at ? new Date(b.last_scan_at).toLocaleString() : "never",
                 status: serverStatusToMark(b.status),
+                repeatCycle: 360,
               });
             } else {
               // Keep this mark's id/status/repeatCycle; refresh the descriptive fields.
-              marks[idx] = { ...marks[idx], ...descriptive };
+              marks[idx] = { ...marks[idx], ...descriptive, repeatCycle: marks[idx].repeatCycle || 360 };
             }
           }
 

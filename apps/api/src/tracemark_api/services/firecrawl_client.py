@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 import httpx
 
+from tracemark_api.services.ssrf import SSRFError, validate_ssrf_url
+
 
 @dataclass(slots=True)
 class ScrapeResult:
@@ -28,6 +30,11 @@ def screenshot_page(url: str, location: dict | None = None) -> str | None:
     if not api_key or api_key == "your_firecrawl_api_key_here":
         return None
     try:
+        validate_ssrf_url(url)
+    except SSRFError as e:
+        print(f"[Firecrawl] Rejected unsafe screenshot URL: {e}")
+        return None
+    try:
         payload = {"url": url, "formats": ["screenshot"], "waitFor": 3000}
         if location:
             payload["location"] = location
@@ -45,7 +52,18 @@ def screenshot_page(url: str, location: dict | None = None) -> str | None:
         return None
 
 
-def scrape_page(url: str, with_screenshot: bool = False, location: dict | None = None) -> ScrapeResult:
+def scrape_page(url: str, with_screenshot: bool = False, location: dict | None = None, proxy: str | None = None) -> ScrapeResult:
+    try:
+        validate_ssrf_url(url)
+    except SSRFError as e:
+        return ScrapeResult(
+            url=url,
+            title=None,
+            markdown="",
+            success=False,
+            error_message=f"SSRF blocked: {e}",
+        )
+
     api_key = os.environ.get("FIRECRAWL_API_KEY")
     if not api_key:
         if "example.com" in url or "test" in url:
@@ -72,6 +90,8 @@ def scrape_page(url: str, with_screenshot: bool = False, location: dict | None =
         }
         if location:
             payload["location"] = location
+        if proxy:
+            payload["proxy"] = proxy
         
         response = httpx.post(
             "https://api.firecrawl.dev/v1/scrape",

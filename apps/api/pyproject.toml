@@ -37,10 +37,14 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 markers = [
     "integration: tests that require real API keys or network access (skip in CI)",
 ]
+
+[tool.pyright]
+extraPaths = ["src", "."]
+
 
 [tool.ruff]
 # Minimal, high-signal "judge" ruleset. Kept intentionally small so it catches

@@ -1882,6 +1882,7 @@ def _parse_marketplace_listings(
             listings.append(MarketplaceEvidence(
                 platform=platform,
                 seller_name=seller or title,
+                title=title or None,
                 listing_url=url,
                 price=str(price) if price is not None else None,
             ))
@@ -1917,6 +1918,7 @@ def _parse_marketplace_listings(
         listings.append(MarketplaceEvidence(
             platform=platform,
             seller_name=seller,
+            title=title or None,
             listing_url=url,
             price=price,
         ))
@@ -2054,8 +2056,19 @@ async def gather_evidence(
     Main entrypoint. Runs the 3-tier scraping pipeline and returns
     a fully populated Evidence object.
     """
-    # --- Mock mode: no scraping API keys set ---
+    # --- Mock mode: only in dev/test when no scraping API keys are set ---
     if not os.environ.get("FIRECRAWL_API_KEY") and not os.environ.get("GOOGLE_SERP_API"):
+        if os.environ.get("ENVIRONMENT") == "production":
+            print("[gather_evidence] ERROR: Production environment is missing FIRECRAWL_API_KEY and GOOGLE_SERP_API.")
+            return Evidence(
+                marketplaces=[],
+                ads=[],
+                domains=[],
+                social=[],
+                blocked_apis=["firecrawl", "google_serp"],
+                scanned_platforms=platforms,
+                timestamp=datetime.now(),
+            )
         return _mock_evidence(brand_name)
 
     scraper = MarketplaceScraper()

@@ -109,7 +109,6 @@ function MonitoringPage() {
   const [editWebsite, setEditWebsite] = useState("");
   const [editClientId, setEditClientId] = useState("");
   const [editPlatforms, setEditPlatforms] = useState<Set<Platform>>(new Set());
-  const [editRepeatCycle, setEditRepeatCycle] = useState("");
   const [editSelectedRegions, setEditSelectedRegions] = useState<Set<string>>(new Set());
   const [editOfficialDomains, setEditOfficialDomains] = useState<string[]>([""]);
   const [editOfficialAdvertisers, setEditOfficialAdvertisers] = useState<string[]>([""]);
@@ -121,8 +120,6 @@ function MonitoringPage() {
   const [editProductFile, setEditProductFile] = useState<File | null>(null);
   const [editRealBrandId, setEditRealBrandId] = useState<string | null>(null);
   const [editExpandedRegions, setEditExpandedRegions] = useState<Set<string>>(new Set(["NA", "EMEA"]));
-
-  const isRepeatCycleInvalid = editRepeatCycle !== "" && !/^\d+$/.test(editRepeatCycle);
 
   useEffect(() => {
     if (editingMark) {
@@ -136,11 +133,6 @@ function MonitoringPage() {
             ALL_PLATFORMS.some((ap) => ap.id === p),
           ),
         ),
-      );
-      setEditRepeatCycle(
-        editingMark.repeatCycle !== undefined && editingMark.repeatCycle !== null
-          ? String(editingMark.repeatCycle)
-          : "",
       );
       setEditSelectedRegions(new Set(editingMark.targetRegions || ["US"]));
       setEditOfficialDomains(
@@ -373,11 +365,8 @@ function MonitoringPage() {
 
   const scheduleRepeatIfConfigured = (id: string) => {
     const mark = useStore.getState().marks.find((m) => m.id === id);
-    if (mark && mark.status !== "on_hold" && mark.repeatCycle) {
-      const minutes = mark.repeatCycle;
-      toast.info(
-        `Next scan for ${mark.brandName} scheduled in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
-      );
+    if (mark && mark.status !== "on_hold") {
+      const minutes = 360; // 6 hours
       const timer = setTimeout(() => {
         timeoutsRef.current.delete(id);
         runScanCycle(id);
@@ -480,13 +469,6 @@ function MonitoringPage() {
       toast.error("Brand name is required.");
       return;
     }
-    if (isRepeatCycleInvalid) {
-      toast.error("Invalid parameter");
-      return;
-    }
-    const repeatCycleNum = editRepeatCycle.trim()
-      ? parseInt(editRepeatCycle.trim(), 10)
-      : undefined;
 
     const cleanOfficialDomains = editOfficialDomains.filter((d) => d.trim());
     const cleanOfficialAdvertisers = editOfficialAdvertisers.filter((a) => a.trim());
@@ -557,7 +539,7 @@ function MonitoringPage() {
       website: editWebsite.trim(),
       clientId: editClientId,
       platforms: Array.from(editPlatforms),
-      repeatCycle: repeatCycleNum,
+      repeatCycle: 360,
       targetRegions: Array.from(editSelectedRegions),
       officialDomains: cleanOfficialDomains,
       officialAdvertisers: cleanOfficialAdvertisers,
@@ -571,14 +553,12 @@ function MonitoringPage() {
         clearTimeout(existingTimeout);
         timeoutsRef.current.delete(editingMark.id);
       }
-      if (repeatCycleNum) {
-        const ms = repeatCycleNum * 60 * 1000;
-        const timer = setTimeout(() => {
-          timeoutsRef.current.delete(editingMark.id);
-          runScanCycle(editingMark.id);
-        }, ms);
-        timeoutsRef.current.set(editingMark.id, timer);
-      }
+      const ms = 360 * 60 * 1000;
+      const timer = setTimeout(() => {
+        timeoutsRef.current.delete(editingMark.id);
+        runScanCycle(editingMark.id);
+      }, ms);
+      timeoutsRef.current.set(editingMark.id, timer);
     }
   };
 
@@ -728,25 +708,6 @@ function MonitoringPage() {
                 onChange={(e) => setEditWebsite(e.target.value)}
                 placeholder="e.g. derila.com"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-repeatCycle">Repeat Cycle (Minutes)</Label>
-              <Input
-                id="edit-repeatCycle"
-                type="text"
-                value={editRepeatCycle}
-                onChange={(e) => setEditRepeatCycle(e.target.value)}
-                placeholder="e.g. 60 (minutes between scans)"
-                className={
-                  isRepeatCycleInvalid
-                    ? "border-red-500 focus-visible:ring-red-500 text-red-500"
-                    : ""
-                }
-              />
-              {isRepeatCycleInvalid && (
-                <p className="text-xs text-red-500 font-medium">Invalid parameter</p>
-              )}
             </div>
 
             {/* Logo Upload */}
@@ -1143,7 +1104,6 @@ function MarksTable({
           <TableHead>Brand / Mark</TableHead>
           <TableHead>Registration #</TableHead>
           <TableHead>Platforms</TableHead>
-          <TableHead className="text-center">Repeat Cycle</TableHead>
           <TableHead className="text-center">Active alerts</TableHead>
           <TableHead className="text-right">Last scan</TableHead>
           {!isActiveSection && <TableHead className="text-center w-[60px]">Edit</TableHead>}
@@ -1217,9 +1177,6 @@ function MarksTable({
                       </Badge>
                     ))}
                 </div>
-              </TableCell>
-              <TableCell className="text-center text-xs text-muted-foreground">
-                {m.repeatCycle ? `${m.repeatCycle} min` : "Manual"}
               </TableCell>
               <TableCell className="text-center">
                 {isActiveSection ? (
