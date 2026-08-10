@@ -7,6 +7,16 @@ export const Route = createFileRoute("/legal/imprint")({
     meta: [
       { title: "Legal Notice / Imprint — HAKKIU" },
       { name: "description", content: "Company identification and legal notice for HAKKIU." },
+      { property: "og:title", content: "Legal Notice / Imprint — HAKKIU" },
+      {
+        property: "og:description",
+        content: "Company identification and legal notice for HAKKIU.",
+      },
+      { name: "twitter:title", content: "Legal Notice / Imprint — HAKKIU" },
+      {
+        name: "twitter:description",
+        content: "Company identification and legal notice for HAKKIU.",
+      },
       { property: "og:url", content: `${COMPANY.baseUrl}/legal/imprint` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/imprint` }],
@@ -94,8 +104,8 @@ function ImprintPage() {
 
       <h2>Responsibility for content</h2>
       <p>
-        {COMPANY.legalName} is responsible for the content of this website. While we take care to keep
-        information accurate and up to date, we accept no liability for the content of external
+        {COMPANY.legalName} is responsible for the content of this website. While we take care to
+        keep information accurate and up to date, we accept no liability for the content of external
         websites linked from here; responsibility for linked content rests with their respective
         operators.
       </p>

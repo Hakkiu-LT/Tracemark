@@ -1,5 +1,25 @@
 # HAKKIU — Active Plan
 
+> **Session 62 (2026-08-10) — GSC "pages not indexed" investigation + SEO metadata fixes.**
+> Google Search Console reported 6 not-indexed pages on the 5-day-old hakkiu.com property
+> (Discovered/Crawled – currently not indexed for `/legal/privacy`, `/legal/security`,
+> `/legal/subprocessors`, `/solutions/brand-owners`, `/solutions/law-firms`; plus the expected
+> `http://` "page with redirect"). A 3-subagent investigation + live-site `curl` verification found
+> **no technical blocker** — all pages return 200, are fully SSR'd with correct title/description/
+> canonical/`robots=index,follow`, are in the sitemap, unblocked by robots.txt, and footer-linked.
+> The statuses are normal Google behaviour for a brand-new domain (resolve with time + a manual
+> "Request Indexing" nudge in GSC). Plan written to `docs/seo-indexing-plan-2026-08-10.md` and
+> **approved by an independent reviewer agent** (APPROVE WITH CHANGES; corrections applied).
+> Fixes implemented: (1) added page-specific `og:title`/`og:description`/`twitter:*` to all 8
+> `src/routes/legal.*.tsx` (they were inheriting the generic root OG); (2) added in-content homepage
+> links to both solutions pages in `src/components/landing/final-cta.tsx` (previously only footer);
+> (3) bumped `<lastmod>` in `public/sitemap.xml` for the changed pages (legal + home). Solutions
+> pages already cross-link each other. **Human action still required:** GSC → URL Inspection →
+> Request Indexing for the 5 URLs + confirm sitemap submitted; then wait 1–3 weeks.
+> These are static marketing/SEO assets (not customer data) → admin-portal parity rule does not apply.
+
+---
+
 > **Session 61 (2026-08-06) — White background logo containers without color inversion.**
 > Updated brand logo image rendering in [src/routes/monitoring.tsx](file:///c:/Users/gaboS/Desktop/Tracemark/src/routes/monitoring.tsx) to place brand logos inside a clean white container (`bg-white border border-border p-1 rounded-md`) across both light and dark mode, removing CSS color inversion. Brand logos (such as Apple's black mark) remain 100% color-accurate and perfectly visible against night mode backgrounds.
 

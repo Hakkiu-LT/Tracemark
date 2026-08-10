@@ -6,7 +6,20 @@ export const Route = createFileRoute("/legal/cookies")({
   head: () => ({
     meta: [
       { title: "Cookie Policy — HAKKIU" },
-      { name: "description", content: "What cookies HAKKIU uses, why, and how to manage your consent." },
+      {
+        name: "description",
+        content: "What cookies HAKKIU uses, why, and how to manage your consent.",
+      },
+      { property: "og:title", content: "Cookie Policy — HAKKIU" },
+      {
+        property: "og:description",
+        content: "What cookies HAKKIU uses, why, and how to manage your consent.",
+      },
+      { name: "twitter:title", content: "Cookie Policy — HAKKIU" },
+      {
+        name: "twitter:description",
+        content: "What cookies HAKKIU uses, why, and how to manage your consent.",
+      },
       { property: "og:url", content: `${COMPANY.baseUrl}/legal/cookies` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/cookies` }],
@@ -35,8 +48,8 @@ function CookiesPage() {
           keeping you signed in, security). These do not require consent.
         </li>
         <li>
-          <strong>Analytics</strong> — help us understand how visitors use the site so we can improve
-          it. These are <strong>non-essential</strong> and are only set with your consent.
+          <strong>Analytics</strong> — help us understand how visitors use the site so we can
+          improve it. These are <strong>non-essential</strong> and are only set with your consent.
         </li>
       </ul>
 
@@ -81,30 +94,30 @@ function CookiesPage() {
       </table>
       <p>
         Analytics cookies are provided by Google and may involve transferring data to the United
-        States under appropriate safeguards (see our{" "}
-        <Link to="/legal/privacy">Privacy Policy</Link>, section 7).
+        States under appropriate safeguards (see our <Link to="/legal/privacy">Privacy Policy</Link>
+        , section 7).
       </p>
 
       <h2>4. Your consent and how to manage it</h2>
       <p>
         Non-essential (analytics) cookies are set only with your consent. When consent is required,
-        we show a cookie banner on your first visit with equally prominent <strong>"Accept all"</strong>{" "}
-        and <strong>"Reject all"</strong> options, plus a "Customise" panel to choose per category.
-        Analytics is off until you opt in. You can change or withdraw your choice at any time using
-        the <strong>"Cookie settings"</strong> link in the site footer. Rejecting analytics cookies
-        does not affect your access to the site.
+        we show a cookie banner on your first visit with equally prominent{" "}
+        <strong>"Accept all"</strong> and <strong>"Reject all"</strong> options, plus a "Customise"
+        panel to choose per category. Analytics is off until you opt in. You can change or withdraw
+        your choice at any time using the <strong>"Cookie settings"</strong> link in the site
+        footer. Rejecting analytics cookies does not affect your access to the site.
       </p>
 
       <h2>5. Do Not Track / Global Privacy Control</h2>
       <p>
-        Where your browser sends a recognized "Do Not Track" or Global Privacy Control signal, we aim
-        to treat it as a request not to set non-essential cookies.
+        Where your browser sends a recognized "Do Not Track" or Global Privacy Control signal, we
+        aim to treat it as a request not to set non-essential cookies.
       </p>
 
       <h2>6. Changes</h2>
       <p>
-        We may update this Cookie Policy as our use of cookies changes. The "last updated" date above
-        reflects the current version.
+        We may update this Cookie Policy as our use of cookies changes. The "last updated" date
+        above reflects the current version.
       </p>
 
       <h2>7. Contact</h2>

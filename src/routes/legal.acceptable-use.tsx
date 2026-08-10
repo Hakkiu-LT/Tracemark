@@ -7,6 +7,10 @@ export const Route = createFileRoute("/legal/acceptable-use")({
     meta: [
       { title: "Acceptable Use Policy — HAKKIU" },
       { name: "description", content: "Rules for acceptable use of the HAKKIU platform." },
+      { property: "og:title", content: "Acceptable Use Policy — HAKKIU" },
+      { property: "og:description", content: "Rules for acceptable use of the HAKKIU platform." },
+      { name: "twitter:title", content: "Acceptable Use Policy — HAKKIU" },
+      { name: "twitter:description", content: "Rules for acceptable use of the HAKKIU platform." },
       { property: "og:url", content: `${COMPANY.baseUrl}/legal/acceptable-use` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/acceptable-use` }],
@@ -51,18 +55,24 @@ function AcceptableUsePage() {
       <h2>3. Platform integrity and security</h2>
       <p>You must not:</p>
       <ul>
-        <li>probe, scan, or test the vulnerability of the Service without authorization, or breach security or authentication measures;</li>
+        <li>
+          probe, scan, or test the vulnerability of the Service without authorization, or breach
+          security or authentication measures;
+        </li>
         <li>interfere with or disrupt the Service, its infrastructure, or other users;</li>
         <li>circumvent rate limits, usage quotas, or access controls;</li>
-        <li>reverse engineer, decompile, or attempt to extract source code or models, except where the law expressly permits;</li>
+        <li>
+          reverse engineer, decompile, or attempt to extract source code or models, except where the
+          law expressly permits;
+        </li>
         <li>introduce malware or use the Service to distribute harmful code.</li>
       </ul>
 
       <h2>4. Responsible use of AI outputs</h2>
       <p>
         Detections and scores are decision-support, not verdicts. You must review results before
-        acting, must not present AI outputs as definitive legal findings, and must not use outputs to
-        defame or make unsupported public accusations.
+        acting, must not present AI outputs as definitive legal findings, and must not use outputs
+        to defame or make unsupported public accusations.
       </p>
 
       <h2>5. Consequences of violations</h2>
@@ -75,8 +85,8 @@ function AcceptableUsePage() {
       <h2>6. Reporting abuse</h2>
       <p>
         To report misuse of the Service, contact{" "}
-        <a href={`mailto:${COMPANY.email.legal}`}>{COMPANY.email.legal}</a>. Security issues should go
-        to <a href={`mailto:${COMPANY.email.security}`}>{COMPANY.email.security}</a> (see{" "}
+        <a href={`mailto:${COMPANY.email.legal}`}>{COMPANY.email.legal}</a>. Security issues should
+        go to <a href={`mailto:${COMPANY.email.security}`}>{COMPANY.email.security}</a> (see{" "}
         <Link to="/legal/security">Trust &amp; Security</Link>).
       </p>
 

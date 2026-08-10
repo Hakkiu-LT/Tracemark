@@ -9,6 +9,13 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 GSC "pages not indexed" — SEO metadata fixes (Session 62, 2026-08-10)
+- [x] Investigate (3 subagents + live `curl`): confirmed NO technical blocker — 200s, SSR, correct title/description/canonical/`robots=index,follow`, in sitemap, footer-linked. Plan at `docs/seo-indexing-plan-2026-08-10.md`, approved by independent reviewer agent.
+- [x] `src/routes/legal.*.tsx` (all 8): add page-specific `og:title`/`og:description`/`twitter:*` (were inheriting generic root OG).
+- [x] `src/components/landing/final-cta.tsx`: add in-content homepage links to `/solutions/brand-owners` + `/solutions/law-firms` (previously footer-only).
+- [x] `public/sitemap.xml`: bump `<lastmod>` for changed pages (8 legal + home) to 2026-08-10.
+- [ ] **HUMAN:** GSC → URL Inspection → Request Indexing for the 5 URLs (solutions first); confirm `sitemap.xml` submitted in GSC → Sitemaps; then wait 1–3 weeks. Ignore `http://` "page with redirect" (expected).
+
 ## 🟩 Clean white background logo chips without color inversion (Session 61, 2026-08-06)
 - [x] `src/routes/monitoring.tsx`: update brand logo `<img />` containers in table view and edit modal preview to use a clean white background (`bg-white border border-border p-1 rounded-md`) in both light and dark mode, preserving original brand colors without distortion or inversion.
 

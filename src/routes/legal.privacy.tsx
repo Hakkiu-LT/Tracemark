@@ -8,7 +8,20 @@ export const Route = createFileRoute("/legal/privacy")({
       { title: "Privacy Policy — HAKKIU" },
       {
         name: "description",
-        content: "How HAKKIU collects, uses, shares and protects personal data, and your rights under the GDPR.",
+        content:
+          "How HAKKIU collects, uses, shares and protects personal data, and your rights under the GDPR.",
+      },
+      { property: "og:title", content: "Privacy Policy — HAKKIU" },
+      {
+        property: "og:description",
+        content:
+          "How HAKKIU collects, uses, shares and protects personal data, and your rights under the GDPR.",
+      },
+      { name: "twitter:title", content: "Privacy Policy — HAKKIU" },
+      {
+        name: "twitter:description",
+        content:
+          "How HAKKIU collects, uses, shares and protects personal data, and your rights under the GDPR.",
       },
       { property: "og:url", content: `${COMPANY.baseUrl}/legal/privacy` },
     ],
@@ -41,9 +54,10 @@ function PrivacyPage() {
         We wear two hats. This policy covers data for which we are the <strong>controller</strong>:
         website visitors, demo/leads, marketing contacts, and customer account data. For personal
         data contained in the material our customers monitor and push through the platform (for
-        example, data about alleged infringers or sellers), we act as a{" "}
-        <strong>processor</strong> on our customer's behalf — that processing is governed by our{" "}
-        <Link to="/legal/dpa">Data Processing Agreement</Link> and the customer's own privacy notice.
+        example, data about alleged infringers or sellers), we act as a <strong>processor</strong>{" "}
+        on our customer's behalf — that processing is governed by our{" "}
+        <Link to="/legal/dpa">Data Processing Agreement</Link> and the customer's own privacy
+        notice.
       </p>
 
       <h2>3. Personal data we collect</h2>
@@ -62,8 +76,8 @@ function PrivacyPage() {
           organization membership for platform users.
         </li>
         <li>
-          <strong>Support &amp; communications</strong> — the content of emails and messages you send
-          us.
+          <strong>Support &amp; communications</strong> — the content of emails and messages you
+          send us.
         </li>
         <li>
           <strong>Server logs</strong> — IP address, timestamps and technical logs used for security
@@ -158,10 +172,10 @@ function PrivacyPage() {
         <strong>publicly accessible sources</strong> — online marketplaces (such as Amazon, Shopify,
         eBay and Alibaba) and other public websites. This may include personal data of sellers or
         others associated with potentially infringing listings. We process it on the legal basis of
-        legitimate interests (protecting brands and consumers from counterfeiting and abuse) and, for
-        customer-directed activity, as a processor under our{" "}
-        <Link to="/legal/dpa">DPA</Link>. If you are an individual whose data appears in our
-        systems through this route, you have the rights in section 10, and you can contact us at{" "}
+        legitimate interests (protecting brands and consumers from counterfeiting and abuse) and,
+        for customer-directed activity, as a processor under our <Link to="/legal/dpa">DPA</Link>.
+        If you are an individual whose data appears in our systems through this route, you have the
+        rights in section 10, and you can contact us at{" "}
         <a href={`mailto:${COMPANY.email.privacy}`}>{COMPANY.email.privacy}</a>.
       </p>
 
@@ -214,24 +228,25 @@ function PrivacyPage() {
 
       <h2>14. US state privacy rights (e.g. California)</h2>
       <p>
-        Depending on where you live, you may have additional rights under laws such as the California
-        Consumer Privacy Act (CCPA/CPRA) — including rights to know, delete, correct, and opt out of
-        the "sale" or "sharing" of personal information. We do not sell personal information. To
-        exercise US state rights, contact{" "}
+        Depending on where you live, you may have additional rights under laws such as the
+        California Consumer Privacy Act (CCPA/CPRA) — including rights to know, delete, correct, and
+        opt out of the "sale" or "sharing" of personal information. We do not sell personal
+        information. To exercise US state rights, contact{" "}
         <a href={`mailto:${COMPANY.email.privacy}`}>{COMPANY.email.privacy}</a>.
       </p>
 
       <h2>15. Changes to this policy</h2>
       <p>
-        We may update this policy from time to time. We will change the "last updated" date above and,
-        for material changes, provide additional notice. The current version always lives at{" "}
+        We may update this policy from time to time. We will change the "last updated" date above
+        and, for material changes, provide additional notice. The current version always lives at{" "}
         {COMPANY.baseUrl}/legal/privacy.
       </p>
 
       <h2>16. Contact</h2>
       <p>
-        {COMPANY.legalName} — <a href={`mailto:${COMPANY.email.privacy}`}>{COMPANY.email.privacy}</a>.
-        Postal and registration details are in our <Link to="/legal/imprint">Legal Notice</Link>.
+        {COMPANY.legalName} —{" "}
+        <a href={`mailto:${COMPANY.email.privacy}`}>{COMPANY.email.privacy}</a>. Postal and
+        registration details are in our <Link to="/legal/imprint">Legal Notice</Link>.
       </p>
 
       <LegalDisclaimer />

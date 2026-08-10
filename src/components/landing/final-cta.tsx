@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ArrowRight, Check, CalendarCheck, MessageSquare } from "lucide-react";
 import { CompanyLogo } from "@/components/company-logo";
 import { RainbowButton } from "@/components/ui/rainbow-button";
@@ -45,6 +46,27 @@ export function FinalCTA() {
           >
             See HAKKIU in action, or speak directly with a specialist about integrations,
             procurement, and legal workflows.
+          </Reveal>
+          <Reveal
+            as="p"
+            delay={150}
+            className="mt-5 max-w-md text-sm leading-relaxed text-slate-300/70"
+          >
+            Purpose-built for{" "}
+            <Link
+              to="/solutions/brand-owners"
+              className="font-semibold text-white underline-offset-4 hover:underline"
+            >
+              brand owners
+            </Link>{" "}
+            and{" "}
+            <Link
+              to="/solutions/law-firms"
+              className="font-semibold text-white underline-offset-4 hover:underline"
+            >
+              IP law firms
+            </Link>
+            .
           </Reveal>
           <Reveal delay={180} className="mt-8">
             <CompanyLogo className="h-6 text-white/90" />

@@ -6,7 +6,20 @@ export const Route = createFileRoute("/legal/subprocessors")({
   head: () => ({
     meta: [
       { title: "Sub-processors — HAKKIU" },
-      { name: "description", content: "The third-party sub-processors HAKKIU uses to deliver the Service." },
+      {
+        name: "description",
+        content: "The third-party sub-processors HAKKIU uses to deliver the Service.",
+      },
+      { property: "og:title", content: "Sub-processors — HAKKIU" },
+      {
+        property: "og:description",
+        content: "The third-party sub-processors HAKKIU uses to deliver the Service.",
+      },
+      { name: "twitter:title", content: "Sub-processors — HAKKIU" },
+      {
+        name: "twitter:description",
+        content: "The third-party sub-processors HAKKIU uses to deliver the Service.",
+      },
       { property: "og:url", content: `${COMPANY.baseUrl}/legal/subprocessors` },
     ],
     links: [{ rel: "canonical", href: `${COMPANY.baseUrl}/legal/subprocessors` }],
@@ -81,9 +94,9 @@ function SubprocessorsPage() {
       subtitle="Third parties we engage to help deliver the Service, with their purpose and location."
     >
       <p>
-        {COMPANY.brand} engages the sub-processors below to provide the Service. Each is bound by data
-        protection terms consistent with the GDPR, and {COMPANY.brand} remains responsible for their
-        performance. This list supplements our{" "}
+        {COMPANY.brand} engages the sub-processors below to provide the Service. Each is bound by
+        data protection terms consistent with the GDPR, and {COMPANY.brand} remains responsible for
+        their performance. This list supplements our{" "}
         <Link to="/legal/dpa">Data Processing Agreement</Link>.
       </p>
 
