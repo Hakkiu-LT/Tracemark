@@ -222,13 +222,14 @@ def _score_marketplace(
     item: MarketplaceEvidence,
     brand_name: str,
 ) -> ScoredEvidenceItem:
-    text = f"{item.seller_name} {item.listing_url}"
+    text = f"{item.title or ''} {item.seller_name} {item.listing_url}".strip()
     match = keyword_matcher(brand_name, text)
+    matched_target = item.title or item.seller_name or item.listing_url
     criteria = [
         CriterionScore(
             name="brand_name_match",
             score=match.score,
-            evidence=f"Matched '{brand_name}' in seller/URL: {item.seller_name}",
+            evidence=f"Matched '{brand_name}' in title/seller/URL: {matched_target}",
         ),
     ]
     tier0 = Tier0Signals(

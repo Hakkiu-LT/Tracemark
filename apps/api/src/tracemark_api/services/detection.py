@@ -185,7 +185,7 @@ def ocr_extract_text(
         )
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-3.5-flash",
+            model="gemini-2.5-flash",
             temperature=0.0,
             google_api_key=api_key,
         )

@@ -39,6 +39,7 @@ class MarketplaceEvidence(BaseModel):
     platform: str = PydanticField(description="The marketplace name (e.g. Amazon, eBay, AliExpress).")
     seller_name: str = PydanticField(description="The name of the merchant/seller.")
     listing_url: str = PydanticField(description="Direct URL to the listing.")
+    title: str | None = PydanticField(default=None, description="The product listing title / headline.")
     price: str | None = PydanticField(default=None, description="The listed price of the product.")
     screenshot_url: str | None = PydanticField(default=None, description="Screenshot URL if available.")
     detection_region: str | None = PydanticField(default=None, description="The 2-letter ISO country code where this evidence was detected.")
@@ -213,7 +214,7 @@ def build_agent_graph():
             return {"evidence": mock_evidence}
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-3.5-flash",
+            model="gemini-2.5-flash",
             temperature=0.0,
             google_api_key=api_key,
         ).with_structured_output(Evidence)
@@ -256,16 +257,16 @@ def build_agent_graph():
             ).with_structured_output(Decision)
             decision = call_with_tracking("gemini_pro", "system", "/analyze", lambda: model.invoke(prompt))
         except Exception as e:
-            print(f"[AI Agent] gemini-2.5-pro decision failed or limit reached: {e}. Falling back to gemini-3.5-flash.")
+            print(f"[AI Agent] gemini-2.5-pro decision failed or limit reached: {e}. Falling back to gemini-2.5-flash.")
             try:
                 model_flash = ChatGoogleGenerativeAI(
-                    model="gemini-3.5-flash",
+                    model="gemini-2.5-flash",
                     temperature=0.0,
                     google_api_key=api_key,
                 ).with_structured_output(Decision)
                 decision = call_with_tracking("gemini_flash", "system", "/analyze", lambda: model_flash.invoke(prompt))
             except Exception as flash_e:
-                print(f"[AI Agent] Fallback to gemini-3.5-flash also failed: {flash_e}")
+                print(f"[AI Agent] Fallback to gemini-2.5-flash also failed: {flash_e}")
                 raise flash_e
         return {"decision": decision}
 
@@ -412,7 +413,7 @@ Return risk_level, recommended_action, case_summary, confidence_score, evidence_
 """
     try:
         model = ChatGoogleGenerativeAI(
-            model="gemini-3.5-flash",
+            model="gemini-2.5-flash",
             temperature=0.0,
             google_api_key=api_key,
         ).with_structured_output(Decision)
@@ -548,7 +549,7 @@ def generate_evidence_analysis(
         )
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-3.5-flash",
+            model="gemini-2.5-flash",
             temperature=0.0,
             google_api_key=api_key,
         ).with_structured_output(AIAnalysis)
