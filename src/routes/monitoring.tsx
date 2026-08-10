@@ -469,13 +469,6 @@ function MonitoringPage() {
       toast.error("Brand name is required.");
       return;
     }
-    if (isRepeatCycleInvalid) {
-      toast.error("Invalid parameter");
-      return;
-    }
-    const repeatCycleNum = editRepeatCycle.trim()
-      ? parseInt(editRepeatCycle.trim(), 10)
-      : undefined;
 
     const cleanOfficialDomains = editOfficialDomains.filter((d) => d.trim());
     const cleanOfficialAdvertisers = editOfficialAdvertisers.filter((a) => a.trim());
