@@ -63,8 +63,8 @@ function NotFoundComponent() {
         <p className="mt-2 text-sm text-muted-foreground">
           The page you're looking for doesn't exist.
         </p>
-        <Link to="/dashboard" className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-          Back to dashboard
+        <Link to="/" className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+          Go to homepage
         </Link>
       </div>
     </div>
@@ -236,16 +236,25 @@ gtag('consent', 'default', {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  // A 404 (unknown URL) is inherently PUBLIC — it must never render the private
+  // dashboard shell, not even for a logged-in client. Detect the not-found state
+  // (this is the router's own `hasNotFoundMatch` predicate) and treat it like a
+  // public page. With notFoundMode:"root" the flag always lands on the root match.
+  const isNotFound = useRouterState({
+    select: (s) => s.matches.some((m) => m.status === "notFound" || m.globalNotFound),
+  });
   const isPublic = PUBLIC_PATHS.has(pathname);
-  // Marketing/legal pages (public, and not an auth flow) never read auth state,
-  // so tell AuthProvider to skip loading the Supabase client there.
-  const deferAuth = isPublic && !AUTH_PATHS.has(pathname);
+  // Render the bare (chrome-less) layout for both real public pages and 404s.
+  const showBare = isPublic || isNotFound;
+  // Marketing/legal pages and 404s (none of them an auth flow) never read auth
+  // state, so tell AuthProvider to skip loading the Supabase client there.
+  const deferAuth = showBare && !AUTH_PATHS.has(pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider deferAuth={deferAuth}>
         <LeadModalsProvider>
-          {isPublic ? (
+          {showBare ? (
             <>
               <Outlet />
               <Toaster />

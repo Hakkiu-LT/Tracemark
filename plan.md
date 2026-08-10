@@ -1,5 +1,25 @@
 # HAKKIU — Active Plan
 
+> **Session 63 (2026-08-10) — SECURITY/UX BUG: 404 & error pages leaked the private dashboard shell.**
+> Hitting any unknown URL (e.g. `hakkiu.com/labas`) rendered the "404 Page not found" page INSIDE the
+> authenticated dashboard chrome (sidebar Dashboard/Monitoring/Cases/Settings, workspace name, avatar).
+> The dashboard is clients-only and must never be exposed to unknown-route visitors. **Root cause**
+> (`src/routes/__root.tsx`): `RequireAuth` + the sidebar shell is the *default* branch for any path not
+> in `PUBLIC_PATHS`; an unmatched URL falls into that branch, so TanStack renders the 404 at the shell's
+> `<Outlet/>`. Two-subagent investigation + an adversarial reviewer agent that returned CHANGES-REQUIRED
+> then **APPROVED** after critical questions. The reviewer caught that TanStack's default
+> `notFoundMode:"fuzzy"` attaches the not-found flag to the deepest child-bearing layout (e.g. `/settings`,
+> which renders no `<Outlet/>`) → `/settings/xyz` would show a chrome-less non-404 page. **Fix (3 edits,
+> fail-closed, no route-file moves):** (1) `src/router.tsx` — `notFoundMode:"root"` so every unmatched
+> URL at any depth flags the ROOT match and the 404 always renders at RootComponent's `<Outlet/>`;
+> (2) `src/routes/__root.tsx` — detect not-found via the router's own `hasNotFoundMatch` predicate
+> (`matches.some(m => m.status==="notFound" || m.globalNotFound)`) and render the bare public branch
+> (`showBare = isPublic || isNotFound`); (3) 404 CTA changed from "Back to dashboard" (→ /dashboard,
+> which bounced logged-out visitors to sign-in) to "Go to homepage" (→ /). Protected-by-default is
+> preserved (the only carve-out is the static 404 — no data/auth leak). `tsc --noEmit` clean. This is
+> pure client-side routing/layout — no customer data created/stored/changed → admin-portal parity rule
+> does not apply.
+>
 > **Session 62 (2026-08-10) — GSC "pages not indexed" investigation + SEO metadata fixes.**
 > Google Search Console reported 6 not-indexed pages on the 5-day-old hakkiu.com property
 > (Discovered/Crawled – currently not indexed for `/legal/privacy`, `/legal/security`,

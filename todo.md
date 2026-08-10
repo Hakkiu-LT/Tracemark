@@ -9,6 +9,15 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 404/error pages leaked the private dashboard shell (Session 63, 2026-08-10)
+- [x] Investigate (2 Explore subagents): confirmed root cause in `src/routes/__root.tsx` — `RequireAuth` + sidebar shell is the default branch for any non-`PUBLIC_PATHS` path, so an unmatched URL renders the 404 inside the dashboard chrome. `RequireAuth` is the ONLY auth guard (routes don't self-guard) → default is fail-safe/protected.
+- [x] Adversarial reviewer agent: CHANGES-REQUIRED → APPROVED after 2 rounds. Caught the `notFoundMode:"fuzzy"` `/settings/xyz` (Outlet-less parent) edge → chrome-less non-404 page.
+- [x] `src/router.tsx`: add `notFoundMode:"root"` (every unmatched URL flags the ROOT match → 404 always at RootComponent `<Outlet/>`).
+- [x] `src/routes/__root.tsx`: detect not-found (`matches.some(m => m.status==="notFound" || m.globalNotFound)`) → render bare public branch (`showBare = isPublic || isNotFound`); `deferAuth` uses `showBare`.
+- [x] `src/routes/__root.tsx`: 404 CTA "Back to dashboard" → "Go to homepage" (→ `/`) so logged-out visitors aren't bounced to sign-in.
+- [x] `tsc --noEmit` clean.
+- [ ] **VERIFY (manual, after deploy or `npm run dev`):** `/labas`, `/settings/xyz`, `/cases/<id>/garbage`, `/monitoring/<id>/garbage` — both logged-out and logged-in → standalone 404, no sidebar, HTTP 404 from SSR. Consider adding an automated test for these URL shapes.
+
 ## 🟩 GSC "pages not indexed" — SEO metadata fixes (Session 62, 2026-08-10)
 - [x] Investigate (3 subagents + live `curl`): confirmed NO technical blocker — 200s, SSR, correct title/description/canonical/`robots=index,follow`, in sitemap, footer-linked. Plan at `docs/seo-indexing-plan-2026-08-10.md`, approved by independent reviewer agent.
 - [x] `src/routes/legal.*.tsx` (all 8): add page-specific `og:title`/`og:description`/`twitter:*` (were inheriting generic root OG).
