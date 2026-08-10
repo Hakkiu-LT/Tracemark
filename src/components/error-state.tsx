@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,11 @@ export interface ErrorStateProps {
   /** Retry handler — renders a "Try again" button when provided. */
   onRetry?: () => void;
   retryLabel?: string;
+  /**
+   * Extra action rendered below the retry button — e.g. a "Go to homepage" link
+   * on a 404, where retrying makes no sense. Use for navigation, not retries.
+   */
+  action?: ReactNode;
   /** Override the auto-picked title. */
   title?: string;
   /** Override the message (defaults to the error's own message). */
@@ -97,6 +103,7 @@ export function ErrorState({
   status,
   onRetry,
   retryLabel = "Try again",
+  action,
   title,
   description,
   variant = "block",
@@ -164,6 +171,8 @@ export function ErrorState({
           {retryLabel}
         </Button>
       )}
+
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }
