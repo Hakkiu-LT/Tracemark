@@ -19,12 +19,17 @@ import requests
 
 from tracemark_api.services.api_usage_tracker import ApiLimitError
 from tracemark_api.services.database import get_supabase
+from tracemark_api.services.scraper_errors import ScraperBlockedError
 
 T = TypeVar("T")
 
 
 def classify_error(exc: Exception) -> str:
     """Bucket an exception into a coarse error category for the health dashboard."""
+    # A live anti-bot block (403/429) or unauthorized/over-quota API keyset. This is
+    # NOT "0 results" — surface it red so staff know the platform is unavailable.
+    if isinstance(exc, ScraperBlockedError):
+        return "blocked"
     if isinstance(exc, ApiLimitError):
         return "blocked"
     name = type(exc).__name__.lower()

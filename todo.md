@@ -9,6 +9,20 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 eBay scraper — Browse API integration (Session 65–66, 2026-08-11→12) — P1 SHIPPED & LIVE-VERIFIED
+- [x] Investigate (Session 64): root cause on 3 layers — Akamai 403, dead Finding API, silent failure.
+- [x] Re-verify after "repairing scrappers" PRs #106–108 (3 investigation + 3 critical agents): stealth proxy added but eBay is in `STATIC_DOMAINS` → **never benefits**; P0 silent-failure **still present** & shared by ALL static scrapers; new screenshot-cost bug (every listing screenshotted pre-detection, `marketplace.py:2086`). See `plan.md`.
+- [x] Decision confirmed: eBay API STILL needed → **Browse API** primary; stealth Firecrawl = evidence-screenshot fallback for CONFIRMED hits only, not a data source.
+- [x] ~~BLOCKER: get credentials~~ **RESOLVED** — `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` in root `.env` (Production keyset).
+- [x] **Agent A (P1) DONE:** rewrote `EbayScraper` → `_search_via_browse_api()` (`marketplace.py`) — module-level OAuth token cache (2h TTL, 60s early refresh, 401 re-mint-once), `GET item_summary/search`, `X-EBAY-C-MARKETPLACE-ID` per region (`EBAY_MARKETPLACE_IDS` in `geo.py`), multi-currency (`_format_ebay_price`, £/€/$/…), `item_id` on each listing. Dead Finding API removed. Returns `None`→HTML fallback only when creds absent.
+- [x] **Agent B (P0, eBay slice) DONE:** new `scraper_errors.ScraperBlockedError`; `scraper_health.classify_error`→`"blocked"`; raised from eBay on 401-after-refresh / 403 / 429 / other-non-200, and on HTML-fallback page-1 fetch failure; caught in BOTH `scan_all` (sync) + `batch_detect` (async) → `blocked_apis += ebay_scraper`. Registered `ebay_api` (5000/day) in `API_REGISTRY`. **A live block now surfaces red, never a false "0 results".**
+- [x] Tests: 7 eBay unit tests (`test_platform_scrapers.py`) — multi-currency parse, marketplace header, 429→blocked, 401→refresh→retry, absent-creds→HTML fallback, HTML page-1 block raises. Independent reviewer agent: no blockers.
+- [x] **LIVE-VERIFIED** against Production keyset: token mint OK; `Nike` US → 50 listings ($); `Adidas` GB → 50 listings (£). Multi-currency confirmed end-to-end.
+- [x] Admin parity: no new table — eBay usage now shows in the API-usage dashboard (registered `ebay_api`) and blocked events in Scraper Health (`scraper_health_log`), both already surfaced in admin.
+- [ ] **FOLLOW-UP (P0 broaden):** raise `ScraperBlockedError` from the OTHER static scrapers too (Amazon/Etsy/Alibaba/Google Shopping) — they still `break`/`return []` on a block. Add a `blocked` flag to `UnifiedScrapeResult` so the HTML path can distinguish block vs empty precisely.
+- [ ] **FOLLOW-UP (P2 evidence/cost):** gate `_screenshot_listing` to confirmed infringements only (Playwright-first → Firecrawl-stealth), dedup by `itemId`; feed the free API thumbnail into Tier-1 visual.
+- [ ] **FOLLOW-UP (P3 quota/scheduler):** region-cap (default `["US"]`, opt-in extra) + cache Browse results in `scrape_cache` (TTL≥6h) + dedup by `itemId` so the 6h scheduler doesn't re-file duplicates.
+
 ## 🟩 404/error pages leaked the private dashboard shell (Session 63, 2026-08-10)
 - [x] Investigate (2 Explore subagents): confirmed root cause in `src/routes/__root.tsx` — `RequireAuth` + sidebar shell is the default branch for any non-`PUBLIC_PATHS` path, so an unmatched URL renders the 404 inside the dashboard chrome. `RequireAuth` is the ONLY auth guard (routes don't self-guard) → default is fail-safe/protected.
 - [x] Adversarial reviewer agent: CHANGES-REQUIRED → APPROVED after 2 rounds. Caught the `notFoundMode:"fuzzy"` `/settings/xyz` (Outlet-less parent) edge → chrome-less non-404 page.

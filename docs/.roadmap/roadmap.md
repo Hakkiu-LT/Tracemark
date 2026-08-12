@@ -58,7 +58,7 @@ Rationale: admin ≠ a copy of the app; it reads/writes the SAME Supabase tables
 
 ### Backend
 - **Amazon Scraper** | ✅ Done | Static HTML (requests + BS4, $0). Custom parser extracting titles, prices, and links without Firecrawl credits.
-- **eBay Scraper** | ✅ Done | Static HTML (requests + BS4, $0).
+- **eBay Scraper** | ✅ Done | **Browse API primary** (OAuth2 client-credentials, ~5,000 calls/day, structured JSON, multi-currency, per-region `X-EBAY-C-MARKETPLACE-ID`); HTML (requests + BS4) fallback only when no keyset. Live blocks raise `ScraperBlockedError` → `blocked_apis` + red Scraper Health, never a silent "0 results" (Session 66). Follow-ups: broaden `ScraperBlockedError` to other static scrapers, screenshot-gating, region-cap/cache.
 - **AliExpress Scraper** | ✅ Done | JS-heavy (Firecrawl, 10 credits/call) + Gemini structured extraction.
 - **Shopify Scraper** | ✅ Done | Hybrid (direct JSON products.json API + Google SERP discovery, $0).
 - **Etsy Scraper** | ✅ Done | Static HTML search card parsing (requests + BS4, $0).

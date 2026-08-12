@@ -29,6 +29,20 @@ from tracemark_api.services.marketplace import (
     MarketplaceScraper,
 )
 from tracemark_api.services.unified_scraper import UnifiedScrapeResult
+from tracemark_api.services.scraper_errors import ScraperBlockedError
+from tracemark_api.services import marketplace as mp
+
+
+def _clear_ebay_creds(monkeypatch):
+    """Force the HTML-fallback path by removing the Browse API keyset."""
+    monkeypatch.delenv("EBAY_CLIENT_ID", raising=False)
+    monkeypatch.delenv("EBAY_CLIENT_SECRET", raising=False)
+
+
+def _reset_ebay_token_cache():
+    """Clear the process-wide eBay OAuth token cache between tests."""
+    mp._ebay_token_cache["token"] = None
+    mp._ebay_token_cache["expires_at"] = 0.0
 
 
 
@@ -188,7 +202,9 @@ def _mock_scrape_result(html: str = "", markdown: str = "", success: bool = True
 # ---------------------------------------------------------------------------
 
 class TestEbayScraper:
-    def test_parses_ebay_listings(self):
+    # ---- HTML fallback path (no Browse keyset configured) ----
+    def test_html_fallback_parses_listings(self, monkeypatch):
+        _clear_ebay_creds(monkeypatch)
         scraper = EbayScraper()
         with patch.object(scraper._scraper, "scrape") as mock_scrape:
             mock_scrape.return_value = _mock_scrape_result(html=EBAY_HTML)
@@ -203,44 +219,140 @@ class TestEbayScraper:
         assert results[0]["url"] == "https://ebay.com/itm/222"
         assert results[0]["image"] == "https://img.ebay.com/222.jpg"
 
-    def test_returns_empty_on_failure(self):
+    def test_html_fallback_block_raises(self, monkeypatch):
+        """A failed fetch on page 1 must surface as ScraperBlockedError, not a silent []."""
+        _clear_ebay_creds(monkeypatch)
         scraper = EbayScraper()
         with patch.object(scraper._scraper, "scrape") as mock_scrape:
             mock_scrape.return_value = _mock_scrape_result(success=False)
-            results = scraper.search("TestBrand", max_pages=1)
-        assert results == []
+            with pytest.raises(ScraperBlockedError):
+                scraper.search("TestBrand", max_pages=1)
 
+    # ---- Browse API primary path ----
+    @patch("tracemark_api.services.marketplace.requests.post")
     @patch("tracemark_api.services.marketplace.call_with_tracking")
-    def test_ebay_search_via_api(self, mock_call):
-        scraper = EbayScraper()
-        
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "findItemsByKeywordsResponse": [{
-                "ack": ["Success"],
-                "searchResult": [{
-                    "item": [{
-                        "title": ["API Brand Item"],
-                        "viewItemURL": ["https://ebay.com/itm/999"],
-                        "sellingStatus": [{"currentPrice": [{"__value__": "29.99"}]}],
-                        "galleryURL": ["https://img.ebay.com/999.jpg"],
-                        "sellerInfo": [{"sellerUserName": ["api_seller"]}]
-                    }]
-                }]
-            }]
-        }
-        mock_call.return_value = mock_resp
+    def test_browse_api_parses_multi_currency(self, mock_call, mock_post, monkeypatch):
+        monkeypatch.setenv("EBAY_CLIENT_ID", "cid")
+        monkeypatch.setenv("EBAY_CLIENT_SECRET", "csecret")
+        _reset_ebay_token_cache()
 
-        with patch.dict("os.environ", {"EBAY_APP_ID": "mock_app_id"}):
-            results = scraper.search("TestBrand", max_pages=1, caller_id="test")
+        token_resp = MagicMock(status_code=200)
+        token_resp.json.return_value = {
+            "access_token": "tok123", "expires_in": 7200,
+            "token_type": "Application Access Token",
+        }
+        mock_post.return_value = token_resp
+
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {"itemSummaries": [
+            {
+                "itemId": "v1|111|0", "title": "UK Brand Widget",
+                "price": {"value": "24.99", "currency": "GBP"},
+                "seller": {"username": "uk_seller"},
+                "itemWebUrl": "https://www.ebay.co.uk/itm/111",
+                "image": {"imageUrl": "https://i.ebayimg.com/111.jpg"},
+            },
+            {
+                "itemId": "v1|222|0", "title": "EU Item, thumbnail only",
+                "price": {"value": "9.50", "currency": "EUR"},
+                "seller": {"username": "eu_seller"},
+                "itemWebUrl": "https://www.ebay.de/itm/222",
+                "thumbnailImages": [{"imageUrl": "https://i.ebayimg.com/222t.jpg"}],
+            },
+        ]}
+        mock_call.return_value = search_resp
+
+        scraper = EbayScraper()
+        results = scraper.search("TestBrand", caller_id="test", country="GB")
+
+        assert len(results) == 2
+        # Multi-currency formatting (fixes the old USD-only bug)
+        assert results[0]["price"] == "£24.99"
+        assert results[0]["seller"] == "uk_seller"
+        assert results[0]["url"] == "https://www.ebay.co.uk/itm/111"
+        assert results[0]["item_id"] == "v1|111|0"
+        assert results[0]["image"] == "https://i.ebayimg.com/111.jpg"
+        assert results[1]["price"] == "€9.50"
+        # Falls back to thumbnailImages when no primary image
+        assert results[1]["image"] == "https://i.ebayimg.com/222t.jpg"
+
+    @patch("tracemark_api.services.marketplace.requests.get")
+    @patch("tracemark_api.services.marketplace.requests.post")
+    def test_browse_api_sends_marketplace_header(self, mock_post, mock_get, monkeypatch):
+        """The X-EBAY-C-MARKETPLACE-ID header must reflect the requested country."""
+        monkeypatch.setenv("EBAY_CLIENT_ID", "cid")
+        monkeypatch.setenv("EBAY_CLIENT_SECRET", "csecret")
+        _reset_ebay_token_cache()
+
+        token_resp = MagicMock(status_code=200)
+        token_resp.json.return_value = {"access_token": "tok", "expires_in": 7200}
+        mock_post.return_value = token_resp
+
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {"itemSummaries": []}
+        mock_get.return_value = search_resp
+
+        # is_blocked patched by autouse fixture; call_with_tracking runs the real lambda.
+        scraper = EbayScraper()
+        scraper.search("TestBrand", caller_id="test", country="DE")
+
+        headers = mock_get.call_args.kwargs["headers"]
+        assert headers["X-EBAY-C-MARKETPLACE-ID"] == "EBAY_DE"
+        assert headers["Authorization"] == "Bearer tok"
+        assert mock_get.call_args.kwargs["params"]["q"] == "TestBrand"
+
+    @patch("tracemark_api.services.marketplace.requests.post")
+    @patch("tracemark_api.services.marketplace.call_with_tracking")
+    def test_browse_api_429_raises_blocked(self, mock_call, mock_post, monkeypatch):
+        monkeypatch.setenv("EBAY_CLIENT_ID", "cid")
+        monkeypatch.setenv("EBAY_CLIENT_SECRET", "csecret")
+        _reset_ebay_token_cache()
+
+        token_resp = MagicMock(status_code=200)
+        token_resp.json.return_value = {"access_token": "tok", "expires_in": 7200}
+        mock_post.return_value = token_resp
+
+        mock_call.return_value = MagicMock(status_code=429, text="rate limited")
+        scraper = EbayScraper()
+        with pytest.raises(ScraperBlockedError):
+            scraper.search("TestBrand", caller_id="test")
+
+    @patch("tracemark_api.services.marketplace.requests.post")
+    @patch("tracemark_api.services.marketplace.call_with_tracking")
+    def test_browse_api_401_refreshes_then_succeeds(self, mock_call, mock_post, monkeypatch):
+        monkeypatch.setenv("EBAY_CLIENT_ID", "cid")
+        monkeypatch.setenv("EBAY_CLIENT_SECRET", "csecret")
+        _reset_ebay_token_cache()
+
+        token_resp = MagicMock(status_code=200)
+        token_resp.json.return_value = {"access_token": "tok", "expires_in": 7200}
+        mock_post.return_value = token_resp
+
+        r401 = MagicMock(status_code=401, text="expired")
+        ok = MagicMock(status_code=200)
+        ok.json.return_value = {"itemSummaries": [{
+            "itemId": "1", "title": "X", "price": {"value": "1", "currency": "USD"},
+            "seller": {"username": "s"}, "itemWebUrl": "u",
+            "image": {"imageUrl": "i"},
+        }]}
+        mock_call.side_effect = [r401, ok]
+
+        scraper = EbayScraper()
+        results = scraper.search("TestBrand", caller_id="test")
 
         assert len(results) == 1
-        assert results[0]["title"] == "API Brand Item"
-        assert results[0]["price"] == "$29.99"
-        assert results[0]["seller"] == "api_seller"
-        assert results[0]["url"] == "https://ebay.com/itm/999"
-        assert results[0]["image"] == "https://img.ebay.com/999.jpg"
+        assert results[0]["price"] == "$1"
+        assert mock_call.call_count == 2       # retried the search after refresh
+        assert mock_post.call_count == 2       # token minted twice (initial + refresh)
+
+    def test_browse_api_absent_creds_falls_back_to_html(self, monkeypatch):
+        _clear_ebay_creds(monkeypatch)
+        _reset_ebay_token_cache()
+        scraper = EbayScraper()
+        with patch.object(scraper._scraper, "scrape") as mock_scrape:
+            mock_scrape.return_value = _mock_scrape_result(html=EBAY_HTML)
+            results = scraper.search("TestBrand", max_pages=1, caller_id="test")
+        assert len(results) == 2  # used the HTML fallback, not the API
 
 
 # ---------------------------------------------------------------------------

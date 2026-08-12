@@ -27,6 +27,12 @@ API_REGISTRY: list[ApiDefinition] = [
     ApiDefinition("whois",           "WHOIS Lookup",                     800,  RESET_DAILY,   "whois"),
     ApiDefinition("google_ads",      "Google Ads Transparency",          100,  RESET_DAILY,   "ads"),
     ApiDefinition("meta_ads",        "Meta Ad Library API",              200,  RESET_DAILY,   "ads",     "META_ADS_ACCESS_TOKEN"),
+    # eBay Browse API (OAuth2 client-credentials). Production keysets default to
+    # 5,000 item_summary/search calls/day; each search runs through call_with_tracking
+    # so this budget-guards the 6h scheduler against overrunning that ceiling. (OAuth
+    # token mints hit a SEPARATE identity endpoint with its own limit and are cached
+    # ~2h, so they are not counted here.) Requires EBAY_CLIENT_ID (secret paired).
+    ApiDefinition("ebay_api",        "eBay Browse API",                  5000, RESET_DAILY,   "search",  "EBAY_CLIENT_ID"),
     ApiDefinition("firecrawl",       "Firecrawl JS Scraper",             400,  RESET_MONTHLY, "scraper", "FIRECRAWL_API_KEY"),
     ApiDefinition("gemini_flash",    "Gemini API 2.5 Flash (Parsing)",   20,   RESET_DAILY,   "ai",      "GEMINI_API_KEY", rpm_limit=5, tpm_limit=250000),
     ApiDefinition("gemini_pro",      "Gemini API 2.5 Pro (Decision)",    20,   RESET_DAILY,   "ai",      "GEMINI_API_KEY", rpm_limit=5, tpm_limit=250000),
