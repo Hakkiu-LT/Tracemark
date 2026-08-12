@@ -35,7 +35,8 @@ EBAY_DOMAINS = {
     "CH": "www.ebay.ch",
 }
 
-# Mapping of country codes to eBay Global IDs (for API usage)
+# Mapping of country codes to eBay Global IDs (for the LEGACY Finding API — retired 2025).
+# Kept only for reference; the Browse API uses EBAY_MARKETPLACE_IDS below instead.
 EBAY_GLOBAL_IDS = {
     "US": "EBAY-US",
     "GB": "EBAY-GB",
@@ -46,6 +47,25 @@ EBAY_GLOBAL_IDS = {
     "CA": "EBAY-ENCA",
     "AU": "EBAY-AU",
     "NL": "EBAY-NL",
+}
+
+# Mapping of country codes to eBay Browse API marketplace IDs, sent as the
+# `X-EBAY-C-MARKETPLACE-ID` header. This drives which regional site is searched and,
+# critically, the currency prices come back in (GBP for GB, EUR for DE/FR/IT/ES, ...).
+# Values are eBay's MarketplaceIdEnum. Falls back to EBAY_US when a country is absent.
+EBAY_MARKETPLACE_IDS = {
+    "US": "EBAY_US",
+    "GB": "EBAY_GB",
+    "DE": "EBAY_DE",
+    "FR": "EBAY_FR",
+    "IT": "EBAY_IT",
+    "ES": "EBAY_ES",
+    "CA": "EBAY_CA",
+    "AU": "EBAY_AU",
+    "IE": "EBAY_IE",
+    "AT": "EBAY_AT",
+    "CH": "EBAY_CH",
+    "NL": "EBAY_NL",
 }
 
 # Mapping of country codes to default language/locale code

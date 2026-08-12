@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import os
 import re
@@ -30,10 +31,11 @@ from tracemark_api.services.domain_whitelist import whitelist_service
 from tracemark_api.services.geo import (
     AMAZON_DOMAINS,
     EBAY_DOMAINS,
-    EBAY_GLOBAL_IDS,
+    EBAY_MARKETPLACE_IDS,
     firecrawl_location,
     serpapi_geo_params,
 )
+from tracemark_api.services.scraper_errors import ScraperBlockedError
 from tracemark_api.services.ssrf import safe_get
 
 # Import unified scraper
@@ -352,80 +354,174 @@ class AmazonScraper:
             return None
 
 
+# --- eBay Browse API (OAuth2 client-credentials) ------------------------------------
+# The primary, ToS-sanctioned eBay data path. Returns clean structured JSON — no HTML
+# selector rot, no anti-bot roulette. Free tier ~5,000 Browse calls/day (tracked as
+# 'ebay_api'). The legacy Finding API (svcs.ebay.com) was retired by eBay in 2025 and
+# has been removed. Docs verified 2026-08-12: developer.ebay.com/api-docs/buy/browse.
+_EBAY_OAUTH_URL = "https://api.ebay.com/identity/v1/oauth2/token"
+_EBAY_BROWSE_SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
+_EBAY_SCOPE = "https://api.ebay.com/oauth/api_scope"
+
+# Process-wide token cache. Safe to share: this is an *application* (not user) token.
+# eBay returns expires_in=7200 (2h); we refresh 60s early to avoid mid-request expiry.
+_ebay_token_cache: dict = {"token": None, "expires_at": 0.0}
+
+_CURRENCY_SYMBOLS = {"USD": "$", "GBP": "£", "EUR": "€", "CAD": "C$", "AUD": "A$"}
+
+
+def _format_ebay_price(price: dict | None) -> str | None:
+    """
+    Format a Browse API price object {value, currency} into a display string.
+    Currency-aware — fixes the old USD-only bug where GB/DE prices were mislabelled '$'.
+    e.g. {value:'29.99', currency:'USD'} -> '$29.99'; {'12.50','EUR'} -> '€12.50';
+         unknown currency -> '12.50 SEK'.
+    """
+    if not price:
+        return None
+    value = price.get("value")
+    if value is None:
+        return None
+    currency = price.get("currency") or ""
+    symbol = _CURRENCY_SYMBOLS.get(currency)
+    return f"{symbol}{value}" if symbol else f"{value} {currency}".strip()
+
+
+def _mint_ebay_token(caller_id: str = "system") -> str | None:
+    """
+    Return a valid eBay application OAuth token (cached until ~60s before expiry).
+    Returns None when credentials are absent (caller falls back to HTML scraping).
+    Raises ScraperBlockedError when creds ARE set but eBay rejects them — an
+    unauthorized keyset is a "can't check", never a silent "0 results".
+    """
+    client_id = os.environ.get("EBAY_CLIENT_ID")
+    client_secret = os.environ.get("EBAY_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        return None
+
+    now = time.time()
+    if _ebay_token_cache["token"] and now < _ebay_token_cache["expires_at"]:
+        return _ebay_token_cache["token"]
+
+    basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+    resp = requests.post(
+        _EBAY_OAUTH_URL,
+        headers={
+            "Authorization": f"Basic {basic}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data={"grant_type": "client_credentials", "scope": _EBAY_SCOPE},
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        raise ScraperBlockedError("ebay", f"OAuth token mint HTTP {resp.status_code}: {resp.text[:200]}")
+    payload = resp.json()
+    token = payload.get("access_token")
+    if not token:
+        raise ScraperBlockedError("ebay", "OAuth token response missing access_token")
+    try:
+        ttl = int(payload.get("expires_in", 7200))
+    except (TypeError, ValueError):
+        ttl = 7200  # tolerate a malformed expires_in rather than crash the scan
+    _ebay_token_cache["token"] = token
+    _ebay_token_cache["expires_at"] = now + max(0, ttl - 60)
+    return token
+
+
 class EbayScraper:
     """
-    eBay scraper using UnifiedScraper (static HTML, no JS required).
-    Parses eBay search result cards to extract listing data.
-    Cost: $0 (local resources, tracked under 'html_scraper').
+    eBay scraper. Primary path = Browse API (OAuth2 client-credentials, structured JSON).
+    Falls back to UnifiedScraper HTML parsing ONLY when no eBay keyset is configured.
+    Cost: $0 (Browse free tier; tracked under 'ebay_api').
     """
 
     def __init__(self):
         self._scraper = UnifiedScraper()
 
-    def _search_via_api(
-        self, keyword: str, max_pages: int = 2, caller_id: str = "system", country: str = "US"
+    def _search_via_browse_api(
+        self, keyword: str, caller_id: str = "system", country: str = "US", limit: int = 50
     ) -> list[dict] | None:
-        app_id = os.environ.get("EBAY_APP_ID")
-        if not app_id:
+        """
+        Query the eBay Browse API item_summary/search endpoint.
+
+        Returns a list of parsed listings on success, or None when credentials are
+        absent (→ caller falls back to HTML). Raises ScraperBlockedError when eBay is
+        blocking us / the keyset is unauthorized (401) or over quota (429) — so a block
+        surfaces as a red 'blocked' health event instead of a false "0 listings".
+        """
+        token = _mint_ebay_token(caller_id)
+        if token is None:
             return None
 
-        listings = []
-        try:
-            for page in range(1, max_pages + 1):
-                url = "https://svcs.ebay.com/services/search/FindingService/v1"
-                params = {
-                    "OPERATION-NAME": "findItemsByKeywords",
-                    "SERVICE-VERSION": "1.0.0",
-                    "SECURITY-APPNAME": app_id,
-                    "RESPONSE-DATA-FORMAT": "JSON",
-                    "keywords": keyword,
-                    "paginationInput.entriesPerPage": 20,
-                    "paginationInput.pageNumber": page,
-                    "GLOBAL-ID": EBAY_GLOBAL_IDS.get(country.upper(), "EBAY-US"),
-                }
-                resp = call_with_tracking(
-                    "ebay_api", caller_id, "/findItems",
-                    lambda: requests.get(url, params=params, timeout=10)
-                )
-                if resp.status_code != 200:
-                    print(f"[EbayScraper] API status {resp.status_code}: {resp.text[:200]}")
-                    break
-                data = resp.json()
-                response_obj = data.get("findItemsByKeywordsResponse", [{}])[0]
-                if response_obj.get("ack", ["Failure"])[0] == "Success":
-                    search_result = response_obj.get("searchResult", [{}])[0]
-                    items = search_result.get("item", [])
-                    for item in items:
-                        title = item.get("title", [None])[0]
-                        listing_url = item.get("viewItemURL", [None])[0]
-                        price_container = item.get("sellingStatus", [{}])[0].get("currentPrice", [{}])[0]
-                        price_val = price_container.get("__value__", None)
-                        price = f"${price_val}" if price_val else None
-                        
-                        image = item.get("galleryURL", [None])[0]
-                        seller = item.get("sellerInfo", [{}])[0].get("sellerUserName", [None])[0]
-                        
-                        listings.append({
-                            "title": title,
-                            "price": price,
-                            "seller": seller,
-                            "url": listing_url,
-                            "image": image,
-                        })
-                else:
-                    break
-            return listings
-        except Exception as e:
-            print(f"[EbayScraper] API search failed: {e}")
-            return None
+        marketplace = EBAY_MARKETPLACE_IDS.get(country.upper(), "EBAY_US")
+
+        def _do_search(bearer: str):
+            return requests.get(
+                _EBAY_BROWSE_SEARCH_URL,
+                headers={
+                    "Authorization": f"Bearer {bearer}",
+                    "X-EBAY-C-MARKETPLACE-ID": marketplace,
+                    "Content-Type": "application/json",
+                },
+                params={"q": keyword, "limit": min(max(1, limit), 200)},
+                timeout=15,
+            )
+
+        resp = call_with_tracking(
+            "ebay_api", caller_id, "/item_summary/search", lambda: _do_search(token)
+        )
+
+        # 401 = token invalid/expired (2h TTL edge): drop cache, re-mint ONCE, retry.
+        if resp.status_code == 401:
+            _ebay_token_cache["token"] = None
+            _ebay_token_cache["expires_at"] = 0.0
+            token = _mint_ebay_token(caller_id)
+            if token is None:
+                raise ScraperBlockedError("ebay", "no credentials on 401 re-mint")
+            resp = call_with_tracking(
+                "ebay_api", caller_id, "/item_summary/search", lambda: _do_search(token)
+            )
+            if resp.status_code == 401:
+                raise ScraperBlockedError("ebay", "Browse API 401 Unauthorized after token refresh")
+
+        if resp.status_code == 429:
+            raise ScraperBlockedError("ebay", "Browse API 429 rate-limit / quota exceeded")
+        if resp.status_code == 403:
+            raise ScraperBlockedError("ebay", "Browse API 403 Forbidden")
+        if resp.status_code != 200:
+            raise ScraperBlockedError("ebay", f"Browse API HTTP {resp.status_code}: {resp.text[:200]}")
+
+        data = resp.json()
+        listings: list[dict] = []
+        for item in data.get("itemSummaries", []) or []:
+            image = (item.get("image") or {}).get("imageUrl")
+            if not image:
+                thumbs = item.get("thumbnailImages") or []
+                image = thumbs[0].get("imageUrl") if thumbs else None
+            listings.append({
+                "title": item.get("title"),
+                "price": _format_ebay_price(item.get("price")),
+                "seller": (item.get("seller") or {}).get("username"),
+                "url": item.get("itemWebUrl"),
+                "image": image,
+                "item_id": item.get("itemId"),
+            })
+        return listings
 
     def search(
         self, keyword: str, max_pages: int = 2, caller_id: str = "system", country: str = "US"
     ) -> list[dict]:
         """
-        Scrape eBay search results pages and extract structured listing data.
+        Return structured eBay listings for `keyword`.
+
+        Primary: Browse API (structured, ToS-compliant). Fallback: HTML scraping, used
+        ONLY when no eBay keyset is configured (Browse returns None). A live anti-bot
+        block on the fallback raises ScraperBlockedError rather than a silent [].
+        `max_pages` maps to a Browse result limit (~25/page) for backwards compatibility.
         """
-        api_results = self._search_via_api(keyword, max_pages, caller_id, country=country)
+        api_results = self._search_via_browse_api(
+            keyword, caller_id=caller_id, country=country, limit=max_pages * 25
+        )
         if api_results is not None:
             return api_results
 
@@ -437,6 +533,10 @@ class EbayScraper:
             try:
                 result = self._scraper.scrape(url, caller_id=caller_id)
                 if not result.success or not result.html:
+                    # A failed fetch on page 1 = we could NOT check eBay (likely a block),
+                    # which is different from "checked, found nothing". Surface it.
+                    if page == 1:
+                        raise ScraperBlockedError("ebay", "HTML fallback fetch failed (page 1)")
                     print(f"[EbayScraper] Page {page} returned no HTML content.")
                     break
                 soup = BeautifulSoup(result.html, "html.parser")
@@ -444,7 +544,7 @@ class EbayScraper:
                     listing = self._extract_listing(item)
                     if listing:
                         listings.append(listing)
-            except ApiLimitError:
+            except (ApiLimitError, ScraperBlockedError):
                 raise
             except Exception as e:
                 print(f"[EbayScraper] Page {page} failed: {e}")
@@ -1518,8 +1618,8 @@ class MarketplaceScraper:
         if "ebay" in platforms:
             try:
                 results["marketplaces"]["ebay"] = self.ebay.search(brand_name, caller_id=caller_id)
-            except ApiLimitError as e:
-                print(f"[MarketplaceScraper] eBay rate limit reached: {e}")
+            except (ApiLimitError, ScraperBlockedError) as e:
+                print(f"[MarketplaceScraper] eBay blocked/rate-limited: {e}")
                 blocked_apis.append("ebay_scraper")
             except Exception as e:
                 print(f"[MarketplaceScraper] eBay search failed: {e}")
@@ -1673,8 +1773,8 @@ class MarketplaceScraper:
                     try:
                         res = await scraper_health.probe("ebay", c, lambda: asyncio.to_thread(self.ebay.search, brand_name, caller_id=caller_id, country=c), brand_name=brand_name, caller_id=caller_id)
                         results["marketplaces"]["ebay"][c] = res
-                    except ApiLimitError as e:
-                        print(f"[MarketplaceScraper] eBay rate limit reached for {c}: {e}")
+                    except (ApiLimitError, ScraperBlockedError) as e:
+                        print(f"[MarketplaceScraper] eBay blocked/rate-limited for {c}: {e}")
                         blocked_apis.append("ebay_scraper")
                     except Exception as e:
                         print(f"[MarketplaceScraper] eBay search failed for {c}: {e}")
