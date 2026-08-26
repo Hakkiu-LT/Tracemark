@@ -5,6 +5,9 @@ import { COMPANY } from "@/lib/company";
 export const Route = createFileRoute("/legal/acceptable-use")({
   head: () => ({
     meta: [
+      // Low-value legal boilerplate: keep reachable for compliance, but out of
+      // search results and out of the sitemap (see scripts/generate-sitemap.mjs).
+      { name: "robots", content: "noindex,follow" },
       { title: "Acceptable Use Policy — HAKKIU" },
       { name: "description", content: "Rules for acceptable use of the HAKKIU platform." },
       { property: "og:title", content: "Acceptable Use Policy — HAKKIU" },

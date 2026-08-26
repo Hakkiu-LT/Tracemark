@@ -9,6 +9,14 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 SEO polish: meta fixes + auto-generated sitemap (Session 67, 2026-08-26)
+- [x] 20-point SEO/web-readiness audit (3 subagents) + meta-quality audit (1 subagent): all 20 items present; only real defects were `/about` description too long, split title separator, and hand-maintained sitemap.
+- [x] **P1** `about.tsx`: trimmed meta + JSON-LD description 167→159 chars (was truncating in SERPs).
+- [x] **P4** `solutions.brand-owners.tsx` + `solutions.law-firms.tsx`: title separator `|` → `—` for site-wide consistency.
+- [x] **Dynamic sitemap:** new `scripts/generate-sitemap.mjs` scans `src/routes/`, derives URLs, applies exclusions, pulls `lastmod` from git per file. Wired as `prebuild` in `package.json` → regenerates `public/sitemap.xml` on every `npm run build` (no more manual drift). Output verified = 9 public URLs.
+- [x] **Deliberate exclusions:** `request-demo` (redirect) + 4 low-value legal pages (acceptable-use, dpa, subprocessors, imprint) kept OUT of sitemap AND given `<meta name="robots" content="noindex,follow">` (sitemap-exclusion alone can't hide a footer-linked page). Privacy/terms/cookies/security stay indexed + in sitemap.
+- [ ] FOLLOW-UP (deferred, not requested this session): P2 homepage-description CTA, P3 root-fallback title parity, `defaultPreload:'intent'` in router, skip-to-content link, per-page OG images, `site.webmanifest`.
+
 ## 🟩 eBay scraper — Browse API integration (Session 65–66, 2026-08-11→12) — P1 SHIPPED & LIVE-VERIFIED
 - [x] Investigate (Session 64): root cause on 3 layers — Akamai 403, dead Finding API, silent failure.
 - [x] Re-verify after "repairing scrappers" PRs #106–108 (3 investigation + 3 critical agents): stealth proxy added but eBay is in `STATIC_DOMAINS` → **never benefits**; P0 silent-failure **still present** & shared by ALL static scrapers; new screenshot-cost bug (every listing screenshotted pre-detection, `marketplace.py:2086`). See `plan.md`.

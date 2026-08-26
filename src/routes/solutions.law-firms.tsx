@@ -43,7 +43,7 @@ const FAQS = [
 export const Route = createFileRoute("/solutions/law-firms")({
   head: () => ({
     meta: [
-      { title: `${TITLE} | ${COMPANY.brand}` },
+      { title: `${TITLE} — ${COMPANY.brand}` },
       { name: "description", content: DESCRIPTION },
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESCRIPTION },

@@ -34,7 +34,7 @@ export const Route = createFileRoute("/about")({
       {
         name: "description",
         content:
-          "HAKKIU is an EU-based brand-protection platform that helps brand owners and law firms detect infringements and automate takedowns across marketplaces and the open web.",
+          "HAKKIU is an EU-based brand-protection platform helping brand owners and law firms detect infringements and automate takedowns across marketplaces and the web.",
       },
       { property: "og:title", content: "About HAKKIU" },
       {
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/about")({
           url: `${COMPANY.baseUrl}/about`,
           name: "About HAKKIU",
           description:
-            "HAKKIU is an EU-based brand-protection platform that helps brand owners and law firms detect infringements and automate takedowns across marketplaces and the open web.",
+            "HAKKIU is an EU-based brand-protection platform helping brand owners and law firms detect infringements and automate takedowns across marketplaces and the web.",
           isPartOf: { "@id": `${COMPANY.baseUrl}/#website` },
           about: { "@id": `${COMPANY.baseUrl}/#organization` },
         },
