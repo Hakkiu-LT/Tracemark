@@ -5,6 +5,9 @@ import { COMPANY } from "@/lib/company";
 export const Route = createFileRoute("/legal/imprint")({
   head: () => ({
     meta: [
+      // Low-value legal boilerplate: keep reachable for compliance, but out of
+      // search results and out of the sitemap (see scripts/generate-sitemap.mjs).
+      { name: "robots", content: "noindex,follow" },
       { title: "Legal Notice / Imprint — HAKKIU" },
       { name: "description", content: "Company identification and legal notice for HAKKIU." },
       { property: "og:title", content: "Legal Notice / Imprint — HAKKIU" },

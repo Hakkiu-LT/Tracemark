@@ -5,6 +5,9 @@ import { COMPANY } from "@/lib/company";
 export const Route = createFileRoute("/legal/dpa")({
   head: () => ({
     meta: [
+      // Low-value legal boilerplate: keep reachable for compliance, but out of
+      // search results and out of the sitemap (see scripts/generate-sitemap.mjs).
+      { name: "robots", content: "noindex,follow" },
       { title: "Data Processing Agreement — HAKKIU" },
       {
         name: "description",
