@@ -9,6 +9,76 @@
 > **How to keep this tidy:** tick items when done; when a whole batch/feature completes, move its
 > detail to the archive and leave a one-liner under "Recently completed" below.
 
+## 🟩 Duplicate row in "On hold" after Save as Draft (Session 68, 2026-08-31) — FIXED
+- [x] Reproduced LIVE in the browser against prod: injected the exact post-`addMark` state and got
+      **"On hold (2)" with exactly ONE brand in the database**. Not a double insert — `POST /brands`
+      fired once (verified by wrapping `window.fetch`), and `create_brand_checked` inserts one row.
+- [x] ROOT CAUSE (two halves):
+      (a) `monitoring.new.tsx` `handleSaveDraft` (and the scan path) called `addMark()` after
+          `createBrand()`, creating a LOCAL mark with no `serverId`;
+      (b) `store.ts` `syncServerBrands` step 2 kept any local-only mark whose NAME matched a server
+          brand. If anything refreshed the `["brands"]` query between `createBrand()` and `addMark()`,
+          the server brand got its own `srv-` row first, step 1 then matched by `serverId` and never
+          adopted the local one — and step 2 kept it alive on the name match. Permanent duplicate,
+          persisted to localStorage, surviving every later sync.
+- [x] FIX (a): both optimistic `addMark()` calls removed from `monitoring.new.tsx`; the server is the
+      single source of truth and `syncServerBrands` already creates the row (confirmed live).
+- [x] FIX (b): `syncServerBrands` drops any unadopted local-only mark (`return false`), keeping the
+      `clientId`-scoped law-firm demo seeds. Unused `serverNames` set removed. This also self-heals
+      duplicates already sitting in existing users' localStorage on their next sync.
+- [x] Verified: 6-case harness driving the REAL bundled reducer — duplicate case, adoption of a pending
+      mark, admin-portal-created brand appearing, demo seeds surviving an empty server, server-side
+      deletion propagating, phantom dropped. All 6 pass; the pre-fix reducer fails exactly the
+      duplicate case and passes the other 5 (control run). `tsc --noEmit` clean.
+- [ ] CLEANUP: delete the throwaway brand `ZZ Dup Test 0831` (id 4ea71bb6-eeec-4965-bb8e-f97affd3eef0)
+      created in the production DB during the repro.
+- [x] FOLLOW-UP DONE — duplicate brand NAMES (a genuine double insert, distinct from the phantom above):
+      - `supabase/migrations/20260831000001_brands_unique_name.sql`: non-destructive de-dupe of any
+        pre-existing duplicates (earliest row keeps its name, later ones get a " (duplicate N)" suffix,
+        each logged via RAISE NOTICE — nothing deleted), then
+        `CREATE UNIQUE INDEX brands_org_name_unique ON brands (organization_id, lower(btrim(brand_name)))`,
+        then `create_brand_checked` re-created with a BRAND_NAME_TAKEN check INSIDE the existing per-org
+        advisory lock (so concurrent submits serialize) and `brand_name` now stored trimmed.
+      - `routes/brands.py`: BRAND_NAME_TAKEN / raw index violation → HTTP 409 with a customer-readable
+        message; PATCH rename pre-checks siblings case/whitespace-insensitively and translates a lost
+        race into the same 409; blank rename → 400.
+      - Verified on a real PostgreSQL 16: 12/12 — de-dupe against messy seed data (exact dupe, case
+        variant, trailing space, and a row already holding the " (duplicate 2)" name it wanted), unique
+        index blocks a raw INSERT and a PATCH-style rename, RPC rejects same/case/whitespace variants,
+        different orgs may share a name, name stored trimmed, cap + platform whitelist + empty-name
+        behaviour unchanged, migration idempotent on re-run.
+      - `tests/test_brands.py`: 5 new tests. Full file 13/13 green; against the pre-fix code 4 of the 5
+        fail (the 5th is the no-regression guard) — control run confirms they test the change.
+
+## 🟩 Local↔production parity for the docker stack (Session 68, 2026-08-31)
+- [x] Diagnosed the noisy `docker compose up --build` output: the ONLY real error was Caddy trying to
+      obtain public Let's Encrypt certs while running on a laptop — LE validates by connecting to the
+      DNS A record (116.202.8.87, the Hetzner box), never to the local machine, so TLS-ALPN-01 returns
+      `urn:ietf:params:acme:error:tls` and Caddy then falls back to ZeroSSL and retries forever.
+      Each failure also burns the real domain's Let's Encrypt failed-validation rate limit.
+- [x] `Caddyfile`: global block now contains `{$CADDY_TLS_MODE}` — expands to nothing on the server
+      (unchanged public ACME), to `local_certs` locally. ONE Caddyfile for both environments, so
+      routing / security headers / CSP / redirects can never drift between them.
+- [x] `docker-compose.override.yml` (NEW, git-ignored — the server must never see it): sets
+      `CADDY_TLS_MODE=local_certs`, plus production-shaped `ALLOWED_ORIGINS`, `CUSTOMER_APP_URL`,
+      `ADMIN_ALLOWED_ORIGINS`, `VITE_API_URL`, `VITE_ADMIN_API_URL` (`environment:` beats `env_file:`,
+      so the dev URLs in `.env` are overridden without editing `.env`).
+- [x] `scripts/local-parity.ps1` (NEW): `-Add` / `-Remove` toggle a fenced block in the Windows hosts
+      file mapping the five hakkiu.com hostnames → 127.0.0.1; `-TrustCa` exports Caddy's internal root
+      out of the container into `Cert:\LocalMachine\Root`; `-Status` reports resolution, port 80/443
+      owners and CA trust. Parse-checked + block logic unit-tested under pwsh 7.4.
+- [x] Health-check log noise removed: `uvicorn.access` filter drops `/health` lines in `apps/api` and
+      `apps/admin-api` `main.py`; `src/Dockerfile` wrangler CMD gets `--log-level warn`.
+- [x] `apps/api/.../main.py`: `DISABLE_BACKGROUND_JOBS` guard in `startup_event()` — early-returns before
+      the scan scheduler / weekly digest / cleanup_old_cases / scraper probes / IMAP poller threads.
+      UNSET in production (server behaviour byte-for-byte unchanged); set to 1 in the local override.
+      Needed because local parity points at the SAME Supabase project, and those workers are singletons:
+      a second copy would double-run scans, email real customers, and DELETE live rows.
+- [ ] NOTE / RISK: local parity points at the SAME Supabase project as production (explicit choice) —
+      request-path writes (cases, infringements, takedowns, admin mutations, audit log) made locally
+      land in REAL customer data. Revisit if a staging project is wanted.
+- [ ] FOLLOW-UP: no admin-portal work needed (infra only, no customer-data surface added).
+
 ## 🟩 SEO polish: meta fixes + auto-generated sitemap (Session 67, 2026-08-26)
 - [x] 20-point SEO/web-readiness audit (3 subagents) + meta-quality audit (1 subagent): all 20 items present; only real defects were `/about` description too long, split title separator, and hand-maintained sitemap.
 - [x] **P1** `about.tsx`: trimmed meta + JSON-LD description 167→159 chars (was truncating in SERPs).

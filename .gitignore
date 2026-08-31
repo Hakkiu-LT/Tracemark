@@ -53,3 +53,6 @@ _dup_backup/
 apps/api/query_case_details.py
 apps/api/src/tracemark_api/services/tranco_top_100k.txt
 
+# Local-only docker compose tweaks (keeps Caddy/ACME out of local runs).
+# Production must never see this file.
+docker-compose.override.yml

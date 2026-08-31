@@ -280,6 +280,15 @@ def create_brand(
                 status_code=403,
                 detail="This brand targets a marketplace your plan doesn't include. Contact HAKKIU to change your plan.",
             )
+        # Same org, same brand name — a double-submitted "Add asset" form, a retried request,
+        # or the customer filling the form in again. The RPC raises BRAND_NAME_TAKEN from
+        # inside its per-org advisory lock; brands_org_name_unique is the backstop if any
+        # future write path skips the RPC. 409 Conflict, with a message the UI can show as-is.
+        if "BRAND_NAME_TAKEN" in msg or "brands_org_name_unique" in msg:
+            raise HTTPException(
+                status_code=409,
+                detail="You're already monitoring a brand with that name. Open the existing one to edit it.",
+            )
         raise HTTPException(status_code=400, detail=f"Could not create brand: {exc}")
 
     created = res.data[0] if isinstance(res.data, list) else res.data
@@ -340,15 +349,49 @@ def update_brand(
     if not updates:
         return existing
 
-    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     sb = get_supabase()
-    res = (
-        sb.table("brands")
-        .update(updates)
-        .eq("id", brand_id)
-        .eq("organization_id", profile.organization_id)
-        .execute()
-    )
+
+    # Renaming a brand onto another brand's name is the same duplicate the create path
+    # guards against, reached from the edit dialog. brands_org_name_unique would reject it
+    # anyway; checking first turns a raw constraint violation into a readable 409. The name
+    # is trimmed to match what that index compares on (lower(btrim(brand_name))).
+    if "brand_name" in updates:
+        updates["brand_name"] = (updates["brand_name"] or "").strip()
+        if not updates["brand_name"]:
+            raise HTTPException(status_code=400, detail="Brand name is required.")
+        wanted = updates["brand_name"].casefold()
+        siblings = (
+            sb.table("brands")
+            .select("id, brand_name")
+            .eq("organization_id", profile.organization_id)
+            .neq("id", brand_id)
+            .execute()
+        ).data or []
+        if any((r.get("brand_name") or "").strip().casefold() == wanted for r in siblings):
+            raise HTTPException(
+                status_code=409,
+                detail="You're already monitoring a brand with that name. Open the existing one to edit it.",
+            )
+
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    try:
+        res = (
+            sb.table("brands")
+            .update(updates)
+            .eq("id", brand_id)
+            .eq("organization_id", profile.organization_id)
+            .execute()
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        # Lost a race against a concurrent create/rename between the check above and here.
+        if "brands_org_name_unique" in str(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="You're already monitoring a brand with that name. Open the existing one to edit it.",
+            )
+        raise
     return (res.data or [existing])[0]
 
 

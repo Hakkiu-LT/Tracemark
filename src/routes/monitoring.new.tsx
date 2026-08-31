@@ -112,7 +112,6 @@ function ScanningModal({ brandName, step, steps }: { brandName: string; step: nu
 function NewAssetPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const addMark = useStore((s) => s.addMark);
   const setScanResult = useStore((s) => s.setScanResult);
   const clients = useStore((s) => s.clients);
   const persona = useStore((s) => s.persona);
@@ -229,19 +228,10 @@ function NewAssetPage() {
       });
     },
     onSuccess: (data) => {
-      let cleanWebsite = website.trim();
-      if (!cleanWebsite.startsWith("http://") && !cleanWebsite.startsWith("https://")) {
-        cleanWebsite = `https://${cleanWebsite}`;
-      }
-      addMark({
-        brandName,
-        registrationNumber: regNum || "Pending",
-        website: cleanWebsite.replace(/^https?:\/\//, ""),
-        clientId: persona === "law_firm" ? clientId : "",
-        platforms: Array.from(selected),
-        logoColor: "oklch(0.58 0.18 255)",
-        targetRegions: Array.from(selectedRegions),
-      });
+      // No optimistic addMark(): the brand already exists on the server at this point,
+      // and syncServerBrands() is what puts it on the monitoring page. Adding a local
+      // row here as well risks a phantom duplicate if the row is not adopted by the
+      // next sync (see the comment on the draft path below).
       if (data.case_id) {
         setScanResult(data.case_id, data);
         queryClient.invalidateQueries({ queryKey: ["brands"] });
@@ -307,17 +297,13 @@ function NewAssetPage() {
         await uploadBrandAsset(brand.id, "product_image", productFile);
       }
 
-      addMark({
-        brandName: brandName.trim(),
-        registrationNumber: regNum || "Pending",
-        website: cleanWebsite.replace(/^https?:\/\//, ""),
-        clientId: persona === "law_firm" ? clientId : "",
-        platforms: Array.from(selected),
-        logoColor: "oklch(0.58 0.18 255)",
-        targetRegions: Array.from(selectedRegions),
-        status: "on_hold",
-      });
-
+      // Deliberately NO optimistic addMark() here. createBrand() above already persisted
+      // the brand (status on_hold), and syncServerBrands() creates its row from the server
+      // response below — the store treats the server as the single source of truth.
+      // Adding a local row too created a mark with no serverId; if anything refreshed the
+      // ["brands"] query between createBrand() and this point, the server brand got its own
+      // srv- row first, the local one was never adopted, and BOTH rendered — a permanent
+      // duplicate in "On hold" that survived every later sync.
       await queryClient.invalidateQueries({ queryKey: ["brands"] });
       toast.success(`Saved "${brandName}" as draft in On-Hold assets.`);
       navigate({ to: "/monitoring" });

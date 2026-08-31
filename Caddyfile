@@ -9,6 +9,15 @@
 {
 	# Email used by Let's Encrypt for expiry warnings. Change to a mailbox you monitor.
 	email admin@hakkiu.com
+
+	# Certificate issuance mode. Expands to NOTHING on the server (variable unset),
+	# so production keeps automatic Let's Encrypt certs exactly as before. Local dev
+	# sets CADDY_TLS_MODE=local_certs (docker-compose.override.yml), which switches
+	# every site below to Caddy's built-in CA — public ACME can never validate a
+	# laptop, because Let's Encrypt connects to whatever the DNS A record points at.
+	# Everything else (routing, headers, CSP, redirects, compression) stays IDENTICAL
+	# in both environments because it is this one file.
+	{$CADDY_TLS_MODE}
 }
 
 # ── Customer app (apex) ────────────────────────────────────────────────────

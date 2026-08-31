@@ -60,4 +60,7 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 
 # npx resolves wrangler from /app/node_modules/.bin (npm walks up from this cwd).
 # --local runs the real workerd runtime offline (no Cloudflare login/network needed).
-CMD ["npx", "wrangler", "dev", "--ip", "0.0.0.0", "--port", "8080", "--local"]
+# --log-level warn: the HEALTHCHECK above hits / every 30s and wrangler logs every
+# request at info ("[wrangler:info] GET / 200 OK"), which is pure noise here —
+# Caddy already keeps the real access log in front of this container.
+CMD ["npx", "wrangler", "dev", "--ip", "0.0.0.0", "--port", "8080", "--local", "--log-level", "warn"]

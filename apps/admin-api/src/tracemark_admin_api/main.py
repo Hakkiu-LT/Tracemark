@@ -3,6 +3,7 @@ from dotenv import find_dotenv, load_dotenv
 # Single source of truth: the repo-root .env (walks up from this module).
 load_dotenv(find_dotenv())
 
+import logging
 import os
 
 from fastapi import FastAPI, Request, Response
@@ -31,6 +32,23 @@ from tracemark_admin_api.routes.search import router as search_router
 from tracemark_admin_api.routes.staff import router as staff_router
 from tracemark_admin_api.routes.stats import router as stats_router
 from tracemark_admin_api.routes.takedowns_admin import router as takedowns_router
+
+
+# ── Health-check log noise ────────────────────────────────────────────────
+# Docker's HEALTHCHECK probes /health every 30s and uvicorn logs each one at
+# INFO ("127.0.0.1:xxxxx - GET /health 200 OK"), which buries real requests in
+# `docker compose logs`. Drop only those access-log lines; the endpoint itself,
+# the container's health status and every other request log are untouched.
+class _SuppressHealthAccessLogs(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3:
+            return not str(args[2]).startswith("/health")
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(_SuppressHealthAccessLogs())
+
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 

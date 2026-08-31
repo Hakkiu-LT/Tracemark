@@ -4,6 +4,7 @@ from dotenv import find_dotenv, load_dotenv
 load_dotenv(find_dotenv())
 
 import ipaddress
+import logging
 import os
 
 from fastapi import FastAPI, Request, Response
@@ -26,6 +27,23 @@ from tracemark_api.routes.slack_interactions import router as slack_interactions
 from tracemark_api.routes.support import router as support_router
 from tracemark_api.routes.usage import router as usage_router
 from tracemark_api.services.rate_limit import limiter
+
+
+# ── Health-check log noise ────────────────────────────────────────────────
+# Docker's HEALTHCHECK probes /health every 30s and uvicorn logs each one at
+# INFO ("127.0.0.1:xxxxx - GET /health 200 OK"), which buries real requests in
+# `docker compose logs`. Drop only those access-log lines; the endpoint itself,
+# the container's health status and every other request log are untouched.
+class _SuppressHealthAccessLogs(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3:
+            return not str(args[2]).startswith("/health")
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(_SuppressHealthAccessLogs())
+
 
 _is_production = os.environ.get("ENVIRONMENT", "").lower() == "production"
 
@@ -167,6 +185,24 @@ def startup_event():
         start_monitoring()
     except Exception as ex:
         print(f"[Resource Monitor] failed to start: {ex}")
+
+    # ── Background workers: singletons that act on the LIVE database ──────────
+    # Everything below this point is a scheduler/poller that assumes exactly ONE
+    # instance is running against a given Supabase project: the 6-hourly scan
+    # scheduler burns scraper quota and writes infringements, the weekly digest
+    # EMAILS real customers, cleanup_old_cases DELETES rows, and the IMAP poller
+    # forwards every new info@ email to Slack. A second copy — e.g. a laptop
+    # running the same stack against the same database — duplicates all of it.
+    #
+    # Unset in production, so the server's behaviour is exactly as before.
+    # docker-compose.override.yml sets it to 1 for local runs; set it to 0 there
+    # if you deliberately want the schedulers running locally too.
+    if os.environ.get("DISABLE_BACKGROUND_JOBS", "").strip().lower() in {"1", "true", "yes"}:
+        print(
+            "[startup] DISABLE_BACKGROUND_JOBS=1 — scan scheduler, weekly digest, "
+            "case cleanup, scraper probes and IMAP poller NOT started."
+        )
+        return
 
     def run_periodically():
         # Sleep for a minute to let the server start up smoothly

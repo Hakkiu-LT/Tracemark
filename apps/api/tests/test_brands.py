@@ -105,6 +105,79 @@ def test_create_brand_disallowed_platform_returns_403():
     assert "marketplace" in resp.json()["detail"].lower()
 
 
+
+
+# ── duplicate brand name (one name per organization) ─────────────────────────────
+def test_create_brand_duplicate_name_returns_409():
+    """The RPC raises BRAND_NAME_TAKEN from inside its per-org advisory lock when the org
+    already monitors that name — a double-submitted "Add asset" form. Must surface as 409,
+    not as a 400 with a raw Postgres message."""
+    _use_profile()
+    sb = _mock_sb_with_count(1)
+    sb.rpc.return_value.execute.side_effect = Exception(
+        "BRAND_NAME_TAKEN: Acme is already monitored by this organization"
+    )
+    with patch("tracemark_api.routes.brands.get_supabase", return_value=sb):
+        resp = client.post("/api/v1/brands", json={"brand_name": "Acme"})
+    assert resp.status_code == 409
+    assert "already monitoring" in resp.json()["detail"].lower()
+
+
+def test_create_brand_raw_unique_violation_returns_409():
+    """Backstop: if a write path ever skips the RPC's check, the brands_org_name_unique
+    index still fires and must be translated to the same 409."""
+    _use_profile()
+    sb = _mock_sb_with_count(1)
+    sb.rpc.return_value.execute.side_effect = Exception(
+        'duplicate key value violates unique constraint "brands_org_name_unique"'
+    )
+    with patch("tracemark_api.routes.brands.get_supabase", return_value=sb):
+        resp = client.post("/api/v1/brands", json={"brand_name": "Acme"})
+    assert resp.status_code == 409
+
+
+def _mock_sb_for_update(existing_name: str, sibling_names: list[str]):
+    """get_supabase for the PATCH path: _brand_or_404 finds the brand being edited, and the
+    sibling lookup returns the org's OTHER brands."""
+    sb = MagicMock()
+    sb.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+        {"id": "b1", "brand_name": existing_name, "organization_id": "org-1"}
+    ]
+    sb.table.return_value.select.return_value.eq.return_value.neq.return_value.execute.return_value.data = [
+        {"id": f"b{i + 2}", "brand_name": n} for i, n in enumerate(sibling_names)
+    ]
+    sb.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+        {"id": "b1", "brand_name": "renamed"}
+    ]
+    return sb
+
+
+def test_update_brand_rename_onto_sibling_returns_409():
+    """Renaming a brand onto another brand in the same org is the same duplicate, reached
+    from the edit dialog. Matching is case- and whitespace-insensitive, like the index."""
+    _use_profile()
+    sb = _mock_sb_for_update("Acme", ["Nike"])
+    with patch("tracemark_api.routes.brands.get_supabase", return_value=sb):
+        resp = client.patch("/api/v1/brands/b1", json={"brand_name": "  nIkE  "})
+    assert resp.status_code == 409
+    assert "already monitoring" in resp.json()["detail"].lower()
+
+
+def test_update_brand_rename_to_free_name_succeeds():
+    _use_profile()
+    sb = _mock_sb_for_update("Acme", ["Nike"])
+    with patch("tracemark_api.routes.brands.get_supabase", return_value=sb):
+        resp = client.patch("/api/v1/brands/b1", json={"brand_name": "Adidas"})
+    assert resp.status_code == 200
+
+
+def test_update_brand_blank_name_returns_400():
+    _use_profile()
+    sb = _mock_sb_for_update("Acme", [])
+    with patch("tracemark_api.routes.brands.get_supabase", return_value=sb):
+        resp = client.patch("/api/v1/brands/b1", json={"brand_name": "   "})
+    assert resp.status_code == 400
+
 # ── whitelist helper (used on EDIT; create is enforced in the RPC) ───────────────
 def test_enforce_allowed_lists_blocks_disallowed_region():
     from fastapi import HTTPException

@@ -170,7 +170,6 @@ export const useStore = create<State>()(
       syncServerBrands: (brands) =>
         set((s) => {
           const serverIds = new Set(brands.map((b) => b.id));
-          const serverNames = new Set(brands.map((b) => b.brand_name.trim().toLowerCase()));
           let marks = [...s.marks];
 
           // 1) Upsert every server brand: match by serverId, else adopt a same-named local mark
@@ -214,12 +213,23 @@ export const useStore = create<State>()(
 
           // 2) Server is authoritative for real brands. Drop:
           //    - a mark whose serverId is gone from the server (brand deleted elsewhere), and
-          //    - a local-only brand-owner mark that was never persisted (a ghost).
+          //    - any local-only mark that step 1 did not adopt (a ghost).
           //    Client-scoped demo marks (the seeded law-firm sample, clientId "c1") are kept.
+          //
+          //    A local-only mark used to be kept whenever ANY server brand merely shared its
+          //    name. That is what made duplicate rows permanent: once the server brand had
+          //    its own `srv-` mark, step 1 matched by serverId and never adopted the local
+          //    one, but this filter kept it alive on the name match — so the page rendered
+          //    the same brand twice, forever, on every subsequent sync. Reproduced live:
+          //    "On hold (2)" with exactly one brand in the database.
+          //
+          //    Step 1 above already adopts a legitimately-pending local mark (same name, no
+          //    serverId) and gives it its serverId, so anything still lacking one here has no
+          //    server brand behind it and must go.
           marks = marks.filter((m) => {
             if (m.serverId) return serverIds.has(m.serverId);
             if (m.clientId && m.clientId !== "") return true;
-            return serverNames.has(m.brandName.trim().toLowerCase());
+            return false;
           });
 
           return { marks };

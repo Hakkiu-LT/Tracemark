@@ -125,6 +125,10 @@ def create_brand(
             raise HTTPException(status_code=403, detail="This brand targets a region not in the company's plan. Change the allowed regions under Plan & Limits first.")
         if "PLATFORM_NOT_ALLOWED" in msg:
             raise HTTPException(status_code=403, detail="This brand targets a marketplace not in the company's plan. Change the allowed marketplaces under Plan & Limits first.")
+        # One brand name per organization (brands_org_name_unique + the RPC's check inside
+        # its per-org advisory lock). Same rule the customer app hits, phrased for staff.
+        if "BRAND_NAME_TAKEN" in msg or "brands_org_name_unique" in msg:
+            raise HTTPException(status_code=409, detail="This company already monitors a brand with that name. Open the existing brand instead of creating a second one.")
         raise HTTPException(status_code=400, detail=f"Could not create brand: {exc}")
 
     created = res.data[0] if isinstance(res.data, list) else res.data
